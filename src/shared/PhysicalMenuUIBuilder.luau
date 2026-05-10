@@ -157,15 +157,16 @@ function PhysicalMenuUIBuilder.Build()
 		menu.ZIndex = 55
 	end
 
-	local backdrop, createdBackdrop = findOrCreate(menu, "TextButton", "Backdrop")
-	if createdBackdrop then
-		backdrop.Size = UDim2.fromScale(1, 1)
-		backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-		backdrop.BackgroundTransparency = 0.45
-		backdrop.Text = ""
-		backdrop.AutoButtonColor = false
-		backdrop.ZIndex = 55
-	end
+local backdrop, createdBackdrop = findOrCreate(menu, "Frame", "Backdrop")
+if createdBackdrop then
+	backdrop.Size = UDim2.fromScale(1, 1)
+	backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	backdrop.BackgroundTransparency = 0.45
+	backdrop.BorderSizePixel = 0
+	backdrop.ZIndex = 55
+	backdrop.Active = false
+	backdrop.Selectable = false
+end
 
 	local panel, createdPanel = findOrCreate(menu, "Frame", "Panel")
 	if createdPanel then

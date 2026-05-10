@@ -228,14 +228,14 @@ function Theme.FormatNumber(value)
 end
 
 function Theme.CreateDimOverlay(parent, zIndex)
-	local overlay = Instance.new("TextButton")
+	local overlay = Instance.new("Frame")
 	overlay.Name = "DimOverlay"
 	overlay.Size = UDim2.fromScale(1, 1)
 	overlay.BackgroundColor3 = Theme.Colors.BackgroundDim
 	overlay.BackgroundTransparency = 0.4
 	overlay.BorderSizePixel = 0
-	overlay.AutoButtonColor = false
-	overlay.Text = ""
+	overlay.Active = false
+	overlay.Selectable = false
 	overlay.Visible = false
 	overlay.ZIndex = zIndex or 50
 	overlay.Parent = parent
