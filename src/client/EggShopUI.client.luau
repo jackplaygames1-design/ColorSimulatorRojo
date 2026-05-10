@@ -85,6 +85,7 @@ local hatchInputLockedUntil = 0
 local worldRows = {}
 local hiddenWorldGuis = {}
 local eggOptionGuis = {}
+local eggPrompts = {}
 local eggParts = {}
 local currentNearbyEgg = nil
 local autoHatchEnabled = false
@@ -391,6 +392,16 @@ local function setEggOptionsVisible(eggPart)
 	end
 end
 
+local function setEggPromptsEnabled(enabled)
+	for prompt in pairs(eggPrompts) do
+		if not prompt.Parent then
+			eggPrompts[prompt] = nil
+		elseif prompt:IsA("ProximityPrompt") then
+			prompt.Enabled = enabled == true
+		end
+	end
+end
+
 local screenGui = ClientUIRoot.GetLayer(playerGui, "EggShopUI")
 local rootScreenGui = screenGui and screenGui:FindFirstAncestorOfClass("ScreenGui")
 local externalGuiEnabledState = {}
@@ -656,6 +667,7 @@ end
 
 local function setHatchingLocked(locked)
 	isHatching = locked == true
+	setEggPromptsEnabled(not isHatching)
 	setHatchButtonState(getSelectedEggUnlocked())
 	setEggOptionsVisible(currentNearbyEgg)
 	updateHatchFocusState()
@@ -1569,9 +1581,14 @@ local function hookProximityPrompt(obj)
 			return
 		end
 		obj:SetAttribute("EggShopClientHooked", true)
+		eggPrompts[obj] = true
+		obj.Enabled = not isHatching
 		configureEggPrompt(obj)
 		obj.Triggered:Connect(function(triggeringPlayer)
 			if triggeringPlayer ~= player then
+				return
+			end
+			if isHatching or hatchPending then
 				return
 			end
 

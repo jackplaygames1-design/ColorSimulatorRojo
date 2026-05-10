@@ -74,6 +74,7 @@ local playerLocked = {}
 local lastMergeAt = {}
 local hatchState = {}
 local hatchLocks = {}
+local activeHatches = {}
 local unexpectedClientWarnings = {}
 local MIN_HATCH_TRANSACTION_LOCK = 5.35
 local EGG_HATCH_DISTANCE_BUFFER = 6
@@ -811,6 +812,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastMergeAt[player] = nil
 	hatchState[player] = nil
 	hatchLocks[player] = nil
+	activeHatches[player] = nil
 end)
 
 task.spawn(function()
@@ -837,6 +839,20 @@ end
 
 local function rejectHatch(player, message)
 	hatchEvent:FireClient(player, false, nil, message)
+end
+
+local function logHatch(player, eggId, ...)
+	print("[HATCH]", player and player.Name or "UnknownPlayer", tostring(eggId), ...)
+end
+
+local function releaseActiveHatch(player, expectedToken)
+	if expectedToken ~= nil and activeHatches[player] ~= expectedToken then
+		return
+	end
+	activeHatches[player] = nil
+	if player and player.Parent then
+		player:SetAttribute("IsHatching", false)
+	end
 end
 
 local function clearHatchStateLater(player, state, delaySeconds)
@@ -915,13 +931,25 @@ local function mutationsUnlockedForEgg(player, egg)
 end
 
 hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
+	eggId = tostring(eggId or "")
+
+	if activeHatches[player] then
+		logHatch(player, eggId, "reject:", "Already hatching")
+		rejectHatch(player, "Already hatching")
+		return
+	end
+	local hatchToken = {}
+	activeHatches[player] = hatchToken
+	player:SetAttribute("IsHatching", true)
+
 	if select("#", ...) > 0 then
 		warnUnexpectedClientValuesOnce(player, "HatchEgg")
 	end
 
-	eggId = tostring(eggId or "")
 	local egg = PetData.Eggs[eggId]
 	if not egg then
+		logHatch(player, eggId, "reject:", "Unknown egg.")
+		releaseActiveHatch(player, hatchToken)
 		rejectHatch(player, "Unknown egg.")
 		return
 	end
@@ -930,6 +958,8 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	local cooldown = getHatchCooldown(player)
 	local lockSeconds = math.max(cooldown, MIN_HATCH_TRANSACTION_LOCK)
 	if now < (hatchLocks[player] or 0) then
+		logHatch(player, eggId, "reject:", "Already hatching")
+		releaseActiveHatch(player, hatchToken)
 		rejectHatch(player, "Already hatching")
 		return
 	end
@@ -938,6 +968,8 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	local function failHatch(message, retryDelay)
 		hatchState[player] = nil
 		hatchLocks[player] = os.clock() + (retryDelay or 0.65)
+		logHatch(player, eggId, "reject:", message)
+		releaseActiveHatch(player, hatchToken)
 		rejectHatch(player, message)
 	end
 
@@ -945,6 +977,8 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	if state and (state.active or now < (state.nextAllowedAt or 0)) then
 		-- One key press can arrive as both keyboard input and a ProximityPrompt trigger.
 		-- Ignore duplicates so a stale failure response cannot cancel the real hatch UI.
+		logHatch(player, eggId, "reject:", "Already hatching")
+		releaseActiveHatch(player, hatchToken)
 		return
 	end
 
@@ -969,6 +1003,8 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	if tutorialFreeHatch then
 		cost = 0
 	end
+	local coinsBefore = coins and coins.Value or 0
+	logHatch(player, eggId, "cost:", cost, "coins before:", coinsBefore)
 	if not coins or coins.Value < cost then
 		failHatch("Not enough coins!")
 		return
@@ -1075,12 +1111,14 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 		if not coins.Parent or coins.Value < cost then
 			rollbackHatchInventory()
 			hatchState[player] = nil
+			logHatch(player, eggId, "cost:", cost, "coins before:", coins.Value)
 			failHatch("Not enough coins!")
 			return
 		end
 		coins.Value -= cost
 		state.charged = true
 	end
+	logHatch(player, eggId, "coins after:", coins and coins.Value or 0)
 
 	entry.rollIsShiny = false
 	entry.wasDuplicate = wasDuplicate
@@ -1110,6 +1148,11 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 
 	state.active = false
 	clearHatchStateLater(player, state, lockSeconds)
+	task.delay(lockSeconds, function()
+		if player and player.Parent then
+			releaseActiveHatch(player, hatchToken)
+		end
+	end)
 end)
 
 grantPetFunction.OnInvoke = function(player, petId, amount, traitId, mutationId, autoEquip)
