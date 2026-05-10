@@ -44,6 +44,7 @@ local LEGACY_ROOT_LAYERS = {
 local TAB_NAMES = { "Colors", "Brushes", "Potions", "Items" }
 local RARITY_ORDER = { Legendary = 1, Epic = 2, Rare = 3, Uncommon = 4, Common = 5 }
 local BIND_INVENTORY_WINDOW = false
+local BIND_DAILY_QUESTS_WINDOW = false
 local FALLBACK_DAILY_QUESTS = {
 	{
 		id = "CleanColorSpills",
@@ -1663,7 +1664,9 @@ local function refreshAuxiliaryWindows()
 	renderCodes()
 	renderTrade()
 	renderWorlds()
-	renderDailyQuests()
+	if BIND_DAILY_QUESTS_WINDOW then
+		renderDailyQuests()
+	end
 end
 
 local function setupAuxiliaryListeners()
@@ -1683,12 +1686,9 @@ local function setupAuxiliaryListeners()
 
 	if dailyQuestRemote then
 		dailyQuestRemote.OnClientEvent:Connect(function(action, data)
-			if action == "Open" or action == "Update" or action == "Locked" then
+			if BIND_DAILY_QUESTS_WINDOW and (action == "Open" or action == "Update" or action == "Locked") then
 				dailyQuestData = data
 				renderDailyQuests()
-				if action == "Open" then
-					requestEditorWindow("DailyQuestsWindow")
-				end
 			end
 		end)
 	end
@@ -1750,7 +1750,7 @@ local function setupAuxiliaryListeners()
 						renderTrade()
 					elseif windowName == "WorldsWindow" then
 						renderWorlds()
-					elseif windowName == "DailyQuestsWindow" then
+					elseif BIND_DAILY_QUESTS_WINDOW and windowName == "DailyQuestsWindow" then
 						renderDailyQuests()
 					end
 				end

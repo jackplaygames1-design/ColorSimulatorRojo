@@ -336,6 +336,13 @@ local function render(window, data)
 	if not window then return end
 	data = type(data) == "table" and data or {}
 	questData = data
+
+	local content = getQuestContent(window)
+	local binderList = content and content:FindFirstChild("BinderList")
+	if binderList and binderList:IsA("GuiObject") then
+		binderList.Visible = false
+	end
+
 	ensureRows(window)
 
 	setText(findDeep(window, "TimerText"), "NEW QUESTS IN " .. formatTime(data.resetIn))
@@ -371,12 +378,10 @@ local function closeGui()
 end
 
 remote.OnClientEvent:Connect(function(action, data)
-	if action == "Open" or action == "Update" then
+	if action == "Open" or action == "Update" or action == "Locked" then
 		if dailyWindow then
 			render(dailyWindow, data)
 		end
-	elseif action == "Locked" then
-		closeGui()
 	end
 end)
 
@@ -386,11 +391,21 @@ end)
 
 local dailyQuestButton = ReplicatedStorage:WaitForChild("HudButton_DAILYQUESTS", 10)
 if dailyQuestButton then
-	dailyQuestButton.Event:Connect(openGui)
+	dailyQuestButton.Event:Connect(function()
+		if dailyWindow and dailyWindow.Visible then
+			remote:FireServer("Get")
+		end
+	end)
 end
 
 if dailyWindow then
 	render(dailyWindow, {})
+	dailyWindow:GetPropertyChangedSignal("Visible"):Connect(function()
+		if dailyWindow.Visible then
+			render(dailyWindow, questData or {})
+			remote:FireServer("Get")
+		end
+	end)
 	remote:FireServer("Get")
 else
 	warn("DailyQuestClient: editable DailyQuestsWindow missing; old runtime UI creation is disabled.")

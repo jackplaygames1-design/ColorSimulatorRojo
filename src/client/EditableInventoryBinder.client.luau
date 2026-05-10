@@ -119,41 +119,56 @@ local function setButtonEnabled(button, enabled)
 	button.BackgroundTransparency = enabled and 0 or 0.35
 end
 
+local function getSlotIndex(slot)
+	return tonumber(string.match(slot.Name, "^Slot(%d+)$")) or math.huge
+end
+
+local function collectEditableSlots(parent)
+	local slots = {}
+	for _, child in ipairs(parent:GetChildren()) do
+		if child:IsA("GuiObject") and string.match(child.Name, "^Slot%d+$") then
+			table.insert(slots, child)
+		end
+	end
+	table.sort(slots, function(a, b)
+		return getSlotIndex(a) < getSlotIndex(b)
+	end)
+	return slots
+end
+
 local function prepareStructure()
 	ui.tabs = inventoryWindow:FindFirstChild("Tabs") or ensureFrame(inventoryWindow, "Tabs")
-	ui.body = inventoryWindow:FindFirstChild("Body") or inventoryWindow:FindFirstChild("Content") or ensureFrame(inventoryWindow, "Body")
-	ui.body.Name = "Body"
+	ui.body = inventoryWindow:FindFirstChild("Content") or inventoryWindow:FindFirstChild("Body") or ensureFrame(inventoryWindow, "Content")
 	ui.body.Position = ui.body.Position == UDim2.new() and UDim2.fromOffset(22, 122) or ui.body.Position
 	ui.body.Size = ui.body.Size == UDim2.new() and UDim2.new(1, -44, 1, -148) or ui.body.Size
 
-	ui.gridPanel = ui.body:FindFirstChild("GridPanel") or ui.body:FindFirstChild("ItemGrid") or ensureFrame(ui.body, "GridPanel")
-	ui.gridPanel.Name = "GridPanel"
+	ui.gridPanel = ui.body:FindFirstChild("ItemGrid") or ui.body:FindFirstChild("GridPanel") or ensureFrame(ui.body, "ItemGrid")
 	ui.gridPanel.Position = UDim2.fromOffset(12, 12)
 	ui.gridPanel.Size = UDim2.new(0.62, -20, 1, -24)
 	ui.gridPanel.BackgroundColor3 = Color3.fromRGB(246, 249, 255)
+	ui.slots = collectEditableSlots(ui.gridPanel)
+	ui.usesEditableSlots = #ui.slots > 0
 
-	for _, child in ipairs(ui.gridPanel:GetChildren()) do
-		if child:IsA("GuiObject") and child.Name ~= "Grid" and child.Name ~= "EmptyText" and child.Name ~= "Footer" then
-			child.Visible = false
+	if ui.usesEditableSlots then
+		ui.grid = ui.gridPanel
+	else
+		ui.grid = ui.gridPanel:FindFirstChild("Grid") or ensureFrame(ui.gridPanel, "Grid", "ScrollingFrame")
+		ui.grid.Position = UDim2.fromOffset(8, 8)
+		ui.grid.Size = UDim2.new(1, -16, 1, -48)
+		ui.grid.ScrollBarThickness = 6
+		ui.grid.CanvasSize = UDim2.fromOffset(0, 0)
+
+		local layout = ui.grid:FindFirstChildOfClass("UIGridLayout") or Instance.new("UIGridLayout")
+		layout.CellPadding = UDim2.fromOffset(10, 10)
+		layout.CellSize = UDim2.fromOffset(146, 140)
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Parent = ui.grid
+		if not ui.grid:GetAttribute("InventoryLayoutBound") then
+			ui.grid:SetAttribute("InventoryLayoutBound", true)
+			layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+				ui.grid.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + 20)
+			end)
 		end
-	end
-
-	ui.grid = ui.gridPanel:FindFirstChild("Grid") or ensureFrame(ui.gridPanel, "Grid", "ScrollingFrame")
-	ui.grid.Position = UDim2.fromOffset(8, 8)
-	ui.grid.Size = UDim2.new(1, -16, 1, -48)
-	ui.grid.ScrollBarThickness = 6
-	ui.grid.CanvasSize = UDim2.fromOffset(0, 0)
-
-	local layout = ui.grid:FindFirstChildOfClass("UIGridLayout") or Instance.new("UIGridLayout")
-	layout.CellPadding = UDim2.fromOffset(10, 10)
-	layout.CellSize = UDim2.fromOffset(146, 140)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = ui.grid
-	if not ui.grid:GetAttribute("InventoryLayoutBound") then
-		ui.grid:SetAttribute("InventoryLayoutBound", true)
-		layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-			ui.grid.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + 20)
-		end)
 	end
 
 	ui.emptyText = ensureLabel(ui.gridPanel, "EmptyText", "")
@@ -173,8 +188,7 @@ local function prepareStructure()
 	ui.capacityText.Size = UDim2.fromScale(1, 1)
 	ui.capacityText.TextXAlignment = Enum.TextXAlignment.Right
 
-	ui.detailPanel = ui.body:FindFirstChild("DetailPanel") or ui.body:FindFirstChild("DetailsPanel") or ensureFrame(ui.body, "DetailPanel")
-	ui.detailPanel.Name = "DetailPanel"
+	ui.detailPanel = ui.body:FindFirstChild("DetailsPanel") or ui.body:FindFirstChild("DetailPanel") or ensureFrame(ui.body, "DetailsPanel")
 	ui.detailPanel.Position = UDim2.new(0.64, 0, 0, 12)
 	ui.detailPanel.Size = UDim2.new(0.36, -12, 1, -24)
 	ui.detailPanel.BackgroundColor3 = Color3.fromRGB(239, 246, 255)
@@ -183,7 +197,7 @@ local function prepareStructure()
 	ui.bigPreview.Position = UDim2.fromOffset(16, 16)
 	ui.bigPreview.Size = UDim2.new(1, -32, 0, 112)
 	ui.bigPreview.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	ui.selectedName = ensureLabel(ui.detailPanel, "SelectedName", "Select an Item")
+	ui.selectedName = ui.detailPanel:FindFirstChild("SelectedName") or ui.detailPanel:FindFirstChild("SelectLabel") or ensureLabel(ui.detailPanel, "SelectedName", "Select an Item")
 	ui.selectedName.Position = UDim2.fromOffset(16, 138)
 	ui.selectedName.Size = UDim2.new(1, -32, 0, 32)
 	ui.selectedName.Font = Enum.Font.GothamBlack
@@ -213,7 +227,7 @@ local function prepareStructure()
 	ui.deleteButton.Size = UDim2.new(1, -32, 0, 34)
 
 	ui.cardTemplate = ui.grid:FindFirstChild("ItemCardTemplate")
-	if not ui.cardTemplate then
+	if not ui.cardTemplate and not ui.usesEditableSlots then
 		ui.cardTemplate = Instance.new("TextButton")
 		ui.cardTemplate.Name = "ItemCardTemplate"
 		ui.cardTemplate.Visible = false
@@ -282,6 +296,9 @@ local function paintPreview(preview, item)
 end
 
 local function makeCard(item, index)
+	if not ui.cardTemplate then
+		return
+	end
 	local card = ui.cardTemplate:Clone()
 	card.Name = "ItemCard_" .. tostring(index)
 	card:SetAttribute("EditableInventoryGeneratedCard", true)
@@ -325,6 +342,101 @@ local function makeCard(item, index)
 		renderDetails()
 	end)
 	table.insert(cardConnections, connection)
+end
+
+local function clearEditableSlot(slot)
+	slot:SetAttribute("InventoryItemKind", nil)
+	slot:SetAttribute("InventoryItemId", nil)
+	slot.Active = false
+	if slot:IsA("GuiButton") then
+		slot.AutoButtonColor = false
+	end
+
+	for _, child in ipairs(slot:GetChildren()) do
+		if child:GetAttribute("EditableInventoryGenerated") == true then
+			child:Destroy()
+		end
+	end
+
+	local icon = slot:FindFirstChild("Icon", true)
+	if icon and icon:IsA("TextLabel") then
+		icon.Text = ""
+		icon.BackgroundTransparency = 1
+	elseif icon and icon:IsA("ImageLabel") then
+		icon.Image = ""
+		icon.BackgroundTransparency = 1
+	end
+
+	local stroke = slot:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Color = Color3.fromRGB(35, 38, 45)
+		stroke.Thickness = 2
+	end
+end
+
+local function bindSlotClick(slot, item)
+	local function selectItem()
+		selectedItem = item
+		renderDetails()
+	end
+
+	if slot:IsA("GuiButton") then
+		slot.Active = true
+		slot.AutoButtonColor = true
+		table.insert(cardConnections, slot.Activated:Connect(selectItem))
+	else
+		slot.Active = true
+		table.insert(cardConnections, slot.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				selectItem()
+			end
+		end))
+	end
+end
+
+local function fillEditableSlot(slot, item)
+	clearEditableSlot(slot)
+	slot.Visible = true
+	slot:SetAttribute("InventoryItemKind", item.Kind)
+	slot:SetAttribute("InventoryItemId", item.Id)
+
+	local icon = slot:FindFirstChild("Icon", true)
+	local previewParent = icon and icon:IsA("GuiObject") and icon or slot
+	if icon and (icon:IsA("TextLabel") or icon:IsA("TextButton")) then
+		icon.Text = ""
+		icon.BackgroundTransparency = 1
+	end
+	paintPreview(previewParent, item)
+
+	local name = ensureLabel(slot, "ItemName", tostring(item.Name or item.Id or "Color"))
+	name:SetAttribute("EditableInventoryGenerated", true)
+	name.Position = UDim2.new(0, 4, 1, -32)
+	name.Size = UDim2.new(1, -8, 0, 16)
+	name.Font = Enum.Font.GothamBlack
+	name.TextScaled = true
+	name.TextXAlignment = Enum.TextXAlignment.Center
+	name.TextYAlignment = Enum.TextYAlignment.Center
+	name.TextColor3 = Color3.fromRGB(35, 38, 45)
+	setText(name, item.Name or item.Id or "Color")
+
+	local meta = ensureLabel(slot, "ItemMeta", "")
+	meta:SetAttribute("EditableInventoryGenerated", true)
+	meta.Position = UDim2.new(0, 4, 1, -16)
+	meta.Size = UDim2.new(1, -8, 0, 14)
+	meta.Font = Enum.Font.GothamBold
+	meta.TextScaled = true
+	meta.TextXAlignment = Enum.TextXAlignment.Center
+	meta.TextYAlignment = Enum.TextYAlignment.Center
+	meta.TextColor3 = Color3.fromRGB(78, 85, 104)
+	setText(meta, item.Equipped and "EQUIPPED" or (item.Amount and ("x" .. tostring(item.Amount)) or tostring(item.Rarity or "")))
+
+	local stroke = slot:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Color = item.Equipped and Color3.fromRGB(84, 225, 112) or (item.Locked and Color3.fromRGB(88, 174, 255) or Color3.fromRGB(35, 38, 45))
+		stroke.Thickness = item.Equipped and 4 or 2
+	end
+
+	bindSlotClick(slot, item)
 end
 
 renderDetails = function()
@@ -380,11 +492,19 @@ end
 
 local function renderInventory()
 	disconnectCards()
-	for _, child in ipairs(ui.grid:GetChildren()) do
-		if child:GetAttribute("EditableInventoryGeneratedCard") == true then
-			child:Destroy()
-		elseif child:IsA("GuiObject") and child.Name ~= "ItemCardTemplate" then
-			child.Visible = false
+	if ui.usesEditableSlots then
+		ui.slots = collectEditableSlots(ui.gridPanel)
+		for _, slot in ipairs(ui.slots) do
+			clearEditableSlot(slot)
+			slot.Visible = false
+		end
+	else
+		for _, child in ipairs(ui.grid:GetChildren()) do
+			if child:GetAttribute("EditableInventoryGeneratedCard") == true then
+				child:Destroy()
+			elseif child:IsA("GuiObject") and child.Name ~= "ItemCardTemplate" then
+				child.Visible = false
+			end
 		end
 	end
 
@@ -399,12 +519,21 @@ local function renderInventory()
 
 	local items = getTabItems()
 	ui.emptyText.Visible = #items == 0
-	ui.grid.Visible = #items > 0
+	if not ui.usesEditableSlots then
+		ui.grid.Visible = #items > 0
+	end
 	ui.emptyText.Text = "No " .. string.lower(currentTab) .. " yet."
 	ui.capacityText.Text = "Colors: " .. tostring(inventoryData.Count or 0) .. " / " .. tostring(inventoryData.Capacity or 75)
 
 	for index, item in ipairs(items) do
-		makeCard(item, index)
+		if ui.usesEditableSlots then
+			local slot = ui.slots[index]
+			if slot then
+				fillEditableSlot(slot, item)
+			end
+		else
+			makeCard(item, index)
+		end
 	end
 
 	if selectedItem then

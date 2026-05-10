@@ -55,6 +55,40 @@ local function setFromCsv(value)
 	return set
 end
 
+local function waitForPlayerPetData(player)
+	if player:GetAttribute("DataManagerReady") ~= true then
+		local ready = false
+		local connection
+		connection = player:GetAttributeChangedSignal("DataManagerReady"):Connect(function()
+			if player:GetAttribute("DataManagerReady") == true then
+				ready = true
+				if connection then
+					connection:Disconnect()
+				end
+			end
+		end)
+		local startedAt = os.clock()
+		while player.Parent and not ready and player:GetAttribute("DataManagerReady") ~= true and os.clock() - startedAt < 10 do
+			task.wait(0.1)
+		end
+		if connection and connection.Connected then
+			connection:Disconnect()
+		end
+	end
+
+	local petFolder = player:WaitForChild("PetData", 10)
+	local inventoryValue = petFolder and petFolder:WaitForChild("Inventory", 10)
+	local equippedValue = petFolder and petFolder:WaitForChild("Equipped", 10)
+	local lockedValue = petFolder and petFolder:WaitForChild("Locked", 10)
+	if inventoryValue and inventoryValue.Value == "" then
+		local startedAt = os.clock()
+		while player.Parent and inventoryValue.Parent and inventoryValue.Value == "" and os.clock() - startedAt < 2 do
+			task.wait(0.1)
+		end
+	end
+	return petFolder, inventoryValue, equippedValue, lockedValue
+end
+
 local function parsePetInventory(value)
 	local entries = {}
 	for _, encoded in ipairs(splitCsv(value)) do
@@ -128,10 +162,9 @@ local function parsePetInventory(value)
 end
 
 local function buildColorRows(player)
-	local petFolder = player:FindFirstChild("PetData")
-	local inventoryValue = petFolder and petFolder:FindFirstChild("Inventory")
-	local equippedValue = petFolder and petFolder:FindFirstChild("Equipped")
-	local lockedValue = petFolder and petFolder:FindFirstChild("Locked")
+	local petFolder, inventoryValue, equippedValue, lockedValue = waitForPlayerPetData(player)
+	print("[InventoryBridge] PetData folder", petFolder)
+	print("[InventoryBridge] Inventory raw", inventoryValue and inventoryValue.Value)
 	local equipped = setFromCsv(equippedValue and equippedValue.Value or "")
 	local locked = setFromCsv(lockedValue and lockedValue.Value or "")
 
@@ -176,6 +209,7 @@ local function buildColorRows(player)
 			},
 		})
 	end
+	print("[InventoryBridge] Parsed color count", #rows)
 
 	table.sort(rows, function(a, b)
 		if a.Equipped ~= b.Equipped then
