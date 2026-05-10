@@ -348,12 +348,6 @@ end
 dockOpen = false
 closeAllWindows()
 hideLegacyGeneratedLayers(root)
-if dimBackground then
-	connectPress(dimBackground, function()
-		closeAllWindows()
-	end, "DimBackground")
-end
-
 local inventoryButton = mainButtonsRow and mainButtonsRow:FindFirstChild(DOCK_TOGGLE_BUTTON_NAME)
 if inventoryButton and inventoryButton:IsA("GuiObject") then
 	connectButtonContainer(inventoryButton, function()

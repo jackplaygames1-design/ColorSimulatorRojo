@@ -187,11 +187,24 @@ local function prepareDimBackground()
 		return
 	end
 
+	if dimBackground:IsA("GuiButton") then
+		local passiveDim = Instance.new("Frame")
+		passiveDim.Name = dimBackground.Name
+		passiveDim.AnchorPoint = dimBackground.AnchorPoint
+		passiveDim.Position = dimBackground.Position
+		passiveDim.Size = dimBackground.Size
+		passiveDim.BackgroundColor3 = dimBackground.BackgroundColor3
+		passiveDim.BackgroundTransparency = dimBackground.BackgroundTransparency
+		passiveDim.BorderSizePixel = dimBackground.BorderSizePixel
+		passiveDim.Visible = dimBackground.Visible
+		passiveDim.ZIndex = dimBackground.ZIndex
+		passiveDim.Parent = dimBackground.Parent
+		dimBackground:Destroy()
+		dimBackground = passiveDim
+	end
+
 	dimBackground.ZIndex = DIM_BACKGROUND_ZINDEX
 	dimBackground.Active = true
-	if dimBackground:IsA("TextButton") or dimBackground:IsA("ImageButton") then
-		dimBackground.AutoButtonColor = false
-	end
 end
 
 local function anyWindowVisible()
