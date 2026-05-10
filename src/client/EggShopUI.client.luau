@@ -1546,14 +1546,6 @@ local function requestHatch(eggId, fromAutoHatch)
 		showError("UNLOCK " .. tostring(egg.areaColor))
 		return false
 	end
-	if not canAffordEgg(egg) then
-		autoHatchEnabled = false
-		updateHatchFocusState()
-		setHatchButtonState(true)
-		showError("NOT ENOUGH COINS")
-		return false
-	end
-
 	selectedEggId = targetEggId
 	lastHatchRequestAt = now
 	lastHatchRequestEggId = targetEggId
@@ -1698,6 +1690,13 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 hatchEvent.OnClientEvent:Connect(function(success, entry, message)
+	if type(success) == "table" then
+		local result = success
+		success = result.Success == true or result.success == true
+		entry = result.Entry or result.entry or result.Reward or result.reward
+		message = result.Error or result.error or result.Reason or result.reason or result.Message or result.message
+	end
+
 	if not isHatching and not hatchPending and not hatchOverlay.Visible then
 		if success and entry then
 			setHatchingLocked(true)
