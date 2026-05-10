@@ -359,6 +359,7 @@ local dailyWindow = windows and windows:WaitForChild("DailyQuestsWindow", 30)
 local function openGui()
 	if dailyWindow then
 		dailyWindow.Visible = true
+		render(dailyWindow, questData or {})
 	end
 	remote:FireServer("Get")
 end
@@ -389,6 +390,7 @@ if dailyQuestButton then
 end
 
 if dailyWindow then
+	render(dailyWindow, {})
 	remote:FireServer("Get")
 else
 	warn("DailyQuestClient: editable DailyQuestsWindow missing; old runtime UI creation is disabled.")

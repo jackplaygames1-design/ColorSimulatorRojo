@@ -44,6 +44,44 @@ local LEGACY_ROOT_LAYERS = {
 local TAB_NAMES = { "Colors", "Brushes", "Potions", "Items" }
 local RARITY_ORDER = { Legendary = 1, Epic = 2, Rare = 3, Uncommon = 4, Common = 5 }
 local BIND_INVENTORY_WINDOW = false
+local FALLBACK_DAILY_QUESTS = {
+	{
+		id = "CleanColorSpills",
+		title = "CLEAN COLOR SPILLS",
+		description = "Clean 40 color spills.",
+		iconText = "BRUSH",
+		progress = 0,
+		target = 40,
+		rewardCurrency = "Gems",
+		rewardAmount = 20,
+		reward = 20,
+		claimed = false,
+	},
+	{
+		id = "EarnCoins",
+		title = "EARN COINS",
+		description = "Earn 1,000 coins.",
+		iconText = "COINS",
+		progress = 0,
+		target = 1000,
+		rewardCurrency = "Gems",
+		rewardAmount = 25,
+		reward = 25,
+		claimed = false,
+	},
+	{
+		id = "HatchColors",
+		title = "HATCH COLORS",
+		description = "Hatch 3 colors from eggs.",
+		iconText = "EGG",
+		progress = 0,
+		target = 3,
+		rewardCurrency = "Gems",
+		rewardAmount = 30,
+		reward = 30,
+		claimed = false,
+	},
+}
 
 local root = playerGui:WaitForChild("ClientUIRoot", 15)
 if not root then
@@ -1539,6 +1577,33 @@ local function formatDuration(seconds)
 	return string.format("%02dh %02dm", hours, minutes)
 end
 
+local function copyDailyQuestFallback(index)
+	local source = FALLBACK_DAILY_QUESTS[index] or FALLBACK_DAILY_QUESTS[1]
+	local copy = {}
+	for key, value in pairs(source) do
+		copy[key] = value
+	end
+	return copy
+end
+
+local function getDailyQuestRows(data)
+	local source = type(data) == "table" and (data.Quests or data.quests) or nil
+	local rows = {}
+	if type(source) == "table" then
+		for index = 1, 3 do
+			if type(source[index]) == "table" then
+				rows[index] = source[index]
+			end
+		end
+	end
+	for index = 1, 3 do
+		if type(rows[index]) ~= "table" then
+			rows[index] = copyDailyQuestFallback(index)
+		end
+	end
+	return rows
+end
+
 local function renderDailyQuests()
 	local _, content = getWindowContent("DailyQuestsWindow")
 	if not content then
@@ -1552,7 +1617,7 @@ local function renderDailyQuests()
 		return
 	end
 
-	if not dailyQuestData or not dailyQuestData.quests then
+	if not dailyQuestData then
 		makeWindowCard(list, 1, "Daily Quests", "Requesting quests...", nil, nil, Color3.fromRGB(170, 180, 205))
 		dailyQuestRemote:FireServer("Get")
 		return
@@ -1572,25 +1637,22 @@ local function renderDailyQuests()
 	resetLabel.Text = "Resets in: " .. formatDuration(dailyQuestData.resetIn)
 	resetLabel.Parent = list
 
+	local quests = getDailyQuestRows(dailyQuestData)
 	for index = 1, 3 do
-		local quest = dailyQuestData.quests[index]
-		if quest then
-			local progress = tonumber(quest.progress or quest.amount) or 0
-			local required = tonumber(quest.target or quest.requiredAmount or quest.required or quest.goal) or 1
-			local complete = progress >= required
-			local claimed = quest.claimed == true
-			local rewardAmount = tonumber(quest.rewardAmount or quest.reward) or 0
-			local rewardCurrency = tostring(quest.rewardCurrency or "Gems")
-			local iconText = quest.iconText and (tostring(quest.iconText) .. "  ") or ""
-			local body = tostring(quest.description or "")
-				.. "\n" .. tostring(progress) .. "/" .. tostring(required)
-				.. " | Reward: " .. tostring(rewardAmount) .. " " .. rewardCurrency
-			makeWindowCard(list, index, iconText .. tostring(quest.title or ("Quest " .. tostring(index))), body, claimed and "CLAIMED" or (complete and "CLAIM" or "IN PROGRESS"), (complete and not claimed) and function()
-				dailyQuestRemote:FireServer("Claim", index)
-			end or nil, complete and Color3.fromRGB(116, 232, 158) or Color3.fromRGB(82, 219, 225))
-		else
-			makeWindowCard(list, index, "Quest " .. tostring(index), "No quest assigned.", nil, nil, Color3.fromRGB(170, 180, 205))
-		end
+		local quest = quests[index]
+		local progress = tonumber(quest.progress or quest.amount) or 0
+		local required = tonumber(quest.target or quest.requiredAmount or quest.required or quest.goal) or 1
+		local complete = progress >= required
+		local claimed = quest.claimed == true
+		local rewardAmount = tonumber(quest.rewardAmount or quest.reward) or 0
+		local rewardCurrency = tostring(quest.rewardCurrency or "Gems")
+		local iconText = quest.iconText and (tostring(quest.iconText) .. "  ") or ""
+		local body = tostring(quest.description or "")
+			.. "\n" .. tostring(progress) .. "/" .. tostring(required)
+			.. " | Reward: " .. tostring(rewardAmount) .. " " .. rewardCurrency
+		makeWindowCard(list, index, iconText .. tostring(quest.title or ("Quest " .. tostring(index))), body, claimed and "CLAIMED" or (complete and "CLAIM" or "IN PROGRESS"), (complete and not claimed) and function()
+			dailyQuestRemote:FireServer("Claim", index)
+		end or nil, complete and Color3.fromRGB(116, 232, 158) or Color3.fromRGB(82, 219, 225))
 	end
 end
 
