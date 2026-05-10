@@ -62,7 +62,27 @@ local function parsePetInventory(value)
 		local variantKey
 		local petId
 		local stackIndex
-		if tonumber(segments[2]) then
+		if #segments == 1 then
+			local legacyParts = string.split(encoded, "|")
+			petId = legacyParts[1]
+			variantKey = encoded
+
+			local stackAmount = 1
+			local traitId = PetData.normalizeTraitId(legacyParts[2] or "Neutral")
+			local mutationId = PetData.normalizeMutationId(legacyParts[3] or "None")
+			local personalityId = "Neutral"
+			local entry = PetData.buildPetEntry(petId, stackAmount, false, personalityId, mutationId, traitId)
+			if entry then
+				entry.variantKey = variantKey
+				entry.petId = petId
+				entry.modelName = petId
+				entry.legacyColorKey = encoded
+				table.insert(entries, entry)
+			else
+				warn("EditableInventoryBridge: could not display saved Color entry " .. tostring(encoded))
+			end
+			continue
+		elseif tonumber(segments[2]) then
 			petId = segments[1]
 			stackIndex = 2
 		else
@@ -72,11 +92,17 @@ local function parsePetInventory(value)
 		end
 
 		if petId and petId ~= "" then
+			local legacyParts = string.split(petId, "|")
 			local stackAmount = math.max(1, tonumber(segments[stackIndex]) or 1)
 			local traitId = PetData.normalizeTraitId(segments[stackIndex + 1])
 			local shinyStr = segments[stackIndex + 2] or "normal"
 			local personalityId = PetData.normalizePersonalityId(segments[stackIndex + 3] or "Neutral")
 			local mutationId = PetData.normalizeMutationId(segments[stackIndex + 4] or "None")
+			if not PetData.Pets[petId] and #legacyParts >= 3 and PetData.Pets[legacyParts[1]] then
+				petId = legacyParts[1]
+				traitId = PetData.normalizeTraitId(legacyParts[2])
+				mutationId = PetData.normalizeMutationId(legacyParts[3])
+			end
 			variantKey = variantKey or PetData.makeVariantKey(petId, personalityId, mutationId, traitId)
 
 			local entry = PetData.buildPetEntry(
@@ -89,6 +115,11 @@ local function parsePetInventory(value)
 			)
 			if entry then
 				entry.variantKey = variantKey
+				entry.petId = petId
+				if string.find(tostring(variantKey), "|", 1, true) then
+					entry.legacyColorKey = variantKey
+					entry.modelName = petId
+				end
 				table.insert(entries, entry)
 			end
 		end
@@ -108,15 +139,23 @@ local function buildColorRows(player)
 	for _, entry in ipairs(parsePetInventory(inventoryValue and inventoryValue.Value or "")) do
 		local pet = PetData.Pets[entry.petId] or {}
 		local definition = PetDefinitions.Get(entry.petId)
-		local mutationName = entry.mutationName
-		if not mutationName or mutationName == "" or mutationName == "None" then
-			mutationName = entry.traitName or "None"
+		local mutationName = entry.mutationId or entry.mutationName or "None"
+		if mutationName == "" then
+			mutationName = "None"
+		end
+		local displayName = entry.displayName or pet.displayName or entry.petId
+		if entry.petId == "DevRainbowPet" and displayName == "Rainbow Pet" then
+			displayName = "Dev Rainbow Pet"
+		end
+		local rarity = entry.rarity or pet.rarity or "Color"
+		if entry.legacyColorKey and entry.traitId and entry.traitId ~= "Neutral" then
+			rarity = entry.traitId
 		end
 		table.insert(rows, {
 			Id = entry.variantKey,
 			Kind = "Color",
-			Name = entry.displayName or pet.displayName or entry.petId,
-			Rarity = entry.rarity or pet.rarity or "Color",
+			Name = displayName,
+			Rarity = rarity,
 			Amount = math.max(1, tonumber(entry.stackAmount) or 1),
 			Equipped = equipped[entry.variantKey] == true or equipped[entry.petId] == true,
 			Locked = locked[entry.variantKey] == true,
@@ -126,9 +165,9 @@ local function buildColorRows(player)
 			Bonus = "Coins x" .. string.format("%.2f", tonumber(entry.coinMult) or 1),
 			Description = tostring(entry.traitDescription or entry.mutationDescription or "Color companion."),
 			IconImage = pet.IconImage or pet.iconImage,
-			IconText = string.upper(string.sub(entry.displayName or pet.displayName or entry.petId, 1, 2)),
+			IconText = entry.petId == "DevRainbowPet" and "RA" or string.upper(string.sub(displayName, 1, 2)),
 			IconColor = (definition and definition.IconColor) or pet.iconColor or pet.color,
-			ModelName = (definition and definition.ModelName) or pet.modelName or entry.petId,
+			ModelName = entry.modelName or (definition and definition.ModelName) or pet.modelName or entry.petId,
 			PetId = entry.petId,
 			Stats = {
 				"Power: " .. tostring(entry.finalPower or entry.effectivePower or 0),
@@ -243,12 +282,16 @@ end
 
 local function buildInventory(player)
 	local colors = buildColorRows(player)
+	local colorAmount = 0
+	for _, color in ipairs(colors) do
+		colorAmount += math.max(1, tonumber(color.Amount) or 1)
+	end
 	return {
 		Colors = colors,
 		Brushes = buildBrushRows(player),
 		Potions = buildItemRows(player, true),
 		Items = buildItemRows(player, false),
-		Count = #colors,
+		Count = colorAmount,
 		Capacity = COLOR_CAPACITY,
 	}
 end
