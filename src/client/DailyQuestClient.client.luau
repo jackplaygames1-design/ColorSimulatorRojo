@@ -1,121 +1,50 @@
 -- StarterPlayerScripts/Client/DailyQuestClient
+-- Binds Zork's daily quest system to the editable Studio DailyQuestsWindow.
+-- No duplicate runtime quest window is created here.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("DailyQuestRemote")
-local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
-local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
 
-local DARK = Color3.fromRGB(35, 38, 45)
-local WHITE = Color3.fromRGB(255, 255, 255)
-local CYAN = Color3.fromRGB(118, 238, 244)
-local RED = Color3.fromRGB(255, 24, 96)
-local GREEN = Color3.fromRGB(116, 245, 42)
-local CREAM = Color3.fromRGB(255, 249, 239)
+local COLORS = {
+	Outline = Color3.fromRGB(35, 38, 45),
+	Text = Color3.fromRGB(31, 34, 45),
+	Muted = Color3.fromRGB(112, 118, 132),
+	Green = Color3.fromRGB(84, 225, 112),
+	Cyan = Color3.fromRGB(88, 224, 235),
+	Disabled = Color3.fromRGB(174, 181, 198),
+}
 
-local gui = ClientUIRoot.GetLayer(player:WaitForChild("PlayerGui"), "DailyQuestGui")
-gui.Visible = false
+local questData = nil
+local questRows = {}
 
-local dim = Instance.new("TextButton")
-dim.Name = "Dim"
-dim.Size = UDim2.fromScale(1, 1)
-dim.BackgroundColor3 = Color3.fromRGB(8, 14, 20)
-dim.BackgroundTransparency = 0.42
-dim.BorderSizePixel = 0
-dim.Text = ""
-dim.AutoButtonColor = false
-dim.ZIndex = 80
-dim.Parent = gui
+local function getMainHUD()
+	local root = player:WaitForChild("PlayerGui"):WaitForChild("ClientUIRoot", 30)
+	if not root then
+		return nil
+	end
+	return root:WaitForChild("MainHUD", 30)
+end
 
-local frame = Instance.new("Frame")
-frame.Name = "DailyQuestPanel"
-frame.Size = UDim2.fromOffset(460, 360)
-frame.Position = UDim2.fromScale(0.5, 0.5)
-frame.AnchorPoint = Vector2.new(0.5, 0.5)
-frame.BackgroundColor3 = CREAM
-frame.BorderSizePixel = 0
-frame.ZIndex = 81
-frame.Parent = gui
-UITheme.ApplyResponsiveScale(frame, 460, 360, 0.76, 28)
-local frameCorner = Instance.new("UICorner")
-frameCorner.CornerRadius = UDim.new(0, 22)
-frameCorner.Parent = frame
-local frameStroke = Instance.new("UIStroke")
-frameStroke.Color = DARK
-frameStroke.Thickness = 5
-frameStroke.Parent = frame
+local function getWindows(mainHUD)
+	local modalWindows = mainHUD and mainHUD:FindFirstChild("ModalWindows")
+	if modalWindows and modalWindows:FindFirstChild("Windows") then
+		return modalWindows.Windows
+	end
+	return mainHUD and mainHUD:FindFirstChild("Windows")
+end
 
-local header = Instance.new("Frame")
-header.Size = UDim2.new(1, 0, 0, 62)
-header.BackgroundColor3 = CYAN
-header.BorderSizePixel = 0
-header.ZIndex = 82
-header.Parent = frame
-local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0, 22)
-headerCorner.Parent = header
+local function findDeep(parent, name)
+	return parent and parent:FindFirstChild(name, true)
+end
 
-local title = Instance.new("TextLabel")
-title.BackgroundTransparency = 1
-title.Size = UDim2.new(1, -78, 1, 0)
-title.Position = UDim2.fromOffset(20, 0)
-title.Font = Enum.Font.LuckiestGuy
-title.TextSize = 26
-title.TextColor3 = WHITE
-title.TextStrokeTransparency = 0
-title.TextStrokeColor3 = DARK
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.Text = "ZORK'S DAILY QUESTS"
-title.ZIndex = 83
-title.Parent = header
-
-local close = Instance.new("TextButton")
-close.Size = UDim2.fromOffset(42, 42)
-close.Position = UDim2.new(1, -54, 0.5, -21)
-close.BackgroundColor3 = RED
-close.AutoButtonColor = false
-close.Font = Enum.Font.LuckiestGuy
-close.TextSize = 22
-close.TextColor3 = WHITE
-close.TextStrokeTransparency = 0
-close.TextStrokeColor3 = DARK
-close.Text = "X"
-close.ZIndex = 84
-close.Parent = header
-UITheme.ApplyTouchTarget(close, 44)
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 13)
-closeCorner.Parent = close
-local closeStroke = Instance.new("UIStroke")
-closeStroke.Color = DARK
-closeStroke.Thickness = 3
-closeStroke.Parent = close
-
-local resetLabel = Instance.new("TextLabel")
-resetLabel.BackgroundTransparency = 1
-resetLabel.Size = UDim2.new(1, -36, 0, 28)
-resetLabel.Position = UDim2.fromOffset(18, 72)
-resetLabel.Font = Enum.Font.GothamBold
-resetLabel.TextSize = 14
-resetLabel.TextColor3 = Color3.fromRGB(80, 84, 104)
-resetLabel.TextXAlignment = Enum.TextXAlignment.Left
-resetLabel.Text = "Resets in: --"
-resetLabel.ZIndex = 82
-resetLabel.Parent = frame
-
-local list = Instance.new("Frame")
-list.BackgroundTransparency = 1
-list.Size = UDim2.new(1, -36, 1, -112)
-list.Position = UDim2.fromOffset(18, 102)
-list.ZIndex = 82
-list.Parent = frame
-
-local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0, 10)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = list
+local function setText(obj, value)
+	if obj and (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")) then
+		obj.Text = tostring(value or "")
+	end
+end
 
 local function formatTime(seconds)
 	seconds = math.max(0, tonumber(seconds) or 0)
@@ -124,144 +53,254 @@ local function formatTime(seconds)
 	return string.format("%02dh %02dm", hours, minutes)
 end
 
-local function clearQuestCards()
-	for _, child in ipairs(list:GetChildren()) do
-		if child:IsA("Frame") then
+local function corner(obj, radius)
+	local c = obj:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius or 16)
+	c.Parent = obj
+	return c
+end
+
+local function stroke(obj, thickness, color)
+	local s = obj:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	s.Thickness = thickness or 2
+	s.Color = color or COLORS.Outline
+	s.Parent = obj
+	return s
+end
+
+local function makeQuestRow(parent, index)
+	local row = Instance.new("Frame")
+	row.Name = "QuestRow" .. index
+	row.Size = UDim2.new(1, -24, 0, 94)
+	row.Position = UDim2.new(0, 12, 0, 12 + ((index - 1) * 106))
+	row.BackgroundColor3 = Color3.fromRGB(247, 250, 254)
+	row.BorderSizePixel = 0
+	row.Parent = parent
+	corner(row, 18)
+	stroke(row, 2)
+
+	local icon = Instance.new("TextLabel")
+	icon.Name = "IconText"
+	icon.Position = UDim2.fromScale(0.02, 0.14)
+	icon.Size = UDim2.fromScale(0.14, 0.72)
+	icon.BackgroundColor3 = Color3.fromRGB(236, 240, 246)
+	icon.BorderSizePixel = 0
+	icon.Font = Enum.Font.GothamBlack
+	icon.TextSize = 15
+	icon.TextWrapped = true
+	icon.TextColor3 = COLORS.Text
+	icon.Parent = row
+	corner(icon, 16)
+
+	local title = Instance.new("TextLabel")
+	title.Name = "QuestTitle"
+	title.Position = UDim2.fromScale(0.19, 0.08)
+	title.Size = UDim2.fromScale(0.42, 0.23)
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.GothamBlack
+	title.TextSize = 18
+	title.TextColor3 = COLORS.Text
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextWrapped = true
+	title.Parent = row
+
+	local desc = Instance.new("TextLabel")
+	desc.Name = "QuestDesc"
+	desc.Position = UDim2.fromScale(0.19, 0.31)
+	desc.Size = UDim2.fromScale(0.43, 0.18)
+	desc.BackgroundTransparency = 1
+	desc.Font = Enum.Font.GothamMedium
+	desc.TextSize = 13
+	desc.TextColor3 = COLORS.Muted
+	desc.TextXAlignment = Enum.TextXAlignment.Left
+	desc.TextWrapped = true
+	desc.Parent = row
+
+	local bar = Instance.new("Frame")
+	bar.Name = "ProgressBarBg"
+	bar.Position = UDim2.fromScale(0.19, 0.61)
+	bar.Size = UDim2.fromScale(0.42, 0.18)
+	bar.BackgroundColor3 = Color3.fromRGB(231, 235, 241)
+	bar.BorderSizePixel = 0
+	bar.Parent = row
+	corner(bar, 14)
+	stroke(bar, 2, Color3.fromRGB(190, 196, 208))
+
+	local fill = Instance.new("Frame")
+	fill.Name = "ProgressFill"
+	fill.Size = UDim2.fromScale(0, 1)
+	fill.BackgroundColor3 = COLORS.Cyan
+	fill.BorderSizePixel = 0
+	fill.Parent = bar
+	corner(fill, 14)
+
+	local progressText = Instance.new("TextLabel")
+	progressText.Name = "ProgressText"
+	progressText.Size = UDim2.fromScale(1, 1)
+	progressText.BackgroundTransparency = 1
+	progressText.Font = Enum.Font.GothamBlack
+	progressText.TextSize = 13
+	progressText.TextColor3 = COLORS.Text
+	progressText.Parent = bar
+
+	local reward = Instance.new("TextLabel")
+	reward.Name = "RewardText"
+	reward.Position = UDim2.fromScale(0.64, 0.20)
+	reward.Size = UDim2.fromScale(0.13, 0.58)
+	reward.BackgroundColor3 = Color3.fromRGB(236, 240, 246)
+	reward.BorderSizePixel = 0
+	reward.Font = Enum.Font.GothamBlack
+	reward.TextSize = 12
+	reward.TextWrapped = true
+	reward.TextColor3 = COLORS.Text
+	reward.Parent = row
+	corner(reward, 16)
+
+	local claim = Instance.new("TextButton")
+	claim.Name = "ClaimButton"
+	claim.Position = UDim2.fromScale(0.80, 0.28)
+	claim.Size = UDim2.fromScale(0.17, 0.38)
+	claim.BackgroundColor3 = COLORS.Disabled
+	claim.BorderSizePixel = 0
+	claim.Font = Enum.Font.GothamBlack
+	claim.TextSize = 14
+	claim.TextColor3 = Color3.fromRGB(255, 255, 255)
+	claim.TextStrokeTransparency = 0
+	claim.TextStrokeColor3 = COLORS.Outline
+	claim.Parent = row
+	corner(claim, 16)
+	stroke(claim, 2)
+
+	return row
+end
+
+local function getQuestContent(window)
+	return findDeep(window, "QuestList") or findDeep(window, "Body") or findDeep(window, "Content") or window
+end
+
+local function ensureRows(window)
+	local content = getQuestContent(window)
+	if not content then return end
+	for _, child in ipairs(content:GetChildren()) do
+		if child:GetAttribute("EditableQuestGenerated") == true then
 			child:Destroy()
 		end
 	end
+	questRows = {}
+	for i = 1, 3 do
+		local row = findDeep(content, "QuestRow" .. i) or makeQuestRow(content, i)
+		row:SetAttribute("EditableQuestGenerated", true)
+		questRows[i] = row
+	end
 end
 
-local function render(data)
-	if not data then
-		return
+local function updateRow(row, quest, index)
+	local progress = tonumber(quest.progress) or 0
+	local target = math.max(1, tonumber(quest.target) or 1)
+	local complete = progress >= target
+	local claimed = quest.claimed == true
+
+	setText(findDeep(row, "IconText"), index == 1 and "TASK" or index == 2 and "COINS" or "BRUSH")
+	setText(findDeep(row, "QuestTitle"), tostring(quest.title or "Daily Quest"))
+	setText(findDeep(row, "QuestDesc"), tostring(quest.description or ""))
+	setText(findDeep(row, "ProgressText"), tostring(progress) .. " / " .. tostring(target))
+	setText(findDeep(row, "RewardText"), "REWARD\nx" .. tostring(quest.reward or 0))
+
+	local fill = findDeep(row, "ProgressFill")
+	if fill and fill:IsA("GuiObject") then
+		fill.Size = UDim2.fromScale(math.clamp(progress / target, 0, 1), 1)
 	end
 
-	resetLabel.Text = "Resets in: " .. formatTime(data.resetIn)
-	clearQuestCards()
+	local claim = findDeep(row, "ClaimButton")
+	if claim and claim:IsA("TextButton") then
+		if claimed then
+			claim.Text = "CLAIMED"
+			claim.BackgroundColor3 = COLORS.Disabled
+			claim.Active = false
+			claim.AutoButtonColor = false
+		elseif complete then
+			claim.Text = "CLAIM"
+			claim.BackgroundColor3 = COLORS.Green
+			claim.Active = true
+			claim.AutoButtonColor = true
+		else
+			claim.Text = "IN PROGRESS"
+			claim.BackgroundColor3 = COLORS.Disabled
+			claim.Active = false
+			claim.AutoButtonColor = false
+		end
+		if not claim:GetAttribute("ClaimHooked") then
+			claim:SetAttribute("ClaimHooked", true)
+			claim.MouseButton1Click:Connect(function()
+				local rowIndex = claim:GetAttribute("QuestIndex")
+				if rowIndex then
+					claim.Text = "..."
+					remote:FireServer("Claim", rowIndex)
+				end
+			end)
+		end
+		claim:SetAttribute("QuestIndex", index)
+	end
+end
+
+local function render(window, data)
+	if not window or not data then return end
+	questData = data
+	ensureRows(window)
+
+	setText(findDeep(window, "TimerText"), "NEW QUESTS IN " .. formatTime(data.resetIn))
+	setText(findDeep(window, "ResetText"), "Resets in: " .. formatTime(data.resetIn))
 
 	for index, quest in ipairs(data.quests or {}) do
-		local complete = (tonumber(quest.progress) or 0) >= (tonumber(quest.target) or 1)
-
-		local card = Instance.new("Frame")
-		card.Name = "QuestCard_" .. tostring(index)
-		card.Size = UDim2.new(1, 0, 0, 74)
-		card.BackgroundColor3 = Color3.fromRGB(247, 252, 255)
-		card.BorderSizePixel = 0
-		card.LayoutOrder = index
-		card.ZIndex = 82
-		card.Parent = list
-		local cardCorner = Instance.new("UICorner")
-		cardCorner.CornerRadius = UDim.new(0, 12)
-		cardCorner.Parent = card
-		local cardStroke = Instance.new("UIStroke")
-		cardStroke.Color = complete and GREEN or DARK
-		cardStroke.Thickness = complete and 3 or 2
-		cardStroke.Parent = card
-
-		local questTitle = Instance.new("TextLabel")
-		questTitle.BackgroundTransparency = 1
-		questTitle.Size = UDim2.new(1, -132, 0, 22)
-		questTitle.Position = UDim2.fromOffset(12, 7)
-		questTitle.Font = Enum.Font.LuckiestGuy
-		questTitle.TextSize = 17
-		questTitle.TextColor3 = DARK
-		questTitle.TextXAlignment = Enum.TextXAlignment.Left
-		questTitle.Text = tostring(quest.title or "Quest")
-		questTitle.ZIndex = 83
-		questTitle.Parent = card
-
-		local desc = Instance.new("TextLabel")
-		desc.BackgroundTransparency = 1
-		desc.Size = UDim2.new(1, -132, 0, 18)
-		desc.Position = UDim2.fromOffset(12, 31)
-		desc.Font = Enum.Font.GothamBold
-		desc.TextSize = 12
-		desc.TextColor3 = Color3.fromRGB(82, 86, 104)
-		desc.TextXAlignment = Enum.TextXAlignment.Left
-		desc.Text = tostring(quest.description or "")
-		desc.ZIndex = 83
-		desc.Parent = card
-
-		local progressText = Instance.new("TextLabel")
-		progressText.BackgroundTransparency = 1
-		progressText.Size = UDim2.new(1, -132, 0, 18)
-		progressText.Position = UDim2.fromOffset(12, 51)
-		progressText.Font = Enum.Font.GothamBold
-		progressText.TextSize = 12
-		progressText.TextColor3 = Color3.fromRGB(30, 132, 158)
-		progressText.TextXAlignment = Enum.TextXAlignment.Left
-		progressText.Text = tostring(quest.progress or 0) .. "/" .. tostring(quest.target or 1)
-			.. " | Reward: " .. tostring(quest.reward or 0) .. " Gems"
-		progressText.ZIndex = 83
-		progressText.Parent = card
-
-		local claimButton = Instance.new("TextButton")
-		claimButton.Size = UDim2.fromOffset(104, 42)
-		claimButton.Position = UDim2.new(1, -116, 0.5, -21)
-		claimButton.BackgroundColor3 = complete and GREEN or Color3.fromRGB(174, 181, 198)
-		claimButton.AutoButtonColor = complete and not quest.claimed
-		claimButton.Font = Enum.Font.LuckiestGuy
-		claimButton.TextSize = 14
-		claimButton.TextColor3 = WHITE
-		claimButton.TextStrokeTransparency = 0
-		claimButton.TextStrokeColor3 = DARK
-		claimButton.ZIndex = 84
-		claimButton.Parent = card
-		UITheme.ApplyTouchTarget(claimButton, 44)
-		local buttonCorner = Instance.new("UICorner")
-		buttonCorner.CornerRadius = UDim.new(0, 10)
-		buttonCorner.Parent = claimButton
-		local buttonStroke = Instance.new("UIStroke")
-		buttonStroke.Color = DARK
-		buttonStroke.Thickness = 2
-		buttonStroke.Parent = claimButton
-
-		if quest.claimed then
-			claimButton.Text = "CLAIMED"
-			claimButton.Active = false
-			claimButton.BackgroundColor3 = Color3.fromRGB(116, 126, 146)
-		elseif complete then
-			claimButton.Text = "CLAIM"
-			claimButton.MouseButton1Click:Connect(function()
-				claimButton.Text = "..."
-				claimButton.Active = false
-				remote:FireServer("Claim", index)
-			end)
-		else
-			claimButton.Text = "LOCKED"
-			claimButton.Active = false
+		local row = questRows[index]
+		if row then
+			row.Visible = true
+			updateRow(row, quest, index)
 		end
+	end
+	for index = #(data.quests or {}) + 1, #questRows do
+		questRows[index].Visible = false
 	end
 end
 
-local function closeGui()
-	gui.Visible = false
-end
+local mainHUD = getMainHUD()
+local windows = mainHUD and getWindows(mainHUD)
+local dailyWindow = windows and windows:WaitForChild("DailyQuestsWindow", 30)
 
 local function openGui()
+	if dailyWindow then
+		dailyWindow.Visible = true
+	end
 	remote:FireServer("Get")
 end
 
-close.MouseButton1Click:Connect(closeGui)
-dim.MouseButton1Click:Connect(closeGui)
+local function closeGui()
+	if dailyWindow then
+		dailyWindow.Visible = false
+	end
+end
 
 remote.OnClientEvent:Connect(function(action, data)
-	if action == "Open" then
-		gui.Visible = true
-		render(data)
-	elseif action == "Update" then
-		render(data)
+	if action == "Open" or action == "Update" then
+		if dailyWindow then
+			render(dailyWindow, data)
+		end
 	elseif action == "Locked" then
-		gui.Visible = false
+		closeGui()
 	end
 end)
 
 UIManager.register("DailyQuests", openGui, closeGui, function()
-	return gui.Visible == true
+	return dailyWindow and dailyWindow.Visible == true
 end)
 
 local dailyQuestButton = ReplicatedStorage:WaitForChild("HudButton_DAILYQUESTS", 10)
 if dailyQuestButton then
 	dailyQuestButton.Event:Connect(openGui)
+end
+
+if dailyWindow then
+	remote:FireServer("Get")
+else
+	warn("DailyQuestClient: editable DailyQuestsWindow missing; old runtime UI creation is disabled.")
 end
