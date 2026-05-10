@@ -18,6 +18,45 @@ local COLORS = {
 local questData = nil
 local questRows = {}
 
+local FALLBACK_QUESTS = {
+	{
+		id = "CleanColorSpills",
+		title = "CLEAN COLOR SPILLS",
+		description = "Clean 40 color spills.",
+		iconText = "BRUSH",
+		progress = 0,
+		target = 40,
+		rewardCurrency = "Gems",
+		rewardAmount = 20,
+		reward = 20,
+		claimed = false,
+	},
+	{
+		id = "EarnCoins",
+		title = "EARN COINS",
+		description = "Earn 1,000 coins.",
+		iconText = "COINS",
+		progress = 0,
+		target = 1000,
+		rewardCurrency = "Gems",
+		rewardAmount = 25,
+		reward = 25,
+		claimed = false,
+	},
+	{
+		id = "HatchColors",
+		title = "HATCH COLORS",
+		description = "Hatch 3 colors from eggs.",
+		iconText = "EGG",
+		progress = 0,
+		target = 3,
+		rewardCurrency = "Gems",
+		rewardAmount = 30,
+		reward = 30,
+		claimed = false,
+	},
+}
+
 local function getMainHUD()
 	local root = player:WaitForChild("PlayerGui"):WaitForChild("ClientUIRoot", 30)
 	if not root then
@@ -49,6 +88,32 @@ local function formatTime(seconds)
 	local hours = math.floor(seconds / 3600)
 	local minutes = math.floor((seconds % 3600) / 60)
 	return string.format("%02dh %02dm", hours, minutes)
+end
+
+local function copyQuest(quest)
+	local copy = {}
+	for key, value in pairs(quest) do
+		copy[key] = value
+	end
+	return copy
+end
+
+local function getQuestList(data)
+	local source = type(data) == "table" and (data.Quests or data.quests) or nil
+	local quests = {}
+	if type(source) == "table" then
+		for index = 1, 3 do
+			if type(source[index]) == "table" then
+				quests[index] = source[index]
+			end
+		end
+	end
+	for index = 1, 3 do
+		if type(quests[index]) ~= "table" then
+			quests[index] = copyQuest(FALLBACK_QUESTS[index])
+		end
+	end
+	return quests
 end
 
 local function corner(obj, radius)
@@ -197,12 +262,14 @@ local function updateRow(row, quest, index)
 	local target = math.max(1, tonumber(quest.target) or 1)
 	local complete = progress >= target
 	local claimed = quest.claimed == true
+	local rewardAmount = tonumber(quest.rewardAmount or quest.reward) or 0
+	local rewardCurrency = tostring(quest.rewardCurrency or "Gems")
 
-	setText(findDeep(row, "IconText"), index == 1 and "TASK" or index == 2 and "COINS" or "BRUSH")
+	setText(findDeep(row, "IconText"), tostring(quest.iconText or (index == 1 and "BRUSH" or index == 2 and "COINS" or "EGG")))
 	setText(findDeep(row, "QuestTitle"), tostring(quest.title or "Daily Quest"))
 	setText(findDeep(row, "QuestDesc"), tostring(quest.description or ""))
 	setText(findDeep(row, "ProgressText"), tostring(progress) .. " / " .. tostring(target))
-	setText(findDeep(row, "RewardText"), "REWARD\nx" .. tostring(quest.reward or 0))
+	setText(findDeep(row, "RewardText"), "REWARD\n+" .. tostring(rewardAmount) .. " " .. rewardCurrency)
 
 	local fill = findDeep(row, "ProgressFill")
 	if fill and fill:IsA("GuiObject") then
@@ -210,43 +277,78 @@ local function updateRow(row, quest, index)
 	end
 
 	local claim = findDeep(row, "ClaimButton")
-	if claim and claim:IsA("TextButton") then
-		if claimed then
-			claim.Text = "CLAIMED"
-			claim.BackgroundColor3 = COLORS.Disabled
+	if not claim or not claim:IsA("TextButton") then
+		return
+	end
+
+	claim:SetAttribute("QuestIndex", index)
+	claim:SetAttribute("Claimable", false)
+	claim:SetAttribute("Claiming", false)
+
+	if claimed then
+		claim.Text = "CLAIMED"
+		claim.BackgroundColor3 = COLORS.Disabled
+		claim.Active = false
+		claim.AutoButtonColor = false
+
+	elseif complete then
+		claim.Text = "CLAIM"
+		claim.BackgroundColor3 = COLORS.Cyan
+		claim.Active = true
+		claim.AutoButtonColor = true
+		claim:SetAttribute("Claimable", true)
+
+	else
+		claim.Text = "IN PROGRESS"
+		claim.BackgroundColor3 = COLORS.Disabled
+		claim.Active = false
+		claim.AutoButtonColor = false
+	end
+
+	if not claim:GetAttribute("ClaimHooked") then
+		claim:SetAttribute("ClaimHooked", true)
+
+		claim.MouseButton1Click:Connect(function()
+			if not claim:GetAttribute("Claimable") then
+				return
+			end
+
+			if claim:GetAttribute("Claiming") then
+				return
+			end
+
+			local questIndex = claim:GetAttribute("QuestIndex")
+			if not questIndex then
+				return
+			end
+
+			claim:SetAttribute("Claiming", true)
 			claim.Active = false
 			claim.AutoButtonColor = false
-		elseif complete then
-			claimButton.Text = "CLAIM"
-			claimButton.MouseButton1Click:Connect(function()
-				claimButton.Text = "..."
-				claimButton.Active = false
-				remote:FireServer("Claim", index)
-			end)
-		else
-			claimButton.Text = "LOCKED"
-			claimButton.Active = false
-		end
+			claim.Text = "..."
+
+			remote:FireServer("Claim", questIndex)
+		end)
 	end
 end
 
 local function render(window, data)
-	if not window or not data then return end
+	if not window then return end
+	data = type(data) == "table" and data or {}
 	questData = data
 	ensureRows(window)
 
 	setText(findDeep(window, "TimerText"), "NEW QUESTS IN " .. formatTime(data.resetIn))
 	setText(findDeep(window, "ResetText"), "Resets in: " .. formatTime(data.resetIn))
 
-	for index, quest in ipairs(data.quests or {}) do
+	local quests = getQuestList(data)
+	for index = 1, 3 do
+		local quest = quests[index]
 		local row = questRows[index]
 		if row then
 			row.Visible = true
 			updateRow(row, quest, index)
 		end
-	end
-	for index = #(data.quests or {}) + 1, #questRows do
-		questRows[index].Visible = false
 	end
 end
 

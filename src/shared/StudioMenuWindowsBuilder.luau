@@ -231,7 +231,7 @@ function Builder.Build()
 	local _, worldsContent = makeWindow(windowsFolder, "WorldsWindow", "WORLDS", {})
 	makeCardGrid(worldsContent, { "Red World", "Orange World", "Yellow World", "Green World", "Blue World" })
 	local _, questsContent = makeWindow(windowsFolder, "DailyQuestsWindow", "DAILY QUESTS", {})
-	makeCardGrid(questsContent, { "Hatch 3 Colors", "Break 25 Chunks", "Collect 5 Gems" })
+	makeCardGrid(questsContent, { "Clean Color Spills", "Earn Coins", "Hatch Colors" })
 
 	print("StudioMenuWindowsBuilder: editable UI created at StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows")
 end

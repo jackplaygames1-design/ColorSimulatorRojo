@@ -38,6 +38,12 @@ if not petBreakRewardEvent then
 end
 local petsLoadedEvent = Events:WaitForChild("PetsLoaded")
 local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
+local inventoryPetActionFunction = ServerStorage:FindFirstChild("InventoryPetAction")
+if not inventoryPetActionFunction then
+	inventoryPetActionFunction = Instance.new("BindableFunction")
+	inventoryPetActionFunction.Name = "InventoryPetAction"
+	inventoryPetActionFunction.Parent = ServerStorage
+end
 local tutorialHatchSucceededEvent = Events:FindFirstChild("TutorialHatchSucceeded")
 if not tutorialHatchSucceededEvent then
 	tutorialHatchSucceededEvent = Instance.new("BindableEvent")
@@ -331,7 +337,7 @@ local function awardCoins(player, amount)
 	end
 
 	coins.Value += amount
-	reportDailyQuestProgress(player, "EarnCoins", amount)
+	reportDailyQuestProgress(player, "CoinsEarned", amount)
 	return true
 end
 
@@ -1097,6 +1103,7 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	ensureOwnerRainbowPet(player)
 	sendState(player)
 	hatchEvent:FireClient(player, true, entry)
+	reportDailyQuestProgress(player, "ColorsHatched", 1)
 	if tutorialHatchSucceededEvent and tutorialHatchSucceededEvent:IsA("BindableEvent") then
 		tutorialHatchSucceededEvent:Fire(player, eggId, entry)
 	end
@@ -1112,32 +1119,47 @@ end
 -- ========================
 --   EQUIP / UNEQUIP
 -- ========================
-equipEvent.OnServerEvent:Connect(function(player, action, variantKey)
+local function handleEquipPetAction(player, action, variantKey)
 	local equipped  = playerEquipped[player]
 	local inventory = playerInventory[player]
-	if not equipped or not inventory then return end
+	if not equipped or not inventory then
+		return false, "Color inventory is not ready."
+	end
 	local resolvedKey = resolveInventoryKey(inventory, variantKey)
 
 	if action == "equip" then
-		if not resolvedKey or not inventory[resolvedKey] then return end
+		if not resolvedKey or not inventory[resolvedKey] then
+			return false, "You do not own that Color."
+		end
 
 		local maxSlots = getMaxSlots(player)
 		for _, id in ipairs(equipped) do
-			if id == resolvedKey then return end
+			if id == resolvedKey then
+				return true, "Already equipped."
+			end
 		end
 		if #equipped < maxSlots then
 			table.insert(equipped, resolvedKey)
+		else
+			return false, "No open Color equip slots."
 		end
 	elseif action == "unequip" then
 		if not variantKey then
-			return
+			return false, "Choose a Color first."
 		end
+		local removed = false
 		for i, id in ipairs(equipped) do
 			if id == variantKey or id == resolvedKey then
 				table.remove(equipped, i)
+				removed = true
 				break
 			end
 		end
+		if not removed then
+			return true, "Already unequipped."
+		end
+	else
+		return false, "Unknown Color action."
 	end
 
 	syncPetFolder(player, "equip-color")
@@ -1145,21 +1167,25 @@ equipEvent.OnServerEvent:Connect(function(player, action, variantKey)
 	if action == "equip" and #equipped > 0 and tutorialColorEquippedEvent and tutorialColorEquippedEvent:IsA("BindableEvent") then
 		tutorialColorEquippedEvent:Fire(player, variantKey)
 	end
+	return true, action == "equip" and "Color equipped." or "Color unequipped."
+end
+
+equipEvent.OnServerEvent:Connect(function(player, action, variantKey)
+	handleEquipPetAction(player, action, variantKey)
 end)
 
 -- ========================
 --   LOCK / DELETE COLORS
 -- ========================
-lockPetEvent.OnServerEvent:Connect(function(player, variantKey, locked)
+local function handleLockPetAction(player, variantKey, locked)
 	local inventory = playerInventory[player]
 	if not inventory then
-		return
+		return false, "Color inventory is not ready."
 	end
 
 	local resolvedKey = resolveInventoryKey(inventory, variantKey)
 	if not resolvedKey or not inventory[resolvedKey] then
-		lockPetEvent:FireClient(player, false, variantKey, "You do not own that Color.")
-		return
+		return false, "You do not own that Color."
 	end
 
 	playerLocked[player] = playerLocked[player] or {}
@@ -1175,27 +1201,32 @@ lockPetEvent.OnServerEvent:Connect(function(player, variantKey, locked)
 	syncPetFolder(player, "lock-color")
 	sendState(player)
 	lockPetEvent:FireClient(player, true, resolvedKey, playerLocked[player][resolvedKey] == true)
+	return true, playerLocked[player][resolvedKey] == true and "Color locked." or "Color unlocked.", playerLocked[player][resolvedKey] == true
+end
+
+lockPetEvent.OnServerEvent:Connect(function(player, variantKey, locked)
+	local ok, message = handleLockPetAction(player, variantKey, locked)
+	if not ok then
+		lockPetEvent:FireClient(player, false, variantKey, message)
+	end
 end)
 
-deletePetEvent.OnServerEvent:Connect(function(player, variantKey)
+local function handleDeletePetAction(player, variantKey)
 	local equipped = playerEquipped[player]
 	local inventory = playerInventory[player]
 	if not equipped or not inventory then
-		return
+		return false, "Color inventory is not ready."
 	end
 
 	local resolvedKey = resolveInventoryKey(inventory, variantKey)
 	if not resolvedKey or not inventory[resolvedKey] then
-		deletePetEvent:FireClient(player, false, variantKey, "You do not own that Color.")
-		return
+		return false, "You do not own that Color."
 	end
 	if isEquippedKey(equipped, resolvedKey) then
-		deletePetEvent:FireClient(player, false, resolvedKey, "Unequip this Color before deleting it.")
-		return
+		return false, "Unequip this Color before deleting it."
 	end
 	if playerLocked[player] and playerLocked[player][resolvedKey] == true then
-		deletePetEvent:FireClient(player, false, resolvedKey, "Unlock this Color before deleting it.")
-		return
+		return false, "Unlock this Color before deleting it."
 	end
 
 	inventory[resolvedKey] = nil
@@ -1205,7 +1236,28 @@ deletePetEvent.OnServerEvent:Connect(function(player, variantKey)
 	syncPetFolder(player, "delete-color")
 	sendState(player)
 	deletePetEvent:FireClient(player, true, resolvedKey, "Color deleted.")
+	return true, "Color deleted."
+end
+
+deletePetEvent.OnServerEvent:Connect(function(player, variantKey)
+	local ok, message = handleDeletePetAction(player, variantKey)
+	if not ok then
+		deletePetEvent:FireClient(player, false, variantKey, message)
+	end
 end)
+
+inventoryPetActionFunction.OnInvoke = function(player, action, variantKey, value)
+	if action == "EquipColor" then
+		return handleEquipPetAction(player, "equip", variantKey)
+	elseif action == "UnequipColor" then
+		return handleEquipPetAction(player, "unequip", variantKey)
+	elseif action == "LockColor" then
+		return handleLockPetAction(player, variantKey, value)
+	elseif action == "DeleteColor" then
+		return handleDeletePetAction(player, variantKey)
+	end
+	return false, "Unknown Color action."
+end
 
 -- ========================
 --   MERGE PET STACK
@@ -1478,7 +1530,10 @@ RunService.Heartbeat:Connect(function()
 					Position = nearest.Position,
 				})
 				if awardCoins(player, reward) then
-					reportDailyQuestProgress(player, "CleanSpills", 1)
+					reportDailyQuestProgress(player, "ColorSpillsCleaned", 1)
+					if colorType == "Red" then
+						reportDailyQuestProgress(player, "RedWastelandsSpillsCleaned", 1)
+					end
 				else
 					warn("PetHandler: failed to award pet break coins for " .. tostring(player.Name))
 				end

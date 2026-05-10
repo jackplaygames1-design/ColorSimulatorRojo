@@ -43,6 +43,7 @@ local LEGACY_ROOT_LAYERS = {
 
 local TAB_NAMES = { "Colors", "Brushes", "Potions", "Items" }
 local RARITY_ORDER = { Legendary = 1, Epic = 2, Rare = 3, Uncommon = 4, Common = 5 }
+local BIND_INVENTORY_WINDOW = false
 
 local root = playerGui:WaitForChild("ClientUIRoot", 15)
 if not root then
@@ -1578,10 +1579,13 @@ local function renderDailyQuests()
 			local required = tonumber(quest.target or quest.requiredAmount or quest.required or quest.goal) or 1
 			local complete = progress >= required
 			local claimed = quest.claimed == true
+			local rewardAmount = tonumber(quest.rewardAmount or quest.reward) or 0
+			local rewardCurrency = tostring(quest.rewardCurrency or "Gems")
+			local iconText = quest.iconText and (tostring(quest.iconText) .. "  ") or ""
 			local body = tostring(quest.description or "")
 				.. "\n" .. tostring(progress) .. "/" .. tostring(required)
-				.. " | Reward: " .. tostring(quest.reward or 0) .. " Gems"
-			makeWindowCard(list, index, quest.title or ("Quest " .. tostring(index)), body, claimed and "CLAIMED" or (complete and "CLAIM" or "IN PROGRESS"), (complete and not claimed) and function()
+				.. " | Reward: " .. tostring(rewardAmount) .. " " .. rewardCurrency
+			makeWindowCard(list, index, iconText .. tostring(quest.title or ("Quest " .. tostring(index))), body, claimed and "CLAIMED" or (complete and "CLAIM" or "IN PROGRESS"), (complete and not claimed) and function()
 				dailyQuestRemote:FireServer("Claim", index)
 			end or nil, complete and Color3.fromRGB(116, 232, 158) or Color3.fromRGB(82, 219, 225))
 		else
@@ -1601,11 +1605,6 @@ local function refreshAuxiliaryWindows()
 end
 
 local function setupAuxiliaryListeners()
-	equipPaintToolEvent.OnClientEvent:Connect(function()
-		if currentTab == "Brushes" and inventoryWindow.Visible then
-			refreshInventory()
-		end
-	end)
 	purchaseUpgradeEvent.OnClientEvent:Connect(function()
 		renderUpgrades()
 	end)
@@ -1705,21 +1704,23 @@ root.ChildAdded:Connect(function(child)
 	end
 end)
 
-ensureInventoryStructure()
-wireTabs()
-setupDataListeners()
 setupAuxiliaryListeners()
-refreshPetsFromValues()
-setDetailsEmpty("Choose a card to see details.")
-refreshInventory()
+if BIND_INVENTORY_WINDOW then
+	ensureInventoryStructure()
+	wireTabs()
+	setupDataListeners()
+	refreshPetsFromValues()
+	setDetailsEmpty("Choose a card to see details.")
+	refreshInventory()
+end
 refreshAuxiliaryWindows()
 
 inventoryWindow:GetPropertyChangedSignal("Visible"):Connect(function()
 	hideLegacyRootLayers()
-	if inventoryWindow.Visible then
+	if BIND_INVENTORY_WINDOW and inventoryWindow.Visible then
 		refreshPetsFromValues()
 		refreshInventory()
 	end
 end)
 
-print("[EditorWindowBinder] InventoryWindow bound to live data.")
+print("[EditorWindowBinder] auxiliary editable windows bound; EditableInventoryBinder owns InventoryWindow.")

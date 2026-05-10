@@ -263,7 +263,7 @@ local function awardCoins(player, amount)
 	end
 
 	coins.Value += amount
-	reportDailyQuestProgress(player, "EarnCoins", amount)
+	reportDailyQuestProgress(player, "CoinsEarned", amount)
 	return true
 end
 
@@ -567,7 +567,13 @@ local function collectBreakable(player, part, options)
 	end
 
 	hideAndRespawn(part)
-	reportDailyQuestProgress(player, "CleanSpills", 1)
+	reportDailyQuestProgress(player, "ColorSpillsCleaned", 1)
+	if colorType == "Red" then
+		reportDailyQuestProgress(player, "RedWastelandsSpillsCleaned", 1)
+	end
+	if options.source == "brush" then
+		reportDailyQuestProgress(player, "BrushUses", 1)
+	end
 	return true, reward, "Coins"
 end
 

@@ -1,6 +1,6 @@
 -- LocalScript in StarterPlayerScripts named "InventoryUI"
 if true then
-	warn("InventoryUI.client.luau is disabled; EditorWindowBinder.client.luau binds MainHUD.Windows.InventoryWindow.")
+	warn("InventoryUI.client.luau is disabled; EditableInventoryBinder.client.luau binds MainHUD.ModalWindows.Windows.InventoryWindow.")
 	return
 end
 

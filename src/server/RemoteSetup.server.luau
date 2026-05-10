@@ -57,6 +57,37 @@ for _, name in ipairs(remoteEvents) do
 	end
 end
 
+local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+if not remotes then
+	remotes = Instance.new("Folder")
+	remotes.Name = "Remotes"
+	remotes.Parent = ReplicatedStorage
+end
+
+local inventoryRequest = remotes:FindFirstChild("InventoryRequest")
+if inventoryRequest and not inventoryRequest:IsA("RemoteFunction") then
+	warn("RemoteSetup: replacing invalid Remotes.InventoryRequest")
+	inventoryRequest:Destroy()
+	inventoryRequest = nil
+end
+if not inventoryRequest then
+	inventoryRequest = Instance.new("RemoteFunction")
+	inventoryRequest.Name = "InventoryRequest"
+	inventoryRequest.Parent = remotes
+end
+
+local inventoryAction = remotes:FindFirstChild("InventoryAction")
+if inventoryAction and not inventoryAction:IsA("RemoteEvent") then
+	warn("RemoteSetup: replacing invalid Remotes.InventoryAction")
+	inventoryAction:Destroy()
+	inventoryAction = nil
+end
+if not inventoryAction then
+	inventoryAction = Instance.new("RemoteEvent")
+	inventoryAction.Name = "InventoryAction"
+	inventoryAction.Parent = remotes
+end
+
 local bindableEvents = {
 	"PlayerDataDirty",
 	"TutorialPatchCleared",

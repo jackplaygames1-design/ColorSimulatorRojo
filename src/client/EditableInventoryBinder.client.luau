@@ -1,411 +1,535 @@
--- Safely populates the editable Studio InventoryWindow with the player's existing Colors/pets.
--- IMPORTANT: this script is display/equip only. It never deletes, rewrites, or clears hatched Colors.
--- It uses the existing Player.PetData values created by DataManager and the existing EquipPet RemoteEvent.
+-- Binds the editable Studio InventoryWindow to server-owned inventory data.
+-- This script only populates existing UI and sends requests. It never grants,
+-- equips, deletes, or consumes anything locally.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local remotes = ReplicatedStorage:WaitForChild("Remotes")
+local inventoryRequest = remotes:WaitForChild("InventoryRequest")
+local inventoryAction = remotes:WaitForChild("InventoryAction")
+
 local Events = ReplicatedStorage:WaitForChild("Events")
-local equipPetEvent = Events:WaitForChild("EquipPet")
+local hatchEvent = Events:WaitForChild("HatchEgg")
+local petsLoadedEvent = Events:WaitForChild("PetsLoaded")
+local useItemEvent = Events:WaitForChild("UseItem")
+local equipPaintToolEvent = Events:WaitForChild("EquipPaintTool")
 
-local petFolder = player:WaitForChild("PetData", 30)
-local petInventoryValue = petFolder and petFolder:WaitForChild("Inventory", 30)
-local petEquippedValue = petFolder and petFolder:WaitForChild("Equipped", 30)
+local PetModelUtil = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetModelUtil"))
 
-local selectedRecord = nil
+local TAB_NAMES = { "Colors", "Brushes", "Potions", "Items" }
 local currentTab = "Colors"
+local inventoryData = { Colors = {}, Brushes = {}, Potions = {}, Items = {}, Count = 0, Capacity = 75 }
+local selectedItem = nil
+local loading = false
 
-local function getMainHUD()
+local function waitForInventoryWindow()
 	local root = playerGui:WaitForChild("ClientUIRoot", 30)
-	if not root then
-		warn("EditableInventoryBinder: ClientUIRoot missing")
-		return nil
-	end
-	return root:WaitForChild("MainHUD", 30)
+	local mainHud = root and root:WaitForChild("MainHUD", 30)
+	local modalWindows = mainHud and mainHud:WaitForChild("ModalWindows", 30)
+	local windows = modalWindows and modalWindows:WaitForChild("Windows", 30)
+	return windows and windows:WaitForChild("InventoryWindow", 30)
 end
 
-local function getWindows(mainHUD)
-	local modalWindows = mainHUD:FindFirstChild("ModalWindows")
-	if modalWindows and modalWindows:FindFirstChild("Windows") then
-		return modalWindows.Windows
-	end
-	return mainHUD:FindFirstChild("Windows")
+local inventoryWindow = waitForInventoryWindow()
+if not inventoryWindow or not inventoryWindow:IsA("GuiObject") then
+	warn("EditableInventoryBinder: InventoryWindow missing. No runtime inventory window was created.")
+	return
 end
 
-local function splitCsv(value)
-	local out = {}
-	if type(value) ~= "string" or value == "" then
-		return out
-	end
-	for _, item in ipairs(string.split(value, ",")) do
-		item = string.gsub(item, "^%s+", "")
-		item = string.gsub(item, "%s+$", "")
-		if item ~= "" then
-			table.insert(out, item)
+local ui = {}
+local cardConnections = {}
+local renderDetails
+
+local function disconnectCards()
+	for _, connection in ipairs(cardConnections) do
+		if connection and connection.Connected then
+			connection:Disconnect()
 		end
 	end
-	return out
+	table.clear(cardConnections)
 end
 
-local function parsePetRecord(encoded)
-	if type(encoded) ~= "string" or encoded == "" then
-		return nil
+local function ensureFrame(parent, name, className)
+	local frame = parent:FindFirstChild(name)
+	if frame and frame:IsA("GuiObject") then
+		return frame
 	end
-
-	local parts = string.split(encoded, ":")
-	local record
-
-	if #parts >= 3 then
-		-- Current DataManager format: variantKey:petId:stackAmount:trait:shiny:personality:mutation
-		record = {
-			variantKey = parts[1],
-			petId = parts[2],
-			stackAmount = tonumber(parts[3]) or 1,
-			traitId = parts[4] or "Neutral",
-			isShiny = parts[5] == "shiny" or parts[5] == "true",
-			personalityId = parts[6] or "Neutral",
-			mutationId = parts[7] or "None",
-		}
-	else
-		-- Very old fallback: petId only.
-		record = {
-			variantKey = encoded,
-			petId = encoded,
-			stackAmount = 1,
-			traitId = "Neutral",
-			isShiny = false,
-			personalityId = "Neutral",
-			mutationId = "None",
-		}
-	end
-
-	if not record.petId or record.petId == "" then
-		return nil
-	end
-
-	if not record.variantKey or record.variantKey == "" then
-		record.variantKey = record.petId
-	end
-
-	return record
+	frame = Instance.new(className or "Frame")
+	frame.Name = name
+	frame.BackgroundTransparency = className == "ScrollingFrame" and 1 or 0
+	frame.BackgroundColor3 = Color3.fromRGB(244, 248, 252)
+	frame.BorderSizePixel = 0
+	frame.Parent = parent
+	return frame
 end
 
-local function getInventoryRecords()
-	local records = {}
-	if not petInventoryValue then
-		return records
+local function ensureLabel(parent, name, text)
+	local label = parent:FindFirstChild(name)
+	if label and label:IsA("TextLabel") then
+		return label
 	end
+	label = Instance.new("TextLabel")
+	label.Name = name
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.TextColor3 = Color3.fromRGB(38, 36, 52)
+	label.TextWrapped = true
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextYAlignment = Enum.TextYAlignment.Top
+	label.TextSize = 14
+	label.Text = text or ""
+	label.Parent = parent
+	return label
+end
 
-	for _, encoded in ipairs(splitCsv(petInventoryValue.Value)) do
-		local record = parsePetRecord(encoded)
-		if record then
-			table.insert(records, record)
+local function ensureButton(parent, name, text)
+	local button = parent:FindFirstChild(name)
+	if button and button:IsA("TextButton") then
+		return button
+	end
+	button = Instance.new("TextButton")
+	button.Name = name
+	button.AutoButtonColor = true
+	button.BackgroundColor3 = Color3.fromRGB(84, 225, 112)
+	button.BorderSizePixel = 0
+	button.Font = Enum.Font.GothamBlack
+	button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	button.TextStrokeColor3 = Color3.fromRGB(35, 38, 45)
+	button.TextStrokeTransparency = 0
+	button.TextSize = 15
+	button.Text = text or "OK"
+	button.Parent = parent
+	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 10)
+	return button
+end
+
+local function setText(object, value)
+	if object and (object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox")) then
+		object.Text = tostring(value or "")
+	end
+end
+
+local function setButtonEnabled(button, enabled)
+	button.Visible = true
+	button.Active = enabled == true
+	button.AutoButtonColor = enabled == true
+	button.BackgroundTransparency = enabled and 0 or 0.35
+end
+
+local function prepareStructure()
+	ui.tabs = inventoryWindow:FindFirstChild("Tabs") or ensureFrame(inventoryWindow, "Tabs")
+	ui.body = inventoryWindow:FindFirstChild("Body") or inventoryWindow:FindFirstChild("Content") or ensureFrame(inventoryWindow, "Body")
+	ui.body.Name = "Body"
+	ui.body.Position = ui.body.Position == UDim2.new() and UDim2.fromOffset(22, 122) or ui.body.Position
+	ui.body.Size = ui.body.Size == UDim2.new() and UDim2.new(1, -44, 1, -148) or ui.body.Size
+
+	ui.gridPanel = ui.body:FindFirstChild("GridPanel") or ui.body:FindFirstChild("ItemGrid") or ensureFrame(ui.body, "GridPanel")
+	ui.gridPanel.Name = "GridPanel"
+	ui.gridPanel.Position = UDim2.fromOffset(12, 12)
+	ui.gridPanel.Size = UDim2.new(0.62, -20, 1, -24)
+	ui.gridPanel.BackgroundColor3 = Color3.fromRGB(246, 249, 255)
+
+	for _, child in ipairs(ui.gridPanel:GetChildren()) do
+		if child:IsA("GuiObject") and child.Name ~= "Grid" and child.Name ~= "EmptyText" and child.Name ~= "Footer" then
+			child.Visible = false
 		end
 	end
 
-	table.sort(records, function(a, b)
-		return tostring(a.petId) < tostring(b.petId)
-	end)
+	ui.grid = ui.gridPanel:FindFirstChild("Grid") or ensureFrame(ui.gridPanel, "Grid", "ScrollingFrame")
+	ui.grid.Position = UDim2.fromOffset(8, 8)
+	ui.grid.Size = UDim2.new(1, -16, 1, -48)
+	ui.grid.ScrollBarThickness = 6
+	ui.grid.CanvasSize = UDim2.fromOffset(0, 0)
 
-	return records
-end
-
-local function getEquippedSet()
-	local equipped = {}
-	if not petEquippedValue then
-		return equipped
+	local layout = ui.grid:FindFirstChildOfClass("UIGridLayout") or Instance.new("UIGridLayout")
+	layout.CellPadding = UDim2.fromOffset(10, 10)
+	layout.CellSize = UDim2.fromOffset(146, 140)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = ui.grid
+	if not ui.grid:GetAttribute("InventoryLayoutBound") then
+		ui.grid:SetAttribute("InventoryLayoutBound", true)
+		layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+			ui.grid.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + 20)
+		end)
 	end
-	for _, key in ipairs(splitCsv(petEquippedValue.Value)) do
-		equipped[key] = true
+
+	ui.emptyText = ensureLabel(ui.gridPanel, "EmptyText", "")
+	ui.emptyText.Position = UDim2.fromOffset(12, 52)
+	ui.emptyText.Size = UDim2.new(1, -24, 0, 70)
+	ui.emptyText.Font = Enum.Font.GothamBlack
+	ui.emptyText.TextSize = 20
+	ui.emptyText.TextXAlignment = Enum.TextXAlignment.Center
+	ui.emptyText.TextYAlignment = Enum.TextYAlignment.Center
+	ui.emptyText.Visible = false
+
+	ui.footer = ui.gridPanel:FindFirstChild("Footer") or ensureFrame(ui.gridPanel, "Footer")
+	ui.footer.Position = UDim2.new(0, 8, 1, -38)
+	ui.footer.Size = UDim2.new(1, -16, 0, 30)
+	ui.footer.BackgroundTransparency = 1
+	ui.capacityText = ensureLabel(ui.footer, "CapacityText", "")
+	ui.capacityText.Size = UDim2.fromScale(1, 1)
+	ui.capacityText.TextXAlignment = Enum.TextXAlignment.Right
+
+	ui.detailPanel = ui.body:FindFirstChild("DetailPanel") or ui.body:FindFirstChild("DetailsPanel") or ensureFrame(ui.body, "DetailPanel")
+	ui.detailPanel.Name = "DetailPanel"
+	ui.detailPanel.Position = UDim2.new(0.64, 0, 0, 12)
+	ui.detailPanel.Size = UDim2.new(0.36, -12, 1, -24)
+	ui.detailPanel.BackgroundColor3 = Color3.fromRGB(239, 246, 255)
+
+	ui.bigPreview = ui.detailPanel:FindFirstChild("BigPreview") or ensureFrame(ui.detailPanel, "BigPreview")
+	ui.bigPreview.Position = UDim2.fromOffset(16, 16)
+	ui.bigPreview.Size = UDim2.new(1, -32, 0, 112)
+	ui.bigPreview.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	ui.selectedName = ensureLabel(ui.detailPanel, "SelectedName", "Select an Item")
+	ui.selectedName.Position = UDim2.fromOffset(16, 138)
+	ui.selectedName.Size = UDim2.new(1, -32, 0, 32)
+	ui.selectedName.Font = Enum.Font.GothamBlack
+	ui.selectedName.TextSize = 20
+	ui.selectedRarity = ensureLabel(ui.detailPanel, "SelectedRarity", "")
+	ui.selectedRarity.Position = UDim2.fromOffset(16, 172)
+	ui.selectedRarity.Size = UDim2.new(1, -32, 0, 26)
+	ui.selectedDescription = ensureLabel(ui.detailPanel, "SelectedDescription", "Choose a card to see details.")
+	ui.selectedDescription.Position = UDim2.fromOffset(16, 202)
+	ui.selectedDescription.Size = UDim2.new(1, -32, 0, 58)
+	ui.statsBox = ui.detailPanel:FindFirstChild("StatsBox") or ensureFrame(ui.detailPanel, "StatsBox")
+	ui.statsBox.Position = UDim2.fromOffset(16, 268)
+	ui.statsBox.Size = UDim2.new(1, -32, 0, 78)
+	ui.statsBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	ui.statsText = ensureLabel(ui.statsBox, "StatsText", "")
+	ui.statsText.Position = UDim2.fromOffset(10, 8)
+	ui.statsText.Size = UDim2.new(1, -20, 1, -16)
+
+	ui.equipButton = ensureButton(ui.detailPanel, "EquipButton", "EQUIP")
+	ui.equipButton.Position = UDim2.new(0, 16, 1, -130)
+	ui.equipButton.Size = UDim2.new(1, -32, 0, 34)
+	ui.lockButton = ensureButton(ui.detailPanel, "LockButton", "LOCK")
+	ui.lockButton.Position = UDim2.new(0, 16, 1, -88)
+	ui.lockButton.Size = UDim2.new(1, -32, 0, 34)
+	ui.deleteButton = ensureButton(ui.detailPanel, "DeleteButton", "DELETE")
+	ui.deleteButton.Position = UDim2.new(0, 16, 1, -46)
+	ui.deleteButton.Size = UDim2.new(1, -32, 0, 34)
+
+	ui.cardTemplate = ui.grid:FindFirstChild("ItemCardTemplate")
+	if not ui.cardTemplate then
+		ui.cardTemplate = Instance.new("TextButton")
+		ui.cardTemplate.Name = "ItemCardTemplate"
+		ui.cardTemplate.Visible = false
+		ui.cardTemplate.Text = ""
+		ui.cardTemplate.AutoButtonColor = true
+		ui.cardTemplate.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		ui.cardTemplate.BorderSizePixel = 0
+		ui.cardTemplate.Size = UDim2.fromOffset(146, 140)
+		ui.cardTemplate.Parent = ui.grid
+		Instance.new("UICorner", ui.cardTemplate).CornerRadius = UDim.new(0, 12)
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(35, 38, 45)
+		stroke.Thickness = 2
+		stroke.Parent = ui.cardTemplate
 	end
-	return equipped
 end
 
-local function findDeep(parent, name)
-	return parent and parent:FindFirstChild(name, true)
-end
-
-local function setText(obj, value)
-	if obj and (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")) then
-		obj.Text = tostring(value or "")
-	end
-end
-
-local function petDisplayName(record)
-	local definition = PetData.Pets and PetData.Pets[record.petId]
-	return (definition and (definition.displayName or definition.DisplayName or definition.name)) or record.petId
-end
-
-local function petRarity(record)
-	local definition = PetData.Pets and PetData.Pets[record.petId]
-	return (definition and (definition.rarity or definition.Rarity)) or "Color"
-end
-
-local function petPower(record)
-	local definition = PetData.Pets and PetData.Pets[record.petId]
-	return tonumber(definition and (definition.power or definition.Power or definition.multiplier or definition.Multiplier)) or 1
-end
-
-local function clearGeneratedCards(grid)
-	for _, child in ipairs(grid:GetChildren()) do
-		if child:GetAttribute("EditableInventoryGeneratedCard") == true then
+local function clearPreview(preview)
+	for _, child in ipairs(preview:GetChildren()) do
+		if child.Name == "PreviewViewport" or child.Name == "PreviewImage" or child.Name == "PreviewText" then
 			child:Destroy()
 		end
 	end
 end
 
-local function getSlots(grid)
-	local slots = {}
-	for _, child in ipairs(grid:GetChildren()) do
-		if child:IsA("GuiObject") and string.match(child.Name, "^Slot%d+$") then
-			table.insert(slots, child)
+local function paintPreview(preview, item)
+	clearPreview(preview)
+	if item.IconImage and item.IconImage ~= "" then
+		local image = Instance.new("ImageLabel")
+		image.Name = "PreviewImage"
+		image.BackgroundTransparency = 1
+		image.Image = item.IconImage
+		image.Size = UDim2.fromScale(1, 1)
+		image.Parent = preview
+		return
+	end
+
+	if item.Kind == "Color" and item.PetId then
+		local viewport = Instance.new("ViewportFrame")
+		viewport.Name = "PreviewViewport"
+		viewport.BackgroundTransparency = 1
+		viewport.Size = UDim2.fromScale(1, 1)
+		viewport.Parent = preview
+		local ok = pcall(function()
+			PetModelUtil.MountViewport(viewport, item.PetId, { spin = false })
+		end)
+		if ok then
+			return
+		end
+		viewport:Destroy()
+	end
+
+	local label = Instance.new("TextLabel")
+	label.Name = "PreviewText"
+	label.BackgroundColor3 = item.IconColor or Color3.fromRGB(225, 235, 248)
+	label.BorderSizePixel = 0
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.GothamBlack
+	label.TextScaled = true
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextStrokeColor3 = Color3.fromRGB(35, 38, 45)
+	label.TextStrokeTransparency = 0
+	label.Text = item.IconText or string.upper(string.sub(item.Name or item.Id or "IT", 1, 2))
+	label.Parent = preview
+	Instance.new("UICorner", label).CornerRadius = UDim.new(0, 10)
+end
+
+local function makeCard(item, index)
+	local card = ui.cardTemplate:Clone()
+	card.Name = "ItemCard_" .. tostring(index)
+	card:SetAttribute("EditableInventoryGeneratedCard", true)
+	card.Visible = true
+	card.LayoutOrder = index
+	card.Parent = ui.grid
+
+	for _, child in ipairs(card:GetChildren()) do
+		if child:IsA("GuiObject") and child.Name ~= "UICorner" then
+			child:Destroy()
 		end
 	end
-	table.sort(slots, function(a, b)
-		local ai = tonumber(string.match(a.Name, "%d+")) or 0
-		local bi = tonumber(string.match(b.Name, "%d+")) or 0
-		return ai < bi
-	end)
-	return slots
-end
 
-local function createCard(grid, index)
-	local card = Instance.new("TextButton")
-	card.Name = "PetCard" .. index
-	card:SetAttribute("EditableInventoryGeneratedCard", true)
-	card.Text = ""
-	card.AutoButtonColor = true
-	card.BackgroundColor3 = Color3.fromRGB(245, 249, 255)
-	card.BorderSizePixel = 0
-	card.Size = UDim2.fromOffset(112, 132)
-	card.Parent = grid
+	local preview = ensureFrame(card, "Preview")
+	preview.Position = UDim2.fromOffset(10, 8)
+	preview.Size = UDim2.new(1, -20, 0, 76)
+	preview.BackgroundColor3 = Color3.fromRGB(242, 247, 255)
+	paintPreview(preview, item)
 
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 16)
-	corner.Parent = card
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(35, 38, 45)
-	stroke.Thickness = 2
-	stroke.Parent = card
-
-	local icon = Instance.new("TextLabel")
-	icon.Name = "Icon"
-	icon.BackgroundColor3 = Color3.fromRGB(229, 236, 247)
-	icon.BorderSizePixel = 0
-	icon.Position = UDim2.fromScale(0.12, 0.07)
-	icon.Size = UDim2.fromScale(0.76, 0.48)
-	icon.Font = Enum.Font.GothamBlack
-	icon.TextSize = 16
-	icon.TextColor3 = Color3.fromRGB(31, 34, 45)
-	icon.TextWrapped = true
-	icon.Parent = card
-	local iconCorner = Instance.new("UICorner")
-	iconCorner.CornerRadius = UDim.new(0, 14)
-	iconCorner.Parent = icon
-
-	local name = Instance.new("TextLabel")
-	name.Name = "Name"
-	name.BackgroundTransparency = 1
-	name.Position = UDim2.fromScale(0.08, 0.58)
-	name.Size = UDim2.fromScale(0.84, 0.17)
+	local name = ensureLabel(card, "Name", item.Name)
+	name.Position = UDim2.fromOffset(8, 88)
+	name.Size = UDim2.new(1, -16, 0, 28)
 	name.Font = Enum.Font.GothamBlack
-	name.TextSize = 12
-	name.TextColor3 = Color3.fromRGB(31, 34, 45)
-	name.TextWrapped = true
-	name.Parent = card
-
-	local meta = Instance.new("TextLabel")
-	meta.Name = "Meta"
-	meta.BackgroundTransparency = 1
-	meta.Position = UDim2.fromScale(0.08, 0.76)
-	meta.Size = UDim2.fromScale(0.84, 0.16)
-	meta.Font = Enum.Font.GothamBold
-	meta.TextSize = 10
-	meta.TextColor3 = Color3.fromRGB(100, 108, 124)
-	meta.TextWrapped = true
-	meta.Parent = card
-
-	return card
-end
-
-local function fillCard(card, record, equipped)
-	card.Visible = true
-	card:SetAttribute("VariantKey", record.variantKey)
-	card:SetAttribute("PetId", record.petId)
-
-	local short = string.upper(string.sub(petDisplayName(record), 1, 2))
-	setText(card:FindFirstChild("Icon", true), short)
-	setText(card:FindFirstChild("IconText", true), short)
-	setText(card:FindFirstChild("Name", true), petDisplayName(record))
-	setText(card:FindFirstChild("Meta", true), petRarity(record) .. " x" .. tostring(record.stackAmount or 1))
-
-	local oldIcon = card:FindFirstChild("Icon", true)
-	if oldIcon and oldIcon:IsA("TextLabel") and oldIcon.Text == "IMG" then
-		oldIcon.Text = short
-	end
+	name.TextSize = 13
+	name.TextXAlignment = Enum.TextXAlignment.Center
+	local meta = ensureLabel(card, "Meta", "")
+	meta.Position = UDim2.fromOffset(8, 116)
+	meta.Size = UDim2.new(1, -16, 0, 20)
+	meta.TextSize = 11
+	meta.TextXAlignment = Enum.TextXAlignment.Center
+	meta.Text = item.Equipped and "EQUIPPED" or (item.Amount and ("x" .. tostring(item.Amount)) or tostring(item.Rarity or ""))
 
 	local stroke = card:FindFirstChildOfClass("UIStroke")
 	if stroke then
-		stroke.Color = equipped and Color3.fromRGB(72, 210, 102) or Color3.fromRGB(35, 38, 45)
-		stroke.Thickness = equipped and 4 or 2
+		stroke.Color = item.Equipped and Color3.fromRGB(84, 225, 112) or (item.Locked and Color3.fromRGB(88, 174, 255) or Color3.fromRGB(35, 38, 45))
+		stroke.Thickness = item.Equipped and 4 or 2
 	end
 
-	card.MouseButton1Click:Connect(function()
-		selectedRecord = record
-		local inventoryWindow = card:FindFirstAncestor("InventoryWindow")
-		if inventoryWindow then
-			local details = findDeep(inventoryWindow, "DetailsPanel") or findDeep(inventoryWindow, "DetailPanel")
-			if details then
-				setText(findDeep(details, "SelectLabel"), petDisplayName(record))
-				setText(findDeep(details, "Title"), petDisplayName(record))
-				setText(findDeep(details, "Name"), petDisplayName(record))
-				setText(findDeep(details, "Description"), petRarity(record) .. " • Power " .. tostring(petPower(record)) .. " • x" .. tostring(record.stackAmount or 1))
-				setText(findDeep(details, "InfoText"), "Trait: " .. tostring(record.traitId or "Neutral") .. " | Mutation: " .. tostring(record.mutationId or "None"))
+	local connection = card.Activated:Connect(function()
+		selectedItem = item
+		renderDetails()
+	end)
+	table.insert(cardConnections, connection)
+end
+
+renderDetails = function()
+	local item = selectedItem
+	if not item then
+		clearPreview(ui.bigPreview)
+		setText(ui.selectedName, "Select an Item")
+		setText(ui.selectedRarity, "")
+		setText(ui.selectedDescription, "Choose a card to see details.")
+		setText(ui.statsText, "")
+		setText(ui.equipButton, "SELECT")
+		setButtonEnabled(ui.equipButton, false)
+		setText(ui.lockButton, "LOCK")
+		setButtonEnabled(ui.lockButton, false)
+		setText(ui.deleteButton, "DELETE")
+		setButtonEnabled(ui.deleteButton, false)
+		return
+	end
+
+	paintPreview(ui.bigPreview, item)
+	setText(ui.selectedName, item.Name)
+	setText(ui.selectedRarity, item.Rarity or item.Mutation or item.Kind)
+	setText(ui.selectedDescription, item.Description or item.Bonus or "")
+	setText(ui.statsText, table.concat(item.Stats or {}, "\n"))
+
+	if item.Kind == "Color" then
+		setText(ui.equipButton, item.Equipped and "UNEQUIP" or "EQUIP")
+		setButtonEnabled(ui.equipButton, true)
+		setText(ui.lockButton, item.Locked and "UNLOCK" or "LOCK")
+		setButtonEnabled(ui.lockButton, true)
+		setText(ui.deleteButton, "DELETE")
+		setButtonEnabled(ui.deleteButton, not item.Locked and not item.Equipped)
+	elseif item.Kind == "Brush" then
+		setText(ui.equipButton, item.Equipped and "EQUIPPED" or "EQUIP")
+		setButtonEnabled(ui.equipButton, not item.Equipped)
+		setText(ui.lockButton, "LOCK")
+		setButtonEnabled(ui.lockButton, false)
+		setText(ui.deleteButton, "DELETE")
+		setButtonEnabled(ui.deleteButton, false)
+	else
+		setText(ui.equipButton, item.Usable and "USE" or "INFO")
+		setButtonEnabled(ui.equipButton, item.Usable == true)
+		setText(ui.lockButton, "LOCK")
+		setButtonEnabled(ui.lockButton, false)
+		setText(ui.deleteButton, "DELETE")
+		setButtonEnabled(ui.deleteButton, false)
+	end
+end
+
+local function getTabItems()
+	return inventoryData[currentTab] or {}
+end
+
+local function renderInventory()
+	disconnectCards()
+	for _, child in ipairs(ui.grid:GetChildren()) do
+		if child:GetAttribute("EditableInventoryGeneratedCard") == true then
+			child:Destroy()
+		elseif child:IsA("GuiObject") and child.Name ~= "ItemCardTemplate" then
+			child.Visible = false
+		end
+	end
+
+	for _, tabName in ipairs(TAB_NAMES) do
+		local tab = ui.tabs:FindFirstChild(tabName .. "Tab", true)
+		if tab and tab:IsA("TextButton") then
+			local active = tabName == currentTab
+			tab.BackgroundColor3 = active and Color3.fromRGB(82, 219, 225) or Color3.fromRGB(232, 238, 248)
+			tab.TextColor3 = active and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(38, 36, 52)
+		end
+	end
+
+	local items = getTabItems()
+	ui.emptyText.Visible = #items == 0
+	ui.grid.Visible = #items > 0
+	ui.emptyText.Text = "No " .. string.lower(currentTab) .. " yet."
+	ui.capacityText.Text = "Colors: " .. tostring(inventoryData.Count or 0) .. " / " .. tostring(inventoryData.Capacity or 75)
+
+	for index, item in ipairs(items) do
+		makeCard(item, index)
+	end
+
+	if selectedItem then
+		local stillExists = false
+		for _, item in ipairs(items) do
+			if item.Id == selectedItem.Id and item.Kind == selectedItem.Kind then
+				selectedItem = item
+				stillExists = true
+				break
 			end
+		end
+		if not stillExists then
+			selectedItem = nil
+		end
+	end
+	renderDetails()
+end
+
+local function requestInventory()
+	if loading then
+		return
+	end
+	loading = true
+	local ok, data = pcall(function()
+		return inventoryRequest:InvokeServer("GetInventory")
+	end)
+	loading = false
+	if ok and type(data) == "table" then
+		inventoryData = data
+		renderInventory()
+	else
+		warn("EditableInventoryBinder: inventory request failed: " .. tostring(data))
+	end
+end
+
+local function sendAction(action, item)
+	if not item then
+		return
+	end
+	inventoryAction:FireServer(action, {
+		Kind = item.Kind,
+		Id = item.Id,
+		Locked = not item.Locked,
+	})
+end
+
+local function wireControls()
+	for _, tabName in ipairs(TAB_NAMES) do
+		local tab = ui.tabs:FindFirstChild(tabName .. "Tab", true)
+		if tab and tab:IsA("GuiButton") and tab:GetAttribute("EditableInventoryBound") ~= true then
+			tab:SetAttribute("EditableInventoryBound", true)
+			tab.Activated:Connect(function()
+				currentTab = tabName
+				selectedItem = nil
+				renderInventory()
+			end)
+		end
+	end
+
+	ui.equipButton.Activated:Connect(function()
+		if not selectedItem then
+			return
+		end
+		if selectedItem.Kind == "Color" then
+			sendAction(selectedItem.Equipped and "Unequip" or "Equip", selectedItem)
+		elseif selectedItem.Kind == "Brush" then
+			sendAction("Equip", selectedItem)
+		elseif selectedItem.Kind == "Potion" or selectedItem.Kind == "Item" then
+			sendAction("Use", selectedItem)
+		end
+	end)
+	ui.lockButton.Activated:Connect(function()
+		if selectedItem and selectedItem.Kind == "Color" then
+			sendAction("Lock", selectedItem)
+		end
+	end)
+	ui.deleteButton.Activated:Connect(function()
+		if selectedItem and selectedItem.Kind == "Color" and not selectedItem.Locked and not selectedItem.Equipped then
+			sendAction("Delete", selectedItem)
 		end
 	end)
 end
 
-local function showEmpty(grid, text)
-	clearGeneratedCards(grid)
-	for _, slot in ipairs(getSlots(grid)) do
-		slot.Visible = false
+prepareStructure()
+wireControls()
+renderDetails()
+
+inventoryWindow:GetPropertyChangedSignal("Visible"):Connect(function()
+	if inventoryWindow.Visible then
+		requestInventory()
 	end
+end)
 
-	local empty = grid:FindFirstChild("NoItemsLabel")
-	if not empty then
-		empty = Instance.new("TextLabel")
-		empty.Name = "NoItemsLabel"
-		empty.BackgroundTransparency = 1
-		empty.Size = UDim2.fromScale(1, 1)
-		empty.Font = Enum.Font.GothamBlack
-		empty.TextSize = 22
-		empty.TextColor3 = Color3.fromRGB(100, 108, 124)
-		empty.TextWrapped = true
-		empty.Parent = grid
-	end
-	empty.Visible = true
-	empty.Text = text
-end
-
-local function populateColors(inventoryWindow)
-	local grid = findDeep(inventoryWindow, "ItemGrid") or findDeep(inventoryWindow, "Grid") or findDeep(inventoryWindow, "Content")
-	if not grid then
-		warn("EditableInventoryBinder: Inventory grid missing")
-		return
-	end
-
-	local empty = grid:FindFirstChild("NoItemsLabel")
-	if empty then
-		empty.Visible = false
-	end
-
-	clearGeneratedCards(grid)
-	local records = getInventoryRecords()
-	local equipped = getEquippedSet()
-
-	if #records == 0 then
-		showEmpty(grid, "No Colors yet. Hatch colors to see them here.")
-		return
-	end
-
-	local slots = getSlots(grid)
-	for _, slot in ipairs(slots) do
-		slot.Visible = false
-	end
-
-	for index, record in ipairs(records) do
-		local card = slots[index]
-		if not card then
-			card = createCard(grid, index)
-		end
-		fillCard(card, record, equipped[record.variantKey] == true or equipped[record.petId] == true)
-	end
-end
-
-local function showNonColorTab(inventoryWindow, tabName)
-	local grid = findDeep(inventoryWindow, "ItemGrid") or findDeep(inventoryWindow, "Grid") or findDeep(inventoryWindow, "Content")
-	if not grid then return end
-	showEmpty(grid, tabName .. " coming soon.")
-end
-
-local function setTab(inventoryWindow, tabName)
-	currentTab = tabName
-	if tabName == "Colors" then
-		populateColors(inventoryWindow)
+inventoryAction.OnClientEvent:Connect(function(result)
+	if type(result) == "table" and type(result.Inventory) == "table" then
+		inventoryData = result.Inventory
+		renderInventory()
 	else
-		showNonColorTab(inventoryWindow, tabName)
+		requestInventory()
 	end
+end)
+
+hatchEvent.OnClientEvent:Connect(function(success)
+	if success and inventoryWindow.Visible then
+		task.defer(requestInventory)
+	end
+end)
+petsLoadedEvent.OnClientEvent:Connect(function()
+	if inventoryWindow.Visible then
+		task.defer(requestInventory)
+	end
+end)
+useItemEvent.OnClientEvent:Connect(function()
+	if inventoryWindow.Visible then
+		task.defer(requestInventory)
+	end
+end)
+equipPaintToolEvent.OnClientEvent:Connect(function()
+	if inventoryWindow.Visible then
+		task.defer(requestInventory)
+	end
+end)
+
+if inventoryWindow.Visible then
+	requestInventory()
 end
 
-local hooked = false
-local function hookInventoryWindow(inventoryWindow)
-	if hooked then return end
-	hooked = true
-
-	for _, obj in ipairs(inventoryWindow:GetDescendants()) do
-		if obj:IsA("GuiButton") then
-			local name = obj.Name
-			local text = obj:IsA("TextButton") and obj.Text or ""
-			local tabName = string.gsub(name, "Tab$", "")
-			if tabName == "Colors" or text == "Colors" then
-				obj.MouseButton1Click:Connect(function() setTab(inventoryWindow, "Colors") end)
-			elseif tabName == "Brushes" or text == "Brushes" then
-				obj.MouseButton1Click:Connect(function() setTab(inventoryWindow, "Brushes") end)
-			elseif tabName == "Potions" or text == "Potions" then
-				obj.MouseButton1Click:Connect(function() setTab(inventoryWindow, "Potions") end)
-			elseif tabName == "Items" or text == "Items" then
-				obj.MouseButton1Click:Connect(function() setTab(inventoryWindow, "Items") end)
-			elseif name == "EquipButton" or text == "EQUIP" or text == "SELECT" then
-				obj.MouseButton1Click:Connect(function()
-					if selectedRecord then
-						equipPetEvent:FireServer(selectedRecord.variantKey)
-					else
-						warn("Select a Color first.")
-					end
-				end)
-			elseif name == "DeleteButton" or text == "DELETE" then
-				obj.AutoButtonColor = false
-				if obj:IsA("TextButton") then
-					obj.Text = "DELETE OFF"
-				end
-				obj.MouseButton1Click:Connect(function()
-					warn("Delete is disabled to protect hatched Colors.")
-				end)
-			elseif name == "LockButton" or text == "LOCK" then
-				obj.MouseButton1Click:Connect(function()
-					warn("Locking is not wired yet; no data was changed.")
-				end)
-			end
-		end
-	end
-
-	setTab(inventoryWindow, "Colors")
-	if petInventoryValue then
-		petInventoryValue.Changed:Connect(function()
-			if currentTab == "Colors" then
-				populateColors(inventoryWindow)
-			end
-		end)
-	end
-	if petEquippedValue then
-		petEquippedValue.Changed:Connect(function()
-			if currentTab == "Colors" then
-				populateColors(inventoryWindow)
-			end
-		end)
-	end
-end
-
-local mainHUD = getMainHUD()
-local windows = mainHUD and getWindows(mainHUD)
-local inventoryWindow = windows and windows:WaitForChild("InventoryWindow", 30)
-if inventoryWindow then
-	hookInventoryWindow(inventoryWindow)
-else
-	warn("EditableInventoryBinder: InventoryWindow missing; no runtime window will be created.")
-end
+print("[EditableInventoryBinder] InventoryWindow bound through server bridge.")

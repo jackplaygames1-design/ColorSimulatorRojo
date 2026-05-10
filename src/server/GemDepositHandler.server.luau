@@ -511,7 +511,7 @@ local function breakDeposit(player, model)
 	if gems then
 		gems.Value += reward
 	end
-	reportDailyQuestProgress(player, "BreakGems", 1)
+	reportDailyQuestProgress(player, "GemDepositsBroken", 1)
 
 	if noticeEvent then
 		noticeEvent:FireClient(player, {

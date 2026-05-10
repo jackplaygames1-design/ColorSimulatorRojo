@@ -1,10 +1,17 @@
 -- Script in ServerScriptService named "ItemsHandler"
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 local ItemsData = require(ReplicatedStorage:WaitForChild("ItemsData"))
 
 local Events    = ReplicatedStorage:WaitForChild("Events")
 local useEvent  = Events:WaitForChild("UseItem")
+local inventoryItemsFunction = ServerStorage:FindFirstChild("InventoryItemsBridge")
+if not inventoryItemsFunction then
+	inventoryItemsFunction = Instance.new("BindableFunction")
+	inventoryItemsFunction.Name = "InventoryItemsBridge"
+	inventoryItemsFunction.Parent = ServerStorage
+end
 
 -- Track active boosts per player
 -- { [player] = { [boostType] = expiresAt } }
@@ -232,6 +239,30 @@ useEvent.OnServerEvent:Connect(function(player, itemId, requestedAmount)
 
 	useItem(player, itemId, requestedAmount)
 end)
+
+inventoryItemsFunction.OnInvoke = function(player, action, itemId, amount)
+	if action == "GetInventory" then
+		local copy = {}
+		for id, quantity in pairs(getInventory(player)) do
+			copy[id] = quantity
+		end
+		return true, copy
+	elseif action == "UseItem" then
+		local item = ItemsData.Items[itemId]
+		if not item then
+			return false, "Unknown item."
+		end
+		if not item.usable then
+			return false, "This item can't be used."
+		end
+		if (getInventory(player)[itemId] or 0) <= 0 then
+			return false, "You do not own this item."
+		end
+		useItem(player, itemId, amount or 1)
+		return true, "Item used."
+	end
+	return false, "Unknown item action."
+end
 
 -- ========================
 --   BOOST EXPIRY CHECKER

@@ -39,45 +39,85 @@ if not DailyQuestProgress then
 	DailyQuestProgress.Parent = ServerStorage
 end
 
-local QUEST_POOL = {
+local DAILY_QUEST_POOL = {
 	{
-		id = "CleanSpills",
-		title = "Clean Spills",
-		description = "Clean 40 color spills.",
-		target = 40,
-		reward = 20,
+		Id = "CleanColorSpills",
+		Title = "CLEAN COLOR SPILLS",
+		Description = "Clean 40 color spills.",
+		IconText = "BRUSH",
+		ProgressType = "ColorSpillsCleaned",
+		Target = 40,
+		RewardCurrency = "Gems",
+		RewardAmount = 20,
 	},
 	{
-		id = "EarnCoins",
-		title = "Earn Coins",
-		description = "Earn 1,000 coins.",
-		target = 1000,
-		reward = 25,
+		Id = "EarnCoins",
+		Title = "EARN COINS",
+		Description = "Earn 1,000 coins.",
+		IconText = "COINS",
+		ProgressType = "CoinsEarned",
+		Target = 1000,
+		RewardCurrency = "Gems",
+		RewardAmount = 25,
 	},
 	{
-		id = "BreakGems",
-		title = "Break Gems",
-		description = "Break 2 glowing gems.",
-		target = 2,
-		reward = 25,
+		Id = "HatchColors",
+		Title = "HATCH COLORS",
+		Description = "Hatch 3 colors from eggs.",
+		IconText = "EGG",
+		ProgressType = "ColorsHatched",
+		Target = 3,
+		RewardCurrency = "Gems",
+		RewardAmount = 30,
 	},
 	{
-		id = "CollectOrbs",
-		title = "Collect Powers",
-		description = "Collect 3 wild Color powers.",
-		target = 3,
-		reward = 20,
+		Id = "BreakGemDeposits",
+		Title = "BREAK GEM DEPOSITS",
+		Description = "Break 3 gem deposits.",
+		IconText = "GEM",
+		ProgressType = "GemDepositsBroken",
+		Target = 3,
+		RewardCurrency = "Gems",
+		RewardAmount = 25,
 	},
 	{
-		id = "BuyBrush",
-		title = "Buy A Brush",
-		description = "Buy 1 brush.",
-		target = 1,
-		reward = 30,
+		Id = "CleanRedWastelands",
+		Title = "CLEAN RED WASTELANDS",
+		Description = "Clean 25 spills in the Red Wastelands.",
+		IconText = "RED",
+		ProgressType = "RedWastelandsSpillsCleaned",
+		Target = 25,
+		RewardCurrency = "Gems",
+		RewardAmount = 20,
+	},
+	{
+		Id = "UseBrush",
+		Title = "USE YOUR BRUSH",
+		Description = "Clean with your brush 75 times.",
+		IconText = "BRUSH",
+		ProgressType = "BrushUses",
+		Target = 75,
+		RewardCurrency = "Gems",
+		RewardAmount = 15,
 	},
 }
 
 local profiles = {}
+
+local QUEST_BY_ID = {}
+local DEFAULT_QUEST_IDS = {
+	"CleanColorSpills",
+	"EarnCoins",
+	"HatchColors",
+}
+local LEGACY_QUEST_ID_MAP = {
+	CleanSpills = "CleanColorSpills",
+	BreakGems = "BreakGemDeposits",
+}
+
+for _, quest in ipairs(DAILY_QUEST_POOL) do
+	QUEST_BY_ID[quest.Id] = quest
+end
 
 local function getCurrentDayId()
 	return math.floor(os.time() / 86400)
@@ -91,15 +131,21 @@ local function getKey(player)
 	return "Player_" .. player.UserId
 end
 
-local function copyQuest(template)
+local function copyQuest(template, existing)
+	local target = math.max(1, tonumber(template.Target) or 1)
+	local progress = existing and math.clamp(tonumber(existing.progress or existing.Progress) or 0, 0, target) or 0
 	return {
-		id = template.id,
-		title = template.title,
-		description = template.description,
-		target = template.target,
-		reward = template.reward,
-		progress = 0,
-		claimed = false,
+		id = template.Id,
+		title = template.Title,
+		description = template.Description,
+		iconText = template.IconText,
+		progressType = template.ProgressType,
+		target = target,
+		rewardCurrency = template.RewardCurrency,
+		rewardAmount = math.max(0, tonumber(template.RewardAmount) or 0),
+		reward = math.max(0, tonumber(template.RewardAmount) or 0),
+		progress = progress,
+		claimed = existing and existing.claimed == true or false,
 	}
 end
 
@@ -108,21 +154,54 @@ local function buildNewProfile(player, zorkIntroduced)
 	local seed = (math.abs(player.UserId) * 97 + dayId * 1009) % 2147483647
 	local rng = Random.new(seed)
 
-	local pool = table.clone(QUEST_POOL)
+	local pool = table.clone(DAILY_QUEST_POOL)
 	local quests = {}
+	local questIds = {}
 	for _ = 1, math.min(QUESTS_PER_DAY, #pool) do
 		local index = rng:NextInteger(1, #pool)
 		table.insert(quests, copyQuest(pool[index]))
+		table.insert(questIds, pool[index].Id)
 		table.remove(pool, index)
+	end
+	for index = #quests + 1, QUESTS_PER_DAY do
+		local template = QUEST_BY_ID[DEFAULT_QUEST_IDS[index]] or DAILY_QUEST_POOL[index]
+		table.insert(quests, copyQuest(template))
+		table.insert(questIds, template.Id)
 	end
 
 	return {
 		dayId = dayId,
+		questIds = questIds,
 		quests = quests,
 		zorkIntroduced = zorkIntroduced == true,
 		zorkIntroVersion = zorkIntroduced == true and ZORK_INTRO_VERSION or 0,
 		dirty = true,
 	}
+end
+
+local function buildFallbackQuest(index)
+	local template = QUEST_BY_ID[DEFAULT_QUEST_IDS[index]] or DAILY_QUEST_POOL[index] or DAILY_QUEST_POOL[1]
+	return copyQuest(template)
+end
+
+local function getExactlyThreeQuests(profile)
+	local quests = {}
+	for index = 1, QUESTS_PER_DAY do
+		local quest = profile and type(profile.quests) == "table" and profile.quests[index] or nil
+		if type(quest) == "table" then
+			local questId = tostring(quest.id or quest.Id or "")
+			questId = LEGACY_QUEST_ID_MAP[questId] or questId
+			local template = QUEST_BY_ID[questId]
+			if template then
+				quests[index] = copyQuest(template, quest)
+			else
+				quests[index] = buildFallbackQuest(index)
+			end
+		else
+			quests[index] = buildFallbackQuest(index)
+		end
+	end
+	return quests
 end
 
 local function hasCurrentZorkIntro(data)
@@ -142,20 +221,19 @@ local function normalizeProfile(player, data)
 		return buildNewProfile(player, hasCurrentZorkIntro(data))
 	end
 
+	local questIds = {}
 	for index, quest in ipairs(data.quests) do
-		local target = math.max(1, tonumber(quest.target) or 1)
-		local progress = math.clamp(tonumber(quest.progress) or 0, 0, target)
-		data.quests[index] = {
-			id = tostring(quest.id or ""),
-			title = tostring(quest.title or "Quest"),
-			description = tostring(quest.description or ""),
-			target = target,
-			reward = math.max(0, tonumber(quest.reward) or 0),
-			progress = progress,
-			claimed = quest.claimed == true,
-		}
+		local questId = tostring(quest.id or quest.Id or "")
+		questId = LEGACY_QUEST_ID_MAP[questId] or questId
+		local template = QUEST_BY_ID[questId]
+		if not template then
+			return buildNewProfile(player, hasCurrentZorkIntro(data))
+		end
+		data.quests[index] = copyQuest(template, quest)
+		table.insert(questIds, template.Id)
 	end
 
+	data.questIds = questIds
 	data.zorkIntroduced = hasCurrentZorkIntro(data)
 	data.zorkIntroVersion = data.zorkIntroduced and ZORK_INTRO_VERSION or 0
 	data.dirty = false
@@ -164,12 +242,16 @@ end
 
 local function serializeProfile(profile)
 	local quests = {}
-	for index, quest in ipairs(profile.quests or {}) do
+	for index, quest in ipairs(getExactlyThreeQuests(profile)) do
 		quests[index] = {
 			id = quest.id,
+			iconText = quest.iconText,
+			progressType = quest.progressType,
 			title = quest.title,
 			description = quest.description,
 			target = quest.target,
+			rewardCurrency = quest.rewardCurrency,
+			rewardAmount = quest.rewardAmount,
 			reward = quest.reward,
 			progress = quest.progress,
 			claimed = quest.claimed == true,
@@ -177,6 +259,7 @@ local function serializeProfile(profile)
 	end
 	return {
 		dayId = profile.dayId,
+		questIds = profile.questIds,
 		quests = quests,
 		zorkIntroduced = profile.zorkIntroduced == true,
 		zorkIntroVersion = profile.zorkIntroduced == true and ZORK_INTRO_VERSION or 0,
@@ -185,12 +268,16 @@ end
 
 local function makeClientData(profile)
 	local quests = {}
-	for index, quest in ipairs(profile.quests or {}) do
+	for index, quest in ipairs(getExactlyThreeQuests(profile)) do
 		quests[index] = {
 			id = quest.id,
+			iconText = quest.iconText,
+			progressType = quest.progressType,
 			title = quest.title,
 			description = quest.description,
 			target = quest.target,
+			rewardCurrency = quest.rewardCurrency,
+			rewardAmount = quest.rewardAmount,
 			reward = quest.reward,
 			progress = quest.progress,
 			claimed = quest.claimed == true,
@@ -199,6 +286,7 @@ local function makeClientData(profile)
 	return {
 		resetIn = getSecondsUntilReset(),
 		quests = quests,
+		Quests = quests,
 		zorkIntroduced = profile.zorkIntroduced == true,
 	}
 end
@@ -313,6 +401,15 @@ local function refreshDailyQuests(player)
 		profile = profiles[player]
 		saveProfile(player, true)
 	end
+	if type(profile.quests) ~= "table" or #profile.quests ~= QUESTS_PER_DAY then
+		warn("DailyQuestService: repaired invalid quest list for " .. player.Name)
+		profile.quests = getExactlyThreeQuests(profile)
+		profile.questIds = {}
+		for index, quest in ipairs(profile.quests) do
+			profile.questIds[index] = quest.id
+		end
+		profile.dirty = true
+	end
 	player:SetAttribute("DailyQuestsHudUnlocked", profile.zorkIntroduced == true)
 
 	return profile
@@ -336,7 +433,7 @@ local function loadProfile(player)
 	DailyQuestRemote:FireClient(player, "Update", makeClientData(profile))
 end
 
-local function addQuestProgress(player, questId, amount)
+local function addQuestProgress(player, progressType, amount)
 	if typeof(player) ~= "Instance" or not player:IsA("Player") then
 		return
 	end
@@ -351,12 +448,12 @@ local function addQuestProgress(player, questId, amount)
 		return
 	end
 
-	questId = tostring(questId)
+	progressType = tostring(progressType)
 	amount = math.max(1, math.floor(tonumber(amount) or 1))
 
 	local changed = false
 	for _, quest in ipairs(profile.quests) do
-		if quest.id == questId and not quest.claimed then
+		if (quest.progressType == progressType or quest.id == progressType) and not quest.claimed then
 			local oldProgress = quest.progress
 			quest.progress = math.min(quest.target, quest.progress + amount)
 			if quest.progress ~= oldProgress then

@@ -189,6 +189,16 @@
         "MutationStation": {
           "$className": "RemoteEvent"
         }
+      },
+
+      "Remotes": {
+        "$className": "Folder",
+        "InventoryRequest": {
+          "$className": "RemoteFunction"
+        },
+        "InventoryAction": {
+          "$className": "RemoteEvent"
+        }
       }
     },
 
