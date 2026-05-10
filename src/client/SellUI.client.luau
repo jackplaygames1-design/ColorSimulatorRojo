@@ -1,0 +1,2 @@
+-- Selling has been removed from the main loop.
+-- Color breakables now award Coins instantly through server-side break rewards.

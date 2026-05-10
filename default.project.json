@@ -1,0 +1,200 @@
+{
+  "name": "ColorSimulatorRojo",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "ColorData": {
+        "$path": "src/shared/ColorData.luau"
+      },
+      "CodeData": {
+        "$path": "src/shared/CodeData.luau"
+      },
+      "GameBalance": {
+        "$path": "src/shared/GameBalance.luau"
+      },
+      "GroupRewardsConfig": {
+        "$path": "src/shared/GroupRewardsConfig.luau"
+      },
+      "HUDAssetConfig": {
+        "$path": "src/shared/HUDAssetConfig.luau"
+      },
+      "PhysicalMenuUIBuilder": {
+        "$path": "src/shared/PhysicalMenuUIBuilder.luau"
+      },
+      "PhysicalCurrencyHUDBuilder": {
+        "$path": "src/shared/PhysicalCurrencyHUDBuilder.luau"
+      },
+      "SettingsData": {
+        "$path": "src/shared/SettingsData.luau"
+      },
+      "ToolData": {
+        "$path": "src/shared/ToolData.luau"
+      },
+      "BrushData": {
+        "$path": "src/shared/BrushData.luau"
+      },
+      "ItemsData": {
+        "$path": "src/shared/ItemsData.luau"
+      },
+      "PetData": {
+        "$path": "src/shared/PetData.luau"
+      },
+      "ColorPersonalityData": {
+        "$path": "src/shared/ColorPersonalityData.luau"
+      },
+      "ColorTraitData": {
+        "$path": "src/shared/ColorTraitData.luau"
+      },
+      "ColorMutationData": {
+        "$path": "src/shared/ColorMutationData.luau"
+      },
+      "RobuxShopConfig": {
+        "$path": "src/shared/RobuxShopConfig.luau"
+      },
+      "AdminConfig": {
+        "$path": "src/shared/AdminConfig.luau"
+      },
+      "UpdateLogData": {
+        "$path": "src/shared/UpdateLogData.luau"
+      },
+      "StudioZoneBuilder": {
+        "$path": "src/shared/StudioZoneBuilder.luau"
+      },
+      "StudioPetAppearanceBuilder": {
+        "$path": "src/shared/StudioPetAppearanceBuilder.luau"
+      },
+      "StudioSectorInteriorBuilder": {
+        "$path": "src/shared/StudioSectorInteriorBuilder.luau"
+      },
+      "StudioMapCleaner": {
+        "$path": "src/shared/StudioMapCleaner.luau"
+      },
+      "StudioMenuWindowsBuilder": {
+        "$path": "src/shared/StudioMenuWindowsBuilder.luau"
+      },
+      "UIManager": {
+        "$path": "src/shared/UIManager.luau"
+      },
+      "ClientUIRoot": {
+        "$path": "src/shared/ClientUIRoot.luau"
+      },
+      "UITheme": {
+        "$path": "src/shared/UITheme.luau"
+      },
+      "UpgradeData": {
+        "$path": "src/shared/UpgradeData.luau"
+      },
+
+      "Modules": {
+        "$className": "Folder",
+        "PetTraits": {
+          "$path": "src/modules/PetTraits.luau"
+        },
+        "PetDefinitions": {
+          "$path": "src/modules/PetDefinitions.luau"
+        },
+        "PetModelUtil": {
+          "$path": "src/modules/PetModelUtil.luau"
+        },
+        "LegendaryColorOrbDefinitions": {
+          "$path": "src/modules/LegendaryColorOrbDefinitions.luau"
+        },
+        "LegendaryColorOrbBuilder": {
+          "$path": "src/modules/LegendaryColorOrbBuilder.luau"
+        }
+      },
+
+      "PetModels": {
+        "$className": "Folder"
+      },
+
+      "Events": {
+        "$className": "Folder",
+        "CollectColor": {
+          "$className": "RemoteEvent"
+        },
+        "PaintToolSweep": {
+          "$className": "RemoteEvent"
+        },
+        "ColorEffectVFX": {
+          "$className": "RemoteEvent"
+        },
+        "HatchEgg": {
+          "$className": "RemoteEvent"
+        },
+        "EquipPet": {
+          "$className": "RemoteEvent"
+        },
+        "MergePet": {
+          "$className": "RemoteEvent"
+        },
+        "PetAttack": {
+          "$className": "RemoteEvent"
+        },
+        "PetsLoaded": {
+          "$className": "RemoteEvent"
+        },
+        "PurchaseUpgrade": {
+          "$className": "RemoteEvent"
+        },
+        "UnlockArea": {
+          "$className": "RemoteEvent"
+        },
+        "TravelToMarket": {
+          "$className": "RemoteEvent"
+        },
+        "TravelToWorldSpot": {
+          "$className": "RemoteEvent"
+        },
+        "TeleportToSell": {
+          "$className": "RemoteEvent"
+        },
+        "SellColor": {
+          "$className": "RemoteEvent"
+        },
+        "RedeemCode": {
+          "$className": "RemoteEvent"
+        },
+        "DevGrantCoins": {
+          "$className": "RemoteEvent"
+        },
+        "UseItem": {
+          "$className": "RemoteEvent"
+        },
+        "PurchasePaintTool": {
+          "$className": "RemoteEvent"
+        },
+        "EquipPaintTool": {
+          "$className": "RemoteEvent"
+        },
+        "RequestSetSetting": {
+          "$className": "RemoteEvent"
+        },
+        "SettingsUpdated": {
+          "$className": "RemoteEvent"
+        },
+        "GroupRewards": {
+          "$className": "RemoteEvent"
+        },
+        "MutationStation": {
+          "$className": "RemoteEvent"
+        }
+      }
+    },
+
+    "ServerScriptService": {
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client"
+        }
+      }
+    }
+  }
+}
