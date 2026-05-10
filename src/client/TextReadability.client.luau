@@ -23,6 +23,7 @@ local SAFE_HOVER_COLORS = {
 }
 
 local hoverOriginals = setmetatable({}, { __mode = "k" })
+local DARK_STROKE = Color3.fromRGB(8, 14, 32)
 
 local function luminance(color)
 	return color.R * 0.2126 + color.G * 0.7152 + color.B * 0.0722
@@ -102,6 +103,39 @@ local function getTextConstraint(gui)
 		end
 	end
 	return nil
+end
+
+local function needsStrongReadableText(gui)
+	if gui:GetAttribute("ForceReadableText") then
+		return true
+	end
+	if gui:IsA("TextButton") then
+		return gui.Text ~= nil and gui.Text ~= ""
+	end
+
+	local text = string.upper(tostring(gui.Text or ""))
+	return string.find(text, "RELEASE", 1, true)
+		or string.find(text, "CODE:", 1, true)
+		or string.find(text, "HIDE", 1, true)
+end
+
+local function applyStrongReadableText(gui)
+	gui:SetAttribute("NoTextGlow", true)
+	gui.Font = Enum.Font.GothamBlack
+	gui.TextColor3 = Color3.fromRGB(255, 255, 255)
+	gui.TextStrokeColor3 = DARK_STROKE
+	gui.TextStrokeTransparency = 0
+
+	if gui:IsA("TextButton") or gui:GetAttribute("ForceReadableText") then
+		gui.TextScaled = true
+		local constraint = getTextConstraint(gui)
+		if not constraint then
+			constraint = Instance.new("UITextSizeConstraint")
+			constraint.Parent = gui
+		end
+		constraint.MinTextSize = math.max(constraint.MinTextSize, 10)
+		constraint.MaxTextSize = math.max(constraint.MaxTextSize, 18)
+	end
 end
 
 local function shouldGlowText(gui)
@@ -219,6 +253,10 @@ local function shouldTintIconPart(obj)
 end
 
 local function applyButtonHover(button, hovering)
+	if button:GetAttribute("NoReadableHover") or button:GetAttribute("ForceReadableText") then
+		return
+	end
+
 	local hoverColor = chooseHoverColor(button)
 
 	local function applyText(obj)
@@ -251,6 +289,9 @@ local function setupHoverColor(button)
 	if not button:IsA("TextButton") or button:GetAttribute("ReadableHoverWatched") then
 		return
 	end
+	if button:GetAttribute("NoReadableHover") or button:GetAttribute("ForceReadableText") then
+		return
+	end
 	button:SetAttribute("ReadableHoverWatched", true)
 
 	button.MouseEnter:Connect(function()
@@ -272,6 +313,11 @@ local function improveText(gui)
 
 	if gui:IsA("TextButton") then
 		setupHoverColor(gui)
+	end
+
+	if needsStrongReadableText(gui) then
+		applyStrongReadableText(gui)
+		return
 	end
 
 	local textLum = luminance(gui.TextColor3)

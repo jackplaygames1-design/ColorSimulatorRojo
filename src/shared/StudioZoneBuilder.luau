@@ -3166,19 +3166,32 @@ end
 
 local function addBoardText(parent, name, text, position, size, textSize, color, font, alignment)
 	local label = Instance.new("TextLabel")
+	local maxTextSize = textSize or 18
+	local readableColor = color or Color3.fromRGB(255, 255, 255)
+	if readableColor.R * 0.2126 + readableColor.G * 0.7152 + readableColor.B * 0.0722 < 0.45 then
+		readableColor = Color3.fromRGB(255, 255, 255)
+	end
 	label.Name = name
 	label.BackgroundTransparency = 1
 	label.Position = position
 	label.Size = size
 	label.Font = font or Enum.Font.GothamBold
-	label.TextSize = textSize
-	label.TextColor3 = color or Color3.fromRGB(255, 255, 255)
+	label.TextSize = maxTextSize
+	label.TextScaled = true
+	label.TextColor3 = readableColor
+	label.TextStrokeColor3 = Color3.fromRGB(8, 14, 32)
+	label.TextStrokeTransparency = 0
 	label.TextXAlignment = alignment or Enum.TextXAlignment.Left
 	label.TextYAlignment = Enum.TextYAlignment.Top
 	label.TextWrapped = true
 	label.Text = text
 	label.ZIndex = 2
 	label.Parent = parent
+
+	local constraint = Instance.new("UITextSizeConstraint")
+	constraint.MinTextSize = 10
+	constraint.MaxTextSize = maxTextSize
+	constraint.Parent = label
 	return label
 end
 

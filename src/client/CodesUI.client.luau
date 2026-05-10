@@ -1,4 +1,9 @@
 -- CodesUI.client.luau
+if true then
+	warn("CodesUI disabled; editable MainHUD.ModalWindows.Windows.CodesWindow is bound by EditorWindowBinder.")
+	return
+end
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")

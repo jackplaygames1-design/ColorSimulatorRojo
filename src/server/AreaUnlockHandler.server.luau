@@ -8,6 +8,7 @@ local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local unlockEvent = Events:WaitForChild("UnlockArea")
+local requestTravelToSectorEvent = Events:WaitForChild("RequestTravelToSector")
 local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 local tutorialWorldTraveledEvent = Events:FindFirstChild("TutorialWorldTraveled")
 if not tutorialWorldTraveledEvent then
@@ -20,6 +21,7 @@ local cooldowns = {}
 local lastReturnAt = {}
 local returnInFlight = {}
 local teleportLocks = {}
+local teleportGraceTokens = {}
 local COOLDOWN = 2
 local TELEPORT_LOCK_TIME = 1.25
 local STARTUP_RETURN_DELAY = 2.8
@@ -553,6 +555,7 @@ local function isNamedSpawnDestination(part)
 
 	local loweredName = string.lower(part.Name or "")
 	return part:IsA("SpawnLocation")
+		or loweredName == "spawnpoint"
 		or loweredName == "spawnlocation"
 		or loweredName == "sectorspawn"
 		or loweredName == "arrivalspawn"
@@ -1020,6 +1023,18 @@ local function restoreCharacterMovement(player)
 	end
 end
 
+local function beginTeleportGrace(player)
+	local token = (teleportGraceTokens[player] or 0) + 1
+	teleportGraceTokens[player] = token
+	player:SetAttribute("IsTeleporting", true)
+
+	task.delay(1, function()
+		if player.Parent and teleportGraceTokens[player] == token then
+			player:SetAttribute("IsTeleporting", false)
+		end
+	end)
+end
+
 local function teleportCharacterSafely(player, destinationCFrame)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -1028,6 +1043,7 @@ local function teleportCharacterSafely(player, destinationCFrame)
 		return false
 	end
 
+	beginTeleportGrace(player)
 	restoreCharacterMovement(player)
 	root.AssemblyLinearVelocity = Vector3.zero
 	root.AssemblyAngularVelocity = Vector3.zero
@@ -1221,6 +1237,64 @@ end
 
 unlockEvent.OnServerEvent:Connect(handleUnlockRequest)
 
+local function normalizeSectorRequest(sectorId)
+	local raw = tostring(sectorId or "")
+	local compact = string.lower(raw:gsub("%s+", ""):gsub("_", ""):gsub("-", ""))
+	compact = compact:gsub("sector$", ""):gsub("area$", ""):gsub("world$", "")
+	for _, world in ipairs(ColorData.Worlds or {}) do
+		local candidates = {
+			world.id,
+			world.primaryColor,
+			world.ZoneId,
+			world.DisplayName,
+			world.name,
+		}
+		for _, candidate in ipairs(candidates) do
+			if candidate then
+				local normalized = string.lower(tostring(candidate):gsub("%s+", ""):gsub("_", ""):gsub("-", ""))
+				normalized = normalized:gsub("sector$", ""):gsub("area$", ""):gsub("world$", "")
+				if compact == normalized then
+					return world
+				end
+			end
+		end
+	end
+	return nil
+end
+
+requestTravelToSectorEvent.OnServerEvent:Connect(function(player, sectorId)
+	local world = normalizeSectorRequest(sectorId)
+	if not world then
+		warn("RequestTravelToSector rejected unknown sector: " .. tostring(sectorId))
+		requestTravelToSectorEvent:FireClient(player, false, sectorId, "Unknown sector.")
+		return
+	end
+
+	local unlockedValue = player:FindFirstChild("ColorStorage")
+		and player.ColorStorage:FindFirstChild("UnlockedColors")
+	if not unlockedValue then
+		requestTravelToSectorEvent:FireClient(player, false, world.primaryColor, "Data is not ready.")
+		return
+	end
+
+	if not isSectorPlayable(world.primaryColor) then
+		requestTravelToSectorEvent:FireClient(player, false, world.primaryColor, getLockedSectorMessage(world))
+		return
+	end
+
+	if not ColorData.isColorUnlocked(unlockedValue.Value, world.primaryColor) then
+		warn("[AreaUnlockHandler] " .. player.Name .. " requested locked sector travel to " .. tostring(world.primaryColor))
+		requestTravelToSectorEvent:FireClient(player, false, world.primaryColor, "Unlock " .. world.name .. " first.")
+		return
+	end
+
+	if teleportToWorld(player, world) then
+		requestTravelToSectorEvent:FireClient(player, true, world.primaryColor, "Traveling to " .. world.name)
+	else
+		requestTravelToSectorEvent:FireClient(player, false, world.primaryColor, "Sector travel failed. Try again.")
+	end
+end)
+
 local function hookGatePrompt(prompt)
 	if not prompt:IsA("ProximityPrompt") or not prompt:GetAttribute("AreaGatePrompt") then
 		return
@@ -1348,4 +1422,5 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReturnAt[player] = nil
 	returnInFlight[player] = nil
 	teleportLocks[player] = nil
+	teleportGraceTokens[player] = nil
 end)

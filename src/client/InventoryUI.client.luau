@@ -1,4 +1,9 @@
 -- LocalScript in StarterPlayerScripts named "InventoryUI"
+if true then
+	warn("InventoryUI.client.luau is disabled; EditorWindowBinder.client.luau binds MainHUD.Windows.InventoryWindow.")
+	return
+end
+
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService      = game:GetService("TweenService")

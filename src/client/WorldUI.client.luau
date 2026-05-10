@@ -1,4 +1,9 @@
 -- SectorUI.client.luau. Internal registration names stay "World" for compatibility.
+if true then
+	warn("WorldUI disabled; editable MainHUD.ModalWindows.Windows.WorldsWindow is bound by EditorWindowBinder.")
+	return
+end
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")

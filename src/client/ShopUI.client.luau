@@ -1,4 +1,9 @@
 -- Equipment shop for paintbrushes and rollers.
+if true then
+	warn("ShopUI disabled; editable MainHUD.ModalWindows.Windows.ShopWindow is the only shop modal.")
+	return
+end
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")

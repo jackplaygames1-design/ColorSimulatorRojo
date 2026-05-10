@@ -1,4 +1,9 @@
 -- SocialPanelsUI.client.luau
+if true then
+	warn("SocialPanelsUI disabled; editable Codes/Settings windows are bound by EditorWindowBinder.")
+	return
+end
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")

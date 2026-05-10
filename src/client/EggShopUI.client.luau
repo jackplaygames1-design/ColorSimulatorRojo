@@ -1701,13 +1701,16 @@ hatchEvent.OnClientEvent:Connect(function(success, entry, message)
 	if not isHatching and not hatchPending and not hatchOverlay.Visible then
 		if success and entry then
 			setHatchingLocked(true)
-			startHatchAnimation(selectedEggId or chooseBestUnlockedEgg())
+			startHatchAnimation(entry.eggId or selectedEggId or chooseBestUnlockedEgg())
 			revealHatch(entry)
 		end
 		return
 	end
 
 	if not success then
+		if message == "Already hatching" and (isHatching or hatchPending or hatchOverlay.Visible) then
+			return
+		end
 		stopAutoHatch()
 		hatchPending = false
 		showError(message or "CAN'T HATCH")

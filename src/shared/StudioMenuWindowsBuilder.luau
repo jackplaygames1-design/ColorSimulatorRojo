@@ -151,6 +151,40 @@ local function makeCardGrid(content, names)
 	end
 end
 
+local function makeShopTemplates(shopWindow)
+	local templates = findOrCreate(shopWindow, "Folder", "Templates")
+	local card, created = findOrCreate(templates, "Frame", "ShopCardTemplate")
+	card.Visible = false
+	card.Size = UDim2.new(1, -6, 0, 116)
+	card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	card.BorderSizePixel = 0
+	applyCorner(card, 12)
+	applyStroke(card, Color3.fromRGB(35, 38, 45), 2)
+
+	local icon = frame(card, "Icon", UDim2.fromOffset(12, 14), UDim2.fromOffset(72, 72), Color3.fromRGB(244, 248, 252))
+	text(icon, "IconText", "VIP", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 20).TextXAlignment = Enum.TextXAlignment.Center
+
+	local image = icon:FindFirstChild("IconImage")
+	if not image then
+		image = Instance.new("ImageLabel")
+		image.Name = "IconImage"
+		image.Parent = icon
+	end
+	image.BackgroundTransparency = 1
+	image.Size = UDim2.fromScale(1, 1)
+	image.Visible = false
+
+	text(card, "Name", "Product", UDim2.fromOffset(96, 10), UDim2.new(1, -238, 0, 26), 18)
+	text(card, "Description", "Description", UDim2.fromOffset(96, 38), UDim2.new(1, -238, 0, 40), 13)
+	text(card, "Badge", "BADGE", UDim2.fromOffset(96, 80), UDim2.new(1, -238, 0, 22), 12)
+	text(card, "Price", "R$ 0", UDim2.new(1, -130, 0, 14), UDim2.fromOffset(112, 24), 14).TextXAlignment = Enum.TextXAlignment.Center
+	button(card, "BuyButton", "BUY", UDim2.new(1, -130, 1, -48), UDim2.fromOffset(112, 34), Color3.fromRGB(84, 225, 112))
+
+	if created then
+		print("StudioMenuWindowsBuilder: created ShopWindow.Templates.ShopCardTemplate")
+	end
+end
+
 function Builder.Build()
 	if not RunService:IsStudio() then
 		warn("StudioMenuWindowsBuilder.Build can only run in Roblox Studio.")
@@ -181,14 +215,17 @@ function Builder.Build()
 	dim.Text = ""
 	dim.Visible = false
 
-	local windowsFolder = findOrCreate(mainHud, "Folder", "Windows")
+	local modalWindows = findOrCreate(mainHud, "Folder", "ModalWindows")
+	local windowsFolder = findOrCreate(modalWindows, "Folder", "Windows")
 	makeInventory(windowsFolder)
-	local _, shopContent = makeWindow(windowsFolder, "ShopWindow", "SHOP", { "Gamepasses", "Potions", "Currency" })
-	makeCardGrid(shopContent, { "VIP Pass", "2x Coins", "Lucky Hatch", "Coin Potion", "Hatch Potion", "Gem Pack" })
+	local shopWindow = makeWindow(windowsFolder, "ShopWindow", "ROBUX SHOP", { "Bundles", "Gamepasses", "Potions", "Currency" })
+	makeShopTemplates(shopWindow)
 	local _, upgradesContent = makeWindow(windowsFolder, "UpgradesWindow", "UPGRADES", { "Player", "Colors", "Rank" })
 	makeCardGrid(upgradesContent, { "Walk Speed", "Brush Power", "Coin Boost", "Gem Luck" })
 	local _, settingsContent = makeWindow(windowsFolder, "SettingsWindow", "SETTINGS", {})
-	makeCardGrid(settingsContent, { "Music", "SFX", "Hide Pets", "Low Detail", "Auto Delete", "Codes" })
+	makeCardGrid(settingsContent, { "Music", "SFX", "Hide Pets", "Low Detail", "Auto Delete" })
+	local _, codesContent = makeWindow(windowsFolder, "CodesWindow", "CODES", {})
+	makeCardGrid(codesContent, { "CodeBox", "RedeemButton", "InfoText", "RecentRewards" })
 	local _, tradeContent = makeWindow(windowsFolder, "TradeWindow", "TRADE", {})
 	text(tradeContent, "ComingSoon", "Trading is coming soon!", UDim2.fromScale(0, 0.35), UDim2.fromScale(1, 0.18), 28).TextXAlignment = Enum.TextXAlignment.Center
 	local _, worldsContent = makeWindow(windowsFolder, "WorldsWindow", "WORLDS", {})
@@ -196,7 +233,7 @@ function Builder.Build()
 	local _, questsContent = makeWindow(windowsFolder, "DailyQuestsWindow", "DAILY QUESTS", {})
 	makeCardGrid(questsContent, { "Hatch 3 Colors", "Break 25 Chunks", "Collect 5 Gems" })
 
-	print("StudioMenuWindowsBuilder: editable UI created at StarterGui.ClientUIRoot.MainHUD.Windows")
+	print("StudioMenuWindowsBuilder: editable UI created at StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows")
 end
 
 return Builder

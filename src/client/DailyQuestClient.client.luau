@@ -1,4 +1,9 @@
 -- StarterPlayerScripts/Client/DailyQuestClient
+if true then
+	warn("DailyQuestClient UI disabled; EditorWindowBinder binds MainHUD.ModalWindows.Windows.DailyQuestsWindow.")
+	return
+end
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -229,7 +234,7 @@ local function render(data)
 				remote:FireServer("Claim", index)
 			end)
 		else
-			claimButton.Text = "LOCKED"
+			claimButton.Text = "IN PROGRESS"
 			claimButton.Active = false
 		end
 	end

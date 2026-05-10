@@ -66,6 +66,7 @@ local DEFAULT_DATA = {
 	CurrentWorld = "Red",
 	PetInventory = {},   -- canonical saved Color inventory; list of { petId = "RedBlob", stackAmount = 1, traitId = "Neutral", mutationId = "None" }
 	EquippedPets = {},   -- list of Color variant keys
+	LockedPets = {},     -- variant keys protected from deletion
 	OwnedPaintTools = {"StarterBrush"},
 	EquippedPaintTool = "StarterBrush",
 	Settings = {
@@ -795,6 +796,7 @@ local function migrateData(saved)
 	data.PetInventory = inventoryMapToList(recordsByKey)
 	data.Pets = deepCopy(data.PetInventory)
 	data.Colors = deepCopy(data.PetInventory)
+	data.LockedPets = type(data.LockedPets) == "table" and data.LockedPets or {}
 
 	data.EquippedPets = {}
 	local seenEquipped = {}
@@ -840,6 +842,7 @@ local function validateProfileData(player, data, context)
 	mergeInventorySource(data.PetInventory, recordsByKey, backupList)
 	data.PetInventory = inventoryMapToList(recordsByKey)
 	data.EquippedPets = sanitizeEquippedPetList(data.EquippedPets, data.PetInventory, player)
+	data.LockedPets = type(data.LockedPets) == "table" and data.LockedPets or {}
 
 	data.OwnedPaintTools = normalizePaintToolList(data.OwnedPaintTools)
 	data.EquippedPaintTool = normalizeEquippedPaintTool(data.EquippedPaintTool, data.OwnedPaintTools)
@@ -1145,6 +1148,12 @@ local function applyData(player, data)
 	equippedValue.Parent = petFolder
 	watchValueForDirty(player, equippedValue, "equipped-colors")
 
+	local lockedValue = Instance.new("StringValue")
+	lockedValue.Name = "Locked"
+	lockedValue.Value = table.concat(type(data.LockedPets) == "table" and data.LockedPets or {}, ",")
+	lockedValue.Parent = petFolder
+	watchValueForDirty(player, lockedValue, "locked-colors")
+
 	local toolsFolder = player:FindFirstChild("PaintTools")
 	if not toolsFolder then
 		toolsFolder = Instance.new("Folder")
@@ -1313,6 +1322,13 @@ local function collectData(player)
 		local equippedVal = petFolder:FindFirstChild("Equipped")
 		if equippedVal and equippedVal.Value ~= "" then
 			data.EquippedPets = string.split(equippedVal.Value, ",")
+		end
+
+		local lockedVal = petFolder:FindFirstChild("Locked")
+		if lockedVal and lockedVal.Value ~= "" then
+			data.LockedPets = string.split(lockedVal.Value, ",")
+		else
+			data.LockedPets = {}
 		end
 	end
 

@@ -73,10 +73,20 @@ toggleButton.BackgroundColor3 = Color3.fromRGB(118, 238, 244)
 toggleButton.AutoButtonColor = false
 toggleButton.BorderSizePixel = 0
 toggleButton.Font = Enum.Font.GothamBlack
-toggleButton.TextSize = 13
-toggleButton.TextColor3 = DARK
-toggleButton.Text = "LB"
+toggleButton.TextScaled = true
+toggleButton.TextSize = 14
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextStrokeColor3 = DARK
+toggleButton.TextStrokeTransparency = 0
+toggleButton.Text = "STATS"
+toggleButton:SetAttribute("ForceReadableText", true)
+toggleButton:SetAttribute("NoReadableHover", true)
 toggleButton.Parent = screenGui
+
+local toggleTextSize = Instance.new("UITextSizeConstraint")
+toggleTextSize.MinTextSize = 10
+toggleTextSize.MaxTextSize = 16
+toggleTextSize.Parent = toggleButton
 
 local toggleCorner = Instance.new("UICorner")
 toggleCorner.CornerRadius = UDim.new(0, 12)
@@ -89,8 +99,8 @@ toggleStroke.Parent = toggleButton
 
 local function applyLeaderboardVisibility()
 	panel.Visible = not leaderboardHidden
-	toggleButton.Text = leaderboardHidden and "LB" or "HIDE"
-	toggleButton.BackgroundColor3 = leaderboardHidden and Color3.fromRGB(118, 238, 244) or Color3.fromRGB(255, 130, 150)
+	toggleButton.Text = leaderboardHidden and "STATS" or "HIDE"
+	toggleButton.BackgroundColor3 = leaderboardHidden and Color3.fromRGB(16, 38, 56) or Color3.fromRGB(225, 52, 98)
 end
 
 toggleButton.MouseButton1Click:Connect(function()

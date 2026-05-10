@@ -1,4 +1,9 @@
 -- GamepassUI.client.luau
+if true then
+	warn("GamepassUI disabled; editable MainHUD.ModalWindows.Windows.ShopWindow is bound by EditorWindowBinder.")
+	return
+end
+
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

@@ -1,8 +1,14 @@
+-- Legacy controller disabled. WindowButtonController.client.luau is the only
+-- script that opens/closes MainHUD.ModalWindows.Windows.
+if true then
+	warn("UIController disabled; WindowButtonController owns editable MainHUD windows.")
+	return
+end
+
 -- Controls the editor-built UI under PlayerGui.ClientUIRoot.MainHUD.
 -- This script intentionally does not create, replace, or style full windows.
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
@@ -10,31 +16,30 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 local WARNED = {}
 
-local WINDOW_ALIASES = {
-	Inventory = { "InventoryWindow" },
-	Shop = { "ShopWindow", "MarketWindow" },
-	Upgrades = { "UpgradesWindow", "RankWindow" },
-	Settings = { "SettingsWindow" },
-	Trade = { "TradeWindow", "TradingWindow" },
-	Worlds = { "WorldsWindow", "WorldWindow" },
-	DailyQuests = { "DailyQuestsWindow", "DailyQuestWindow" },
+local WINDOW_NAMES = {
+	Inventory = "InventoryWindow",
+	Shop = "ShopWindow",
+	Worlds = "WorldsWindow",
+	DailyQuests = "DailyQuestsWindow",
+	Codes = "CodesWindow",
+	Upgrades = "UpgradesWindow",
+	Settings = "SettingsWindow",
+	Trade = "TradeWindow",
 }
 
-local BUTTON_ALIASES = {
-	Inventory = { "InventoryButton", "MenuButton", "MenuHamburgerButton" },
-	Shop = { "ShopButton", "MarketButton", "StoreButton" },
-	Upgrades = { "UpgradesButton", "UpgradeButton", "RankButton", "RanksButton" },
-	Settings = { "SettingsButton", "GearButton" },
-	Trade = { "TradeButton", "TradingButton" },
-	Worlds = { "WorldsButton", "WorldButton", "WorldGlobeButton" },
-	DailyQuests = { "DailyQuestsButton", "DailyQuestButton", "QuestsButton", "QuestButton" },
+local WINDOW_BUTTON_NAMES = {
+	Settings = "SettingsButton",
+	Shop = "ShopButton",
+	Upgrades = "UpgradesButton",
+	Trade = "TradeButton",
 }
 
-local MENU_KEYS = { "Inventory", "Settings", "Trade", "Upgrades", "Shop", "Worlds", "DailyQuests" }
-local SIDE_KEYS = { "Settings", "Trade", "Upgrades", "Shop", "Worlds", "DailyQuests" }
+local DOCK_TOGGLE_BUTTON_NAME = "InventoryButton"
+local DOCK_BUTTON_NAMES = { "ShopButton", "UpgradesButton", "SettingsButton", "TradeButton" }
 local LEGACY_GENERATED_LAYER_NAMES = {
 	EquipmentShopUI = true,
 	GamepassUI = true,
+	ShopUI = true,
 	WorldUI = true,
 	SocialPanelsUI = true,
 	CodesUI = true,
@@ -47,7 +52,6 @@ local activeKey = nil
 local dockOpen = false
 local windows = {}
 local buttons = {}
-local buttonRows = {}
 local lastPressAt = {}
 
 local function warnOnce(key, message)
@@ -56,30 +60,6 @@ local function warnOnce(key, message)
 	end
 	WARNED[key] = true
 	warn(message)
-end
-
-local function findFirstByNames(parent, names)
-	if not parent then
-		return nil
-	end
-	for _, name in ipairs(names) do
-		local found = parent:FindFirstChild(name, true)
-		if found then
-			return found
-		end
-	end
-	return nil
-end
-
-local function findButtonInRows(key)
-	local aliases = BUTTON_ALIASES[key]
-	for _, row in ipairs(buttonRows) do
-		local found = findFirstByNames(row, aliases)
-		if found and found:IsA("GuiObject") then
-			return found
-		end
-	end
-	return nil
 end
 
 local function debounce(label)
@@ -151,16 +131,71 @@ local function getMenuBlur()
 	return nil
 end
 
-local function setDockOpen(open)
-	dockOpen = open
-	-- The editor-built button row owns visibility and layout.
-	-- Keep every physical button exactly as placed in Studio.
-	print("[UIController] dock open:", open)
-end
-
 local dimBackground = nil
 local menuBlur = nil
 local root = nil
+local mainHud = nil
+
+local function findWindowsFolder(mainHudObject)
+	local modalWindows = mainHudObject:WaitForChild("ModalWindows", 10)
+	if modalWindows then
+		local nestedWindows = modalWindows:WaitForChild("Windows", 10)
+		if nestedWindows then
+			return nestedWindows
+		end
+		warn("UIController: missing MainHUD.ModalWindows.Windows.")
+	end
+
+	local legacyWindows = mainHudObject:FindFirstChild("Windows")
+	if legacyWindows then
+		warn("UIController: using legacy MainHUD.Windows. Expected MainHUD.ModalWindows.Windows.")
+		return legacyWindows
+	end
+
+	return nil
+end
+
+local function setDockOpen(open)
+	dockOpen = open
+
+	if not mainHud then
+		warn("[UIController] Missing MainHUD")
+		return
+	end
+
+	local buttonsRow = mainHud:WaitForChild("ButtonsRow", 10)
+	if not buttonsRow then
+		warn("[UIController] Missing MainHUD.ButtonsRow")
+		return
+	end
+
+	for _, buttonName in ipairs(DOCK_BUTTON_NAMES) do
+		local button = buttonsRow:FindFirstChild(buttonName)
+		if button and button:IsA("GuiObject") then
+			button.Visible = open
+			button.Active = open
+		else
+			warn("[UIController] Missing dock button:", buttonName)
+		end
+	end
+
+	local inventoryButton = buttonsRow:FindFirstChild(DOCK_TOGGLE_BUTTON_NAME)
+	if inventoryButton and inventoryButton:IsA("GuiObject") then
+		inventoryButton.Visible = true
+		inventoryButton.Active = true
+	else
+		warn("[UIController] Missing " .. DOCK_TOGGLE_BUTTON_NAME)
+	end
+
+	print("[UIController] dock visual state:", open)
+	for _, child in ipairs(buttonsRow:GetChildren()) do
+		if child:IsA("GuiObject") then
+			print("[UIController] ButtonsRow child:", child.Name, child.ClassName, "visible=" .. tostring(child.Visible), "position=" .. tostring(child.Position), "size=" .. tostring(child.Size))
+		else
+			print("[UIController] ButtonsRow child:", child.Name, child.ClassName)
+		end
+	end
+end
 
 local function updateDim()
 	local anyOpen = activeKey ~= nil
@@ -203,31 +238,6 @@ local function openWindow(key)
 	print("[UIController] opened window:", key, window:GetFullName())
 end
 
-local function toggleWindow(key)
-	if activeKey == key then
-		closeAllWindows()
-	else
-		openWindow(key)
-	end
-end
-
-local function openInventory()
-	closeAllWindows()
-
-	local inventoryLayer = root:FindFirstChild("InventoryUI")
-	if inventoryLayer and inventoryLayer:IsA("GuiObject") then
-		inventoryLayer.Visible = true
-	end
-
-	local openInventoryBindable = ReplicatedStorage:FindFirstChild("HudOpenInventory")
-	if openInventoryBindable and openInventoryBindable:IsA("BindableEvent") then
-		openInventoryBindable:Fire({ from = "UIController", defaultTab = "Colors" })
-		return
-	end
-
-	toggleWindow("Inventory")
-end
-
 local function connectCloseButton(key, window)
 	local closeButton = window and window:FindFirstChild("CloseButton", true)
 	if not closeButton then
@@ -239,9 +249,6 @@ local function connectCloseButton(key, window)
 			closeAllWindows()
 		else
 			window.Visible = false
-		end
-		if key == "Inventory" then
-			setDockOpen(false)
 		end
 		print("[UIController] close clicked:", key)
 	end, key .. ".CloseButton")
@@ -291,15 +298,15 @@ if not root or not root:IsA("ScreenGui") then
 	return
 end
 
-local mainHud = root:WaitForChild("MainHUD", 15)
+mainHud = root:WaitForChild("MainHUD", 15)
 if not mainHud or not mainHud:IsA("GuiObject") then
 	warn("UIController: missing PlayerGui.ClientUIRoot.MainHUD. No windows were controlled.")
 	return
 end
 
-local windowsFolder = mainHud:WaitForChild("Windows", 15)
+local windowsFolder = findWindowsFolder(mainHud)
 if not windowsFolder then
-	warn("UIController: missing PlayerGui.ClientUIRoot.MainHUD.Windows. Add physical window Frames in Studio.")
+	warn("UIController: missing PlayerGui.ClientUIRoot.MainHUD.ModalWindows.Windows. Add physical window Frames in Studio.")
 	return
 end
 
@@ -312,45 +319,33 @@ elseif not dimBackground:IsA("GuiObject") then
 end
 menuBlur = getMenuBlur()
 
-local bottomRow = mainHud:FindFirstChild("BottomRow")
-local leftButtons = mainHud:FindFirstChild("LeftButtons")
-local mainButtonsRow = mainHud:FindFirstChild("ButtonsRow")
-local legacyButtonsRow = root:FindFirstChild("ButtonsRow")
-local bottomMenu = root:FindFirstChild("BottomMenu")
-local nestedButtonsRow = bottomMenu and bottomMenu:FindFirstChild("ButtonsRow")
-for _, row in ipairs({ bottomRow, leftButtons, mainButtonsRow, legacyButtonsRow, nestedButtonsRow }) do
-	if row and row:IsA("GuiObject") then
-		table.insert(buttonRows, row)
-	end
+local mainButtonsRow = mainHud:WaitForChild("ButtonsRow", 10)
+if not mainButtonsRow or not mainButtonsRow:IsA("GuiObject") then
+	warn("[UIController] Missing MainHUD.ButtonsRow")
+	mainButtonsRow = nil
 end
 
-if #buttonRows == 0 then
-	warnOnce("missing-bottomrow", "UIController: missing MainHUD.BottomRow/LeftButtons/ButtonsRow. Window buttons were not wired.")
-end
-
-for key, aliases in pairs(WINDOW_ALIASES) do
-	local window = findFirstByNames(windowsFolder, aliases)
+for key, windowName in pairs(WINDOW_NAMES) do
+	local window = windowsFolder:FindFirstChild(windowName)
 	if window and window:IsA("GuiObject") then
 		windows[key] = window
 		window.Visible = false
 		connectCloseButton(key, window)
 		wireTabs(window)
 	else
-		warnOnce("missing-window-" .. key, "UIController: missing MainHUD.Windows." .. aliases[1])
+		warnOnce("missing-window-" .. key, "UIController: missing MainHUD.Windows." .. windowName)
 	end
 end
 
-for _, key in ipairs(MENU_KEYS) do
-	local button = findButtonInRows(key)
+for key, buttonName in pairs(WINDOW_BUTTON_NAMES) do
+	local button = mainButtonsRow and mainButtonsRow:FindFirstChild(buttonName)
 	if button and button:IsA("GuiObject") then
 		buttons[key] = button
 		print("[UIController] wired button:", key, button:GetFullName())
-	else
-		warnOnce("missing-button-" .. key, "UIController: missing physical button for " .. key .. ".")
 	end
 end
 
-dockOpen = true
+dockOpen = false
 closeAllWindows()
 hideLegacyGeneratedLayers(root)
 if dimBackground then
@@ -359,21 +354,30 @@ if dimBackground then
 	end, "DimBackground")
 end
 
-if buttons.Inventory then
-	connectButtonContainer(buttons.Inventory, function()
-		print("[UIController] Inventory clicked")
-		openInventory()
-	end, "InventoryButton")
+local inventoryButton = mainButtonsRow and mainButtonsRow:FindFirstChild(DOCK_TOGGLE_BUTTON_NAME)
+if inventoryButton and inventoryButton:IsA("GuiObject") then
+	connectButtonContainer(inventoryButton, function()
+		if activeKey == "Inventory" then
+			closeAllWindows()
+			setDockOpen(false)
+		else
+			openWindow("Inventory")
+			setDockOpen(true)
+		end
+	end, DOCK_TOGGLE_BUTTON_NAME)
 end
 
-for _, key in ipairs(SIDE_KEYS) do
-	if buttons[key] then
-		connectButtonContainer(buttons[key], function()
+for key, button in pairs(buttons) do
+	if button then
+		connectButtonContainer(button, function()
 			print("[UIController] " .. key .. " clicked")
-			toggleWindow(key)
-		end, key .. "Button")
+			openWindow(key)
+			setDockOpen(true)
+		end, WINDOW_BUTTON_NAMES[key])
 	end
 end
+
+setDockOpen(false)
 
 root.ChildAdded:Connect(function(child)
 	if LEGACY_GENERATED_LAYER_NAMES[child.Name] then

@@ -26,6 +26,8 @@ if not PetTraits then warn("PetHandler: PetTraits module not found!") end
 local Events          = ReplicatedStorage:WaitForChild("Events")
 local hatchEvent      = Events:WaitForChild("HatchEgg")
 local equipEvent      = Events:WaitForChild("EquipPet")
+local lockPetEvent    = Events:WaitForChild("LockPet")
+local deletePetEvent  = Events:WaitForChild("DeletePet")
 local mergeEvent      = Events:WaitForChild("MergePet")
 local petAtkEvent     = Events:WaitForChild("PetAttack")
 local petBreakRewardEvent = Events:FindFirstChild("PetBreakReward")
@@ -62,6 +64,7 @@ local DEBUG_LOGS = RunService:IsStudio()
 -- equipped:  { [player] = { variantKey, ... } }
 local playerInventory = {}
 local playerEquipped  = {}
+local playerLocked = {}
 local lastMergeAt = {}
 local hatchState = {}
 local hatchLocks = {}
@@ -406,6 +409,42 @@ local function buildEntry(variantKey, data)
 	return entry
 end
 
+local function parseLockedValue(value)
+	local locked = {}
+	for _, key in ipairs(string.split(value or "", ",")) do
+		if key ~= "" then
+			locked[key] = true
+		end
+	end
+	return locked
+end
+
+local function lockedToCsv(player)
+	local locked = playerLocked[player]
+	local inventory = playerInventory[player]
+	if not locked or not inventory then
+		return ""
+	end
+
+	local keys = {}
+	for key in pairs(locked) do
+		if inventory[key] then
+			table.insert(keys, key)
+		end
+	end
+	table.sort(keys)
+	return table.concat(keys, ",")
+end
+
+local function isEquippedKey(equipped, key)
+	for _, equippedKey in ipairs(equipped or {}) do
+		if equippedKey == key then
+			return true
+		end
+	end
+	return false
+end
+
 local function getEquippedPersonalityStats(player)
 	local result = {
 		colorGainMult = 1,
@@ -526,6 +565,7 @@ local function syncPetFolder(player, dirtyReason)
 
 	local invVal      = petFolder:FindFirstChild("Inventory")
 	local equippedVal = petFolder:FindFirstChild("Equipped")
+	local lockedVal = petFolder:FindFirstChild("Locked")
 
 	if invVal then
 		local parts = {}
@@ -541,6 +581,13 @@ local function syncPetFolder(player, dirtyReason)
 	if equippedVal then
 		equippedVal.Value = table.concat(playerEquipped[player], ",")
 	end
+
+	if not lockedVal then
+		lockedVal = Instance.new("StringValue")
+		lockedVal.Name = "Locked"
+		lockedVal.Parent = petFolder
+	end
+	lockedVal.Value = lockedToCsv(player)
 
 	applyWalkSpeedBonus(player)
 	markDataDirty(player, dirtyReason)
@@ -559,6 +606,7 @@ local function sendState(player)
 	for variantKey, data in pairs(playerInventory[player]) do
 		local entry = buildEntry(variantKey, data)
 		if entry then
+			entry.isLocked = playerLocked[player] and playerLocked[player][variantKey] == true
 			table.insert(invList, entry)
 		end
 	end
@@ -681,6 +729,7 @@ end
 Players.PlayerAdded:Connect(function(player)
 	playerInventory[player] = {}
 	playerEquipped[player]  = {}
+	playerLocked[player] = {}
 
 	if player:GetAttribute("DataManagerReady") ~= true then
 		player:GetAttributeChangedSignal("DataManagerReady"):Wait()
@@ -694,9 +743,18 @@ Players.PlayerAdded:Connect(function(player)
 
 	local invVal      = petFolder:WaitForChild("Inventory", 5)
 	local equippedVal = petFolder:WaitForChild("Equipped",  5)
+	local lockedVal = petFolder:FindFirstChild("Locked")
+	if not lockedVal then
+		lockedVal = Instance.new("StringValue")
+		lockedVal.Name = "Locked"
+		lockedVal.Parent = petFolder
+	end
 
 	if invVal and invVal.Value ~= "" then
 		playerInventory[player] = parseInventory(invVal.Value)
+	end
+	if lockedVal and lockedVal.Value ~= "" then
+		playerLocked[player] = parseLockedValue(lockedVal.Value)
 	end
 
 	if equippedVal and equippedVal.Value ~= "" then
@@ -743,6 +801,7 @@ Players.PlayerRemoving:Connect(function(player)
 	syncPetFolder(player, "player-removing")
 	playerInventory[player] = nil
 	playerEquipped[player]  = nil
+	playerLocked[player] = nil
 	lastMergeAt[player] = nil
 	hatchState[player] = nil
 	hatchLocks[player] = nil
@@ -865,6 +924,7 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	local cooldown = getHatchCooldown(player)
 	local lockSeconds = math.max(cooldown, MIN_HATCH_TRANSACTION_LOCK)
 	if now < (hatchLocks[player] or 0) then
+		rejectHatch(player, "Already hatching")
 		return
 	end
 	hatchLocks[player] = now + lockSeconds
@@ -1020,6 +1080,7 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	entry.wasDuplicate = wasDuplicate
 	entry.duplicateCount = newStack
 	entry.hatchCost = cost
+	entry.eggId = eggId
 	entry.mergeTier = entry.currentStackTier
 	entry.traitsUnlockedForEgg = canRollTraits
 	entry.mutationsUnlockedForEgg = canRollMutations
@@ -1084,6 +1145,66 @@ equipEvent.OnServerEvent:Connect(function(player, action, variantKey)
 	if action == "equip" and #equipped > 0 and tutorialColorEquippedEvent and tutorialColorEquippedEvent:IsA("BindableEvent") then
 		tutorialColorEquippedEvent:Fire(player, variantKey)
 	end
+end)
+
+-- ========================
+--   LOCK / DELETE COLORS
+-- ========================
+lockPetEvent.OnServerEvent:Connect(function(player, variantKey, locked)
+	local inventory = playerInventory[player]
+	if not inventory then
+		return
+	end
+
+	local resolvedKey = resolveInventoryKey(inventory, variantKey)
+	if not resolvedKey or not inventory[resolvedKey] then
+		lockPetEvent:FireClient(player, false, variantKey, "You do not own that Color.")
+		return
+	end
+
+	playerLocked[player] = playerLocked[player] or {}
+	if locked == nil then
+		playerLocked[player][resolvedKey] = not playerLocked[player][resolvedKey]
+	else
+		playerLocked[player][resolvedKey] = locked == true
+	end
+	if playerLocked[player][resolvedKey] ~= true then
+		playerLocked[player][resolvedKey] = nil
+	end
+
+	syncPetFolder(player, "lock-color")
+	sendState(player)
+	lockPetEvent:FireClient(player, true, resolvedKey, playerLocked[player][resolvedKey] == true)
+end)
+
+deletePetEvent.OnServerEvent:Connect(function(player, variantKey)
+	local equipped = playerEquipped[player]
+	local inventory = playerInventory[player]
+	if not equipped or not inventory then
+		return
+	end
+
+	local resolvedKey = resolveInventoryKey(inventory, variantKey)
+	if not resolvedKey or not inventory[resolvedKey] then
+		deletePetEvent:FireClient(player, false, variantKey, "You do not own that Color.")
+		return
+	end
+	if isEquippedKey(equipped, resolvedKey) then
+		deletePetEvent:FireClient(player, false, resolvedKey, "Unequip this Color before deleting it.")
+		return
+	end
+	if playerLocked[player] and playerLocked[player][resolvedKey] == true then
+		deletePetEvent:FireClient(player, false, resolvedKey, "Unlock this Color before deleting it.")
+		return
+	end
+
+	inventory[resolvedKey] = nil
+	if playerLocked[player] then
+		playerLocked[player][resolvedKey] = nil
+	end
+	syncPetFolder(player, "delete-color")
+	sendState(player)
+	deletePetEvent:FireClient(player, true, resolvedKey, "Color deleted.")
 end)
 
 -- ========================

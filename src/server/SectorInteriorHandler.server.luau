@@ -11,6 +11,7 @@ local COOLDOWN = 1.2
 local FADE_IN_TIME = 0.18
 local SAFE_LANDING_HEIGHT = 6
 local locks = {}
+local teleportTokens = {}
 local hooked = {}
 local AUTO_PIPE_NAMES = {
 	pipe = true,
@@ -21,6 +22,18 @@ local AUTO_PIPE_NAMES = {
 local function getCharacterRoot(player)
 	local character = player.Character
 	return character and character:FindFirstChild("HumanoidRootPart")
+end
+
+local function beginTeleportGrace(player)
+	local token = (teleportTokens[player] or 0) + 1
+	teleportTokens[player] = token
+	player:SetAttribute("IsTeleporting", true)
+
+	task.delay(1, function()
+		if player.Parent and teleportTokens[player] == token then
+			player:SetAttribute("IsTeleporting", false)
+		end
+	end)
 end
 
 local function setRootCFrame(player, cframe)
@@ -293,12 +306,46 @@ local function exteriorReturnCFrame(part, lookTarget)
 	return CFrame.new(pos)
 end
 
+local function normalizePipeExitSpawn(part)
+	part.Name = "PipeExitSpawn"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = true
+	part.Transparency = 1
+	part:SetAttribute("PipeExitSpawn", true)
+	return part
+end
+
+local function ensurePipeExitSpawn(trigger)
+	local existing = Workspace:FindFirstChild("PipeExitSpawn")
+	if existing and existing:IsA("BasePart") then
+		return normalizePipeExitSpawn(existing)
+	end
+
+	local exteriorReturn = findExteriorReturn(trigger)
+	local exitCFrame
+	if exteriorReturn then
+		exitCFrame = exteriorReturnCFrame(exteriorReturn, trigger)
+	else
+		exitCFrame = trigger.CFrame + Vector3.new(0, math.max(8, trigger.Size.Y * 0.5 + 8), -34)
+		warn("SectorInteriorHandler: missing SectorInteriorExteriorReturn for " .. trigger:GetFullName() .. "; creating fallback PipeExitSpawn.")
+	end
+
+	local marker = Instance.new("Part")
+	marker.Size = Vector3.new(8, 1, 8)
+	marker.CFrame = exitCFrame
+	marker.Parent = Workspace
+	return normalizePipeExitSpawn(marker)
+end
+
 local function playTransition(player, callback)
 	local now = os.clock()
 	if locks[player] and now - locks[player] < COOLDOWN then
 		return
 	end
 	locks[player] = now
+	beginTeleportGrace(player)
 
 	if transitionEvent and transitionEvent:IsA("RemoteEvent") then
 		transitionEvent:FireClient(player, "FadeIn")
@@ -342,13 +389,9 @@ local function enterInterior(player, trigger)
 end
 
 local function exitInterior(player, trigger)
-	local destination = findExteriorReturn(trigger)
-	if not destination then
-		warn("SectorInteriorHandler: missing SectorInteriorExteriorReturn for " .. trigger:GetFullName())
-		return
-	end
+	local destination = ensurePipeExitSpawn(trigger)
 	playTransition(player, function()
-		local ok = setRootCFrame(player, getSafeLandingCFrame(player, exteriorReturnCFrame(destination, trigger)))
+		local ok = setRootCFrame(player, destination.CFrame + Vector3.new(0, 4, 0))
 		if ok then
 			player:SetAttribute("InsideSectorInterior", false)
 		end
@@ -412,4 +455,5 @@ end)
 
 Players.PlayerRemoving:Connect(function(player)
 	locks[player] = nil
+	teleportTokens[player] = nil
 end)

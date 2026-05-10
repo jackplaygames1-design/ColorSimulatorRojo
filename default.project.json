@@ -126,6 +126,12 @@
         "EquipPet": {
           "$className": "RemoteEvent"
         },
+        "LockPet": {
+          "$className": "RemoteEvent"
+        },
+        "DeletePet": {
+          "$className": "RemoteEvent"
+        },
         "MergePet": {
           "$className": "RemoteEvent"
         },
@@ -139,6 +145,9 @@
           "$className": "RemoteEvent"
         },
         "UnlockArea": {
+          "$className": "RemoteEvent"
+        },
+        "RequestTravelToSector": {
           "$className": "RemoteEvent"
         },
         "TravelToMarket": {

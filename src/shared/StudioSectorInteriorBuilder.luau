@@ -398,6 +398,13 @@ function Builder.BuildOrangeMutationInterior(options)
 	trigger:SetAttribute("ColorType", colorType)
 	makePrompt(trigger, "EnterSectorPrompt", "Orange Sector Pipe", "Enter", 16)
 
+	local pipeExitSpawn = makePart(Workspace, "PipeExitSpawn", Vector3.new(8, 1, 8), pipeCFrame * CFrame.new(0, 12, -56), COLORS.Cyan, Enum.Material.Neon, 1)
+	pipeExitSpawn.Anchored = true
+	pipeExitSpawn.CanCollide = false
+	pipeExitSpawn.CanTouch = false
+	pipeExitSpawn.CanQuery = true
+	pipeExitSpawn:SetAttribute("PipeExitSpawn", true)
+
 	local returnAnchor = makePart(pipe, "OrangeSectorExteriorReturn", Vector3.new(14, 1, 14), pipeCFrame * CFrame.new(0, -10, -22), COLORS.Cyan, Enum.Material.Neon, 0.35)
 	returnAnchor.CanCollide = false
 	returnAnchor:SetAttribute("SectorInteriorExteriorReturn", true)
