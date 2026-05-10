@@ -24,6 +24,7 @@ local playerInventory = {}
 -- Cooldowns to prevent spam
 local cooldowns = {}
 local COOLDOWN  = 0.5
+local ENABLE_RUNTIME_ITEM_GRANTS = false
 
 local MATERIAL_ITEMS = {}
 local START_CLEARED_CATEGORIES = {
@@ -57,9 +58,14 @@ end
 --   Called by other scripts (e.g. dev products, rewards)
 -- ========================
 local function giveItem(player, itemId, quantity)
+	if not ENABLE_RUNTIME_ITEM_GRANTS then
+		warn("ItemsHandler: blocked runtime item grant ->", player and player.Name, itemId, quantity)
+		return false, "Runtime item grants are disabled."
+	end
+
 	if MATERIAL_ITEMS[itemId] then
 		print("ItemsHandler: material item grant ignored for now -> " .. tostring(itemId))
-		return
+		return false, "Material item grants are disabled."
 	end
 
 	quantity = quantity or 1
@@ -69,6 +75,7 @@ local function giveItem(player, itemId, quantity)
 	-- Notify client
 	useEvent:FireClient(player, "update", itemId, inv[itemId])
 	print(player.Name .. " received " .. quantity .. "x " .. itemId)
+	return true, inv[itemId]
 end
 
 local function clearMaterials(inv)
@@ -215,10 +222,11 @@ local function useItem(player, itemId, requestedAmount)
 			{ itemId = "RangePotion", qty = 1 },
 		}
 		local reward = possibleRewards[math.random(1, #possibleRewards)]
-		giveItem(player, reward.itemId, reward.qty)
-
+		local granted = giveItem(player, reward.itemId, reward.qty)
 		useEvent:FireClient(player, "used", itemId, inv[itemId] or 0, {
-			message = "Mystery Crate opened! Got " .. reward.qty .. "x " .. (ItemsData.Items[reward.itemId] and ItemsData.Items[reward.itemId].displayName or reward.itemId) .. "!"
+			message = granted
+				and ("Mystery Crate opened! Got " .. reward.qty .. "x " .. (ItemsData.Items[reward.itemId] and ItemsData.Items[reward.itemId].displayName or reward.itemId) .. "!")
+				or "Mystery Crate rewards are disabled right now."
 		})
 
 	else

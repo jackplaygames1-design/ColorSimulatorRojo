@@ -12,9 +12,10 @@ local cooldownByPlayer = {}
 
 local DESTINATION_ALIASES = {
 	OrangeSector = { "OrangeSectorSpawn", "OrangeZoneSpawn", "OrangeSpawn" },
-	InsidePipes = { "InsidePipesSpawn", "PipeExitSpawn", "MutationZoneSpawn" },
+	InsidePipes = { "PipeExitSpawn", "InsidePipesSpawn", "MutationZoneSpawn" },
 	RedWastelands = { "RedWastelandsSpawn", "RedZoneSpawn", "StartSectorSpawn", "SpawnLocation" },
-	SpawnWorld = { "StartSectorSpawn", "SpawnWorldSpawn", "RedWastelandsSpawn", "SpawnLocation" },
+	OriginSector = { "OriginSectorSpawn", "StartSectorSpawn", "SpawnWorldSpawn", "SpawnLocation" },
+	SpawnWorld = { "OriginSectorSpawn", "StartSectorSpawn", "SpawnWorldSpawn", "SpawnLocation" },
 }
 
 local TRIGGER_NAME_DESTINATION = {

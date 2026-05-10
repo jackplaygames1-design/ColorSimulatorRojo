@@ -229,7 +229,7 @@ function Builder.Build()
 	local _, tradeContent = makeWindow(windowsFolder, "TradeWindow", "TRADE", {})
 	text(tradeContent, "ComingSoon", "Trading is coming soon!", UDim2.fromScale(0, 0.35), UDim2.fromScale(1, 0.18), 28).TextXAlignment = Enum.TextXAlignment.Center
 	local _, worldsContent = makeWindow(windowsFolder, "WorldsWindow", "WORLDS", {})
-	makeCardGrid(worldsContent, { "Red World", "Orange World", "Yellow World", "Green World", "Blue World" })
+	makeCardGrid(worldsContent, { "Origin Sector", "Red Wastelands", "Orange Sector", "Inside Pipes" })
 	local _, questsContent = makeWindow(windowsFolder, "DailyQuestsWindow", "DAILY QUESTS", {})
 	makeCardGrid(questsContent, { "Clean Color Spills", "Earn Coins", "Hatch Colors" })
 

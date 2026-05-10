@@ -25,9 +25,9 @@ local COOLDOWN_SECONDS = 1.5
 local cooldownByPlayer = {}
 
 local LOCATION_CONFIG = {
-	SpawnWorld = {
-		DisplayName = "Spawn World",
-		SpawnNames = { "StartSectorSpawn", "SpawnWorldSpawn", "RedWastelandsSpawn", "RedZoneSpawn", "SpawnLocation" },
+	OriginSector = {
+		DisplayName = "Origin Sector",
+		SpawnNames = { "OriginSectorSpawn", "StartSectorSpawn", "SpawnWorldSpawn", "SpawnLocation" },
 		AlwaysUnlocked = true,
 		CurrentWorld = "Red",
 	},
@@ -39,9 +39,9 @@ local LOCATION_CONFIG = {
 	},
 	InsidePipes = {
 		DisplayName = "Inside the Pipes",
-		SpawnNames = { "InsidePipesSpawn", "PipeExitSpawn", "MutationZoneSpawn" },
-		AlwaysUnlocked = true,
-		CurrentWorld = "Red",
+		SpawnNames = { "PipeExitSpawn", "InsidePipesSpawn", "MutationZoneSpawn" },
+		RequiredColor = "Orange",
+		CurrentWorld = "Orange",
 	},
 	OrangeSector = {
 		DisplayName = "Orange Sector",
@@ -55,6 +55,16 @@ local LOCATION_CONFIG = {
 		Locked = true,
 	},
 }
+
+local LOCATION_ID_ALIASES = {
+	SpawnWorld = "OriginSector",
+	StartSector = "OriginSector",
+	RedArea = "RedWastelands",
+}
+
+local function resolveLocationId(locationId)
+	return LOCATION_ID_ALIASES[locationId] or locationId
+end
 
 local function fireResult(player, success, locationId, message)
 	travelResult:FireClient(player, {
@@ -117,11 +127,13 @@ local function getUnlockedColorsFromAttributes(player)
 		return ColorData.getUnlockedColorSet(csv)
 	end
 
-	local valuesFolder = player:FindFirstChild("Values") or player:FindFirstChild("Data") or player:FindFirstChild("PlayerData")
-	if valuesFolder then
-		local unlockedValue = valuesFolder:FindFirstChild("UnlockedColors")
-		if unlockedValue and unlockedValue:IsA("StringValue") then
-			return ColorData.getUnlockedColorSet(unlockedValue.Value)
+	for _, folderName in ipairs({ "ColorStorage", "Values", "Data", "PlayerData" }) do
+		local valuesFolder = player:FindFirstChild(folderName)
+		if valuesFolder then
+			local unlockedValue = valuesFolder:FindFirstChild("UnlockedColors")
+			if unlockedValue and unlockedValue:IsA("StringValue") then
+				return ColorData.getUnlockedColorSet(unlockedValue.Value)
+			end
 		end
 	end
 
@@ -198,6 +210,7 @@ requestTravel.OnServerEvent:Connect(function(player, locationId)
 	if typeof(locationId) ~= "string" then
 		return
 	end
+	locationId = resolveLocationId(locationId)
 
 	local now = os.clock()
 	if cooldownByPlayer[player] and now - cooldownByPlayer[player] < COOLDOWN_SECONDS then
