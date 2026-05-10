@@ -67,8 +67,9 @@ local leftHud = mainHud:FindFirstChild("LeftHUD")
 local dimBackground = mainHud:FindFirstChild("DimBackground")
 local menuBlur = Lighting:FindFirstChild("MenuBlur")
 
-local DIM_BACKGROUND_ZINDEX = 10
-local WINDOW_ZINDEX_FLOOR = 20
+-- Dim must sit above every HUD button, but below all modal windows.
+local DIM_BACKGROUND_ZINDEX = 45
+local WINDOW_ZINDEX_FLOOR = 60
 
 local windows = {}
 local buttons = {}
@@ -186,8 +187,14 @@ local function prepareDimBackground()
 		return
 	end
 
+	dimBackground.AnchorPoint = Vector2.new(0, 0)
+	dimBackground.Position = UDim2.fromScale(0, 0)
+	dimBackground.Size = UDim2.fromScale(1, 1)
 	dimBackground.ZIndex = DIM_BACKGROUND_ZINDEX
 	dimBackground.Active = true
+	dimBackground.Visible = false
+	dimBackground.BackgroundTransparency = 0.42
+
 	if dimBackground:IsA("TextButton") or dimBackground:IsA("ImageButton") then
 		dimBackground.AutoButtonColor = false
 	end
@@ -226,6 +233,8 @@ local function updateDim()
 	local open = activeKey ~= nil
 	if dimBackground and dimBackground:IsA("GuiObject") then
 		dimBackground.Visible = open
+		-- Reassert layering every time a window opens, since some Studio-edited UI can have low zindex.
+		dimBackground.ZIndex = DIM_BACKGROUND_ZINDEX
 	end
 	if menuBlur and menuBlur:IsA("BlurEffect") then
 		menuBlur.Enabled = open
@@ -290,6 +299,7 @@ for key, windowName in pairs(WINDOW_NAMES) do
 		window:GetPropertyChangedSignal("Visible"):Connect(function()
 			if window.Visible then
 				activeKey = key
+				prepareModalWindow(window)
 				updateDim()
 				if BOTTOM_BUTTONS[key] then
 					setDockOpen(true)
@@ -334,6 +344,8 @@ end
 
 prepareDimBackground()
 if dimBackground and dimBackground:IsA("GuiObject") then
+	-- Dim closes only because it is below modal windows and above HUD buttons.
+	-- Clicking inside a modal hits the modal, not this background.
 	connectPress(dimBackground, closeAllWindows, "DimBackground")
 end
 
@@ -360,4 +372,4 @@ end)
 closeAllWindows()
 setDockOpen(false)
 
-print("[WindowButtonController] editable MainHUD windows ready.")
+print("[WindowButtonController] editable MainHUD windows ready. Dim closes only outside modals.")
