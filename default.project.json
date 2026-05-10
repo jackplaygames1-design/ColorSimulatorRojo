@@ -203,6 +203,9 @@
     },
 
     "ServerScriptService": {
+      "AAA_DisableRuntimeItemGrants": {
+        "$path": "src/server_root/AAA_DisableRuntimeItemGrants.server.luau"
+      },
       "Server": {
         "$path": "src/server"
       }
