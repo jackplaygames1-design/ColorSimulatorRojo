@@ -979,6 +979,7 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 		-- Ignore duplicates so a stale failure response cannot cancel the real hatch UI.
 		logHatch(player, eggId, "reject:", "Already hatching")
 		releaseActiveHatch(player, hatchToken)
+		rejectHatch(player, "Already hatching")
 		return
 	end
 
