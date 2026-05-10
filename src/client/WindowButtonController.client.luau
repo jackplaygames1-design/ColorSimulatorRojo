@@ -69,6 +69,7 @@ local menuBlur = Lighting:FindFirstChild("MenuBlur")
 
 local DIM_BACKGROUND_ZINDEX = 10
 local WINDOW_ZINDEX_FLOOR = 20
+local HUD_BUTTON_ZINDEX_FLOOR = WINDOW_ZINDEX_FLOOR + 1
 
 local windows = {}
 local buttons = {}
@@ -206,10 +207,11 @@ local function prepareDimBackground()
 	dimBackground.Position = UDim2.fromScale(0, 0)
 	dimBackground.Size = UDim2.fromScale(1, 1)
 	dimBackground.ZIndex = DIM_BACKGROUND_ZINDEX
-	dimBackground.Active = true
-	if dimBackground:IsA("TextButton") or dimBackground:IsA("ImageButton") then
-		dimBackground.AutoButtonColor = false
-	end
+	dimBackground.Active = false
+	dimBackground.Selectable = false
+	pcall(function()
+		dimBackground.Interactable = false
+	end)
 end
 
 local function anyWindowVisible()
@@ -357,9 +359,6 @@ for key, buttonName in pairs(LEFT_BUTTONS) do
 end
 
 prepareDimBackground()
-if dimBackground and dimBackground:IsA("GuiObject") then
-	connectPress(dimBackground, closeAllWindows, "DimBackground")
-end
 
 root:GetAttributeChangedSignal("RequestedWindow"):Connect(function()
 	local requested = root:GetAttribute("RequestedWindow")
@@ -384,4 +383,4 @@ end)
 closeAllWindows()
 setDockOpen(false)
 
-print("[WindowButtonController] editable MainHUD windows ready. Dim closes only outside modals.")
+print("[WindowButtonController] editable MainHUD windows ready. Dim background is passive.")

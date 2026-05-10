@@ -208,13 +208,11 @@ function Builder.Build()
 
 	findOrCreate(mainHud, "Frame", "CurrencyBar").BackgroundTransparency = 1
 	findOrCreate(mainHud, "Frame", "BottomRow").BackgroundTransparency = 1
-	local dim = findOrCreate(mainHud, "TextButton", "DimBackground")
+	local dim = findOrCreate(mainHud, "Frame", "DimBackground")
 	dim.Size = UDim2.fromScale(1, 1)
 	dim.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	dim.BackgroundTransparency = 0.45
-	dim.AutoButtonColor = false
 	dim.ZIndex = 10
-	dim.Text = ""
 	dim.Visible = false
 
 	local modalWindows = findOrCreate(mainHud, "Folder", "ModalWindows")
