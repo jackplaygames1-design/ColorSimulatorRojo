@@ -67,6 +67,9 @@ local leftHud = mainHud:FindFirstChild("LeftHUD")
 local dimBackground = mainHud:FindFirstChild("DimBackground")
 local menuBlur = Lighting:FindFirstChild("MenuBlur")
 
+local DIM_BACKGROUND_ZINDEX = 10
+local WINDOW_ZINDEX_FLOOR = 20
+
 local windows = {}
 local buttons = {}
 local activeKey = nil
@@ -161,6 +164,35 @@ local function hideLegacyGeneratedLayers()
 	end
 end
 
+local function applyGuiZIndexFloor(guiObject, zIndexFloor)
+	if guiObject:IsA("GuiObject") and guiObject.ZIndex < zIndexFloor then
+		guiObject.ZIndex = zIndexFloor
+	end
+
+	for _, descendant in ipairs(guiObject:GetDescendants()) do
+		if descendant:IsA("GuiObject") and descendant.ZIndex < zIndexFloor then
+			descendant.ZIndex = zIndexFloor
+		end
+	end
+end
+
+local function prepareModalWindow(window)
+	window.Active = true
+	applyGuiZIndexFloor(window, WINDOW_ZINDEX_FLOOR)
+end
+
+local function prepareDimBackground()
+	if not (dimBackground and dimBackground:IsA("GuiObject")) then
+		return
+	end
+
+	dimBackground.ZIndex = DIM_BACKGROUND_ZINDEX
+	dimBackground.Active = true
+	if dimBackground:IsA("TextButton") or dimBackground:IsA("ImageButton") then
+		dimBackground.AutoButtonColor = false
+	end
+end
+
 local function anyWindowVisible()
 	for key, window in pairs(windows) do
 		if window.Visible then
@@ -217,6 +249,7 @@ local function openWindow(key)
 		return
 	end
 
+	prepareModalWindow(window)
 	for _, other in pairs(windows) do
 		other.Visible = false
 	end
@@ -244,6 +277,7 @@ for key, windowName in pairs(WINDOW_NAMES) do
 	local window = windowsFolder:FindFirstChild(windowName)
 	if window and window:IsA("GuiObject") then
 		windows[key] = window
+		prepareModalWindow(window)
 		window.Visible = false
 
 		local closeButton = window:FindFirstChild("CloseButton", true)
@@ -298,6 +332,7 @@ for key, buttonName in pairs(LEFT_BUTTONS) do
 	end
 end
 
+prepareDimBackground()
 if dimBackground and dimBackground:IsA("GuiObject") then
 	connectPress(dimBackground, closeAllWindows, "DimBackground")
 end

@@ -212,6 +212,8 @@ function Builder.Build()
 	dim.Size = UDim2.fromScale(1, 1)
 	dim.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	dim.BackgroundTransparency = 0.45
+	dim.AutoButtonColor = false
+	dim.ZIndex = 10
 	dim.Text = ""
 	dim.Visible = false
 
