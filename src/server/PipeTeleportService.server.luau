@@ -3,6 +3,11 @@
 -- This script does not create UI and never kills the player; it only moves them to safe marker parts.
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Events = ReplicatedStorage:WaitForChild("Events")
+local travelResultEvent = Events:FindFirstChild("TravelToLocationResult")
+local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 
 local TELEPORT_COOLDOWN_SECONDS = 2
 local TELEPORT_GRACE_SECONDS = 1.25
@@ -121,6 +126,47 @@ local function safeTeleport(player, character, destinationPart)
 	end)
 end
 
+local function unlockTeleport(player, locationId, displayName)
+	local storage = player and player:FindFirstChild("ColorStorage")
+	local teleports = storage and storage:FindFirstChild("UnlockedTeleports")
+	if not teleports or not teleports:IsA("StringValue") then
+		return
+	end
+
+	local set = {}
+	for _, existing in ipairs(string.split(teleports.Value or "", ",")) do
+		if existing ~= "" then
+			set[existing] = true
+		end
+	end
+	set.OriginSector = true
+	if set[locationId] then
+		return
+	end
+	set[locationId] = true
+
+	local ordered = {}
+	for _, id in ipairs({ "OriginSector", "RedWastelands", "ZorkShop", "OrangeSector", "InsidePipes" }) do
+		if set[id] then
+			table.insert(ordered, id)
+		end
+	end
+	teleports.Value = table.concat(ordered, ",")
+	if dataDirtyEvent and dataDirtyEvent:IsA("BindableEvent") then
+		dataDirtyEvent:Fire(player, "unlocked-teleport")
+	end
+	if travelResultEvent and travelResultEvent:IsA("RemoteEvent") then
+		travelResultEvent:FireClient(player, {
+			Success = true,
+			LocationId = locationId,
+			DisplayName = displayName or locationId,
+			UnlockedTeleport = true,
+			Message = (displayName or locationId) .. " teleport unlocked.",
+			UnlockedTeleports = teleports.Value,
+		})
+	end
+end
+
 local function hookPipeTrigger(trigger)
 	if not trigger:IsA("BasePart") then
 		return
@@ -148,6 +194,13 @@ local function hookPipeTrigger(trigger)
 		-- Re-resolve each time so moving the spawn marker in Studio updates behavior.
 		local currentDestination = resolveDestinationPart(trigger) or destinationPart
 		safeTeleport(player, character, currentDestination)
+		local destinationId = trigger:GetAttribute("PipeDestination")
+			or trigger:GetAttribute("Destination")
+			or trigger:GetAttribute("TravelLocation")
+			or TRIGGER_NAME_DESTINATION[trigger.Name]
+		if destinationId == "InsidePipes" then
+			unlockTeleport(player, "InsidePipes", "Inside the Pipes")
+		end
 	end)
 
 	print("PipeTeleportService: hooked", trigger:GetFullName(), "->", destinationPart:GetFullName())

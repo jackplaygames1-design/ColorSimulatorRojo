@@ -6,6 +6,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local Events = ReplicatedStorage:WaitForChild("Events")
+local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 
 local requestTravel = Events:FindFirstChild("RequestTravelToLocation")
 if not requestTravel then
@@ -30,24 +31,35 @@ local LOCATION_CONFIG = {
 		SpawnNames = { "OriginSectorSpawn", "StartSectorSpawn", "SpawnWorldSpawn", "SpawnLocation" },
 		AlwaysUnlocked = true,
 		CurrentWorld = "Red",
+		AutoUnlockTeleport = true,
 	},
 	RedWastelands = {
 		DisplayName = "Red Wastelands",
 		SpawnNames = { "RedWastelandsSpawn", "RedZoneSpawn", "StartSectorSpawn", "SpawnLocation" },
 		AlwaysUnlocked = true,
 		CurrentWorld = "Red",
+		AutoUnlockTeleport = true,
+	},
+	ZorkShop = {
+		DisplayName = "Zork Shop",
+		SpawnNames = { "ZorkShopSpawn", "ShopSpawn", "ShopEntranceSpawn", "StartSectorSpawn", "SpawnLocation" },
+		AlwaysUnlocked = true,
+		CurrentWorld = "Red",
+		AutoUnlockTeleport = true,
 	},
 	InsidePipes = {
 		DisplayName = "Inside the Pipes",
 		SpawnNames = { "PipeExitSpawn", "InsidePipesSpawn", "MutationZoneSpawn" },
 		RequiredColor = "Orange",
 		CurrentWorld = "Orange",
+		RequiresTeleportUnlock = true,
 	},
 	OrangeSector = {
 		DisplayName = "Orange Sector",
 		SpawnNames = { "OrangeSectorSpawn", "OrangeZoneSpawn", "OrangeSpawn" },
 		RequiredColor = "Orange",
 		CurrentWorld = "Orange",
+		AutoUnlockTeleport = true,
 	},
 	FutureSector = {
 		DisplayName = "Future Sector",
@@ -56,22 +68,54 @@ local LOCATION_CONFIG = {
 	},
 }
 
+for locationId, config in pairs(LOCATION_CONFIG) do
+	config.LocationId = locationId
+end
+
 local LOCATION_ID_ALIASES = {
 	SpawnWorld = "OriginSector",
 	StartSector = "OriginSector",
 	RedArea = "RedWastelands",
+	Shop = "ZorkShop",
+	Zork = "ZorkShop",
+	Pipes = "InsidePipes",
+	OrangePipes = "InsidePipes",
 }
 
 local function resolveLocationId(locationId)
 	return LOCATION_ID_ALIASES[locationId] or locationId
 end
 
-local function fireResult(player, success, locationId, message)
-	travelResult:FireClient(player, {
+local function fireResult(player, success, locationId, message, extra)
+	local payload = {
 		Success = success,
 		LocationId = locationId,
 		Message = message,
+	}
+	if type(extra) == "table" then
+		for key, value in pairs(extra) do
+			payload[key] = value
+		end
+	end
+	travelResult:FireClient(player, {
+		Success = payload.Success,
+		LocationId = payload.LocationId,
+		Message = payload.Message,
+		UnlockedTeleport = payload.UnlockedTeleport,
+		DisplayName = payload.DisplayName,
+		UnlockedTeleports = payload.UnlockedTeleports,
 	})
+end
+
+local function markDataDirty(player, reason)
+	local event = dataDirtyEvent
+	if not event or not event.Parent then
+		event = Events:FindFirstChild("PlayerDataDirty")
+		dataDirtyEvent = event
+	end
+	if event and event:IsA("BindableEvent") then
+		event:Fire(player, reason or "world-travel")
+	end
 end
 
 local function findSpawn(spawnNames)
@@ -165,6 +209,69 @@ local function isColorUnlocked(player, colorName)
 	return false
 end
 
+local function getUnlockedTeleportSet(player)
+	local storage = player:FindFirstChild("ColorStorage")
+	local value = storage and storage:FindFirstChild("UnlockedTeleports")
+	local set = { OriginSector = true }
+	if value and value:IsA("StringValue") then
+		for _, locationId in ipairs(string.split(value.Value, ",")) do
+			if locationId ~= "" then
+				set[locationId] = true
+			end
+		end
+	end
+	return set, value
+end
+
+local function serializeTeleports(set)
+	local ordered = {}
+	for locationId in pairs(LOCATION_CONFIG) do
+		if set[locationId] then
+			table.insert(ordered, locationId)
+		end
+	end
+	table.sort(ordered)
+	return table.concat(ordered, ",")
+end
+
+local function unlockTeleport(player, locationId)
+	local set, value = getUnlockedTeleportSet(player)
+	if set[locationId] then
+		return false, value and value.Value or serializeTeleports(set)
+	end
+	set[locationId] = true
+	local serialized = serializeTeleports(set)
+	if value and value:IsA("StringValue") then
+		value.Value = serialized
+	end
+	player:SetAttribute("UnlockedTeleports", serialized)
+	markDataDirty(player, "unlocked-teleport")
+	return true, serialized
+end
+
+local function isTeleportUnlocked(player, locationId)
+	local set = getUnlockedTeleportSet(player)
+	return set[locationId] == true
+end
+
+local function setCurrentWorld(player, colorType)
+	if not colorType then
+		return
+	end
+	local world = ColorData.getWorldByColor(colorType)
+	if not world or not isColorUnlocked(player, world.primaryColor) then
+		return
+	end
+
+	player:SetAttribute("ActiveWorldColor", world.primaryColor)
+	local storage = player:FindFirstChild("ColorStorage")
+	local currentWorld = storage and storage:FindFirstChild("CurrentWorld")
+	if currentWorld and currentWorld:IsA("StringValue") and currentWorld.Value ~= world.primaryColor then
+		currentWorld.Value = world.primaryColor
+	end
+	markDataDirty(player, "current-world")
+end
+
 local function canTravel(player, config)
 	if config.Locked then
 		return false, "Locked"
@@ -174,6 +281,9 @@ local function canTravel(player, config)
 	end
 	if config.RequiredColor then
 		if isColorUnlocked(player, config.RequiredColor) then
+			if config.RequiresTeleportUnlock and not isTeleportUnlocked(player, config.LocationId) then
+				return false, "Visit " .. config.DisplayName .. " first to unlock its teleport."
+			end
 			return true
 		end
 		return false, config.DisplayName .. " is locked"
@@ -244,8 +354,21 @@ requestTravel.OnServerEvent:Connect(function(player, locationId)
 		player:SetAttribute("LastTravelLocation", locationId)
 		if config.CurrentWorld then
 			player:SetAttribute("RequestedWorld", config.CurrentWorld)
+			setCurrentWorld(player, config.CurrentWorld)
 		end
-		fireResult(player, true, locationId, "Traveled to " .. config.DisplayName)
+		local unlockedNow = false
+		local unlockedTeleports
+		if config.AutoUnlockTeleport then
+			unlockedNow, unlockedTeleports = unlockTeleport(player, locationId)
+		else
+			local _, currentTeleports = getUnlockedTeleportSet(player)
+			unlockedTeleports = currentTeleports and currentTeleports.Value
+		end
+		fireResult(player, true, locationId, "Traveled to " .. config.DisplayName, {
+			DisplayName = config.DisplayName,
+			UnlockedTeleport = unlockedNow,
+			UnlockedTeleports = unlockedTeleports,
+		})
 	else
 		fireResult(player, false, locationId, message or "Travel failed")
 	end

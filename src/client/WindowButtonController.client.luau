@@ -68,6 +68,7 @@ local dimBackground = mainHud:FindFirstChild("DimBackground")
 local menuBlur = Lighting:FindFirstChild("MenuBlur")
 
 local DIM_BACKGROUND_ZINDEX = 10
+local HUD_BUTTON_ZINDEX_FLOOR = DIM_BACKGROUND_ZINDEX + 1
 local WINDOW_ZINDEX_FLOOR = 20
 
 local windows = {}
@@ -311,6 +312,7 @@ for key, buttonName in pairs(BOTTOM_BUTTONS) do
 	local button = findExactButton(bottomHud, buttonName)
 	if button then
 		buttons[key] = button
+		applyGuiZIndexFloor(button, HUD_BUTTON_ZINDEX_FLOOR)
 		connectButtonContainer(button, function()
 			openWindow(key)
 		end, buttonName)
@@ -324,6 +326,7 @@ for key, buttonName in pairs(LEFT_BUTTONS) do
 	if button then
 		button.Visible = true
 		button.Active = true
+		applyGuiZIndexFloor(button, HUD_BUTTON_ZINDEX_FLOOR)
 		connectButtonContainer(button, function()
 			openWindow(key)
 		end, buttonName)
@@ -333,9 +336,6 @@ for key, buttonName in pairs(LEFT_BUTTONS) do
 end
 
 prepareDimBackground()
-if dimBackground and dimBackground:IsA("GuiObject") then
-	connectPress(dimBackground, closeAllWindows, "DimBackground")
-end
 
 root:GetAttributeChangedSignal("RequestedWindow"):Connect(function()
 	local requested = root:GetAttribute("RequestedWindow")

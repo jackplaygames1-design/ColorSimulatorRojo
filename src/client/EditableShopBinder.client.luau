@@ -224,17 +224,17 @@ local function hookTabs(shopWindow, content)
 			if tab:IsA("TextButton") then
 				local lowered = string.lower(tab.Text .. " " .. tab.Name)
 				tab.MouseButton1Click:Connect(function()
-					if lowered:find("gamepass") then
-						show("Gamepasses")
-					elseif lowered:find("potion") then
-						show("Potions")
-					elseif lowered:find("currency") then
-						show("Currency")
-					elseif lowered:find("bundle") then
-						show("Bundles")
-					else
-						show("Gamepasses")
+					local tabName = "Gamepasses"
+					if not lowered:find("gamepass") then
+						if lowered:find("potion") then
+							tabName = "Potions"
+						elseif lowered:find("currency") then
+							tabName = "Currency"
+						elseif lowered:find("bundle") then
+							tabName = "Bundles"
+						end
 					end
+					show(tabName)
 				end)
 			end
 		end

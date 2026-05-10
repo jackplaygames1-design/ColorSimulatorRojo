@@ -6,6 +6,8 @@ local Workspace = game:GetService("Workspace")
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local Events = ReplicatedStorage:WaitForChild("Events")
 local transitionEvent = Events:FindFirstChild("ShopTransition")
+local travelResultEvent = Events:FindFirstChild("TravelToLocationResult")
+local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 
 local COOLDOWN = 1.2
 local FADE_IN_TIME = 0.18
@@ -91,6 +93,47 @@ local function getPlayerFromTouchedPart(part)
 		return nil
 	end
 	return Players:GetPlayerFromCharacter(character)
+end
+
+local function unlockTeleport(player, locationId, displayName)
+	local storage = player and player:FindFirstChild("ColorStorage")
+	local teleports = storage and storage:FindFirstChild("UnlockedTeleports")
+	if not teleports or not teleports:IsA("StringValue") then
+		return
+	end
+
+	local set = {}
+	for _, existing in ipairs(string.split(teleports.Value or "", ",")) do
+		if existing ~= "" then
+			set[existing] = true
+		end
+	end
+	set.OriginSector = true
+	if set[locationId] then
+		return
+	end
+	set[locationId] = true
+
+	local ordered = {}
+	for _, id in ipairs({ "OriginSector", "RedWastelands", "ZorkShop", "OrangeSector", "InsidePipes" }) do
+		if set[id] then
+			table.insert(ordered, id)
+		end
+	end
+	teleports.Value = table.concat(ordered, ",")
+	if dataDirtyEvent and dataDirtyEvent:IsA("BindableEvent") then
+		dataDirtyEvent:Fire(player, "unlocked-teleport")
+	end
+	if travelResultEvent and travelResultEvent:IsA("RemoteEvent") then
+		travelResultEvent:FireClient(player, {
+			Success = true,
+			LocationId = locationId,
+			DisplayName = displayName or locationId,
+			UnlockedTeleport = true,
+			Message = (displayName or locationId) .. " teleport unlocked.",
+			UnlockedTeleports = teleports.Value,
+		})
+	end
 end
 
 local function findPartByAttribute(attributeName, colorType, destinationName)
@@ -384,6 +427,7 @@ local function enterInterior(player, trigger)
 			end
 			player:SetAttribute("InsideSectorInterior", true)
 			player:SetAttribute("VisitedMutationSectorInterior", true)
+			unlockTeleport(player, "InsidePipes", "Inside the Pipes")
 		end
 	end)
 end

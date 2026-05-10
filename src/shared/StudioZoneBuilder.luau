@@ -1453,15 +1453,13 @@ function StudioZoneBuilder.removeGeneratedSpawnStuff(options)
 	end
 
 	for _, obj in ipairs(map:GetDescendants()) do
-		if obj:IsA("BasePart") and isGeneratedDecor(obj) then
-			obj:Destroy()
-			removed += 1
-		elseif obj:IsA("BillboardGui")
-			and (obj.Name == "QuietStationLabel"
+		if (obj:IsA("BasePart") and isGeneratedDecor(obj))
+			or (obj:IsA("BillboardGui")
+				and (obj.Name == "QuietStationLabel"
 				or obj.Name == "BlockoutLabel"
 				or obj.Name == "ProximityStationLabel"
 				or obj.Name == "SellZoneLabel"
-				or obj:GetAttribute("StarterFieldLabel"))
+				or obj:GetAttribute("StarterFieldLabel")))
 		then
 			obj:Destroy()
 			removed += 1
@@ -1500,10 +1498,9 @@ function StudioZoneBuilder.keepMainSpawnOnly(options)
 	if main then
 		local seenNames = {}
 		for _, obj in ipairs(main:GetDescendants()) do
-			if obj:IsA("BasePart") and obj:GetAttribute("SpawnCleanupDecor") then
-				obj:Destroy()
-				removed += 1
-			elseif obj:IsA("BillboardGui") and obj.Name == "QuietStationLabel" then
+			if (obj:IsA("BasePart") and obj:GetAttribute("SpawnCleanupDecor"))
+				or (obj:IsA("BillboardGui") and obj.Name == "QuietStationLabel")
+			then
 				obj:Destroy()
 				removed += 1
 			elseif obj:IsA("BasePart") then
@@ -2805,9 +2802,7 @@ function StudioZoneBuilder.BuildEditableRedZone()
 			return
 		end
 		for _, obj in ipairs(station:GetDescendants()) do
-			if obj:IsA("ProximityPrompt") then
-				obj.Enabled = false
-			elseif obj:IsA("BillboardGui") or obj:IsA("SurfaceGui") then
+			if obj:IsA("ProximityPrompt") or obj:IsA("BillboardGui") or obj:IsA("SurfaceGui") then
 				obj.Enabled = false
 			end
 		end
@@ -3137,14 +3132,13 @@ end
 
 local function removeOldUpdateBoardUi(board)
 	for _, obj in ipairs(board:GetDescendants()) do
-		if obj:IsA("BillboardGui")
-			and (obj.Name == "UpdateLabel"
+		if (obj:IsA("BillboardGui")
+				and (obj.Name == "UpdateLabel"
 				or obj.Name == "UpdateBoardLabel"
 				or obj.Name == "UpdateBoardBillboard"
-				or obj:GetAttribute("UpdateBoardLabel") == true)
+				or obj:GetAttribute("UpdateBoardLabel") == true))
+			or (obj:IsA("SurfaceGui") and obj.Name == "UpdateBoardSurfaceGui")
 		then
-			obj:Destroy()
-		elseif obj:IsA("SurfaceGui") and obj.Name == "UpdateBoardSurfaceGui" then
 			obj:Destroy()
 		end
 	end
@@ -3152,13 +3146,12 @@ end
 
 local function removeOldJoinGroupBoardUi(board)
 	for _, obj in ipairs(board:GetDescendants()) do
-		if obj:IsA("BillboardGui")
-			and (obj.Name == "JoinGroupLabel"
+		if (obj:IsA("BillboardGui")
+				and (obj.Name == "JoinGroupLabel"
 				or obj.Name == "JoinGroupBoardLabel"
-				or obj:GetAttribute("JoinGroupBoardLabel") == true)
+				or obj:GetAttribute("JoinGroupBoardLabel") == true))
+			or (obj:IsA("SurfaceGui") and obj.Name == "JoinGroupBoardSurfaceGui")
 		then
-			obj:Destroy()
-		elseif obj:IsA("SurfaceGui") and obj.Name == "JoinGroupBoardSurfaceGui" then
 			obj:Destroy()
 		end
 	end

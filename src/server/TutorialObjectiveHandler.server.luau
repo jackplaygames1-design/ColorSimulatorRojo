@@ -774,11 +774,7 @@ local function setStage(player, folder, stageKey)
 			if targetObject and (not targetObject.Value or not targetObject.Value.Parent) then
 				setTargetObject(folder, findEggTarget())
 			end
-		elseif stageKey == "VisitShop" then
-			if targetObject and (not targetObject.Value or not targetObject.Value.Parent) then
-				setTargetObject(folder, findShopTarget())
-			end
-		elseif stageKey == "OpenBrushShop" or stageKey == "AskDailyQuests" then
+		elseif stageKey == "VisitShop" or stageKey == "OpenBrushShop" or stageKey == "AskDailyQuests" then
 			if targetObject and (not targetObject.Value or not targetObject.Value.Parent) then
 				setTargetObject(folder, findShopTarget())
 			end

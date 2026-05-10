@@ -89,9 +89,9 @@ end
 
 local function stripPreviewOnly(root)
 	for _, descendant in ipairs(root:GetDescendants()) do
-		if descendant:GetAttribute("PreviewOnly") == true then
-			descendant:Destroy()
-		elseif descendant:IsA("BillboardGui") and descendant.Name == "PreviewLabel" then
+		if descendant:GetAttribute("PreviewOnly") == true
+			or (descendant:IsA("BillboardGui") and descendant.Name == "PreviewLabel")
+		then
 			descendant:Destroy()
 		end
 	end

@@ -25,6 +25,8 @@ local remoteEvents = {
 	"PurchaseUpgrade",
 	"UnlockArea",
 	"RequestTravelToSector",
+	"RequestTravelToLocation",
+	"TravelToLocationResult",
 	"TravelToMarket",
 	"TravelToWorldSpot",
 	"TeleportToSell",

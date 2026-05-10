@@ -325,9 +325,7 @@ local function improveText(gui)
 	local smallControl = (gui:IsA("TextButton") or gui:IsA("TextBox")) and gui.AbsoluteSize.Y <= 42
 
 	if gui.TextStrokeTransparency < 1 then
-		if smallControl and textLum < 0.62 then
-			gui.TextStrokeTransparency = 1
-		elseif textLum < 0.5 and strokeLum > 0.78 then
+		if (smallControl and textLum < 0.62) or (textLum < 0.5 and strokeLum > 0.78) then
 			gui.TextStrokeTransparency = 1
 		else
 			gui.TextStrokeTransparency = math.max(gui.TextStrokeTransparency, 0.35)

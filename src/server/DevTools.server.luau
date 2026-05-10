@@ -157,9 +157,7 @@ local function resetPlayer(player)
 			elseif child:IsA("NumberValue") or child:IsA("IntValue") then
 				if child.Name == "PickupRange" then
 					child.Value = 8
-				elseif child.Name == "ColorMultiplier" then
-					child.Value = 1
-				elseif child.Name == "HatchSpeed" then
+				elseif child.Name == "ColorMultiplier" or child.Name == "HatchSpeed" then
 					child.Value = 1
 				elseif child.Name == "WalkSpeed" then
 					child.Value = DEFAULTS.WalkSpeed

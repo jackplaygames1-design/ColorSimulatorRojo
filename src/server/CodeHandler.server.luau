@@ -90,15 +90,7 @@ local function awardReward(player, reward)
 	local rewardType = tostring(reward.Type or reward.type or "")
 	local amount = math.max(1, math.floor(tonumber(reward.Amount or reward.amount) or 1))
 
-	if rewardType == "Coins" then
-		local stats = player:FindFirstChild("leaderstats")
-		local coins = stats and stats:FindFirstChild("Coins")
-		if not coins then
-			return false, "Coins are not ready."
-		end
-		coins.Value += amount
-		return true
-	elseif rewardType == "Color" or rewardType == "Storage" then
+	if rewardType == "Coins" or rewardType == "Color" or rewardType == "Storage" then
 		local stats = player:FindFirstChild("leaderstats")
 		local coins = stats and stats:FindFirstChild("Coins")
 		if not coins then

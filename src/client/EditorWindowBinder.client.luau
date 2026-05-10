@@ -26,6 +26,7 @@ local petsLoadedEvent = Events:WaitForChild("PetsLoaded")
 local equipPaintToolEvent = Events:WaitForChild("EquipPaintTool")
 local useItemEvent = Events:WaitForChild("UseItem")
 local purchaseUpgradeEvent = Events:WaitForChild("PurchaseUpgrade")
+local unlockAreaEvent = Events:WaitForChild("UnlockArea")
 local requestTravelToSectorEvent = Events:WaitForChild("RequestTravelToSector")
 local requestSetSettingEvent = Events:WaitForChild("RequestSetSetting")
 local settingsUpdatedEvent = Events:WaitForChild("SettingsUpdated")
@@ -44,6 +45,7 @@ local LEGACY_ROOT_LAYERS = {
 local TAB_NAMES = { "Colors", "Brushes", "Potions", "Items" }
 local RARITY_ORDER = { Legendary = 1, Epic = 2, Rare = 3, Uncommon = 4, Common = 5 }
 local BIND_INVENTORY_WINDOW = false
+local BIND_WORLDS_WINDOW = false
 local BIND_DAILY_QUESTS_WINDOW = false
 local FALLBACK_DAILY_QUESTS = {
 	{
@@ -965,6 +967,12 @@ local function getCurrentWorld()
 	return currentValue and currentValue.Value or player:GetAttribute("ActiveWorldColor") or "Red"
 end
 
+local function getCurrentCoins()
+	local stats = player:FindFirstChild("leaderstats")
+	local coins = stats and stats:FindFirstChild("Coins")
+	return coins and tonumber(coins.Value) or 0
+end
+
 local function getUpgradeLevel(upgradeId)
 	local folder = player:FindFirstChild("Upgrades")
 	if not folder then
@@ -1495,6 +1503,29 @@ local function teleportToWorld(world, button)
 	setWorldButtonFeedback(button, "GOING", "GO")
 end
 
+local function unlockWorld(world, button)
+	local colorType = world and (world.primaryColor or world.id)
+	if not colorType then
+		return
+	end
+
+	local previous = ColorData.getPreviousWorld(colorType)
+	local unlocked = getOwnedColorSet()
+	if previous and unlocked[previous.primaryColor] ~= true then
+		setWorldButtonFeedback(button, "LOCKED", "UNLOCK")
+		return
+	end
+
+	local cost = tonumber(world.UnlockCost or world.unlockCost) or 0
+	if getCurrentCoins() < cost then
+		setWorldButtonFeedback(button, "NEED COINS", "UNLOCK")
+		return
+	end
+
+	unlockAreaEvent:FireServer("unlock", colorType)
+	setWorldButtonFeedback(button, "BUYING", "UNLOCK")
+end
+
 local function bindWorldCard(content, world, isUnlocked, isCurrent)
 	local colorType = world.primaryColor or world.id
 	local card = findWorldCard(content, colorType)
@@ -1504,24 +1535,35 @@ local function bindWorldCard(content, world, isUnlocked, isCurrent)
 	end
 
 	button.Visible = true
-	button.Active = isUnlocked
-	button.AutoButtonColor = isUnlocked
-	button.Text = isCurrent and "CURRENT" or (isUnlocked and "GO" or "LOCKED")
-	button.BackgroundTransparency = isUnlocked and 0 or 0.25
+	local previous = ColorData.getPreviousWorld(colorType)
+	local canUnlock = not isUnlocked
+		and (not previous or getOwnedColorSet()[previous.primaryColor] == true)
+		and getCurrentCoins() >= (tonumber(world.UnlockCost or world.unlockCost) or 0)
+	button.Active = isUnlocked or canUnlock
+	button.AutoButtonColor = isUnlocked or canUnlock
+	button.Text = isCurrent and "CURRENT" or (isUnlocked and "GO" or (canUnlock and "UNLOCK" or "LOCKED"))
+	button.BackgroundTransparency = (isUnlocked or canUnlock) and 0 or 0.25
 
 	if not button:GetAttribute("EditorWorldTeleportBound") then
 		button:SetAttribute("EditorWorldTeleportBound", true)
 		connectPress(button, function()
 			local boundColor = button:GetAttribute("WorldColor")
 			local boundWorld = boundColor and ColorData.getWorldByColor(boundColor) or world
-			teleportToWorld(boundWorld, button)
+			local boundUnlocked = getOwnedColorSet()
+			local boundPrimaryColor = boundWorld and (boundWorld.primaryColor or boundWorld.id)
+			if boundPrimaryColor and boundUnlocked[boundPrimaryColor] ~= true then
+				unlockWorld(boundWorld, button)
+			else
+				teleportToWorld(boundWorld, button)
+			end
 		end)
 	end
 	button:SetAttribute("WorldColor", colorType)
 
 	local status = card and (card:FindFirstChild("Status", true) or card:FindFirstChild("StatusLabel", true) or card:FindFirstChild("Requirement", true))
 	if status and status:IsA("TextLabel") then
-		status.Text = isUnlocked and (isCurrent and "Current Sector" or "Unlocked") or ("Locked - requires " .. tostring(world.RequiredZoneId or "previous Sector"))
+		status.Text = isUnlocked and (isCurrent and "Current Sector" or "Unlocked")
+			or ("Unlock for " .. UpgradeData.formatNumber(world.UnlockCost or world.unlockCost or 0) .. " Coins")
 	end
 
 	return true
@@ -1559,12 +1601,20 @@ local function renderWorlds()
 		local isUnlocked = unlocked[colorType] == true
 		local isCurrent = current == colorType
 		local requirement = isUnlocked and "Unlocked" or ("Requires " .. tostring(world.RequiredZoneId or "previous Sector") .. " | " .. UpgradeData.formatNumber(world.UnlockCost or world.unlockCost or 0) .. " Coins")
-		local buttonText = isCurrent and "CURRENT" or (isUnlocked and "GO" or "LOCKED")
+		local previous = ColorData.getPreviousWorld(colorType)
+		local canUnlock = not isUnlocked
+			and (not previous or unlocked[previous.primaryColor] == true)
+			and getCurrentCoins() >= (tonumber(world.UnlockCost or world.unlockCost) or 0)
+		local buttonText = isCurrent and "CURRENT" or (isUnlocked and "GO" or (canUnlock and "UNLOCK" or "LOCKED"))
 		local colorConfig = colorType and ColorData.Colors[colorType]
 		local card
-		card = makeWindowCard(list, index, world.DisplayName or world.name or colorType, requirement, buttonText, isUnlocked and function()
+		card = makeWindowCard(list, index, world.DisplayName or world.name or colorType, requirement, buttonText, (isUnlocked or canUnlock) and function()
 			local button = card and card:FindFirstChild("ActionButton", true)
-			teleportToWorld(world, button)
+			if isUnlocked then
+				teleportToWorld(world, button)
+			else
+				unlockWorld(world, button)
+			end
 		end or nil, colorConfig and colorConfig.color)
 	end
 end
@@ -1663,7 +1713,9 @@ local function refreshAuxiliaryWindows()
 	renderSettings()
 	renderCodes()
 	renderTrade()
-	renderWorlds()
+	if BIND_WORLDS_WINDOW then
+		renderWorlds()
+	end
 	if BIND_DAILY_QUESTS_WINDOW then
 		renderDailyQuests()
 	end
@@ -1723,13 +1775,20 @@ local function setupAuxiliaryListeners()
 		end)
 	end
 
-	local colorStorage = player:FindFirstChild("ColorStorage")
-	if colorStorage then
-		for _, valueName in ipairs({ "UnlockedColors", "CurrentWorld" }) do
-			local value = colorStorage:FindFirstChild(valueName)
-			if value and value:IsA("ValueBase") then
-				value:GetPropertyChangedSignal("Value"):Connect(renderWorlds)
+	if BIND_WORLDS_WINDOW then
+		local colorStorage = player:FindFirstChild("ColorStorage")
+		if colorStorage then
+			for _, valueName in ipairs({ "UnlockedColors", "CurrentWorld" }) do
+				local value = colorStorage:FindFirstChild(valueName)
+				if value and value:IsA("ValueBase") then
+					value:GetPropertyChangedSignal("Value"):Connect(renderWorlds)
+				end
 			end
+		end
+		local leaderstats = player:FindFirstChild("leaderstats")
+		local coins = leaderstats and leaderstats:FindFirstChild("Coins")
+		if coins and coins:IsA("ValueBase") then
+			coins:GetPropertyChangedSignal("Value"):Connect(renderWorlds)
 		end
 	end
 
@@ -1748,7 +1807,7 @@ local function setupAuxiliaryListeners()
 						renderCodes()
 					elseif windowName == "TradeWindow" then
 						renderTrade()
-					elseif windowName == "WorldsWindow" then
+					elseif BIND_WORLDS_WINDOW and windowName == "WorldsWindow" then
 						renderWorlds()
 					elseif BIND_DAILY_QUESTS_WINDOW and windowName == "DailyQuestsWindow" then
 						renderDailyQuests()

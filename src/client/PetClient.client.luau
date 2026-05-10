@@ -85,6 +85,7 @@ local replicatedStateQueued = false
 local warnedEmptyEquippedVisuals = false
 local rebuildOrbitingPets
 local refreshInventoryUI
+local isOpen = false
 
 local function getEntryKey(entry)
 	if typeof(entry) == "table" then
@@ -1126,7 +1127,6 @@ end
 -- ========================
 --   BUILD UI
 -- ========================
-local isOpen = false
 function refreshInventoryUI()
 	-- Legacy inventory UI disabled. InventoryUI.client.luau is the active source.
 end

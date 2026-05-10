@@ -64,6 +64,7 @@ local DEFAULT_DATA = {
 	Rebirths     = 0,
 	UnlockedColors = {"Red"},
 	CurrentWorld = "Red",
+	UnlockedTeleports = { "OriginSector" },
 	PetInventory = {},   -- canonical saved Color inventory; list of { petId = "RedBlob", stackAmount = 1, traitId = "Neutral", mutationId = "None" }
 	EquippedPets = {},   -- list of Color variant keys
 	LockedPets = {},     -- variant keys protected from deletion
@@ -248,6 +249,36 @@ local function normalizeCurrentWorld(colorType, unlockedColors)
 		end
 	end
 	return getHighestUnlockedColor(unlockedColors)
+end
+
+local function normalizeTeleportList(value)
+	local seen = {}
+	local ordered = {}
+
+	local function add(locationId)
+		locationId = tostring(locationId or "")
+		if locationId == "" or seen[locationId] then
+			return
+		end
+		seen[locationId] = true
+		table.insert(ordered, locationId)
+	end
+
+	add("OriginSector")
+	if type(value) == "table" then
+		for key, locationId in pairs(value) do
+			if locationId == true then
+				locationId = key
+			end
+			add(locationId)
+		end
+	elseif type(value) == "string" then
+		for _, locationId in ipairs(string.split(value, ",")) do
+			add(locationId)
+		end
+	end
+
+	return ordered
 end
 
 local function normalizePaintToolList(value)
@@ -766,6 +797,7 @@ local function migrateData(saved)
 	data.UnlockedColors = normalizeUnlockedColorList(data.UnlockedColors)
 	data.CurrentWorld = normalizeCurrentWorld(savedCurrentWorld or data.CurrentWorld or data.ActiveWorldColor or data.HighestUnlockedWorld, data.UnlockedColors)
 	data.ActiveWorldColor = data.CurrentWorld
+	data.UnlockedTeleports = normalizeTeleportList(data.UnlockedTeleports or data.UnlockedLocations or data.UnlockedZones)
 	data.HighestUnlockedWorld = getHighestUnlockedColor(data.UnlockedColors)
 	data.OwnedPaintTools = normalizePaintToolList(data.OwnedPaintTools)
 	data.EquippedPaintTool = normalizeEquippedPaintTool(data.EquippedPaintTool, data.OwnedPaintTools)
@@ -835,6 +867,7 @@ local function validateProfileData(player, data, context)
 	data.UnlockedColors = normalizeUnlockedColorList(data.UnlockedColors)
 	data.CurrentWorld = normalizeCurrentWorld(data.CurrentWorld or data.ActiveWorldColor or data.HighestUnlockedWorld, data.UnlockedColors)
 	data.ActiveWorldColor = data.CurrentWorld
+	data.UnlockedTeleports = normalizeTeleportList(data.UnlockedTeleports or data.UnlockedLocations or data.UnlockedZones)
 	data.HighestUnlockedWorld = getHighestUnlockedColor(data.UnlockedColors)
 
 	local recordsByKey = {}
@@ -1058,13 +1091,18 @@ local function applyData(player, data)
 
 	local currentWorld = Instance.new("StringValue")
 	currentWorld.Name = "CurrentWorld"
-	currentWorld.Value = "Red"
+	currentWorld.Value = normalizeCurrentWorld(data.CurrentWorld, data.UnlockedColors)
 	currentWorld.Parent = storage
-	player:SetAttribute("ActiveWorldColor", "Red")
+	player:SetAttribute("ActiveWorldColor", currentWorld.Value)
 	currentWorld:GetPropertyChangedSignal("Value"):Connect(function()
 		currentWorld.Value = normalizeCurrentWorld(currentWorld.Value, string.split(unlockedColors.Value, ","))
 		player:SetAttribute("ActiveWorldColor", currentWorld.Value)
 	end)
+
+	local unlockedTeleports = Instance.new("StringValue")
+	unlockedTeleports.Name = "UnlockedTeleports"
+	unlockedTeleports.Value = table.concat(normalizeTeleportList(data.UnlockedTeleports), ",")
+	unlockedTeleports.Parent = storage
 
 	watchValueForDirty(player, coins, "coins")
 	watchValueForDirty(player, gems, "gems")
@@ -1072,6 +1110,7 @@ local function applyData(player, data)
 	watchValueForDirty(player, rebirths, "rebirths")
 	watchValueForDirty(player, unlockedColors, "unlocked-colors")
 	watchValueForDirty(player, currentWorld, "current-world")
+	watchValueForDirty(player, unlockedTeleports, "unlocked-teleports")
 
 	local groupRewardsFolder = Instance.new("Folder")
 	groupRewardsFolder.Name = "GroupRewards"
@@ -1304,6 +1343,9 @@ local function collectData(player)
 			currentWorld and currentWorld.Value or player:GetAttribute("ActiveWorldColor"),
 			data.UnlockedColors
 		)
+
+		local teleportsVal = storage:FindFirstChild("UnlockedTeleports")
+		data.UnlockedTeleports = normalizeTeleportList(teleportsVal and teleportsVal.Value or data.UnlockedTeleports)
 	end
 
 	local petFolder = player:FindFirstChild("PetData")

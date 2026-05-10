@@ -55,17 +55,18 @@ local function disableSellPart(sellPart)
 	end
 
 	for _, child in ipairs(sellPart:GetDescendants()) do
-		if child:IsA("ProximityPrompt") then
-			child.Enabled = false
-		elseif child:IsA("BillboardGui") or child:IsA("SurfaceGui") then
+		if child:IsA("ProximityPrompt")
+			or child:IsA("BillboardGui")
+			or child:IsA("SurfaceGui")
+			or child:IsA("ParticleEmitter")
+			or child:IsA("PointLight")
+		then
 			child.Enabled = false
 		elseif child:IsA("BasePart") and child:GetAttribute("SellZoneDecor") then
 			child.Transparency = 1
 			child.CanCollide = false
 			child.CanTouch = false
 			child.CanQuery = false
-		elseif child:IsA("ParticleEmitter") or child:IsA("PointLight") then
-			child.Enabled = false
 		end
 	end
 end
@@ -204,9 +205,8 @@ local function ensureSellVisuals(sellPart)
 			or child:IsA("PointLight")
 			or child.Name == "SellSparkles"
 			or child.Name == "SellZoneLabel"
+			or (child:IsA("BillboardGui") and child.Name == "ProximityStationLabel")
 		then
-			child:Destroy()
-		elseif child:IsA("BillboardGui") and (child.Name == "SellZoneLabel" or child.Name == "ProximityStationLabel") then
 			child:Destroy()
 		end
 	end

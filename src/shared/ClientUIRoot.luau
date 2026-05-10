@@ -63,12 +63,7 @@ local function getCurrentRoot(playerGui)
 	local currentRoot = nil
 	for _, child in ipairs(playerGui:GetChildren()) do
 		if child:IsA("ScreenGui") and child.Name == UI_SCREEN_NAME then
-			local isCurrent = child:GetAttribute("UIScreenVersion") == UI_VERSION
-			if not currentRoot and isCurrent then
-				currentRoot = child
-			elseif not currentRoot and child:GetAttribute("CurrentColorSimulatorUI") == true then
-				currentRoot = child
-			elseif not currentRoot then
+			if not currentRoot then
 				currentRoot = child
 			else
 				warnLegacyOnce(child.Name)

@@ -9,6 +9,7 @@ local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local Events = ReplicatedStorage:WaitForChild("Events")
 local unlockEvent = Events:WaitForChild("UnlockArea")
 local requestTravelToSectorEvent = Events:WaitForChild("RequestTravelToSector")
+local travelResultEvent = Events:FindFirstChild("TravelToLocationResult")
 local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 local tutorialWorldTraveledEvent = Events:FindFirstChild("TutorialWorldTraveled")
 if not tutorialWorldTraveledEvent then
@@ -96,12 +97,6 @@ local function getStorage(player)
 	return unlocked, coins
 end
 
-local function hasCompletedRedTutorial(player)
-	local folder = player and player:FindFirstChild("TutorialObjectives")
-	local completed = folder and folder:FindFirstChild("TutorialCompleted")
-	return completed and completed.Value == true
-end
-
 local function setCurrentWorld(player, colorType, reason)
 	local world = ColorData.getWorldByColor(colorType)
 	if not world or not isSectorPlayable(world.primaryColor) then
@@ -131,6 +126,36 @@ local function appendUnlockedColor(unlockedValue, colorType)
 	end
 
 	unlockedValue.Value = table.concat(ordered, ",")
+end
+
+local function appendUnlockedTeleport(player, locationId)
+	local storage = player and player:FindFirstChild("ColorStorage")
+	local teleports = storage and storage:FindFirstChild("UnlockedTeleports")
+	if not teleports or not teleports:IsA("StringValue") then
+		return false
+	end
+
+	local set = {}
+	for _, existing in ipairs(string.split(teleports.Value or "", ",")) do
+		if existing ~= "" then
+			set[existing] = true
+		end
+	end
+	set.OriginSector = true
+	if set[locationId] then
+		return false
+	end
+	set[locationId] = true
+
+	local ordered = {}
+	for _, id in ipairs({ "OriginSector", "RedWastelands", "ZorkShop", "OrangeSector", "InsidePipes" }) do
+		if set[id] then
+			table.insert(ordered, id)
+		end
+	end
+	teleports.Value = table.concat(ordered, ",")
+	markDataDirty(player, "unlocked-teleport")
+	return true
 end
 
 local function ensureDefaultUnlockedSectors(player)
@@ -1154,11 +1179,6 @@ local function tryUnlockWorld(player, world)
 		return true
 	end
 
-	if world.primaryColor == "Orange" and not hasCompletedRedTutorial(player) then
-		unlockEvent:FireClient(player, "error", world.primaryColor, "Finish the Red Area first.")
-		return false
-	end
-
 	local previousWorld = ColorData.getPreviousWorld(world.primaryColor)
 	if previousWorld and not ColorData.isColorUnlocked(unlockedValue.Value, previousWorld.primaryColor) then
 		print("Missing prerequisite for " .. player.Name .. ": " .. previousWorld.name)
@@ -1175,9 +1195,19 @@ local function tryUnlockWorld(player, world)
 	coins.Value -= world.unlockCost
 	appendUnlockedColor(unlockedValue, world.primaryColor)
 	setCurrentWorld(player, world.primaryColor, "current-world")
+	local unlockedTeleport = world.primaryColor == "Orange" and appendUnlockedTeleport(player, "OrangeSector")
 	markDataDirty(player, "unlocked-" .. world.primaryColor)
 	print("Unlocked " .. world.name .. " for " .. tostring(world.unlockCost) .. " Coins")
 	unlockEvent:FireClient(player, "unlocked", world.primaryColor, world)
+	if unlockedTeleport and travelResultEvent and travelResultEvent:IsA("RemoteEvent") then
+		travelResultEvent:FireClient(player, {
+			Success = true,
+			LocationId = "OrangeSector",
+			DisplayName = "Orange Sector",
+			UnlockedTeleport = true,
+			Message = "Orange Sector teleport unlocked.",
+		})
+	end
 	sendState(player)
 	return true
 end

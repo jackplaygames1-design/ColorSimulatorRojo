@@ -10564,6 +10564,7 @@ local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local Events = ReplicatedStorage:WaitForChild("Events")
 local unlockEvent = Events:WaitForChild("UnlockArea")
 local requestTravelToSectorEvent = Events:WaitForChild("RequestTravelToSector")
+local travelResultEvent = Events:FindFirstChild("TravelToLocationResult")
 local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 local tutorialWorldTraveledEvent = Events:FindFirstChild("TutorialWorldTraveled")
 if not tutorialWorldTraveledEvent then
@@ -10680,6 +10681,36 @@ local function appendUnlockedColor(unlockedValue, colorType)
 	end
 
 	unlockedValue.Value = table.concat(ordered, ",")
+end
+
+local function appendUnlockedTeleport(player, locationId)
+	local storage = player and player:FindFirstChild("ColorStorage")
+	local teleports = storage and storage:FindFirstChild("UnlockedTeleports")
+	if not teleports or not teleports:IsA("StringValue") then
+		return false
+	end
+
+	local set = {}
+	for _, existing in ipairs(string.split(teleports.Value or "", ",")) do
+		if existing ~= "" then
+			set[existing] = true
+		end
+	end
+	set.OriginSector = true
+	if set[locationId] then
+		return false
+	end
+	set[locationId] = true
+
+	local ordered = {}
+	for _, id in ipairs({ "OriginSector", "RedWastelands", "ZorkShop", "OrangeSector", "InsidePipes" }) do
+		if set[id] then
+			table.insert(ordered, id)
+		end
+	end
+	teleports.Value = table.concat(ordered, ",")
+	markDataDirty(player, "unlocked-teleport")
+	return true
 end
 
 local function ensureDefaultUnlockedSectors(player)
@@ -11719,9 +11750,19 @@ local function tryUnlockWorld(player, world)
 	coins.Value -= world.unlockCost
 	appendUnlockedColor(unlockedValue, world.primaryColor)
 	setCurrentWorld(player, world.primaryColor, "current-world")
+	local unlockedTeleport = world.primaryColor == "Orange" and appendUnlockedTeleport(player, "OrangeSector")
 	markDataDirty(player, "unlocked-" .. world.primaryColor)
 	print("Unlocked " .. world.name .. " for " .. tostring(world.unlockCost) .. " Coins")
 	unlockEvent:FireClient(player, "unlocked", world.primaryColor, world)
+	if unlockedTeleport and travelResultEvent and travelResultEvent:IsA("RemoteEvent") then
+		travelResultEvent:FireClient(player, {
+			Success = true,
+			LocationId = "OrangeSector",
+			DisplayName = "Orange Sector",
+			UnlockedTeleport = true,
+			Message = "Orange Sector teleport unlocked.",
+		})
+	end
 	sendState(player)
 	return true
 end
@@ -14375,6 +14416,7 @@ local DEFAULT_DATA = {
 	Rebirths     = 0,
 	UnlockedColors = {"Red"},
 	CurrentWorld = "Red",
+	UnlockedTeleports = { "OriginSector" },
 	PetInventory = {},   -- canonical saved Color inventory; list of { petId = "RedBlob", stackAmount = 1, traitId = "Neutral", mutationId = "None" }
 	EquippedPets = {},   -- list of Color variant keys
 	LockedPets = {},     -- variant keys protected from deletion
@@ -14559,6 +14601,36 @@ local function normalizeCurrentWorld(colorType, unlockedColors)
 		end
 	end
 	return getHighestUnlockedColor(unlockedColors)
+end
+
+local function normalizeTeleportList(value)
+	local seen = {}
+	local ordered = {}
+
+	local function add(locationId)
+		locationId = tostring(locationId or "")
+		if locationId == "" or seen[locationId] then
+			return
+		end
+		seen[locationId] = true
+		table.insert(ordered, locationId)
+	end
+
+	add("OriginSector")
+	if type(value) == "table" then
+		for key, locationId in pairs(value) do
+			if locationId == true then
+				locationId = key
+			end
+			add(locationId)
+		end
+	elseif type(value) == "string" then
+		for _, locationId in ipairs(string.split(value, ",")) do
+			add(locationId)
+		end
+	end
+
+	return ordered
 end
 
 local function normalizePaintToolList(value)
@@ -15077,6 +15149,7 @@ local function migrateData(saved)
 	data.UnlockedColors = normalizeUnlockedColorList(data.UnlockedColors)
 	data.CurrentWorld = normalizeCurrentWorld(savedCurrentWorld or data.CurrentWorld or data.ActiveWorldColor or data.HighestUnlockedWorld, data.UnlockedColors)
 	data.ActiveWorldColor = data.CurrentWorld
+	data.UnlockedTeleports = normalizeTeleportList(data.UnlockedTeleports or data.UnlockedLocations or data.UnlockedZones)
 	data.HighestUnlockedWorld = getHighestUnlockedColor(data.UnlockedColors)
 	data.OwnedPaintTools = normalizePaintToolList(data.OwnedPaintTools)
 	data.EquippedPaintTool = normalizeEquippedPaintTool(data.EquippedPaintTool, data.OwnedPaintTools)
@@ -15146,6 +15219,7 @@ local function validateProfileData(player, data, context)
 	data.UnlockedColors = normalizeUnlockedColorList(data.UnlockedColors)
 	data.CurrentWorld = normalizeCurrentWorld(data.CurrentWorld or data.ActiveWorldColor or data.HighestUnlockedWorld, data.UnlockedColors)
 	data.ActiveWorldColor = data.CurrentWorld
+	data.UnlockedTeleports = normalizeTeleportList(data.UnlockedTeleports or data.UnlockedLocations or data.UnlockedZones)
 	data.HighestUnlockedWorld = getHighestUnlockedColor(data.UnlockedColors)
 
 	local recordsByKey = {}
@@ -15369,13 +15443,18 @@ local function applyData(player, data)
 
 	local currentWorld = Instance.new("StringValue")
 	currentWorld.Name = "CurrentWorld"
-	currentWorld.Value = "Red"
+	currentWorld.Value = normalizeCurrentWorld(data.CurrentWorld, data.UnlockedColors)
 	currentWorld.Parent = storage
-	player:SetAttribute("ActiveWorldColor", "Red")
+	player:SetAttribute("ActiveWorldColor", currentWorld.Value)
 	currentWorld:GetPropertyChangedSignal("Value"):Connect(function()
 		currentWorld.Value = normalizeCurrentWorld(currentWorld.Value, string.split(unlockedColors.Value, ","))
 		player:SetAttribute("ActiveWorldColor", currentWorld.Value)
 	end)
+
+	local unlockedTeleports = Instance.new("StringValue")
+	unlockedTeleports.Name = "UnlockedTeleports"
+	unlockedTeleports.Value = table.concat(normalizeTeleportList(data.UnlockedTeleports), ",")
+	unlockedTeleports.Parent = storage
 
 	watchValueForDirty(player, coins, "coins")
 	watchValueForDirty(player, gems, "gems")
@@ -15383,6 +15462,7 @@ local function applyData(player, data)
 	watchValueForDirty(player, rebirths, "rebirths")
 	watchValueForDirty(player, unlockedColors, "unlocked-colors")
 	watchValueForDirty(player, currentWorld, "current-world")
+	watchValueForDirty(player, unlockedTeleports, "unlocked-teleports")
 
 	local groupRewardsFolder = Instance.new("Folder")
 	groupRewardsFolder.Name = "GroupRewards"
@@ -15615,6 +15695,9 @@ local function collectData(player)
 			currentWorld and currentWorld.Value or player:GetAttribute("ActiveWorldColor"),
 			data.UnlockedColors
 		)
+
+		local teleportsVal = storage:FindFirstChild("UnlockedTeleports")
+		data.UnlockedTeleports = normalizeTeleportList(teleportsVal and teleportsVal.Value or data.UnlockedTeleports)
 	end
 
 	local petFolder = player:FindFirstChild("PetData")
@@ -21476,6 +21559,11 @@ return PetVisualService
 -- This script does not create UI and never kills the player; it only moves them to safe marker parts.
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Events = ReplicatedStorage:WaitForChild("Events")
+local travelResultEvent = Events:FindFirstChild("TravelToLocationResult")
+local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 
 local TELEPORT_COOLDOWN_SECONDS = 2
 local TELEPORT_GRACE_SECONDS = 1.25
@@ -21594,6 +21682,47 @@ local function safeTeleport(player, character, destinationPart)
 	end)
 end
 
+local function unlockTeleport(player, locationId, displayName)
+	local storage = player and player:FindFirstChild("ColorStorage")
+	local teleports = storage and storage:FindFirstChild("UnlockedTeleports")
+	if not teleports or not teleports:IsA("StringValue") then
+		return
+	end
+
+	local set = {}
+	for _, existing in ipairs(string.split(teleports.Value or "", ",")) do
+		if existing ~= "" then
+			set[existing] = true
+		end
+	end
+	set.OriginSector = true
+	if set[locationId] then
+		return
+	end
+	set[locationId] = true
+
+	local ordered = {}
+	for _, id in ipairs({ "OriginSector", "RedWastelands", "ZorkShop", "OrangeSector", "InsidePipes" }) do
+		if set[id] then
+			table.insert(ordered, id)
+		end
+	end
+	teleports.Value = table.concat(ordered, ",")
+	if dataDirtyEvent and dataDirtyEvent:IsA("BindableEvent") then
+		dataDirtyEvent:Fire(player, "unlocked-teleport")
+	end
+	if travelResultEvent and travelResultEvent:IsA("RemoteEvent") then
+		travelResultEvent:FireClient(player, {
+			Success = true,
+			LocationId = locationId,
+			DisplayName = displayName or locationId,
+			UnlockedTeleport = true,
+			Message = (displayName or locationId) .. " teleport unlocked.",
+			UnlockedTeleports = teleports.Value,
+		})
+	end
+end
+
 local function hookPipeTrigger(trigger)
 	if not trigger:IsA("BasePart") then
 		return
@@ -21621,6 +21750,13 @@ local function hookPipeTrigger(trigger)
 		-- Re-resolve each time so moving the spawn marker in Studio updates behavior.
 		local currentDestination = resolveDestinationPart(trigger) or destinationPart
 		safeTeleport(player, character, currentDestination)
+		local destinationId = trigger:GetAttribute("PipeDestination")
+			or trigger:GetAttribute("Destination")
+			or trigger:GetAttribute("TravelLocation")
+			or TRIGGER_NAME_DESTINATION[trigger.Name]
+		if destinationId == "InsidePipes" then
+			unlockTeleport(player, "InsidePipes", "Inside the Pipes")
+		end
 	end)
 
 	print("PipeTeleportService: hooked", trigger:GetFullName(), "->", destinationPart:GetFullName())
@@ -22135,6 +22271,8 @@ local Workspace = game:GetService("Workspace")
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local Events = ReplicatedStorage:WaitForChild("Events")
 local transitionEvent = Events:FindFirstChild("ShopTransition")
+local travelResultEvent = Events:FindFirstChild("TravelToLocationResult")
+local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 
 local COOLDOWN = 1.2
 local FADE_IN_TIME = 0.18
@@ -22220,6 +22358,47 @@ local function getPlayerFromTouchedPart(part)
 		return nil
 	end
 	return Players:GetPlayerFromCharacter(character)
+end
+
+local function unlockTeleport(player, locationId, displayName)
+	local storage = player and player:FindFirstChild("ColorStorage")
+	local teleports = storage and storage:FindFirstChild("UnlockedTeleports")
+	if not teleports or not teleports:IsA("StringValue") then
+		return
+	end
+
+	local set = {}
+	for _, existing in ipairs(string.split(teleports.Value or "", ",")) do
+		if existing ~= "" then
+			set[existing] = true
+		end
+	end
+	set.OriginSector = true
+	if set[locationId] then
+		return
+	end
+	set[locationId] = true
+
+	local ordered = {}
+	for _, id in ipairs({ "OriginSector", "RedWastelands", "ZorkShop", "OrangeSector", "InsidePipes" }) do
+		if set[id] then
+			table.insert(ordered, id)
+		end
+	end
+	teleports.Value = table.concat(ordered, ",")
+	if dataDirtyEvent and dataDirtyEvent:IsA("BindableEvent") then
+		dataDirtyEvent:Fire(player, "unlocked-teleport")
+	end
+	if travelResultEvent and travelResultEvent:IsA("RemoteEvent") then
+		travelResultEvent:FireClient(player, {
+			Success = true,
+			LocationId = locationId,
+			DisplayName = displayName or locationId,
+			UnlockedTeleport = true,
+			Message = (displayName or locationId) .. " teleport unlocked.",
+			UnlockedTeleports = teleports.Value,
+		})
+	end
 end
 
 local function findPartByAttribute(attributeName, colorType, destinationName)
@@ -22513,6 +22692,7 @@ local function enterInterior(player, trigger)
 			end
 			player:SetAttribute("InsideSectorInterior", true)
 			player:SetAttribute("VisitedMutationSectorInterior", true)
+			unlockTeleport(player, "InsidePipes", "Inside the Pipes")
 		end
 	end)
 end
@@ -27357,6 +27537,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local Events = ReplicatedStorage:WaitForChild("Events")
+local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 
 local requestTravel = Events:FindFirstChild("RequestTravelToLocation")
 if not requestTravel then
@@ -27381,24 +27562,35 @@ local LOCATION_CONFIG = {
 		SpawnNames = { "OriginSectorSpawn", "StartSectorSpawn", "SpawnWorldSpawn", "SpawnLocation" },
 		AlwaysUnlocked = true,
 		CurrentWorld = "Red",
+		AutoUnlockTeleport = true,
 	},
 	RedWastelands = {
 		DisplayName = "Red Wastelands",
 		SpawnNames = { "RedWastelandsSpawn", "RedZoneSpawn", "StartSectorSpawn", "SpawnLocation" },
 		AlwaysUnlocked = true,
 		CurrentWorld = "Red",
+		AutoUnlockTeleport = true,
+	},
+	ZorkShop = {
+		DisplayName = "Zork Shop",
+		SpawnNames = { "ZorkShopSpawn", "ShopSpawn", "ShopEntranceSpawn", "StartSectorSpawn", "SpawnLocation" },
+		AlwaysUnlocked = true,
+		CurrentWorld = "Red",
+		AutoUnlockTeleport = true,
 	},
 	InsidePipes = {
 		DisplayName = "Inside the Pipes",
 		SpawnNames = { "PipeExitSpawn", "InsidePipesSpawn", "MutationZoneSpawn" },
 		RequiredColor = "Orange",
 		CurrentWorld = "Orange",
+		RequiresTeleportUnlock = true,
 	},
 	OrangeSector = {
 		DisplayName = "Orange Sector",
 		SpawnNames = { "OrangeSectorSpawn", "OrangeZoneSpawn", "OrangeSpawn" },
 		RequiredColor = "Orange",
 		CurrentWorld = "Orange",
+		AutoUnlockTeleport = true,
 	},
 	FutureSector = {
 		DisplayName = "Future Sector",
@@ -27407,22 +27599,54 @@ local LOCATION_CONFIG = {
 	},
 }
 
+for locationId, config in pairs(LOCATION_CONFIG) do
+	config.LocationId = locationId
+end
+
 local LOCATION_ID_ALIASES = {
 	SpawnWorld = "OriginSector",
 	StartSector = "OriginSector",
 	RedArea = "RedWastelands",
+	Shop = "ZorkShop",
+	Zork = "ZorkShop",
+	Pipes = "InsidePipes",
+	OrangePipes = "InsidePipes",
 }
 
 local function resolveLocationId(locationId)
 	return LOCATION_ID_ALIASES[locationId] or locationId
 end
 
-local function fireResult(player, success, locationId, message)
-	travelResult:FireClient(player, {
+local function fireResult(player, success, locationId, message, extra)
+	local payload = {
 		Success = success,
 		LocationId = locationId,
 		Message = message,
+	}
+	if type(extra) == "table" then
+		for key, value in pairs(extra) do
+			payload[key] = value
+		end
+	end
+	travelResult:FireClient(player, {
+		Success = payload.Success,
+		LocationId = payload.LocationId,
+		Message = payload.Message,
+		UnlockedTeleport = payload.UnlockedTeleport,
+		DisplayName = payload.DisplayName,
+		UnlockedTeleports = payload.UnlockedTeleports,
 	})
+end
+
+local function markDataDirty(player, reason)
+	local event = dataDirtyEvent
+	if not event or not event.Parent then
+		event = Events:FindFirstChild("PlayerDataDirty")
+		dataDirtyEvent = event
+	end
+	if event and event:IsA("BindableEvent") then
+		event:Fire(player, reason or "world-travel")
+	end
 end
 
 local function findSpawn(spawnNames)
@@ -27516,6 +27740,69 @@ local function isColorUnlocked(player, colorName)
 	return false
 end
 
+local function getUnlockedTeleportSet(player)
+	local storage = player:FindFirstChild("ColorStorage")
+	local value = storage and storage:FindFirstChild("UnlockedTeleports")
+	local set = { OriginSector = true }
+	if value and value:IsA("StringValue") then
+		for _, locationId in ipairs(string.split(value.Value, ",")) do
+			if locationId ~= "" then
+				set[locationId] = true
+			end
+		end
+	end
+	return set, value
+end
+
+local function serializeTeleports(set)
+	local ordered = {}
+	for locationId in pairs(LOCATION_CONFIG) do
+		if set[locationId] then
+			table.insert(ordered, locationId)
+		end
+	end
+	table.sort(ordered)
+	return table.concat(ordered, ",")
+end
+
+local function unlockTeleport(player, locationId)
+	local set, value = getUnlockedTeleportSet(player)
+	if set[locationId] then
+		return false, value and value.Value or serializeTeleports(set)
+	end
+	set[locationId] = true
+	local serialized = serializeTeleports(set)
+	if value and value:IsA("StringValue") then
+		value.Value = serialized
+	end
+	player:SetAttribute("UnlockedTeleports", serialized)
+	markDataDirty(player, "unlocked-teleport")
+	return true, serialized
+end
+
+local function isTeleportUnlocked(player, locationId)
+	local set = getUnlockedTeleportSet(player)
+	return set[locationId] == true
+end
+
+local function setCurrentWorld(player, colorType)
+	if not colorType then
+		return
+	end
+	local world = ColorData.getWorldByColor(colorType)
+	if not world or not isColorUnlocked(player, world.primaryColor) then
+		return
+	end
+
+	player:SetAttribute("ActiveWorldColor", world.primaryColor)
+	local storage = player:FindFirstChild("ColorStorage")
+	local currentWorld = storage and storage:FindFirstChild("CurrentWorld")
+	if currentWorld and currentWorld:IsA("StringValue") and currentWorld.Value ~= world.primaryColor then
+		currentWorld.Value = world.primaryColor
+	end
+	markDataDirty(player, "current-world")
+end
+
 local function canTravel(player, config)
 	if config.Locked then
 		return false, "Locked"
@@ -27525,6 +27812,9 @@ local function canTravel(player, config)
 	end
 	if config.RequiredColor then
 		if isColorUnlocked(player, config.RequiredColor) then
+			if config.RequiresTeleportUnlock and not isTeleportUnlocked(player, config.LocationId) then
+				return false, "Visit " .. config.DisplayName .. " first to unlock its teleport."
+			end
 			return true
 		end
 		return false, config.DisplayName .. " is locked"
@@ -27595,8 +27885,21 @@ requestTravel.OnServerEvent:Connect(function(player, locationId)
 		player:SetAttribute("LastTravelLocation", locationId)
 		if config.CurrentWorld then
 			player:SetAttribute("RequestedWorld", config.CurrentWorld)
+			setCurrentWorld(player, config.CurrentWorld)
 		end
-		fireResult(player, true, locationId, "Traveled to " .. config.DisplayName)
+		local unlockedNow = false
+		local unlockedTeleports
+		if config.AutoUnlockTeleport then
+			unlockedNow, unlockedTeleports = unlockTeleport(player, locationId)
+		else
+			local _, currentTeleports = getUnlockedTeleportSet(player)
+			unlockedTeleports = currentTeleports and currentTeleports.Value
+		end
+		fireResult(player, true, locationId, "Traveled to " .. config.DisplayName, {
+			DisplayName = config.DisplayName,
+			UnlockedTeleport = unlockedNow,
+			UnlockedTeleports = unlockedTeleports,
+		})
 	else
 		fireResult(player, false, locationId, message or "Travel failed")
 	end
@@ -31591,6 +31894,7 @@ local LEGACY_ROOT_LAYERS = {
 local TAB_NAMES = { "Colors", "Brushes", "Potions", "Items" }
 local RARITY_ORDER = { Legendary = 1, Epic = 2, Rare = 3, Uncommon = 4, Common = 5 }
 local BIND_INVENTORY_WINDOW = false
+local BIND_WORLDS_WINDOW = false
 local BIND_DAILY_QUESTS_WINDOW = false
 local FALLBACK_DAILY_QUESTS = {
 	{
@@ -33258,7 +33562,9 @@ local function refreshAuxiliaryWindows()
 	renderSettings()
 	renderCodes()
 	renderTrade()
-	renderWorlds()
+	if BIND_WORLDS_WINDOW then
+		renderWorlds()
+	end
 	if BIND_DAILY_QUESTS_WINDOW then
 		renderDailyQuests()
 	end
@@ -33318,19 +33624,21 @@ local function setupAuxiliaryListeners()
 		end)
 	end
 
-	local colorStorage = player:FindFirstChild("ColorStorage")
-	if colorStorage then
-		for _, valueName in ipairs({ "UnlockedColors", "CurrentWorld" }) do
-			local value = colorStorage:FindFirstChild(valueName)
-			if value and value:IsA("ValueBase") then
-				value:GetPropertyChangedSignal("Value"):Connect(renderWorlds)
+	if BIND_WORLDS_WINDOW then
+		local colorStorage = player:FindFirstChild("ColorStorage")
+		if colorStorage then
+			for _, valueName in ipairs({ "UnlockedColors", "CurrentWorld" }) do
+				local value = colorStorage:FindFirstChild(valueName)
+				if value and value:IsA("ValueBase") then
+					value:GetPropertyChangedSignal("Value"):Connect(renderWorlds)
+				end
 			end
 		end
-	end
-	local leaderstats = player:FindFirstChild("leaderstats")
-	local coins = leaderstats and leaderstats:FindFirstChild("Coins")
-	if coins and coins:IsA("ValueBase") then
-		coins:GetPropertyChangedSignal("Value"):Connect(renderWorlds)
+		local leaderstats = player:FindFirstChild("leaderstats")
+		local coins = leaderstats and leaderstats:FindFirstChild("Coins")
+		if coins and coins:IsA("ValueBase") then
+			coins:GetPropertyChangedSignal("Value"):Connect(renderWorlds)
+		end
 	end
 
 	for _, windowName in ipairs({ "ShopWindow", "UpgradesWindow", "SettingsWindow", "CodesWindow", "TradeWindow", "WorldsWindow", "DailyQuestsWindow" }) do
@@ -33348,7 +33656,7 @@ local function setupAuxiliaryListeners()
 						renderCodes()
 					elseif windowName == "TradeWindow" then
 						renderTrade()
-					elseif windowName == "WorldsWindow" then
+					elseif BIND_WORLDS_WINDOW and windowName == "WorldsWindow" then
 						renderWorlds()
 					elseif BIND_DAILY_QUESTS_WINDOW and windowName == "DailyQuestsWindow" then
 						renderDailyQuests()
@@ -48012,24 +48320,20 @@ end
           <Properties>
             <string name="Name">WorldsWindowBinder</string>
             <string name="Source"><![CDATA[-- Single controller for the editable Sectors/Worlds window.
--- Uses the Studio-built WorldsWindow only. Does not create duplicate windows.
+-- Builds the live Worlds/Zones tab inside the Studio-made WorldsWindow.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
+
 local Events = ReplicatedStorage:WaitForChild("Events")
 local requestTravel = Events:WaitForChild("RequestTravelToLocation")
 local unlockEvent = Events:WaitForChild("UnlockArea")
 local travelResult = Events:FindFirstChild("TravelToLocationResult")
-
-local currentPage = "Worlds"
-local currentPreview = "OriginSector"
-local unlockedCsv = "Red"
-local currentWorldColor = "Red"
-local currentCoins = 0
 
 local COLORS = {
 	Accent = Color3.fromRGB(88, 224, 235),
@@ -48046,12 +48350,56 @@ local COLORS = {
 	Outline = Color3.fromRGB(30, 34, 44),
 }
 
-local function findHud()
-	local root = playerGui:WaitForChild("ClientUIRoot", 20)
-	return root and root:WaitForChild("MainHUD", 20)
-end
+local SECTORS = {
+	{
+		id = "OriginSector",
+		colorType = "Red",
+		title = "Origin Sector",
+		description = "Free starting sector. Your game spawn is the Origin Spawn.",
+		thumbnailText = "ORIGIN",
+		color = COLORS.Red,
+	},
+	{
+		id = "OrangeSector",
+		colorType = "Orange",
+		title = "Orange Sector",
+		description = "Unlocks orange spills and the Pipes zone.",
+		thumbnailText = "ORANGE",
+		color = COLORS.Orange,
+		cost = 15000,
+	},
+}
 
-local mainHUD = findHud()
+local ZONES = {
+	OriginSector = {
+		{
+			id = "RedWastelands",
+			title = "Red Wastelands",
+			description = "Clean spills and earn Coins.",
+			color = COLORS.Red,
+			alwaysUnlocked = true,
+		},
+		{
+			id = "ZorkShop",
+			title = "Zork Shop",
+			description = "Visit Zork for shop rewards and upgrades.",
+			color = COLORS.Gold,
+			alwaysUnlocked = true,
+		},
+	},
+	OrangeSector = {
+		{
+			id = "InsidePipes",
+			title = "The Pipes",
+			description = "Reach this zone in Orange Sector first to unlock its teleport.",
+			color = COLORS.Pipes,
+			requiredColor = "Orange",
+		},
+	},
+}
+
+local root = playerGui:WaitForChild("ClientUIRoot", 20)
+local mainHUD = root and root:WaitForChild("MainHUD", 20)
 local modal = mainHUD and mainHUD:WaitForChild("ModalWindows", 20)
 local windows = modal and modal:WaitForChild("Windows", 20)
 local worldsWindow = windows and windows:WaitForChild("WorldsWindow", 20)
@@ -48060,281 +48408,415 @@ if not worldsWindow then
 	return
 end
 
-local function find(name)
-	return worldsWindow:FindFirstChild(name, true)
-end
-
-local function setText(obj, text)
-	if obj and (obj:IsA("TextLabel") or obj:IsA("TextButton")) then
-		obj.Text = tostring(text or "")
-	end
-end
-
-local function setVisible(obj, visible)
-	if obj and obj:IsA("GuiObject") then
-		obj.Visible = visible
-	end
-end
+local currentPage = "Worlds"
+local previewIndex = 1
+local unlockedCsv = "Red"
+local currentWorldColor = "Red"
+local unlockedTeleportsCsv = "OriginSector"
 
 local function formatCoins(value)
 	return GameBalance.formatNumber(tonumber(value) or 0)
 end
 
-local function isUnlocked(colorType)
+local function worldUnlocked(colorType)
 	return ColorData.isColorUnlocked(unlockedCsv, colorType)
 end
 
-local function getWorldStatus(locationId)
-	if locationId == "OrangeSector" then
-		if isUnlocked("Orange") then
-			return currentWorldColor == "Orange" and "CURRENT" or "GO", COLORS.Green
-		end
-		return "UNLOCK", COLORS.Green
+local function teleportUnlocked(locationId)
+	if locationId == "OriginSector" then
+		return true
 	end
-
-	return currentWorldColor == "Red" and "CURRENT" or "GO", COLORS.Green
+	for _, id in ipairs(string.split(unlockedTeleportsCsv or "", ",")) do
+		if id == locationId then
+			return true
+		end
+	end
+	return false
 end
 
-local function requestLocationOrUnlock(locationId)
-	if (locationId == "OrangeSector" or locationId == "InsidePipes") and not isUnlocked("Orange") then
+local function find(name)
+	return worldsWindow:FindFirstChild(name, true)
+end
+
+local function setText(object, text)
+	if object and (object:IsA("TextLabel") or object:IsA("TextButton")) then
+		object.Text = tostring(text or "")
+	end
+end
+
+local function applyCorner(object, radius)
+	local corner = object:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, radius or 12)
+	corner.Parent = object
+end
+
+local function applyStroke(object, thickness, color)
+	local stroke = object:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	stroke.Thickness = thickness or 2
+	stroke.Color = color or COLORS.Outline
+	stroke.Parent = object
+end
+
+local function make(className, props)
+	local object = Instance.new(className)
+	for key, value in pairs(props or {}) do
+		object[key] = value
+	end
+	return object
+end
+
+local body = worldsWindow:FindFirstChild("Content") or worldsWindow:FindFirstChild("Body")
+if not body or not body:IsA("GuiObject") then
+	body = make("Frame", {
+		Name = "Content",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(22, 82),
+		Size = UDim2.new(1, -44, 1, -108),
+		Parent = worldsWindow,
+	})
+end
+
+for _, child in ipairs(body:GetChildren()) do
+	if child:IsA("GuiObject") then
+		child.Visible = false
+	end
+end
+
+local surface = body:FindFirstChild("WorldsBinderSurface")
+if not surface then
+	surface = make("Frame", {
+		Name = "WorldsBinderSurface",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		Parent = body,
+	})
+else
+	surface.Visible = true
+end
+surface:ClearAllChildren()
+
+local toastLayer = root:FindFirstChild("WorldsToastLayer")
+if not toastLayer then
+	toastLayer = make("Frame", {
+		Name = "WorldsToastLayer",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 250,
+		Parent = root,
+	})
+end
+
+local function showToast(text, color)
+	local toast = make("TextLabel", {
+		Name = "TeleportToast",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 78),
+		Size = UDim2.fromOffset(420, 44),
+		BackgroundColor3 = color or COLORS.Green,
+		BorderSizePixel = 0,
+		Font = Enum.Font.GothamBlack,
+		Text = text,
+		TextColor3 = COLORS.White,
+		TextScaled = true,
+		TextStrokeColor3 = COLORS.Outline,
+		TextStrokeTransparency = 0,
+		ZIndex = 260,
+		Parent = toastLayer,
+	})
+	applyCorner(toast, 12)
+	applyStroke(toast, 3, COLORS.Outline)
+	toast.BackgroundTransparency = 1
+	toast.TextTransparency = 1
+	toast.TextStrokeTransparency = 1
+	TweenService:Create(toast, TweenInfo.new(0.16), {
+		BackgroundTransparency = 0,
+		TextTransparency = 0,
+		TextStrokeTransparency = 0,
+		Position = UDim2.new(0.5, 0, 0, 58),
+	}):Play()
+	task.delay(2.1, function()
+		if toast.Parent then
+			TweenService:Create(toast, TweenInfo.new(0.2), {
+				BackgroundTransparency = 1,
+				TextTransparency = 1,
+				TextStrokeTransparency = 1,
+				Position = UDim2.new(0.5, 0, 0, 42),
+			}):Play()
+			task.delay(0.25, function()
+				if toast.Parent then
+					toast:Destroy()
+				end
+			end)
+		end
+	end)
+end
+
+local function makeLabel(parent, name, text, pos, size, textSize, color)
+	return make("TextLabel", {
+		Name = name,
+		BackgroundTransparency = 1,
+		Position = pos,
+		Size = size,
+		Font = Enum.Font.GothamBlack,
+		Text = text,
+		TextColor3 = color or COLORS.Text,
+		TextSize = textSize or 18,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 80,
+		Parent = parent,
+	})
+end
+
+local pages = make("Frame", {
+	Name = "Pages",
+	BackgroundTransparency = 1,
+	Position = UDim2.fromScale(0, 0.12),
+	Size = UDim2.fromScale(1, 0.88),
+	Parent = surface,
+})
+
+local worldsPage = make("Frame", {
+	Name = "WorldsPage",
+	BackgroundTransparency = 1,
+	Size = UDim2.fromScale(1, 1),
+	Parent = pages,
+})
+
+local zonesPage = make("Frame", {
+	Name = "ZonesPage",
+	BackgroundTransparency = 1,
+	Size = UDim2.fromScale(1, 1),
+	Visible = false,
+	Parent = pages,
+})
+
+local function getPreviewSector()
+	return SECTORS[previewIndex] or SECTORS[1]
+end
+
+local function requestSector(sector)
+	if sector.id == "OrangeSector" and not worldUnlocked("Orange") then
 		unlockEvent:FireServer("unlock", "Orange")
 		return
 	end
-
-	requestTravel:FireServer(locationId)
+	requestTravel:FireServer(sector.id)
 end
 
-local function ensureButton(object)
-	if not object or object:IsA("GuiButton") then
-		return object
+local function requestZone(zone)
+	if zone.requiredColor and not worldUnlocked(zone.requiredColor) then
+		showToast("Unlock " .. tostring(zone.requiredColor) .. " Sector first.", COLORS.Red)
+		return
 	end
-	if not object:IsA("GuiObject") then
-		return nil
+	if not zone.alwaysUnlocked and not teleportUnlocked(zone.id) then
+		showToast("Visit " .. zone.title .. " first to unlock its teleport.", COLORS.Orange)
+		return
 	end
-
-	local button = Instance.new("TextButton")
-	button.Name = object.Name
-	button.Position = object.Position
-	button.Size = object.Size
-	button.AnchorPoint = object.AnchorPoint
-	button.BackgroundColor3 = object.BackgroundColor3
-	button.BackgroundTransparency = object.BackgroundTransparency
-	button.BorderSizePixel = object.BorderSizePixel
-	button.LayoutOrder = object.LayoutOrder
-	button.Rotation = object.Rotation
-	button.Visible = object.Visible
-	button.ZIndex = object.ZIndex
-	button.AutoButtonColor = true
-	button.Active = true
-	if object:IsA("TextLabel") then
-		button.Text = object.Text
-		button.TextColor3 = object.TextColor3
-		button.TextTransparency = object.TextTransparency
-		button.TextStrokeColor3 = object.TextStrokeColor3
-		button.TextStrokeTransparency = object.TextStrokeTransparency
-		button.Font = object.Font
-		button.TextSize = object.TextSize
-		button.TextScaled = object.TextScaled
-		button.TextWrapped = object.TextWrapped
-		button.TextXAlignment = object.TextXAlignment
-		button.TextYAlignment = object.TextYAlignment
-	end
-
-	for _, child in ipairs(object:GetChildren()) do
-		child.Parent = button
-	end
-	button.Parent = object.Parent
-	object:Destroy()
-	return button
+	requestTravel:FireServer(zone.id)
 end
 
-local function corner(obj, radius)
-	local old = obj:FindFirstChildOfClass("UICorner")
-	if old then old:Destroy() end
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius or 16)
-	c.Parent = obj
-end
-
-local function stroke(obj, thickness, color)
-	local old = obj:FindFirstChildOfClass("UIStroke")
-	if old then old:Destroy() end
-	local s = Instance.new("UIStroke")
-	s.Thickness = thickness or 2
-	s.Color = color or COLORS.Outline
-	s.Parent = obj
-end
-
-local function label(parent, name, text, pos, size, textSize, color)
-	local l = Instance.new("TextLabel")
-	l.Name = name
-	l.Text = text
-	l.Position = pos
-	l.Size = size
-	l.BackgroundTransparency = 1
-	l.TextColor3 = color or COLORS.Text
-	l.Font = Enum.Font.GothamBlack
-	l.TextSize = textSize or 18
-	l.TextWrapped = true
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.TextYAlignment = Enum.TextYAlignment.Center
-	l.ZIndex = 80
-	l.Parent = parent
-	return l
-end
-
-local function getPages()
-	local body = worldsWindow:FindFirstChild("Body") or worldsWindow:FindFirstChild("Content")
-	return body and body:FindFirstChild("Pages")
-end
-
-local function showPage(page)
-	currentPage = page
-	local pages = getPages()
-	if not pages then return end
-	local worldsPage = pages:FindFirstChild("WorldsPage")
-	local zonesPage = pages:FindFirstChild("ZonesPage")
-	if worldsPage then worldsPage.Visible = page == "Worlds" end
-	if zonesPage then zonesPage.Visible = page == "Zones" end
+local function renderTabs()
 	local worldsTab = find("WorldsTab")
 	local zonesTab = find("ZonesTab")
-	if worldsTab and worldsTab:IsA("GuiObject") then worldsTab.BackgroundColor3 = page == "Worlds" and COLORS.Accent or COLORS.Off end
-	if zonesTab and zonesTab:IsA("GuiObject") then zonesTab.BackgroundColor3 = page == "Zones" and COLORS.Accent or COLORS.Off end
+	if worldsTab and worldsTab:IsA("GuiObject") then
+		worldsTab.BackgroundColor3 = currentPage == "Worlds" and COLORS.Accent or COLORS.Off
+	end
+	if zonesTab and zonesTab:IsA("GuiObject") then
+		zonesTab.BackgroundColor3 = currentPage == "Zones" and COLORS.Accent or COLORS.Off
+	end
 end
 
-local function renderWorlds()
-	local card = find("OriginSectorCard") or find("SpawnWorldCard")
-	if not card then return end
-	card.Name = "OriginSectorCard"
-	card:SetAttribute("LocationId", currentPreview)
-	card:SetAttribute("PreviewOnly", false)
-	local title = card:FindFirstChild("LocationTitle", true)
-	local desc = card:FindFirstChild("Description", true)
-	local status = ensureButton(card:FindFirstChild("StatusPill", true))
-	local thumb = card:FindFirstChild("Thumbnail", true)
-	local img = card:FindFirstChild("ImageText", true)
-	local arrow = find("NextSectorButton")
-	if status and status:IsA("GuiButton") and status:GetAttribute("WorldsStatusBound") ~= true then
-		status:SetAttribute("WorldsStatusBound", true)
-		status.MouseButton1Click:Connect(function()
-			requestLocationOrUnlock(currentPreview)
-		end)
-	end
-	if currentPreview == "OriginSector" then
-		setText(title, "Origin Sector")
-		setText(desc, "The starting sector. Contains the Red Wastelands.")
-		local statusText, statusColor = getWorldStatus("OriginSector")
-		setText(status, statusText)
-		if status then
-			status.BackgroundColor3 = statusColor
-			status.Active = true
-			status.AutoButtonColor = true
-		end
-		if thumb then thumb.BackgroundColor3 = COLORS.Red end
-		if img then img.Text = "IMAGE" end
-		if arrow and arrow:IsA("TextButton") then arrow.Text = "›" end
+local render
+
+local function drawWorlds()
+	worldsPage:ClearAllChildren()
+	local sector = getPreviewSector()
+	local unlocked = sector.colorType == "Red" or worldUnlocked(sector.colorType)
+	local current = currentWorldColor == sector.colorType
+
+	local card = make("Frame", {
+		Name = "SectorPreview",
+		Position = UDim2.fromScale(0.08, 0.10),
+		Size = UDim2.fromScale(0.84, 0.72),
+		BackgroundColor3 = sector.color,
+		BorderSizePixel = 0,
+		Parent = worldsPage,
+	})
+	applyCorner(card, 8)
+
+	local thumb = make("Frame", {
+		Name = "Thumbnail",
+		Position = UDim2.fromScale(0.04, 0.16),
+		Size = UDim2.fromScale(0.28, 0.56),
+		BackgroundColor3 = sector.color:Lerp(Color3.fromRGB(20, 24, 30), 0.12),
+		BorderSizePixel = 0,
+		Parent = card,
+	})
+	applyCorner(thumb, 8)
+	applyStroke(thumb, 4, sector.colorType == "Orange" and Color3.fromRGB(255, 88, 20) or COLORS.Outline)
+	local thumbText = makeLabel(thumb, "ThumbnailText", sector.thumbnailText, UDim2.fromScale(0.08, 0.28), UDim2.fromScale(0.84, 0.26), 22, COLORS.White)
+	thumbText.TextXAlignment = Enum.TextXAlignment.Center
+	thumbText.TextStrokeColor3 = COLORS.Outline
+	thumbText.TextStrokeTransparency = 0
+
+	local titlePrefix = current and "Current Sector" or (unlocked and "Unlocked Sector" or "Next Sector")
+	makeLabel(card, "TitlePrefix", titlePrefix, UDim2.fromScale(0.38, 0.15), UDim2.fromScale(0.50, 0.10), 18, COLORS.White)
+	local title = makeLabel(card, "Title", sector.title, UDim2.fromScale(0.38, 0.26), UDim2.fromScale(0.52, 0.12), 28, COLORS.White)
+	title.TextStrokeColor3 = COLORS.Outline
+	title.TextStrokeTransparency = 0
+	makeLabel(card, "Description", sector.description, UDim2.fromScale(0.38, 0.40), UDim2.fromScale(0.50, 0.18), 15, COLORS.White)
+
+	local buttonText
+	local buttonColor
+	if sector.id == "OrangeSector" and not unlocked then
+		buttonText = "UNLOCK " .. formatCoins(sector.cost) .. " COINS"
+		buttonColor = COLORS.Green
+	elseif current then
+		buttonText = "HERE"
+		buttonColor = COLORS.Green
 	else
-		local orangeWorld = ColorData.getWorldByColor("Orange")
-		local cost = tonumber(orangeWorld and orangeWorld.unlockCost) or 0
-		setText(title, "Orange Sector")
-		setText(desc, "Contains Inside the Pipes. Unlock mutations here. Cost: " .. formatCoins(cost) .. " Coins")
-		local statusText, statusColor = getWorldStatus("OrangeSector")
-		setText(status, statusText)
-		if status then
-			status.BackgroundColor3 = statusColor
-			status.Active = true
-			status.AutoButtonColor = true
-		end
-		if thumb then thumb.BackgroundColor3 = COLORS.Orange end
-		if img then img.Text = "ORANGE" end
-		if arrow and arrow:IsA("TextButton") then arrow.Text = "‹" end
+		buttonText = "GO"
+		buttonColor = COLORS.Accent
 	end
+
+	local action = make("TextButton", {
+		Name = "SectorAction",
+		Position = UDim2.fromScale(0.38, 0.64),
+		Size = UDim2.fromScale(0.36, 0.13),
+		BackgroundColor3 = buttonColor,
+		BorderSizePixel = 0,
+		AutoButtonColor = true,
+		Font = Enum.Font.GothamBlack,
+		Text = buttonText,
+		TextColor3 = COLORS.White,
+		TextScaled = true,
+		TextStrokeColor3 = COLORS.Outline,
+		TextStrokeTransparency = 0,
+		Parent = card,
+	})
+	applyCorner(action, 12)
+	action.MouseButton1Click:Connect(function()
+		requestSector(sector)
+	end)
+
+	local left = make("TextButton", {
+		Name = "PreviousSectorButton",
+		Position = UDim2.fromScale(0.01, 0.42),
+		Size = UDim2.fromScale(0.055, 0.18),
+		BackgroundColor3 = COLORS.Off,
+		BorderSizePixel = 0,
+		Font = Enum.Font.GothamBlack,
+		Text = "<",
+		TextColor3 = COLORS.Text,
+		TextScaled = true,
+		Parent = worldsPage,
+	})
+	applyCorner(left, 10)
+	left.MouseButton1Click:Connect(function()
+		previewIndex = previewIndex == 1 and #SECTORS or previewIndex - 1
+		render()
+	end)
+
+	local right = make("TextButton", {
+		Name = "NextSectorButton",
+		Position = UDim2.fromScale(0.935, 0.42),
+		Size = UDim2.fromScale(0.055, 0.18),
+		BackgroundColor3 = COLORS.Accent,
+		BorderSizePixel = 0,
+		Font = Enum.Font.GothamBlack,
+		Text = ">",
+		TextColor3 = COLORS.White,
+		TextScaled = true,
+		Parent = worldsPage,
+	})
+	applyCorner(right, 10)
+	right.MouseButton1Click:Connect(function()
+		previewIndex = previewIndex == #SECTORS and 1 or previewIndex + 1
+		render()
+	end)
 end
 
-local function zoneCard(parent, name, locationId, pos, color, title, desc)
-	local card = Instance.new("TextButton")
-	card.Name = name
-	card.Position = pos
-	card.Size = UDim2.fromScale(0.46, 0.32)
-	card.BackgroundColor3 = COLORS.Card
-	card.BorderSizePixel = 0
-	card.Text = ""
-	card.AutoButtonColor = true
-	card.Active = true
-	card:SetAttribute("LocationId", locationId)
-	card:SetAttribute("Locked", false)
-	card.Parent = parent
-	corner(card, 20)
-	stroke(card, 2, Color3.fromRGB(220, 226, 236))
+local function drawZoneCard(parent, zone, index)
+	local unlocked = zone.alwaysUnlocked or teleportUnlocked(zone.id)
+	local sectorUnlocked = not zone.requiredColor or worldUnlocked(zone.requiredColor)
+	local card = make("TextButton", {
+		Name = zone.id .. "ZoneCard",
+		Position = UDim2.fromScale(0.06 + ((index - 1) % 2) * 0.48, 0.24 + math.floor((index - 1) / 2) * 0.38),
+		Size = UDim2.fromScale(0.42, 0.30),
+		BackgroundColor3 = sectorUnlocked and COLORS.Card or Color3.fromRGB(225, 229, 238),
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = sectorUnlocked,
+		Active = sectorUnlocked,
+		Parent = parent,
+	})
+	applyCorner(card, 8)
+	applyStroke(card, 2, unlocked and zone.color or Color3.fromRGB(190, 196, 210))
 
-	local thumb = Instance.new("Frame")
-	thumb.Name = "Thumbnail"
-	thumb.Position = UDim2.fromScale(0.04, 0.14)
-	thumb.Size = UDim2.fromScale(0.27, 0.72)
-	thumb.BackgroundColor3 = color
-	thumb.BorderSizePixel = 0
-	thumb.Parent = card
-	corner(thumb, 16)
-	stroke(thumb, 2, COLORS.Outline)
+	local swatch = make("Frame", {
+		Name = "Swatch",
+		Position = UDim2.fromScale(0.05, 0.18),
+		Size = UDim2.fromScale(0.22, 0.50),
+		BackgroundColor3 = zone.color,
+		BorderSizePixel = 0,
+		Parent = card,
+	})
+	applyCorner(swatch, 8)
 
-	local img = label(thumb, "ImageText", "IMAGE", UDim2.fromScale(0,0), UDim2.fromScale(1,1), 22, COLORS.White)
-	img.TextScaled = true
-	img.TextXAlignment = Enum.TextXAlignment.Center
-	img.TextStrokeTransparency = 0
-	img.TextStrokeColor3 = COLORS.Outline
+	makeLabel(card, "Title", zone.title, UDim2.fromScale(0.33, 0.12), UDim2.fromScale(0.58, 0.18), 19, COLORS.Text)
+	makeLabel(card, "Description", zone.description, UDim2.fromScale(0.33, 0.33), UDim2.fromScale(0.58, 0.24), 13, COLORS.Muted)
 
-	label(card, "LocationTitle", title, UDim2.fromScale(0.36, 0.14), UDim2.fromScale(0.58, 0.20), 20, COLORS.Text)
-	label(card, "Description", desc, UDim2.fromScale(0.36, 0.36), UDim2.fromScale(0.58, 0.26), 14, COLORS.Muted)
-
-	local pill = Instance.new("TextButton")
-	pill.Name = "StatusPill"
-	pill.Text = "TELEPORT"
-	pill.Position = UDim2.fromScale(0.36, 0.70)
-	pill.Size = UDim2.fromScale(0.34, 0.14)
-	pill.BackgroundColor3 = COLORS.Green
-	pill.TextColor3 = COLORS.White
-	pill.Font = Enum.Font.GothamBlack
-	pill.TextScaled = true
-	pill.BorderSizePixel = 0
-	pill.AutoButtonColor = true
-	pill.Active = true
-	pill.Parent = card
-	corner(pill, 999)
-
-	pill.MouseButton1Click:Connect(function()
-		requestLocationOrUnlock(locationId)
-	end)
+	local statusText = "TELEPORT"
+	local statusColor = COLORS.Green
+	if not sectorUnlocked then
+		statusText = "LOCKED"
+		statusColor = COLORS.Red
+	elseif not unlocked then
+		statusText = "VISIT FIRST"
+		statusColor = COLORS.Orange
+	end
+	local status = make("TextLabel", {
+		Name = "StatusPill",
+		Position = UDim2.fromScale(0.33, 0.68),
+		Size = UDim2.fromScale(0.36, 0.16),
+		BackgroundColor3 = statusColor,
+		BorderSizePixel = 0,
+		Font = Enum.Font.GothamBlack,
+		Text = statusText,
+		TextColor3 = COLORS.White,
+		TextScaled = true,
+		TextStrokeColor3 = COLORS.Outline,
+		TextStrokeTransparency = 0,
+		Parent = card,
+	})
+	applyCorner(status, 999)
 
 	card.MouseButton1Click:Connect(function()
-		requestLocationOrUnlock(locationId)
-		print("WorldsWindowBinder: requested zone travel", locationId)
+		requestZone(zone)
 	end)
 end
 
-local function renderZones()
-	local pages = getPages()
-	local zonesPage = pages and pages:FindFirstChild("ZonesPage")
-	if not zonesPage then return end
-	for _, child in ipairs(zonesPage:GetChildren()) do child:Destroy() end
-	if currentPreview == "OrangeSector" then
-		label(zonesPage, "ZonesPageHeader", "Zones in Orange Sector", UDim2.fromScale(0.04, 0.02), UDim2.fromScale(0.70, 0.08), 24, COLORS.Text)
-		label(zonesPage, "ZonesInstruction", "Tap a zone to travel there.", UDim2.fromScale(0.04, 0.09), UDim2.fromScale(0.70, 0.06), 16, COLORS.Muted)
-		zoneCard(zonesPage, "InsidePipesZoneCard", "InsidePipes", UDim2.fromScale(0.04, 0.22), COLORS.Pipes, "Inside the Pipes", "Orange Sector zone. Unlock mutations here.")
-	else
-		label(zonesPage, "ZonesPageHeader", "Zones in Origin Sector", UDim2.fromScale(0.04, 0.02), UDim2.fromScale(0.70, 0.08), 24, COLORS.Text)
-		label(zonesPage, "ZonesInstruction", "Tap a zone to travel there.", UDim2.fromScale(0.04, 0.09), UDim2.fromScale(0.70, 0.06), 16, COLORS.Muted)
-		zoneCard(zonesPage, "RedWastelandsZoneCard", "RedWastelands", UDim2.fromScale(0.04, 0.22), COLORS.Red, "Red Wastelands", "Clean spills and earn coins.")
-		zoneCard(zonesPage, "ZorkShopZoneCard", "ZorkShop", UDim2.fromScale(0.52, 0.22), COLORS.Gold, "Zork Shop", "Visit Zork for rewards, shop, and upgrades.")
+local function drawZones()
+	zonesPage:ClearAllChildren()
+	local sector = getPreviewSector()
+	local zones = ZONES[sector.id] or {}
+	makeLabel(zonesPage, "ZonesHeader", "Zones in " .. sector.title, UDim2.fromScale(0.05, 0.04), UDim2.fromScale(0.74, 0.10), 24, COLORS.Text)
+	local subtitle = sector.id == "OrangeSector" and "The Pipes teleport unlocks after you visit it in the Orange Sector." or "Origin Sector teleports are available from the start."
+	makeLabel(zonesPage, "ZonesSubtitle", subtitle, UDim2.fromScale(0.05, 0.13), UDim2.fromScale(0.82, 0.07), 14, COLORS.Muted)
+	for index, zone in ipairs(zones) do
+		drawZoneCard(zonesPage, zone, index)
 	end
 end
 
-local function render()
-	if currentPage == "Zones" then
-		showPage("Zones")
-		renderZones()
+function render()
+	renderTabs()
+	worldsPage.Visible = currentPage == "Worlds"
+	zonesPage.Visible = currentPage == "Zones"
+	if currentPage == "Worlds" then
+		drawWorlds()
 	else
-		showPage("Worlds")
-		renderWorlds()
+		drawZones()
 	end
 end
 
@@ -48354,26 +48836,10 @@ if zonesTab and zonesTab:IsA("GuiButton") then
 	end)
 end
 
-local arrow = find("NextSectorButton")
-if arrow and arrow:IsA("GuiButton") then
-	arrow.MouseButton1Click:Connect(function()
-		currentPreview = currentPreview == "OriginSector" and "OrangeSector" or "OriginSector"
-		render()
-	end)
-end
-
-local card = find("OriginSectorCard") or find("SpawnWorldCard")
-if card and card:IsA("GuiButton") then
-	card.MouseButton1Click:Connect(function()
-		requestLocationOrUnlock(currentPreview)
-	end)
-end
-
 local storage = player:WaitForChild("ColorStorage", 10)
 local unlockedValue = storage and storage:WaitForChild("UnlockedColors", 10)
 local currentWorldValue = storage and storage:WaitForChild("CurrentWorld", 10)
-local leaderstats = player:WaitForChild("leaderstats", 10)
-local coinsValue = leaderstats and leaderstats:WaitForChild("Coins", 10)
+local unlockedTeleportsValue = storage and storage:WaitForChild("UnlockedTeleports", 10)
 
 if unlockedValue then
 	unlockedCsv = unlockedValue.Value
@@ -48386,42 +48852,55 @@ if currentWorldValue then
 	currentWorldColor = currentWorldValue.Value ~= "" and currentWorldValue.Value or currentWorldColor
 	currentWorldValue:GetPropertyChangedSignal("Value"):Connect(function()
 		currentWorldColor = currentWorldValue.Value ~= "" and currentWorldValue.Value or "Red"
+		if currentWorldColor == "Orange" then
+			previewIndex = 2
+		end
 		render()
 	end)
 end
-if coinsValue then
-	currentCoins = coinsValue.Value
-	coinsValue:GetPropertyChangedSignal("Value"):Connect(function()
-		currentCoins = coinsValue.Value
+if unlockedTeleportsValue then
+	unlockedTeleportsCsv = unlockedTeleportsValue.Value ~= "" and unlockedTeleportsValue.Value or "OriginSector"
+	unlockedTeleportsValue:GetPropertyChangedSignal("Value"):Connect(function()
+		unlockedTeleportsCsv = unlockedTeleportsValue.Value ~= "" and unlockedTeleportsValue.Value or "OriginSector"
 		render()
 	end)
 end
 
-unlockEvent.OnClientEvent:Connect(function()
+unlockEvent.OnClientEvent:Connect(function(kind, colorType)
+	if colorType == "Orange" and (kind == "unlocked" or kind == "teleported" or kind == "state") then
+		previewIndex = 2
+	end
 	render()
 end)
 
+if travelResult then
+	travelResult.OnClientEvent:Connect(function(result)
+		if type(result) ~= "table" then
+			return
+		end
+		if result.UnlockedTeleports then
+			unlockedTeleportsCsv = result.UnlockedTeleports
+		end
+		if result.UnlockedTeleport then
+			showToast("New teleport unlocked: " .. tostring(result.DisplayName or result.LocationId), COLORS.Green)
+		elseif result.Success == false and result.Message then
+			showToast(tostring(result.Message), COLORS.Red)
+		end
+		render()
+	end)
+end
+
 worldsWindow:GetPropertyChangedSignal("Visible"):Connect(function()
 	if worldsWindow.Visible then
-		currentPage = "Worlds"
 		render()
 	end
 end)
 
-render()
-print("WorldsWindowBinder: single sectors controller active")
-
-if travelResult then
-	travelResult.OnClientEvent:Connect(function(result)
-		if type(result) == "table" then
-			if result.Success then
-				print("Travel success:", result.Message or result.LocationId)
-			else
-				warn("Travel failed:", result.Message or result.LocationId)
-			end
-		end
-	end)
+if currentWorldColor == "Orange" then
+	previewIndex = 2
 end
+render()
+print("WorldsWindowBinder: Worlds/Zones progression UI active")
 ]]></string>
           </Properties>
         </Item>

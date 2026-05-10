@@ -1,0 +1,5 @@
+error: could not format file src\client\ReadableTextPolish.client.luau: error parsing: 
+ - unexpected token `=` (43:16 to 43:17), expected `}` after last field
+ - unexpected token `=` (43:16 to 43:17), unexpected token, this needs to be a statement
+ - unexpected token `,` (47:14 to 47:15), trailing commas are not allowed
+ - unexpected token `}` (48:1 to 48:2), unexpected token, this needs to be a statement

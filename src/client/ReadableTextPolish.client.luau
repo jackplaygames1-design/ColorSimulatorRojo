@@ -40,10 +40,10 @@ local BUTTON_WORDS = {
 	DONE = true,
 	REDEEM = true,
 	TELEPORT = true,
-	"IN PROGRESS" = true,
-	"COMING SOON" = true,
-	"DELETE OFF" = true,
-	"SET ID" = true,
+	["IN PROGRESS"] = true,
+	["COMING SOON"] = true,
+	["DELETE OFF"] = true,
+	["SET ID"] = true,
 	OWNED = true,
 }
 
