@@ -28,7 +28,20 @@ if not window or not window:IsA("GuiObject") then
 end
 
 local content = window:FindFirstChild("Content")
-local grid = content and (content:FindFirstChild("ToolGrid") or content)
+local grid = content and content:FindFirstChild("ToolGrid")
+if not grid or not grid:IsA("GuiObject") then
+	warn(
+		"EditableBrushShopBinder: BrushShopWindow.Content.ToolGrid is missing. Run StudioMenuWindowsBuilder.UpdateZorkWindows() in edit mode."
+	)
+	return
+end
+
+if not grid:IsA("ScrollingFrame") then
+	warn(
+		"EditableBrushShopBinder: BrushShopWindow.Content.ToolGrid should be a Studio-authored ScrollingFrame. Run StudioMenuWindowsBuilder.UpdateZorkWindows() in edit mode."
+	)
+end
+
 local template = grid and grid:FindFirstChild("ToolCardTemplate")
 if not template or not template:IsA("GuiObject") then
 	warn("EditableBrushShopBinder: BrushShopWindow.Content.ToolGrid.ToolCardTemplate is missing.")
@@ -132,21 +145,30 @@ local function getFirstSectorBrushes()
 end
 
 local function render()
-	for _, child in ipairs(grid:GetChildren()) do
-		if child:IsA("GuiObject") and child ~= template and child:GetAttribute("BrushShopRuntimeCard") == true then
-			child:Destroy()
-		end
-	end
 	table.clear(cardsByToolId)
 
 	for index, tool in ipairs(getFirstSectorBrushes()) do
-		local card = template:Clone()
-		card.Name = tool.Id .. "Card"
-		card:SetAttribute("BrushShopRuntimeCard", true)
+		local card = grid:FindFirstChild(tool.Id .. "Card")
+		if not card or not card:IsA("GuiObject") then
+			for _, child in ipairs(grid:GetChildren()) do
+				if child:IsA("GuiObject") and child:GetAttribute("ToolId") == tool.Id then
+					card = child
+					break
+				end
+			end
+		end
+		if not card or not card:IsA("GuiObject") then
+			warn(
+				"EditableBrushShopBinder: missing Studio-authored card for "
+					.. tool.Id
+					.. ". Run StudioMenuWindowsBuilder.UpdateZorkWindows() in edit mode."
+			)
+			continue
+		end
+
 		card:SetAttribute("ToolId", tool.Id)
 		card.LayoutOrder = index
 		card.Visible = true
-		card.Parent = grid
 		setButton(card, tool)
 		cardsByToolId[tool.Id] = card
 	end

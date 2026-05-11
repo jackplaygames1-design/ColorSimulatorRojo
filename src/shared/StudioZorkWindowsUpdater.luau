@@ -22,25 +22,47 @@ local function requireFresh(module)
 	return result
 end
 
-function Updater.Update()
+local function runBuilderMethod(methodName)
 	if not RunService:IsStudio() then
-		warn("StudioZorkWindowsUpdater.Update can only run in Roblox Studio.")
+		warn("StudioZorkWindowsUpdater can only run in Roblox Studio.")
 		return
 	end
 
 	local builderModule = ReplicatedStorage:WaitForChild("StudioMenuWindowsBuilder")
 	local builder = requireFresh(builderModule)
-	local updateZorkWindows = builder and builder.UpdateZorkWindows
-	if type(updateZorkWindows) ~= "function" then
+	local method = builder and builder[methodName]
+	if type(method) ~= "function" then
 		warn(
-			"StudioZorkWindowsUpdater.Update could not find StudioMenuWindowsBuilder.UpdateZorkWindows. Reconnect Rojo and try again."
+			"StudioZorkWindowsUpdater could not find StudioMenuWindowsBuilder."
+				.. tostring(methodName)
+				.. ". Reconnect Rojo and try again."
 		)
 		return
 	end
 
-	updateZorkWindows()
+	method()
+end
+
+function Updater.Update()
+	runBuilderMethod("UpdateZorkWindows")
+end
+
+function Updater.UpdateUpgrades()
+	runBuilderMethod("UpdateUpgradesWindow")
+end
+
+function Updater.UpdateWorlds()
+	runBuilderMethod("UpdateWorldsWindow")
+end
+
+function Updater.UpdateAll()
+	runBuilderMethod("UpdateZorkWindows")
+	runBuilderMethod("UpdateUpgradesWindow")
+	runBuilderMethod("UpdateWorldsWindow")
 end
 
 Updater.UpdateZorkWindows = Updater.Update
+Updater.UpdateUpgradesWindow = Updater.UpdateUpgrades
+Updater.UpdateWorldsWindow = Updater.UpdateWorlds
 
 return Updater

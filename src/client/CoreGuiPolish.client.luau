@@ -15,5 +15,5 @@ end
 
 task.spawn(function()
 	setCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
-	setCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+	setCoreGuiEnabled(Enum.CoreGuiType.PlayerList, true)
 end)

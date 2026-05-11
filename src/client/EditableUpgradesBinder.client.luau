@@ -95,21 +95,25 @@ local function getContent(window)
 	return window:FindFirstChild("Content", true) or window
 end
 
-local function getGems()
+local function getCurrencyAmount(currencyName)
 	local leaderstats = player:FindFirstChild("leaderstats")
-	local gems = leaderstats and (leaderstats:FindFirstChild("Gems") or leaderstats:FindFirstChild("Diamonds"))
-	return gems and gems.Value or 0
+	local value = leaderstats and leaderstats:FindFirstChild(currencyName)
+	if not value and currencyName == "Gems" then
+		value = leaderstats and leaderstats:FindFirstChild("Diamonds")
+	end
+	return value and tonumber(value.Value) or 0
 end
 
 local function getLevel(upgradeId)
 	local canonicalId = UpgradeData.getCanonicalId(upgradeId) or upgradeId
-	if upgradeLevels[canonicalId] ~= nil then
-		return upgradeLevels[canonicalId]
-	end
-
 	local folder = player:FindFirstChild("Upgrades")
 	local value = folder and folder:FindFirstChild(canonicalId .. "_Level")
-	return value and value.Value or 0
+	if value and (value:IsA("IntValue") or value:IsA("NumberValue")) then
+		local level = tonumber(value.Value) or 0
+		upgradeLevels[canonicalId] = level
+		return level
+	end
+	return upgradeLevels[canonicalId] or 0
 end
 
 local function findNamedDescendant(root, name)
@@ -125,13 +129,6 @@ local function setText(root, name, text)
 	local gui = findNamedDescendant(root, name)
 	if gui and (gui:IsA("TextLabel") or gui:IsA("TextButton")) then
 		gui.Text = text
-	end
-end
-
-local function setTextColor(root, name, color)
-	local gui = findNamedDescendant(root, name)
-	if gui and (gui:IsA("TextLabel") or gui:IsA("TextButton")) then
-		gui.TextColor3 = color
 	end
 end
 
@@ -164,24 +161,6 @@ local function findBuyButton(card)
 end
 
 local findUpgradeForCard
-
-local function findCardTemplate(content, category)
-	for _, descendant in ipairs(content:GetDescendants()) do
-		if descendant:IsA("GuiObject") and descendant.Name:match("Card$") then
-			local upgrade = findUpgradeForCard(descendant)
-			if upgrade and (not category or upgrade.category == category) then
-				return descendant
-			end
-		end
-	end
-
-	for _, descendant in ipairs(content:GetDescendants()) do
-		if descendant:IsA("GuiObject") and descendant.Name:match("Card$") then
-			return descendant
-		end
-	end
-	return nil
-end
 
 function findUpgradeForCard(card)
 	local attributeId = card:GetAttribute("UpgradeId")
@@ -229,14 +208,6 @@ local function applyIcon(card, upgrade)
 	end
 
 	local iconImage = findNamedDescendant(card, "IconImage")
-	if not iconImage and iconRoot and iconRoot:IsA("GuiObject") then
-		iconImage = Instance.new("ImageLabel")
-		iconImage.Name = "IconImage"
-		iconImage.BackgroundTransparency = 1
-		iconImage.Size = UDim2.fromScale(1, 1)
-		iconImage.ZIndex = iconRoot.ZIndex + 1
-		iconImage.Parent = iconRoot
-	end
 	if iconImage and (iconImage:IsA("ImageLabel") or iconImage:IsA("ImageButton")) then
 		local image = iconData and iconData.Image or ""
 		if iconData then
@@ -248,19 +219,6 @@ local function applyIcon(card, upgrade)
 	end
 
 	local iconText = findNamedDescendant(card, "IconText")
-	if not iconText and iconRoot and iconRoot:IsA("GuiObject") then
-		iconText = Instance.new("TextLabel")
-		iconText.Name = "IconText"
-		iconText.BackgroundTransparency = 1
-		iconText.Size = UDim2.fromScale(1, 1)
-		iconText.Font = Enum.Font.GothamBlack
-		iconText.TextColor3 = COLORS.Text
-		iconText.TextScaled = true
-		iconText.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-		iconText.TextStrokeTransparency = 0.35
-		iconText.ZIndex = iconRoot.ZIndex + 2
-		iconText.Parent = iconRoot
-	end
 	if iconText and iconText:IsA("TextLabel") then
 		iconText.Text = tostring(upgrade.icon or "")
 		if iconImage and iconImage.Visible then
@@ -291,6 +249,13 @@ local function layoutVisibleCards()
 			card.LayoutOrder = index
 		end
 	end
+
+	local grid = upgradesWindow and upgradesWindow:FindFirstChild("UpgradeGrid", true)
+	if grid and grid:IsA("ScrollingFrame") then
+		local rows = math.max(1, math.ceil(#categoryUpgrades / CARD_COLUMNS))
+		grid.CanvasSize =
+			UDim2.fromOffset(0, CARD_PADDING_Y + rows * (DEFAULT_CARD_SIZE.Y.Offset + CARD_GAP_Y) + CARD_PADDING_Y)
+	end
 end
 
 local function updateCard(upgradeId)
@@ -312,7 +277,7 @@ local function updateCard(upgradeId)
 		local cost = math.max(0, math.floor(tonumber(nextData.cost) or 0))
 		local currencyName = nextData.currency or upgrade.currency or "Gems"
 		priceText = UpgradeData.formatNumber(cost) .. " " .. currencyName
-		canBuy = getGems() >= cost
+		canBuy = getCurrencyAmount(currencyName) >= cost
 		buttonText = canBuy and "BUY" or "NEED"
 	end
 
@@ -325,7 +290,11 @@ local function updateCard(upgradeId)
 	setText(card, "Price", priceText)
 	setText(card, "Level", "Lv. " .. tostring(level) .. "/" .. tostring(maxLevel))
 	setText(card, "CurrentValue", "Now: " .. UpgradeData.getValueDisplay(canonicalId, level))
-	setText(card, "NextValue", nextData and ("Next: " .. UpgradeData.getValueDisplay(canonicalId, level + 1)) or "Maxed")
+	setText(
+		card,
+		"NextValue",
+		nextData and ("Next: " .. UpgradeData.getValueDisplay(canonicalId, level + 1)) or "Maxed"
+	)
 
 	local buy = findBuyButton(card)
 	if buy then
@@ -422,13 +391,11 @@ local function bindExistingCards(window)
 	for _, upgrade in ipairs(UpgradeData.Upgrades or {}) do
 		local canonicalId = UpgradeData.getCanonicalId(upgrade.id) or upgrade.id
 		if not cardsByUpgradeId[canonicalId] then
-			local template = findCardTemplate(content, upgrade.category)
-			if template then
-				local card = template:Clone()
-				card.Name = canonicalId .. "Card"
-				card.Parent = template.Parent
-				bindCard(card, upgrade)
-			end
+			warn(
+				"EditableUpgradesBinder: missing Studio-authored card for "
+					.. canonicalId
+					.. ". Run StudioMenuWindowsBuilder.UpdateUpgradesWindow() in edit mode."
+			)
 		end
 	end
 
@@ -491,13 +458,23 @@ local upgradesFolder = player:WaitForChild("Upgrades", 30)
 if upgradesFolder then
 	upgradesFolder.ChildAdded:Connect(function(child)
 		if child:IsA("IntValue") and child.Name:find("_Level") then
-			child:GetPropertyChangedSignal("Value"):Connect(updateAllCards)
+			child:GetPropertyChangedSignal("Value"):Connect(function()
+				local upgradeId = child.Name:gsub("_Level$", "")
+				local canonicalId = UpgradeData.getCanonicalId(upgradeId) or upgradeId
+				upgradeLevels[canonicalId] = tonumber(child.Value) or 0
+				updateAllCards()
+			end)
 			updateAllCards()
 		end
 	end)
 	for _, child in ipairs(upgradesFolder:GetChildren()) do
 		if child:IsA("IntValue") and child.Name:find("_Level") then
-			child:GetPropertyChangedSignal("Value"):Connect(updateAllCards)
+			child:GetPropertyChangedSignal("Value"):Connect(function()
+				local upgradeId = child.Name:gsub("_Level$", "")
+				local canonicalId = UpgradeData.getCanonicalId(upgradeId) or upgradeId
+				upgradeLevels[canonicalId] = tonumber(child.Value) or 0
+				updateAllCards()
+			end)
 		end
 	end
 end

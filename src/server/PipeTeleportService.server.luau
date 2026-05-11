@@ -1,8 +1,8 @@
 -- Server-safe pipe teleporting.
 -- Fixes players dying when moving between Inside the Pipes and Orange Sector.
 -- This script does not create UI and never kills the player; it only moves them to safe marker parts.
-local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Events = ReplicatedStorage:WaitForChild("Events")
@@ -17,7 +17,7 @@ local cooldownByPlayer = {}
 
 local DESTINATION_ALIASES = {
 	OrangeSector = { "OrangeSectorSpawn", "OrangeZoneSpawn", "OrangeSpawn" },
-	InsidePipes = { "PipeExitSpawn", "InsidePipesSpawn", "MutationZoneSpawn" },
+	InsidePipes = { "InsidePipesSpawn", "OrangeInteriorSpawn", "MutationZoneSpawn" },
 	RedWastelands = { "RedWastelandsSpawn", "RedZoneSpawn", "StartSectorSpawn", "SpawnLocation" },
 	OriginSector = { "OriginSectorSpawn", "StartSectorSpawn", "SpawnWorldSpawn", "SpawnLocation" },
 	SpawnWorld = { "OriginSectorSpawn", "StartSectorSpawn", "SpawnWorldSpawn", "SpawnLocation" },
@@ -210,14 +210,27 @@ local function shouldTryHook(part)
 	if not part:IsA("BasePart") then
 		return false
 	end
-	if part:GetAttribute("PipeTeleport") == true or part:GetAttribute("PipeDestination") ~= nil or part:GetAttribute("PipeDestinationName") ~= nil then
+	if
+		part:GetAttribute("PipeTeleport") == true
+		or part:GetAttribute("PipeDestination") ~= nil
+		or part:GetAttribute("PipeDestinationName") ~= nil
+	then
 		return true
 	end
 	if CollectionService:HasTag(part, "PipeTeleport") or CollectionService:HasTag(part, "PipeTrigger") then
 		return true
 	end
 	local lowered = string.lower(part.Name)
-	return lowered:find("pipe") and (lowered:find("trigger") or lowered:find("enter") or lowered:find("exit") or lowered:find("return") or lowered:find("back") or lowered:find("orange") or lowered:find("inside"))
+	return lowered:find("pipe")
+		and (
+			lowered:find("trigger")
+			or lowered:find("enter")
+			or lowered:find("exit")
+			or lowered:find("return")
+			or lowered:find("back")
+			or lowered:find("orange")
+			or lowered:find("inside")
+		)
 end
 
 local function scanWorkspace()

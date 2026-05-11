@@ -36,6 +36,8 @@ end
 local RobuxShopConfig = requireFresh(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
 local ColorData = requireFresh(ReplicatedStorage:WaitForChild("ColorData"))
 local GameBalance = requireFresh(ReplicatedStorage:WaitForChild("GameBalance"))
+local ToolData = requireFresh(ReplicatedStorage:WaitForChild("ToolData"))
+local UpgradeData = requireFresh(ReplicatedStorage:WaitForChild("UpgradeData"))
 local UpgradeIconConfig = requireFresh(ReplicatedStorage:WaitForChild("UpgradeIconConfig"))
 local GamepassIconConfig = requireFresh(ReplicatedStorage:WaitForChild("GamepassIconConfig"))
 
@@ -502,6 +504,124 @@ local function makeCardGrid(content, names)
 			Color3.fromRGB(84, 225, 112)
 		)
 	end
+end
+
+local function makeUpgradeCardGrid(content)
+	for _, child in ipairs(content:GetChildren()) do
+		if child:IsA("GuiObject") and (child.Name:match("Card$") or child.Name == "UpgradeGrid") then
+			child:Destroy()
+		end
+	end
+
+	local existingGrid = content:FindFirstChild("UpgradeGrid")
+	if existingGrid and not existingGrid:IsA("ScrollingFrame") then
+		existingGrid:Destroy()
+		existingGrid = nil
+	end
+	local grid = existingGrid or Instance.new("ScrollingFrame")
+	grid.Name = "UpgradeGrid"
+	grid.Position = UDim2.fromOffset(12, 12)
+	grid.Size = UDim2.new(1, -24, 1, -24)
+	grid.BorderSizePixel = 0
+	grid.Parent = content
+	applyCorner(grid, 14)
+	applyStroke(grid, OUTLINE, 2)
+	grid.ScrollingDirection = Enum.ScrollingDirection.Y
+	grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	grid.CanvasSize = UDim2.fromOffset(0, 0)
+	grid.BackgroundColor3 = Color3.fromRGB(246, 249, 255)
+	grid.ClipsDescendants = true
+	grid.ScrollBarThickness = 8
+	grid.ScrollBarImageColor3 = MUTED
+
+	for _, child in ipairs(grid:GetChildren()) do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+
+	for index, upgrade in ipairs(UpgradeData.Upgrades or {}) do
+		local column = (index - 1) % 3
+		local row = math.floor((index - 1) / 3)
+		local card = frame(
+			grid,
+			upgrade.id .. "Card",
+			UDim2.fromOffset(14 + column * 236, 14 + row * 130),
+			UDim2.fromOffset(222, 118),
+			Color3.fromRGB(255, 255, 255)
+		)
+		card:SetAttribute("UpgradeId", upgrade.id)
+		card:SetAttribute("UpgradeCategory", upgrade.category or "")
+		card.Visible = upgrade.category == "Player"
+
+		local icon =
+			frame(card, "Icon", UDim2.fromOffset(10, 10), UDim2.fromOffset(58, 58), Color3.fromRGB(225, 244, 255))
+		text(
+			icon,
+			"IconText",
+			upgrade.icon or upgrade.displayName:sub(1, 2):upper(),
+			UDim2.fromScale(0, 0),
+			UDim2.fromScale(1, 1),
+			18
+		).TextXAlignment =
+			Enum.TextXAlignment.Center
+		applyUpgradeIconToCard(card, upgrade.displayName, upgrade.id)
+
+		text(card, "Name", upgrade.displayName, UDim2.fromOffset(78, 8), UDim2.new(1, -88, 0, 28), 17)
+		text(
+			card,
+			"Description",
+			"Lv. 0/" .. tostring(#(upgrade.levels or {})) .. " - " .. tostring(upgrade.description or ""),
+			UDim2.fromOffset(78, 38),
+			UDim2.new(1, -88, 0, 34),
+			12
+		)
+		text(
+			card,
+			"Level",
+			"Lv. 0/" .. tostring(#(upgrade.levels or {})),
+			UDim2.fromOffset(78, 64),
+			UDim2.new(1, -88, 0, 18),
+			11
+		)
+		local nextData = UpgradeData.getNextLevelData(upgrade.id, 0)
+		local currencyName = nextData and (nextData.currency or upgrade.currency or "Gems") or "Gems"
+		local priceText = nextData and (UpgradeData.formatNumber(nextData.cost) .. " " .. currencyName) or "MAX"
+		text(card, "Price", priceText, UDim2.fromOffset(10, 76), UDim2.fromOffset(90, 28), 13)
+		text(
+			card,
+			"CurrentValue",
+			"Now: " .. UpgradeData.getValueDisplay(upgrade.id, 0),
+			UDim2.fromOffset(102, 72),
+			UDim2.fromOffset(104, 16),
+			10
+		)
+		text(
+			card,
+			"NextValue",
+			nextData and ("Next: " .. UpgradeData.getValueDisplay(upgrade.id, 1)) or "Maxed",
+			UDim2.fromOffset(102, 88),
+			UDim2.fromOffset(104, 16),
+			10
+		)
+		button(
+			card,
+			"BuyButton",
+			nextData and "BUY" or "MAX",
+			UDim2.new(1, -110, 1, -42),
+			UDim2.fromOffset(96, 32),
+			Color3.fromRGB(84, 225, 112)
+		)
+	end
+
+	local rows = math.ceil(#(UpgradeData.Upgrades or {}) / 3)
+	grid.CanvasSize = UDim2.fromOffset(0, math.max(1, rows) * 130 + 28)
+end
+
+local function makeUpgradesWindow(windowsFolder)
+	local window, content = makeWindow(windowsFolder, "UpgradesWindow", "UPGRADES", { "Player", "Colors", "Rank" })
+	makeUpgradeCardGrid(content)
+	return window
 end
 
 local function makeSettingsGrid(content)
@@ -2218,45 +2338,109 @@ local function makeBrushShopWindow(windowsFolder)
 	header.TextColor3 = MUTED
 	header.TextStrokeTransparency = 1
 
-	local grid =
-		frame(content, "ToolGrid", UDim2.fromOffset(14, 52), UDim2.new(1, -28, 1, -66), Color3.fromRGB(246, 249, 255))
-	grid.ClipsDescendants = false
-	local layout = grid:FindFirstChildOfClass("UIGridLayout") or Instance.new("UIGridLayout")
-	layout.CellSize = UDim2.fromOffset(330, 112)
-	layout.CellPadding = UDim2.fromOffset(14, 14)
-	layout.FillDirectionMaxCells = 2
+	local existingGrid = content:FindFirstChild("ToolGrid")
+	if existingGrid and not existingGrid:IsA("ScrollingFrame") then
+		existingGrid:Destroy()
+		existingGrid = nil
+	end
+
+	local grid = existingGrid or Instance.new("ScrollingFrame")
+	grid.Name = "ToolGrid"
+	grid.Position = UDim2.fromOffset(14, 52)
+	grid.Size = UDim2.new(1, -28, 1, -66)
+	grid.BackgroundColor3 = Color3.fromRGB(246, 249, 255)
+	grid.BorderSizePixel = 0
+	grid.ClipsDescendants = true
+	grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	grid.CanvasSize = UDim2.fromOffset(0, 0)
+	grid.ScrollBarThickness = 8
+	grid.ScrollBarImageColor3 = MUTED
+	grid.ScrollingDirection = Enum.ScrollingDirection.Y
+	grid.Parent = content
+	applyCorner(grid, 18)
+	applyStroke(grid, Color3.fromRGB(35, 38, 45), 2)
+
+	for _, child in ipairs(grid:GetChildren()) do
+		if child:IsA("UIGridLayout") then
+			child:Destroy()
+		end
+	end
+	local layout = grid:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 12)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = grid
 	local padding = grid:FindFirstChildOfClass("UIPadding") or Instance.new("UIPadding")
 	padding.PaddingTop = UDim.new(0, 14)
+	padding.PaddingBottom = UDim.new(0, 14)
 	padding.PaddingLeft = UDim.new(0, 14)
 	padding.PaddingRight = UDim.new(0, 14)
 	padding.Parent = grid
 
-	local template = frame(
-		grid,
-		"ToolCardTemplate",
-		UDim2.fromScale(0, 0),
-		UDim2.fromOffset(330, 112),
-		Color3.fromRGB(255, 255, 255)
-	)
+	local template =
+		frame(grid, "ToolCardTemplate", UDim2.fromScale(0, 0), UDim2.new(1, -28, 0, 112), Color3.fromRGB(255, 255, 255))
 	template.Visible = false
 	local icon =
 		frame(template, "Icon", UDim2.fromOffset(12, 14), UDim2.fromOffset(70, 70), Color3.fromRGB(225, 244, 255))
 	text(icon, "IconText", "BR", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment =
 		Enum.TextXAlignment.Center
-	text(template, "Name", "Starter Brush", UDim2.fromOffset(94, 10), UDim2.new(1, -106, 0, 24), 18)
+	text(template, "Name", "Starter Brush", UDim2.fromOffset(94, 10), UDim2.new(1, -248, 0, 24), 18)
 	local desc =
-		text(template, "Description", "Editable brush card.", UDim2.fromOffset(94, 36), UDim2.new(1, -106, 0, 30), 12)
+		text(template, "Description", "Editable brush card.", UDim2.fromOffset(94, 36), UDim2.new(1, -278, 0, 30), 12)
 	desc.Font = Enum.Font.GothamBold
 	desc.TextColor3 = MUTED
 	desc.TextStrokeTransparency = 1
-	text(template, "Stats", "Power x1.00  Range 9", UDim2.fromOffset(94, 66), UDim2.new(1, -106, 0, 18), 11)
-	text(template, "Price", "FREE", UDim2.fromOffset(12, 86), UDim2.fromOffset(104, 20), 13)
-	text(template, "Status", "OWNED", UDim2.fromOffset(120, 86), UDim2.fromOffset(88, 20), 12).TextXAlignment =
+	text(template, "Stats", "Power x1.00  Range 9", UDim2.fromOffset(94, 66), UDim2.new(1, -278, 0, 18), 11)
+	text(template, "Price", "FREE", UDim2.fromOffset(94, 86), UDim2.fromOffset(120, 20), 13)
+	text(template, "Status", "OWNED", UDim2.new(1, -232, 0, 26), UDim2.fromOffset(104, 24), 12).TextXAlignment =
 		Enum.TextXAlignment.Center
-	button(template, "BuyButton", "EQUIP", UDim2.new(1, -106, 1, -36), UDim2.fromOffset(92, 28), GREEN)
+	button(template, "BuyButton", "EQUIP", UDim2.new(1, -118, 0.5, -16), UDim2.fromOffset(96, 32), GREEN)
+
+	for _, child in ipairs(grid:GetChildren()) do
+		if child:IsA("GuiObject") and child ~= template then
+			child:Destroy()
+		end
+	end
+
+	for index, tool in ipairs(ToolData.GetBrushesForWorldColor("Red")) do
+		local card = template:Clone()
+		card.Name = tool.Id .. "Card"
+		card:SetAttribute("BrushShopStudioCard", true)
+		card:SetAttribute("ToolId", tool.Id)
+		card.LayoutOrder = index
+		card.Visible = true
+		card.Parent = grid
+
+		local name = card:FindFirstChild("Name", true)
+		if name and name:IsA("TextLabel") then
+			name.Text = tool.DisplayName
+		end
+		local description = card:FindFirstChild("Description", true)
+		if description and description:IsA("TextLabel") then
+			description.Text = tool.Description or tool.PassiveDescription or ""
+		end
+		local stats = card:FindFirstChild("Stats", true)
+		if stats and stats:IsA("TextLabel") then
+			stats.Text =
+				string.format("Power x%.2f  Range %d", tonumber(tool.PowerMultiplier) or 1, tonumber(tool.Range) or 0)
+		end
+		local price = card:FindFirstChild("Price", true)
+		if price and price:IsA("TextLabel") then
+			price.Text = tool.Cost == 0 and "FREE" or tostring(tool.Cost) .. " Coins"
+		end
+		local status = card:FindFirstChild("Status", true)
+		if status and status:IsA("TextLabel") then
+			status.Text = tool.Rarity or "Brush"
+		end
+		local iconText = card:FindFirstChild("IconText", true)
+		if iconText and iconText:IsA("TextLabel") then
+			iconText.Text = tool.ShortName or string.sub(tool.DisplayName, 1, 2):upper()
+		end
+		local buyButton = card:FindFirstChild("BuyButton", true)
+		if buyButton and buyButton:IsA("TextButton") then
+			buyButton.Text = tool.Cost == 0 and "CLAIM" or "BUY"
+		end
+	end
 	return window
 end
 
@@ -2453,6 +2637,35 @@ function Builder.ApplyUpgradeIcons()
 	print("StudioMenuWindowsBuilder: applied upgrade icon slots to " .. tostring(applied) .. " cards.")
 end
 
+function Builder.UpdateUpgradesWindow()
+	if not RunService:IsStudio() then
+		warn("StudioMenuWindowsBuilder.UpdateUpgradesWindow can only run in Roblox Studio.")
+		return
+	end
+	if RunService:IsRunning() then
+		warn("StudioMenuWindowsBuilder.UpdateUpgradesWindow should be run in edit mode, not during Play.")
+		return
+	end
+
+	local root = StarterGui:FindFirstChild("ClientUIRoot")
+	local mainHud = root and root:FindFirstChild("MainHUD")
+	local modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows")
+	local windowsFolder = modalWindows and modalWindows:FindFirstChild("Windows")
+	local existingUpgradesWindow = StarterGui:FindFirstChild("UpgradesWindow", true)
+	if not windowsFolder and existingUpgradesWindow and existingUpgradesWindow.Parent then
+		windowsFolder = existingUpgradesWindow.Parent
+	end
+	if not windowsFolder then
+		warn(
+			"StudioMenuWindowsBuilder.UpdateUpgradesWindow could not find an UpgradesWindow or Windows folder under StarterGui."
+		)
+		return
+	end
+
+	makeUpgradesWindow(windowsFolder)
+	print("StudioMenuWindowsBuilder: updated UpgradesWindow with Studio-authored upgrade cards.")
+end
+
 function Builder.ApplyGamepassIcons()
 	if not RunService:IsStudio() then
 		warn("StudioMenuWindowsBuilder.ApplyGamepassIcons can only run in Roblox Studio.")
@@ -2566,8 +2779,7 @@ function Builder.Build()
 	makeShopWindow(windowsFolder)
 	makeZorkDialogueWindow(windowsFolder)
 	makeBrushShopWindow(windowsFolder)
-	local _, upgradesContent = makeWindow(windowsFolder, "UpgradesWindow", "UPGRADES", { "Player", "Colors", "Rank" })
-	makeCardGrid(upgradesContent, { "Walk Speed", "Brush Power", "Coin Boost", "Gem Luck" })
+	makeUpgradesWindow(windowsFolder)
 	local _, settingsContent = makeWindow(windowsFolder, "SettingsWindow", "SETTINGS", {})
 	makeSettingsGrid(settingsContent)
 	local _, codesContent = makeWindow(windowsFolder, "CodesWindow", "CODES", {})

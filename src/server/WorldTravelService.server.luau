@@ -42,14 +42,14 @@ local LOCATION_CONFIG = {
 	},
 	ZorkShop = {
 		DisplayName = "Zork Shop",
-		SpawnNames = { "ZorkShopSpawn", "ShopSpawn", "ShopEntranceSpawn", "StartSectorSpawn", "SpawnLocation" },
+		SpawnNames = { "ZorkShopSpawn", "ShopEntranceSpawn", "StartSectorSpawn", "SpawnLocation" },
 		AlwaysUnlocked = true,
 		CurrentWorld = "Red",
 		AutoUnlockTeleport = true,
 	},
 	InsidePipes = {
 		DisplayName = "Inside the Pipes",
-		SpawnNames = { "PipeExitSpawn", "InsidePipesSpawn", "MutationZoneSpawn" },
+		SpawnNames = { "InsidePipesSpawn", "OrangeInteriorSpawn", "MutationZoneSpawn" },
 		RequiredColor = "Orange",
 		CurrentWorld = "Orange",
 		RequiresTeleportUnlock = true,
@@ -194,7 +194,11 @@ local function isColorUnlocked(player, colorName)
 		if listContains(data.UnlockedColors, colorName) then
 			return true
 		end
-		if data.CurrentWorld == colorName or data.ActiveWorldColor == colorName or data.HighestUnlockedWorld == colorName then
+		if
+			data.CurrentWorld == colorName
+			or data.ActiveWorldColor == colorName
+			or data.HighestUnlockedWorld == colorName
+		then
 			return true
 		end
 	end
