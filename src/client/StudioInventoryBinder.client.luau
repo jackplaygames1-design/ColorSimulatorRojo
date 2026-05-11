@@ -1,11 +1,10 @@
 -- Hooks the editable Studio InventoryWindow without rebuilding the UI.
--- Uses your hand-made objects:
--- InventoryWindow > Content > GridPanel > PreviewSlot1...
--- InventoryWindow > Content > DetailsPanel > PreviewImage/ItemName/RarityLabel/StatsLabel/EquipButton/LockButton/DeleteButton
+-- Works with PreviewSlot frames/buttons and clickable Icon children.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -103,6 +102,7 @@ local function setText(label, text)
 	if label and (label:IsA("TextLabel") or label:IsA("TextButton")) then
 		label.Text = text
 		label.Visible = true
+		label.ZIndex = math.max(label.ZIndex, 5)
 	end
 end
 
@@ -111,9 +111,11 @@ local function setImageColor(gui, color)
 		gui.ImageColor3 = color
 		gui.BackgroundTransparency = 1
 		gui.Visible = true
+		gui.ZIndex = math.max(gui.ZIndex, 5)
 	elseif gui and gui:IsA("GuiObject") then
 		gui.BackgroundColor3 = color
 		gui.Visible = true
+		gui.ZIndex = math.max(gui.ZIndex, 5)
 	end
 end
 
@@ -136,12 +138,15 @@ local function updateSlotVisual(slot, item, isSelected)
 	local equippedBadge = slot:FindFirstChild("EquippedBadge", true)
 	local lockBadge = slot:FindFirstChild("LockBadge", true)
 	local stroke = slot:FindFirstChildOfClass("UIStroke")
-	if slot:IsA("TextButton") then slot.Text = "" end
+
+	slot.Visible = true
+	slot.Active = true
 	if slot:IsA("GuiButton") then
-		slot.Active = true
 		slot.Selectable = true
 		slot.AutoButtonColor = false
+		if slot:IsA("TextButton") then slot.Text = "" end
 	end
+
 	if icon then
 		setImageColor(icon, item.color)
 		if icon:IsA("TextLabel") or icon:IsA("TextButton") then icon.Text = item.name:sub(1, 3):upper() end
@@ -169,48 +174,76 @@ local function updateDetails(parts, item)
 	if parts.lockButton and parts.lockButton:IsA("GuiButton") then parts.lockButton.Text = item.locked and "UNLOCK" or "LOCK" end
 end
 
-local function addButtonPop(button)
-	if not button or not button:IsA("GuiButton") or popConnected[button] then return end
-	popConnected[button] = true
-	local scale = button:FindFirstChildOfClass("UIScale") or Instance.new("UIScale")
+local function addButtonPop(gui)
+	if not gui or not gui:IsA("GuiObject") or popConnected[gui] then return end
+	popConnected[gui] = true
+	local scale = gui:FindFirstChildOfClass("UIScale") or Instance.new("UIScale")
 	scale.Scale = 1
-	scale.Parent = button
-	button.MouseEnter:Connect(function() TweenService:Create(scale, TweenInfo.new(0.1), { Scale = 1.05 }):Play() end)
-	button.MouseLeave:Connect(function() TweenService:Create(scale, TweenInfo.new(0.1), { Scale = 1 }):Play() end)
-	button.MouseButton1Down:Connect(function() TweenService:Create(scale, TweenInfo.new(0.06), { Scale = 0.94 }):Play() end)
-	button.MouseButton1Up:Connect(function() TweenService:Create(scale, TweenInfo.new(0.08), { Scale = 1.05 }):Play() end)
+	scale.Parent = gui
+	gui.MouseEnter:Connect(function() TweenService:Create(scale, TweenInfo.new(0.1), { Scale = 1.05 }):Play() end)
+	gui.MouseLeave:Connect(function() TweenService:Create(scale, TweenInfo.new(0.1), { Scale = 1 }):Play() end)
+end
+
+local function parseSlotNumber(name)
+	return tonumber(string.match(name, "PreviewSlot(%d+)"))
 end
 
 local function collectSlots(parts)
-	local slots = {}
+	local slotsByIndex = {}
+	local fallback = {}
 	for _, descendant in ipairs(parts.gridPanel:GetDescendants()) do
-		if descendant:IsA("GuiButton") and (descendant.Name:match("^PreviewSlot%d+") or descendant.Name == "ItemCardTemplate") then
-			table.insert(slots, descendant)
+		if descendant:IsA("GuiObject") then
+			local slotIndex = parseSlotNumber(descendant.Name)
+			if slotIndex then
+				slotsByIndex[slotIndex] = descendant
+			elseif descendant.Name == "ItemCardTemplate" then
+				table.insert(fallback, descendant)
+			elseif descendant.Name == "Icon" then
+				local parentIndex = descendant.Parent and parseSlotNumber(descendant.Parent.Name)
+				if parentIndex and not slotsByIndex[parentIndex] then
+					slotsByIndex[parentIndex] = descendant.Parent
+				end
+			end
 		end
 	end
-	table.sort(slots, function(a, b) return a.Name < b.Name end)
+	local slots = {}
+	for i = 1, 60 do
+		if slotsByIndex[i] then table.insert(slots, slotsByIndex[i]) end
+	end
+	if #slots == 0 then
+		for _, slot in ipairs(fallback) do table.insert(slots, slot) end
+	end
 	return slots
 end
 
-local function hookClickable(button, callback)
-	if button and button:IsA("GuiButton") and not signalConnected[button] then
-		signalConnected[button] = true
-		button.Active = true
-		button.Selectable = true
-		button.Activated:Connect(callback)
+local function hookGuiInput(gui, callback)
+	if not gui or not gui:IsA("GuiObject") or signalConnected[gui] then return end
+	signalConnected[gui] = true
+	gui.Active = true
+	if gui:IsA("GuiButton") then
+		gui.Selectable = true
+		gui.Activated:Connect(callback)
+	else
+		gui.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				callback()
+			end
+		end)
 	end
 end
 
 local function hookSlotAndChildren(slot, callback)
-	hookClickable(slot, callback)
+	hookGuiInput(slot, callback)
 	addButtonPop(slot)
 	for _, child in ipairs(slot:GetDescendants()) do
-		if child:IsA("GuiButton") then
-			hookClickable(child, callback)
-			addButtonPop(child)
-		elseif child:IsA("GuiObject") then
-			child.Active = false
-			child.Selectable = false
+		if child:IsA("GuiObject") then
+			if child:IsA("GuiButton") then
+				hookGuiInput(child, callback)
+				addButtonPop(child)
+			else
+				child.Active = false
+				child.Selectable = false
+			end
 		end
 	end
 end
@@ -221,7 +254,7 @@ local function hookInventory(window)
 	if not parts then return false end
 	local slots = collectSlots(parts)
 	if #slots == 0 then
-		warnOnce("missing_slots", "StudioInventoryBinder: no PreviewSlot buttons found inside GridPanel.")
+		warnOnce("missing_slots", "StudioInventoryBinder: no PreviewSlot/ItemCardTemplate objects found inside GridPanel.")
 		return false
 	end
 
@@ -229,7 +262,6 @@ local function hookInventory(window)
 		for index, slot in ipairs(slots) do
 			local item = DEMO_ITEMS[index]
 			if item then
-				slot.Visible = true
 				updateSlotVisual(slot, item, item == selectedItem)
 			else
 				slot.Visible = false
@@ -251,7 +283,7 @@ local function hookInventory(window)
 	local function hookAction(button, callback)
 		if button and button:IsA("GuiButton") then
 			addButtonPop(button)
-			hookClickable(button, function()
+			hookGuiInput(button, function()
 				if selectedItem then
 					callback(selectedItem)
 					updateDetails(parts, selectedItem)
@@ -269,10 +301,10 @@ local function hookInventory(window)
 	end)
 
 	selectedItem = selectedItem or DEMO_ITEMS[1]
-	updateDetails(parts, selectedItem)
 	refreshAll()
+	updateDetails(parts, selectedItem)
 	window:SetAttribute("StudioInventoryBound", true)
-	print("StudioInventoryBinder: hooked " .. tostring(#slots) .. " inventory slots.")
+	print("StudioInventoryBinder: hooked " .. tostring(#slots) .. " inventory slot objects.")
 	return true
 end
 
@@ -292,7 +324,7 @@ task.defer(function()
 end)
 
 playerGui.DescendantAdded:Connect(function(descendant)
-	if descendant.Name == "InventoryWindow" or descendant.Name == "AutoFunctionalContent" or descendant.Name:match("^PreviewSlot%d+") then
+	if descendant.Name == "InventoryWindow" or descendant.Name == "AutoFunctionalContent" or descendant.Name:match("^PreviewSlot%d+") or descendant.Name == "ItemCardTemplate" then
 		task.defer(tryHook)
 	end
 end)
