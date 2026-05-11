@@ -1,10 +1,24 @@
 -- Studio-only helper for creating editable menu window shells in StarterGui.
 -- Run from the Studio command bar in edit mode:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).Build()
+-- Settings-only refresh:
+-- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateSettingsWindow()
+-- Codes-only refresh:
+-- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateCodesWindow()
+-- Shop-only refresh:
+-- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateShopWindow()
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 
 local Builder = {}
+local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
+
+local OUTLINE = Color3.fromRGB(35, 38, 45)
+local TEXT_DARK = Color3.fromRGB(38, 36, 52)
+local TAB_INACTIVE = Color3.fromRGB(232, 238, 248)
+local CYAN = Color3.fromRGB(76, 214, 224)
+local GREEN = Color3.fromRGB(84, 225, 112)
 
 local function findOrCreate(parent, className, name)
 	local existing = parent:FindFirstChild(name)
@@ -26,7 +40,7 @@ end
 
 local function applyStroke(instance, color, thickness)
 	local stroke = instance:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
-	stroke.Color = color or Color3.fromRGB(35, 38, 45)
+	stroke.Color = color or OUTLINE
 	stroke.Thickness = thickness or 3
 	stroke.Parent = instance
 	return stroke
@@ -37,7 +51,7 @@ local function text(parent, name, value, position, size, textSize)
 	if created then
 		label.BackgroundTransparency = 1
 		label.Font = Enum.Font.GothamBlack
-		label.TextColor3 = Color3.fromRGB(38, 36, 52)
+		label.TextColor3 = TEXT_DARK
 		label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
 		label.TextStrokeTransparency = 0.35
 		label.TextXAlignment = Enum.TextXAlignment.Left
@@ -56,17 +70,47 @@ local function button(parent, name, value, position, size, color)
 		btn.AutoButtonColor = true
 		btn.Font = Enum.Font.GothamBlack
 		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-		btn.TextStrokeColor3 = Color3.fromRGB(35, 38, 45)
+		btn.TextStrokeColor3 = OUTLINE
 		btn.TextStrokeTransparency = 0
 	end
 	btn.Text = value
 	btn.Position = position
 	btn.Size = size
-	btn.BackgroundColor3 = color or Color3.fromRGB(84, 225, 112)
+	btn.BackgroundColor3 = color or GREEN
 	btn.BorderSizePixel = 0
 	applyCorner(btn, 12)
-	applyStroke(btn, Color3.fromRGB(35, 38, 45), 2)
+	applyStroke(btn, OUTLINE, 2)
 	return btn
+end
+
+local function textBox(parent, name, placeholder, position, size)
+	local existing = parent:FindFirstChild(name)
+	if existing and not existing:IsA("TextBox") then
+		existing.Name = name .. "Legacy"
+		if existing:IsA("GuiObject") then
+			existing.Visible = false
+		end
+		existing = nil
+	end
+
+	local box = existing or Instance.new("TextBox")
+	box.Name = name
+	box.ClearTextOnFocus = false
+	box.Font = Enum.Font.GothamBlack
+	box.PlaceholderText = placeholder
+	box.PlaceholderColor3 = Color3.fromRGB(130, 138, 158)
+	box.Text = ""
+	box.TextColor3 = Color3.fromRGB(38, 36, 52)
+	box.TextSize = 24
+	box.TextXAlignment = Enum.TextXAlignment.Center
+	box.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	box.BorderSizePixel = 0
+	box.Position = position
+	box.Size = size
+	box.Parent = parent
+	applyCorner(box, 16)
+	applyStroke(box, Color3.fromRGB(35, 38, 45), 3)
+	return box
 end
 
 local function frame(parent, name, position, size, color)
@@ -262,6 +306,524 @@ local function makeSettingsGrid(content)
 	end
 end
 
+local function hideUnusedCodeContent(content)
+	local keep = {
+		CodeBox = true,
+		CodePrompt = true,
+		InfoPanel = true,
+		InfoText = true,
+		RecentRewards = true,
+		RedeemButton = true,
+		StatusText = true,
+	}
+
+	for _, child in ipairs(content:GetChildren()) do
+		if child:IsA("GuiObject") and not keep[child.Name] then
+			child.Visible = false
+		end
+	end
+end
+
+local function makeCodeRewardSlot(parent, index, title, body)
+	local slot = frame(
+		parent,
+		"RewardSlot" .. tostring(index),
+		UDim2.fromOffset((index - 1) * 192, 0),
+		UDim2.fromOffset(176, 62),
+		Color3.fromRGB(255, 255, 255)
+	)
+	slot.LayoutOrder = index
+	slot.BackgroundTransparency = 0
+	text(slot, "GiftLabel", "GIFT", UDim2.fromOffset(10, 0), UDim2.fromOffset(54, 62), 15).TextXAlignment =
+		Enum.TextXAlignment.Center
+	text(slot, "RewardTitle", title, UDim2.fromOffset(66, 10), UDim2.new(1, -76, 0, 22), 13)
+	text(slot, "RewardBody", body, UDim2.fromOffset(66, 34), UDim2.new(1, -76, 0, 18), 11)
+end
+
+local function makeCodesContent(content)
+	hideUnusedCodeContent(content)
+
+	content.BackgroundColor3 = Color3.fromRGB(246, 249, 255)
+	content.ClipsDescendants = false
+
+	local prompt = text(
+		content,
+		"CodePrompt",
+		"ENTER A CODE",
+		UDim2.fromOffset(34, 22),
+		UDim2.new(1, -68, 0, 46),
+		32
+	)
+	prompt.TextXAlignment = Enum.TextXAlignment.Center
+	prompt.TextStrokeTransparency = 0.25
+
+	local box = textBox(content, "CodeBox", "TYPE CODE HERE", UDim2.fromOffset(54, 92), UDim2.new(1, -238, 0, 58))
+	box.TextSize = 23
+
+	local redeem = button(
+		content,
+		"RedeemButton",
+		"REDEEM",
+		UDim2.new(1, -170, 0, 92),
+		UDim2.fromOffset(116, 58),
+		Color3.fromRGB(82, 219, 225)
+	)
+	redeem.TextSize = 22
+
+	local infoPanel = frame(
+		content,
+		"InfoPanel",
+		UDim2.fromOffset(54, 172),
+		UDim2.new(1, -108, 0, 76),
+		Color3.fromRGB(234, 239, 248)
+	)
+	infoPanel.BackgroundTransparency = 0
+	applyStroke(infoPanel, Color3.fromRGB(211, 219, 232), 2)
+
+	local infoAccent = frame(infoPanel, "Accent", UDim2.fromOffset(18, 14), UDim2.fromOffset(7, 48), Color3.fromRGB(88, 140, 255))
+	applyCorner(infoAccent, 8)
+	local info = text(
+		infoPanel,
+		"InfoText",
+		"Follow socials or join the community for exclusive codes.",
+		UDim2.fromOffset(44, 12),
+		UDim2.new(1, -66, 0, 26),
+		15
+	)
+	info.TextStrokeTransparency = 1
+	local status = text(
+		infoPanel,
+		"StatusText",
+		"Try RELEASE, COLOR, or PET.",
+		UDim2.fromOffset(44, 38),
+		UDim2.new(1, -66, 0, 24),
+		13
+	)
+	status.Font = Enum.Font.GothamBold
+	status.TextColor3 = Color3.fromRGB(88, 96, 120)
+	status.TextStrokeTransparency = 1
+
+	local recentTitle = text(
+		content,
+		"RecentTitle",
+		"RECENT REWARDS",
+		UDim2.fromOffset(54, 266),
+		UDim2.new(1, -108, 0, 28),
+		18
+	)
+	recentTitle.TextXAlignment = Enum.TextXAlignment.Center
+
+	local rewards = frame(
+		content,
+		"RecentRewards",
+		UDim2.fromOffset(54, 306),
+		UDim2.new(1, -108, 0, 66),
+		Color3.fromRGB(246, 249, 255)
+	)
+	rewards.BackgroundTransparency = 1
+	for _, child in ipairs(rewards:GetChildren()) do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+	makeCodeRewardSlot(rewards, 1, "RELEASE", "Coins")
+	makeCodeRewardSlot(rewards, 2, "COLOR", "Color")
+	makeCodeRewardSlot(rewards, 3, "PET", "Starter Color")
+end
+
+local SHOP_TABS = { "Featured", "Gamepasses", "Boosts", "Currency" }
+local FEATURED_GAMEPASS_IDS = {
+	"InfinitePass",
+	"VIP",
+	"DoubleCoins",
+	"LuckyHatch",
+	"Plus3Colors",
+	"SupportDev",
+}
+
+local function getGamepass(passId)
+	return RobuxShopConfig.getGamepass(passId)
+end
+
+local function getProductsForCategory(categoryName)
+	local products = {}
+	for _, product in ipairs(RobuxShopConfig.getSortedDevProducts()) do
+		if tostring(product.category or "") == categoryName then
+			table.insert(products, product)
+		end
+	end
+	return products
+end
+
+local function setGuiBase(guiObject, zIndex)
+	guiObject.BorderSizePixel = 0
+	guiObject.ZIndex = zIndex
+	if guiObject:IsA("TextLabel") or guiObject:IsA("TextButton") or guiObject:IsA("TextBox") then
+		guiObject.TextWrapped = true
+	end
+end
+
+local function makeScale(parent, name)
+	local scale = parent:FindFirstChild(name)
+	if not scale or not scale:IsA("UIScale") then
+		scale = Instance.new("UIScale")
+		scale.Name = name
+		scale.Parent = parent
+	end
+	scale.Scale = 1
+	return scale
+end
+
+local function makeShopText(parent, name, value, position, size, textSize, color, zIndex)
+	local label = text(parent, name, value, position, size, textSize)
+	label.TextColor3 = color or TEXT_DARK
+	label.TextStrokeTransparency = 1
+	label.TextScaled = false
+	label.ZIndex = zIndex or 1005
+	return label
+end
+
+local function makeShopButton(parent, name, value, position, size, color, zIndex)
+	local shopButton = button(parent, name, value, position, size, color or GREEN)
+	shopButton.AutoButtonColor = false
+	shopButton.TextScaled = true
+	shopButton.ZIndex = zIndex or 1006
+	makeScale(shopButton, "ButtonScale")
+	return shopButton
+end
+
+local function makeBadge(parent, textValue, position, size, zIndex)
+	local badge = frame(parent, "Badge", position, size, Color3.fromRGB(255, 221, 84))
+	badge.ZIndex = zIndex or 1006
+	applyCorner(badge, 12)
+	applyStroke(badge, OUTLINE, 2)
+	local badgeText = makeShopText(badge, "Text", textValue, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 13, TEXT_DARK, badge.ZIndex + 1)
+	badgeText.Font = Enum.Font.GothamBlack
+	badgeText.TextXAlignment = Enum.TextXAlignment.Center
+	badgeText.TextScaled = true
+	return badge
+end
+
+local function clearGeneratedChildren(parent)
+	for _, child in ipairs(parent:GetChildren()) do
+		if child:GetAttribute("StudioShopGenerated") == true then
+			child:Destroy()
+		end
+	end
+end
+
+local function prepShopWindow(shopWindow)
+	shopWindow.AnchorPoint = Vector2.new(0.5, 0.5)
+	shopWindow.Position = UDim2.fromScale(0.5, 0.5)
+	shopWindow.Size = UDim2.fromOffset(820, 500)
+	shopWindow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	shopWindow.BorderSizePixel = 0
+	shopWindow.ClipsDescendants = false
+	shopWindow.ZIndex = 1000
+	applyCorner(shopWindow, 24)
+	applyStroke(shopWindow, OUTLINE, 4)
+
+	local title = text(shopWindow, "Title", "ROBUX SHOP", UDim2.fromOffset(26, 16), UDim2.new(1, -120, 0, 46), 32)
+	title.Font = Enum.Font.GothamBlack
+	title.TextScaled = true
+	title.TextColor3 = TEXT_DARK
+	title.TextStrokeTransparency = 1
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.ZIndex = 1002
+
+	local closeButton = shopWindow:FindFirstChild("CloseButton")
+	if closeButton and closeButton:IsA("ImageButton") then
+		closeButton.Position = UDim2.new(1, -72, 0, 16)
+		closeButton.Size = UDim2.fromOffset(54, 54)
+		closeButton.BackgroundColor3 = Color3.fromRGB(188, 21, 28)
+		closeButton.BorderSizePixel = 0
+		closeButton.ZIndex = 1003
+		applyCorner(closeButton, 14)
+		applyStroke(closeButton, OUTLINE, 2)
+		local runtimeText = text(closeButton, "RuntimeText", "X", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 28)
+		runtimeText.TextScaled = true
+		runtimeText.TextXAlignment = Enum.TextXAlignment.Center
+		runtimeText.TextColor3 = Color3.fromRGB(255, 255, 255)
+		runtimeText.TextStrokeTransparency = 0
+		runtimeText.TextStrokeColor3 = OUTLINE
+		runtimeText.ZIndex = 1004
+	else
+		closeButton = button(shopWindow, "CloseButton", "X", UDim2.new(1, -72, 0, 16), UDim2.fromOffset(54, 54), Color3.fromRGB(188, 21, 28))
+		closeButton.ZIndex = 1003
+		closeButton.TextScaled = true
+	end
+
+	return shopWindow
+end
+
+local function makeShopTabs(shopWindow)
+	local tabs = frame(shopWindow, "Tabs", UDim2.fromOffset(26, 76), UDim2.new(1, -52, 0, 48), Color3.fromRGB(255, 255, 255))
+	tabs.BackgroundTransparency = 1
+	tabs.ZIndex = 1002
+
+	local oldBundles = tabs:FindFirstChild("BundlesTab")
+	if oldBundles then
+		oldBundles.Name = "FeaturedTab"
+	end
+	local oldPotions = tabs:FindFirstChild("PotionsTab")
+	if oldPotions then
+		oldPotions.Name = "BoostsTab"
+	end
+
+	local layout = tabs:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, 10)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = tabs
+
+	for index, tabName in ipairs(SHOP_TABS) do
+		local tab = button(tabs, tabName .. "Tab", tabName, UDim2.fromOffset(0, 0), UDim2.fromOffset(150, 38), index == 1 and CYAN or TAB_INACTIVE)
+		tab.LayoutOrder = index
+		tab.AutoButtonColor = false
+		tab.TextScaled = true
+		tab.Font = Enum.Font.GothamBlack
+		tab.TextColor3 = index == 1 and Color3.fromRGB(255, 255, 255) or TEXT_DARK
+		tab.ZIndex = 1003
+		applyCorner(tab, 14)
+		applyStroke(tab, OUTLINE, 2)
+	end
+
+	return tabs
+end
+
+local function makeShopPages(shopWindow)
+	local content = frame(shopWindow, "Content", UDim2.fromOffset(26, 136), UDim2.new(1, -52, 1, -164), Color3.fromRGB(244, 248, 252))
+	content.BorderSizePixel = 0
+	content.ClipsDescendants = true
+	content.ZIndex = 1001
+	applyCorner(content, 18)
+	applyStroke(content, OUTLINE, 3)
+
+	for index, pageName in ipairs({ "FeaturedPage", "GamepassesPage", "BoostsPage", "CurrencyPage" }) do
+		local page = frame(content, pageName, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Color3.fromRGB(244, 248, 252))
+		page.BackgroundTransparency = 1
+		page.ZIndex = 1002
+		page.Visible = index == 1
+		clearGeneratedChildren(page)
+	end
+
+	return content
+end
+
+local function makeIconCircle(parent, name, iconTextValue, color, position, size, zIndex)
+	local circle = frame(parent, name, position, size, color)
+	circle.ZIndex = zIndex or 1004
+	applyCorner(circle, 99)
+	applyStroke(circle, OUTLINE, 2)
+	makeScale(circle, "IconScale")
+
+	local iconLabel = makeShopText(circle, "IconText", iconTextValue, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 26, Color3.fromRGB(255, 255, 255), circle.ZIndex + 1)
+	iconLabel.Font = Enum.Font.GothamBlack
+	iconLabel.TextXAlignment = Enum.TextXAlignment.Center
+	iconLabel.TextScaled = true
+	iconLabel.TextStrokeTransparency = 0
+	iconLabel.TextStrokeColor3 = OUTLINE
+	return circle
+end
+
+local function makeInfiniteHero(featuredPage)
+	local pass = getGamepass("InfinitePass")
+	if not pass then
+		return
+	end
+
+	local card = frame(featuredPage, "InfinitePassHeroCard", UDim2.fromOffset(16, 14), UDim2.new(1, -32, 0, 150), pass.color)
+	card:SetAttribute("StudioShopGenerated", true)
+	card:SetAttribute("ShopItemId", pass.id)
+	card:SetAttribute("ShopItemKind", "Gamepass")
+	card.BorderSizePixel = 0
+	card.ClipsDescendants = true
+	card.ZIndex = 1003
+	makeScale(card, "CardScale")
+	applyCorner(card, 20)
+	applyStroke(card, Color3.fromRGB(72, 235, 255), 4)
+
+	local glow = frame(card, "Glow", UDim2.new(-0.05, 0, -0.2, 0), UDim2.new(1.1, 0, 1.4, 0), Color3.fromRGB(72, 235, 255))
+	glow.BackgroundTransparency = 0.72
+	glow.ZIndex = 1004
+	applyCorner(glow, 30)
+
+	for index, circle in ipairs({
+		{ "GlowCircle1", UDim2.new(0.18, 0, -0.35, 0), UDim2.fromOffset(170, 170), Color3.fromRGB(255, 255, 255) },
+		{ "GlowCircle2", UDim2.new(0.58, 0, 0.45, 0), UDim2.fromOffset(130, 130), Color3.fromRGB(72, 235, 255) },
+		{ "GlowCircle3", UDim2.new(0.82, 0, -0.18, 0), UDim2.fromOffset(120, 120), Color3.fromRGB(177, 141, 255) },
+	}) do
+		local glowCircle = frame(card, circle[1], circle[2], circle[3], circle[4])
+		glowCircle:SetAttribute("StudioShopGenerated", true)
+		glowCircle.BackgroundTransparency = 0.75
+		glowCircle.ZIndex = 1004 + index
+		applyCorner(glowCircle, 99)
+	end
+
+	local shimmer = frame(card, "ShimmerBar", UDim2.new(-0.2, 0, -0.3, 0), UDim2.new(0, 70, 1.8, 0), Color3.fromRGB(255, 255, 255))
+	shimmer.Rotation = -18
+	shimmer.BackgroundTransparency = 0.55
+	shimmer.ZIndex = 1010
+
+	makeIconCircle(card, "IconCircle", pass.icon or "∞", Color3.fromRGB(30, 35, 70), UDim2.new(0, 18, 0.5, -42), UDim2.fromOffset(84, 84), 1005)
+	local title = makeShopText(card, "Title", "INFINITE PASS", UDim2.fromOffset(112, 18), UDim2.new(0.48, 0, 0, 36), 28, Color3.fromRGB(255, 255, 255), 1006)
+	title.TextScaled = true
+	local description = makeShopText(card, "Description", "The ultimate permanent upgrade.", UDim2.fromOffset(112, 56), UDim2.new(0.48, 0, 0, 26), 18, Color3.fromRGB(230, 245, 255), 1006)
+	description.Font = Enum.Font.GothamBold
+	description.TextScaled = true
+	local perks = makeShopText(card, "Perks", "∞ Infinite color capacity\n+5 equipped Colors\nDaily gems\nExclusive aura", UDim2.fromOffset(112, 84), UDim2.new(0.48, 0, 0, 60), 14, Color3.fromRGB(255, 255, 255), 1006)
+	perks.TextYAlignment = Enum.TextYAlignment.Top
+
+	makeBadge(card, pass.badge or "BEST VALUE", UDim2.new(1, -150, 0, 16), UDim2.fromOffset(130, 30), 1006)
+	local price = makeShopText(card, "PriceLabel", tostring(pass.price or 999) .. " R$", UDim2.new(1, -190, 0, 62), UDim2.fromOffset(170, 34), 24, Color3.fromRGB(255, 255, 255), 1006)
+	price.TextScaled = true
+	price.TextXAlignment = Enum.TextXAlignment.Center
+	makeShopButton(card, "BuyButton", "BUY " .. tostring(pass.price or 999) .. " R$", UDim2.new(1, -190, 1, -54), UDim2.fromOffset(170, 40), GREEN, 1007)
+end
+
+local function makeNormalGamepassCard(parent, pass, layoutOrder)
+	local card = frame(parent, pass.id .. "Card", UDim2.fromScale(0, 0), UDim2.fromOffset(225, 112), Color3.fromRGB(255, 255, 255))
+	card:SetAttribute("StudioShopGenerated", true)
+	card:SetAttribute("ShopItemId", pass.id)
+	card:SetAttribute("ShopItemKind", "Gamepass")
+	card.LayoutOrder = layoutOrder
+	card.ZIndex = 1003
+	makeScale(card, "CardScale")
+	applyCorner(card, 16)
+	applyStroke(card, OUTLINE, 2)
+
+	local iconColor = (pass.color or CYAN):Lerp(Color3.fromRGB(255, 255, 255), 0.35)
+	makeIconCircle(card, "IconCircle", tostring(pass.icon or "?"), iconColor, UDim2.fromOffset(12, 14), UDim2.fromOffset(58, 58), 1004)
+
+	local title = makeShopText(card, "Title", tostring(pass.displayName or pass.id), UDim2.fromOffset(80, 12), UDim2.new(1, -90, 0, 26), 18, TEXT_DARK, 1005)
+	title.TextScaled = true
+	local description = makeShopText(card, "Description", tostring(pass.description or ""), UDim2.fromOffset(80, 42), UDim2.new(1, -90, 0, 32), 12, TEXT_DARK, 1005)
+	description.Font = Enum.Font.GothamBold
+	description.TextWrapped = true
+	local price = makeShopText(card, "PriceLabel", tostring(pass.price or 0) .. " R$", UDim2.new(0, 12, 1, -34), UDim2.fromOffset(82, 24), 16, TEXT_DARK, 1005)
+	price.TextScaled = true
+	price.TextXAlignment = Enum.TextXAlignment.Center
+	local buy = makeShopButton(card, "BuyButton", "BUY", UDim2.new(1, -100, 1, -40), UDim2.fromOffset(88, 30), GREEN, 1005)
+	buy:SetAttribute("DefaultText", "BUY R$ " .. tostring(pass.price or 0))
+	if pass.badge and pass.badge ~= "" then
+		local badge = makeBadge(card, tostring(pass.badge), UDim2.new(0, 12, 0, 78), UDim2.fromOffset(108, 22), 1006)
+		badge.BackgroundTransparency = 0.05
+	end
+end
+
+local function makeSmallCards(featuredPage)
+	local holder = frame(featuredPage, "SmallCards", UDim2.fromOffset(16, 178), UDim2.new(1, -32, 1, -190), Color3.fromRGB(244, 248, 252))
+	holder:SetAttribute("StudioShopGenerated", true)
+	holder.BackgroundTransparency = 1
+	holder.ZIndex = 1002
+
+	local grid = holder:FindFirstChildOfClass("UIGridLayout") or Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.fromOffset(225, 112)
+	grid.CellPadding = UDim2.fromOffset(12, 12)
+	grid.FillDirectionMaxCells = 3
+	grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	grid.VerticalAlignment = Enum.VerticalAlignment.Top
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = holder
+
+	local layoutOrder = 0
+	for _, passId in ipairs({ "VIP", "DoubleCoins", "LuckyHatch", "Plus3Colors", "SupportDev" }) do
+		local pass = getGamepass(passId)
+		if pass then
+			layoutOrder += 1
+			makeNormalGamepassCard(holder, pass, layoutOrder)
+		end
+	end
+end
+
+local function makeProductCard(parent, product, layoutOrder)
+	local card = frame(parent, product.id .. "Card", UDim2.fromScale(0, 0), UDim2.fromOffset(225, 112), Color3.fromRGB(255, 255, 255))
+	card:SetAttribute("StudioShopGenerated", true)
+	card:SetAttribute("ShopItemId", product.id)
+	card:SetAttribute("ShopItemKind", "Product")
+	card.LayoutOrder = layoutOrder
+	card.ZIndex = 1003
+	makeScale(card, "CardScale")
+	applyCorner(card, 16)
+	applyStroke(card, OUTLINE, 2)
+	local iconColor = (product.color or CYAN):Lerp(Color3.fromRGB(255, 255, 255), 0.35)
+	makeIconCircle(card, "IconCircle", tostring(product.icon or "?"), iconColor, UDim2.fromOffset(12, 14), UDim2.fromOffset(58, 58), 1004)
+	makeShopText(card, "Title", tostring(product.displayName or product.id), UDim2.fromOffset(80, 12), UDim2.new(1, -90, 0, 26), 18, TEXT_DARK, 1005).TextScaled = true
+	makeShopText(card, "Description", tostring(product.description or ""), UDim2.fromOffset(80, 42), UDim2.new(1, -90, 0, 32), 12, TEXT_DARK, 1005)
+	makeShopText(card, "PriceLabel", "COMING SOON", UDim2.new(0, 12, 1, -34), UDim2.fromOffset(96, 24), 14, TEXT_DARK, 1005).TextScaled = true
+	makeShopButton(card, "BuyButton", "COMING SOON", UDim2.new(1, -124, 1, -40), UDim2.fromOffset(112, 30), Color3.fromRGB(170, 180, 205), 1005)
+end
+
+local function makeGridPage(page, holderName, items, kind)
+	local holder = frame(page, holderName, UDim2.fromOffset(16, 14), UDim2.new(1, -32, 1, -28), Color3.fromRGB(244, 248, 252))
+	holder:SetAttribute("StudioShopGenerated", true)
+	holder.BackgroundTransparency = 1
+	holder.ZIndex = 1002
+	local grid = holder:FindFirstChildOfClass("UIGridLayout") or Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.fromOffset(225, 112)
+	grid.CellPadding = UDim2.fromOffset(12, 12)
+	grid.FillDirectionMaxCells = 3
+	grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	grid.VerticalAlignment = Enum.VerticalAlignment.Top
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = holder
+
+	for index, item in ipairs(items) do
+		if kind == "Gamepass" then
+			makeNormalGamepassCard(holder, item, index)
+		else
+			makeProductCard(holder, item, index)
+		end
+	end
+end
+
+local function makeFeaturedShopContent(content)
+	local featuredPage = content:FindFirstChild("FeaturedPage")
+	if not featuredPage or not featuredPage:IsA("Frame") then
+		return
+	end
+	clearGeneratedChildren(featuredPage)
+	makeInfiniteHero(featuredPage)
+	makeSmallCards(featuredPage)
+
+	local gamepassesPage = content:FindFirstChild("GamepassesPage")
+	if gamepassesPage and gamepassesPage:IsA("Frame") then
+		clearGeneratedChildren(gamepassesPage)
+		local passes = {}
+		for _, pass in ipairs(RobuxShopConfig.getSortedGamepasses()) do
+			table.insert(passes, pass)
+		end
+		makeGridPage(gamepassesPage, "GamepassCards", passes, "Gamepass")
+	end
+
+	local boostsPage = content:FindFirstChild("BoostsPage")
+	if boostsPage and boostsPage:IsA("Frame") then
+		clearGeneratedChildren(boostsPage)
+		makeGridPage(boostsPage, "BoostCards", getProductsForCategory("Boosts"), "Product")
+	end
+
+	local currencyPage = content:FindFirstChild("CurrencyPage")
+	if currencyPage and currencyPage:IsA("Frame") then
+		clearGeneratedChildren(currencyPage)
+		makeGridPage(currencyPage, "CurrencyCards", getProductsForCategory("Currency"), "Product")
+	end
+end
+
+local function makeShopWindow(windowsFolder)
+	local shopWindow = windowsFolder:FindFirstChild("ShopWindow")
+	if not shopWindow or not shopWindow:IsA("GuiObject") then
+		shopWindow = frame(windowsFolder, "ShopWindow", UDim2.fromScale(0.5, 0.5), UDim2.fromOffset(820, 500), Color3.fromRGB(255, 255, 255))
+	end
+
+	prepShopWindow(shopWindow)
+	makeShopTabs(shopWindow)
+	local content = makeShopPages(shopWindow)
+	makeFeaturedShopContent(content)
+	return shopWindow
+end
+
 local function makeShopTemplates(shopWindow)
 	local templates = findOrCreate(shopWindow, "Folder", "Templates")
 	local card, created = findOrCreate(templates, "Frame", "ShopCardTemplate")
@@ -294,6 +856,107 @@ local function makeShopTemplates(shopWindow)
 	if created then
 		print("StudioMenuWindowsBuilder: created ShopWindow.Templates.ShopCardTemplate")
 	end
+end
+
+local function getSettingsContent()
+	local root = StarterGui:FindFirstChild("ClientUIRoot")
+	local mainHud = root and root:FindFirstChild("MainHUD")
+	local modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows")
+	local windowsFolder = modalWindows and modalWindows:FindFirstChild("Windows")
+	local settingsWindow = windowsFolder and windowsFolder:FindFirstChild("SettingsWindow")
+	return settingsWindow and settingsWindow:FindFirstChild("Content")
+end
+
+local function getWindowContent(windowName)
+	local root = StarterGui:FindFirstChild("ClientUIRoot")
+	local mainHud = root and root:FindFirstChild("MainHUD")
+	local modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows")
+	local windowsFolder = modalWindows and modalWindows:FindFirstChild("Windows")
+	local window = windowsFolder and windowsFolder:FindFirstChild(windowName)
+		or StarterGui:FindFirstChild(windowName, true)
+	if not window or not window:IsA("GuiObject") then
+		return nil
+	end
+
+	local content = window:FindFirstChild("Content") or window:FindFirstChild("Content", true)
+	if content and content:IsA("GuiObject") then
+		return content
+	end
+
+	return frame(
+		window,
+		"Content",
+		UDim2.fromOffset(22, 82),
+		UDim2.new(1, -44, 1, -108),
+		Color3.fromRGB(244, 248, 252)
+	)
+end
+
+function Builder.UpdateSettingsWindow()
+	if not RunService:IsStudio() then
+		warn("StudioMenuWindowsBuilder.UpdateSettingsWindow can only run in Roblox Studio.")
+		return
+	end
+	if RunService:IsRunning() then
+		warn("StudioMenuWindowsBuilder.UpdateSettingsWindow should be run in edit mode, not during Play.")
+		return
+	end
+
+	local content = getSettingsContent()
+	if not content then
+		warn("StudioMenuWindowsBuilder.UpdateSettingsWindow could not find StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows.SettingsWindow.Content.")
+		return
+	end
+
+	makeSettingsGrid(content)
+	print("StudioMenuWindowsBuilder: updated SettingsWindow card text.")
+end
+
+function Builder.UpdateCodesWindow()
+	if not RunService:IsStudio() then
+		warn("StudioMenuWindowsBuilder.UpdateCodesWindow can only run in Roblox Studio.")
+		return
+	end
+	if RunService:IsRunning() then
+		warn("StudioMenuWindowsBuilder.UpdateCodesWindow should be run in edit mode, not during Play.")
+		return
+	end
+
+	local content = getWindowContent("CodesWindow")
+	if not content then
+		warn("StudioMenuWindowsBuilder.UpdateCodesWindow could not find a CodesWindow under StarterGui.")
+		return
+	end
+
+	makeCodesContent(content)
+	print("StudioMenuWindowsBuilder: updated CodesWindow layout.")
+end
+
+function Builder.UpdateShopWindow()
+	if not RunService:IsStudio() then
+		warn("StudioMenuWindowsBuilder.UpdateShopWindow can only run in Roblox Studio.")
+		return
+	end
+	if RunService:IsRunning() then
+		warn("StudioMenuWindowsBuilder.UpdateShopWindow should be run in edit mode, not during Play.")
+		return
+	end
+
+	local root = StarterGui:FindFirstChild("ClientUIRoot")
+	local mainHud = root and root:FindFirstChild("MainHUD")
+	local modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows")
+	local windowsFolder = modalWindows and modalWindows:FindFirstChild("Windows")
+	local existingShopWindow = StarterGui:FindFirstChild("ShopWindow", true)
+	if not windowsFolder and existingShopWindow and existingShopWindow.Parent then
+		windowsFolder = existingShopWindow.Parent
+	end
+	if not windowsFolder then
+		warn("StudioMenuWindowsBuilder.UpdateShopWindow could not find a ShopWindow or Windows folder under StarterGui.")
+		return
+	end
+
+	makeShopWindow(windowsFolder)
+	print("StudioMenuWindowsBuilder: updated ShopWindow Featured shop layout.")
 end
 
 function Builder.Build()
@@ -329,14 +992,13 @@ function Builder.Build()
 	local modalWindows = findOrCreate(mainHud, "Folder", "ModalWindows")
 	local windowsFolder = findOrCreate(modalWindows, "Folder", "Windows")
 	makeInventory(windowsFolder)
-	local shopWindow = makeWindow(windowsFolder, "ShopWindow", "ROBUX SHOP", { "Bundles", "Gamepasses", "Potions", "Currency" })
-	makeShopTemplates(shopWindow)
+	makeShopWindow(windowsFolder)
 	local _, upgradesContent = makeWindow(windowsFolder, "UpgradesWindow", "UPGRADES", { "Player", "Colors", "Rank" })
 	makeCardGrid(upgradesContent, { "Walk Speed", "Brush Power", "Coin Boost", "Gem Luck" })
 	local _, settingsContent = makeWindow(windowsFolder, "SettingsWindow", "SETTINGS", {})
 	makeSettingsGrid(settingsContent)
 	local _, codesContent = makeWindow(windowsFolder, "CodesWindow", "CODES", {})
-	makeCardGrid(codesContent, { "CodeBox", "RedeemButton", "InfoText", "RecentRewards" })
+	makeCodesContent(codesContent)
 	local _, tradeContent = makeWindow(windowsFolder, "TradeWindow", "TRADE", {})
 	text(tradeContent, "ComingSoon", "Trading is coming soon!", UDim2.fromScale(0, 0.35), UDim2.fromScale(1, 0.18), 28).TextXAlignment = Enum.TextXAlignment.Center
 	local _, worldsContent = makeWindow(windowsFolder, "WorldsWindow", "WORLDS", {})

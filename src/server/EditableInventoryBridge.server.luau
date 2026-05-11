@@ -8,6 +8,7 @@ local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
 local ItemsData = require(ReplicatedStorage:WaitForChild("ItemsData"))
 local PetDefinitions = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetDefinitions"))
+local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
 
 local remotes = ReplicatedStorage:FindFirstChild("Remotes")
 if not remotes then
@@ -36,6 +37,7 @@ local equipPaintToolEvent = Events:WaitForChild("EquipPaintTool")
 local useItemEvent = Events:WaitForChild("UseItem")
 
 local COLOR_CAPACITY = 75
+local INFINITE_CAPACITY_LABEL = "∞"
 
 local function splitCsv(value)
 	local out = {}
@@ -327,7 +329,7 @@ local function buildInventory(player)
 		Potions = buildItemRows(player, true),
 		Items = buildItemRows(player, false),
 		Count = colorAmount,
-		Capacity = COLOR_CAPACITY,
+		Capacity = GamepassBenefits.hasInfiniteStorage(player) and INFINITE_CAPACITY_LABEL or COLOR_CAPACITY,
 	}
 end
 

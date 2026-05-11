@@ -39,8 +39,15 @@ local function setPassAttributes(player, pass, owns)
 	if pass.id == "VIP" then
 		player:SetAttribute("IsVIP", owns == true)
 	end
+	if pass.id == "InfinitePass" then
+		player:SetAttribute("HasInfinitePass", owns == true)
+		player:SetAttribute("InfiniteStorage", owns == true and pass.infiniteStorage == true)
+	end
 	if (pass.id == "SupportDev" or pass.earlySupporterTag == true) and owns == true then
 		player:SetAttribute("EarlySupporter", true)
+	end
+	if pass.infiniteTag == true and owns == true then
+		player:SetAttribute("InfiniteTag", true)
 	end
 end
 
@@ -97,6 +104,9 @@ function GamepassBenefits.refreshPlayer(player)
 		setPassAttributes(player, pass, owns)
 	end
 	player:SetAttribute("IsVIP", GamepassBenefits.owns(player, "VIP"))
+	player:SetAttribute("HasInfinitePass", GamepassBenefits.owns(player, "InfinitePass"))
+	local infinitePass = RobuxShopConfig.getGamepass("InfinitePass")
+	player:SetAttribute("InfiniteStorage", GamepassBenefits.owns(player, "InfinitePass") and infinitePass and infinitePass.infiniteStorage == true)
 	if GamepassBenefits.owns(player, "SupportDev") then
 		player:SetAttribute("EarlySupporter", true)
 	end
@@ -153,32 +163,47 @@ end
 
 function GamepassBenefits.getCoinMultiplier(player)
 	local multiplier = 1
-	if GamepassBenefits.owns(player, "DoubleCoins") then
-		multiplier *= 2
+	for _, pass in ipairs(RobuxShopConfig.Gamepasses or {}) do
+		if pass.coinMultiplier and GamepassBenefits.owns(player, pass.id) then
+			multiplier *= tonumber(pass.coinMultiplier) or 1
+		end
 	end
 	return multiplier
 end
 
 function GamepassBenefits.getLuckMultiplier(player)
 	local multiplier = 1
-	if GamepassBenefits.owns(player, "LuckyHatch") then
-		multiplier *= 1.35
-	end
-	if GamepassBenefits.owns(player, "VIP") then
-		multiplier *= 1.1
+	for _, pass in ipairs(RobuxShopConfig.Gamepasses or {}) do
+		if pass.luckMultiplier and GamepassBenefits.owns(player, pass.id) then
+			multiplier *= tonumber(pass.luckMultiplier) or 1
+		end
 	end
 	return multiplier
 end
 
 function GamepassBenefits.getExtraEquippedColorSlots(player)
 	local extra = 0
-	if GamepassBenefits.owns(player, "Plus3Colors") then
-		extra += 3
-	end
-	if GamepassBenefits.owns(player, "VIP") then
-		extra += 1
+	for _, pass in ipairs(RobuxShopConfig.Gamepasses or {}) do
+		if pass.extraEquippedColors and GamepassBenefits.owns(player, pass.id) then
+			extra += tonumber(pass.extraEquippedColors) or 0
+		end
 	end
 	return extra
+end
+
+function GamepassBenefits.hasInfiniteStorage(player)
+	local pass = RobuxShopConfig.getGamepass("InfinitePass")
+	return pass and pass.infiniteStorage == true and GamepassBenefits.owns(player, "InfinitePass")
+end
+
+function GamepassBenefits.getDailyGemBonus(player)
+	local total = 0
+	for _, pass in ipairs(RobuxShopConfig.Gamepasses or {}) do
+		if pass.dailyGemBonus and GamepassBenefits.owns(player, pass.id) then
+			total += tonumber(pass.dailyGemBonus) or 0
+		end
+	end
+	return total
 end
 
 function GamepassBenefits.hasAutoSell(player)
@@ -190,6 +215,9 @@ Players.PlayerAdded:Connect(function(player)
 		player:SetAttribute("Pass_" .. pass.id, false)
 	end
 	player:SetAttribute("IsVIP", false)
+	player:SetAttribute("HasInfinitePass", false)
+	player:SetAttribute("InfiniteStorage", false)
+	player:SetAttribute("InfiniteTag", false)
 	player:SetAttribute("EarlySupporter", false)
 	task.defer(function()
 		GamepassBenefits.refreshPlayer(player)
