@@ -3,6 +3,7 @@
 -- equips, deletes, or consumes anything locally.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -20,6 +21,7 @@ local paintToolState = ReplicatedStorage:FindFirstChild("PaintToolEquippedState"
 local paintToolEquipChanged = ReplicatedStorage:FindFirstChild("PaintToolEquipChanged")
 
 local InventoryIconConfig = require(ReplicatedStorage:WaitForChild("InventoryIconConfig"))
+local PetModelUtil = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetModelUtil"))
 
 local TAB_NAMES = { "Colors", "Brushes", "Potions", "Items" }
 local currentTab = "Colors"
@@ -43,6 +45,7 @@ end
 
 local ui = {}
 local cardConnections = {}
+local viewportConnections = {}
 local iconWarnings = {}
 local renderDetails
 
@@ -65,6 +68,23 @@ local function disconnectCards()
 		end
 	end
 	table.clear(cardConnections)
+end
+
+local function disconnectViewport(viewport)
+	local connection = viewportConnections[viewport]
+	if connection and connection.Connected then
+		connection:Disconnect()
+	end
+	viewportConnections[viewport] = nil
+end
+
+local function disconnectViewports()
+	for viewport, connection in pairs(viewportConnections) do
+		if connection and connection.Connected then
+			connection:Disconnect()
+		end
+		viewportConnections[viewport] = nil
+	end
 end
 
 local function setText(object, value)
@@ -399,6 +419,94 @@ local function applyInventoryIcons()
 	applyInventoryIcon(ui.deleteButton, "Delete")
 end
 
+local function findViewportPreview(container)
+	if not container then
+		return nil
+	end
+	if container:IsA("ViewportFrame") then
+		return container
+	end
+	local named = findDescendantByNames(container, { "PreviewViewport", "PetModelPreview", "Viewport", "ViewportFrame" })
+	if named and named:IsA("ViewportFrame") then
+		return named
+	end
+	return container:FindFirstChildWhichIsA("ViewportFrame", true)
+end
+
+local function clearViewportPreview(viewport)
+	if not viewport or not viewport:IsA("ViewportFrame") then
+		return
+	end
+	disconnectViewport(viewport)
+	if viewport.CurrentCamera and viewport.CurrentCamera:GetAttribute("EditableInventoryViewportAsset") == true then
+		viewport.CurrentCamera = nil
+	end
+	for _, child in ipairs(viewport:GetChildren()) do
+		if child:GetAttribute("EditableInventoryViewportAsset") == true then
+			child:Destroy()
+		end
+	end
+end
+
+local function mountPetViewport(viewport, item, large)
+	if not viewport or not viewport:IsA("ViewportFrame") or not item or item.Kind ~= "Color" or not item.PetId then
+		return false
+	end
+
+	clearViewportPreview(viewport)
+
+	local ok, model = pcall(function()
+		return PetModelUtil.ClonePetModel(item.PetId, {
+			anchored = true,
+			mutationId = item.MutationId or item.Mutation,
+		})
+	end)
+	if not ok or not model then
+		return false
+	end
+
+	local world = Instance.new("WorldModel")
+	world.Name = "EditableInventoryPreviewWorld"
+	world:SetAttribute("EditableInventoryViewportAsset", true)
+	world.Parent = viewport
+
+	local camera = Instance.new("Camera")
+	camera.Name = "EditableInventoryPreviewCamera"
+	camera:SetAttribute("EditableInventoryViewportAsset", true)
+	camera.FieldOfView = large and 30 or 34
+	camera.Parent = viewport
+	viewport.CurrentCamera = camera
+
+	model.Parent = world
+	local targetSize = large and 3.5 or 2.9
+	local extents = model:GetExtentsSize()
+	local largest = math.max(extents.X, extents.Y, extents.Z)
+	if largest > 0 and largest > targetSize then
+		pcall(function()
+			model:ScaleTo(targetSize / largest)
+		end)
+	end
+
+	local angle = math.rad(22)
+	model:PivotTo(CFrame.new(0, 0, 0) * CFrame.Angles(0, angle, 0))
+	camera.CFrame = CFrame.new(0, large and 0.52 or 0.42, large and 6.8 or 6.1) * CFrame.Angles(math.rad(-5), 0, 0)
+
+	viewport.Ambient = Color3.fromRGB(210, 220, 255)
+	viewport.LightColor = Color3.fromRGB(255, 255, 245)
+	viewport.LightDirection = Vector3.new(-0.45, -0.75, -0.3)
+
+	viewportConnections[viewport] = RunService.RenderStepped:Connect(function(deltaTime)
+		if not viewport.Parent or not model.Parent then
+			disconnectViewport(viewport)
+			return
+		end
+		angle += deltaTime * 0.8
+		model:PivotTo(CFrame.new(0, 0, 0) * CFrame.Angles(0, angle, 0))
+	end)
+
+	return true
+end
+
 local function prepareStructure()
 	ui.tabs = inventoryWindow:FindFirstChild("Tabs", true)
 	ui.body = inventoryWindow:FindFirstChild("Content")
@@ -448,7 +556,7 @@ local function prepareStructure()
 		return false
 	end
 
-	ui.bigPreview = findChildByNames(ui.detailPanel, { "PreviewIcon", "BigPreview", "PreviewImage", "Preview", "Icon", "ItemPreview" })
+	ui.bigPreview = findChildByNames(ui.detailPanel, { "PreviewViewport", "PetModelPreview", "PreviewIcon", "BigPreview", "PreviewImage", "Preview", "Icon", "ItemPreview" })
 	ui.selectedName = findChildByNames(ui.detailPanel, { "ItemName", "SelectedName", "NameLabel", "Name", "Title", "SelectLabel" })
 	ui.selectedRarity = findChildByNames(ui.detailPanel, { "RarityLabel", "SelectedRarity", "Rarity", "Meta", "ItemMeta" })
 	ui.selectedDescription = findChildByNames(ui.detailPanel, { "SelectedDescription", "Description", "ItemDescription" })
@@ -461,6 +569,13 @@ local function prepareStructure()
 end
 
 local function clearPreview(preview)
+	if not preview or not preview:IsA("GuiObject") then
+		return preview
+	end
+	local viewport = findViewportPreview(preview)
+	if viewport then
+		clearViewportPreview(viewport)
+	end
 	return preview
 end
 
@@ -503,6 +618,10 @@ local function paintPreview(preview, item)
 		return
 	end
 	clearPreview(preview)
+	local viewport = findViewportPreview(preview)
+	if mountPetViewport(viewport, item, preview == ui.bigPreview or preview:IsDescendantOf(ui.detailPanel)) then
+		return
+	end
 	setExistingPreviewImage(preview, item)
 	setExistingPreviewText(preview, item)
 end
@@ -522,7 +641,7 @@ local function makeCard(item, index)
 		card.AutoButtonColor = true
 	end
 
-	local preview = findDescendantByNames(card, { "PreviewIcon", "Preview", "Icon", "ItemPreview", "PreviewFrame" })
+	local preview = findDescendantByNames(card, { "PreviewViewport", "PetModelPreview", "PreviewIcon", "Preview", "Icon", "ItemPreview", "PreviewFrame" })
 	if preview and preview:IsA("GuiObject") then
 		paintPreview(preview, item)
 	end
@@ -601,6 +720,7 @@ end
 
 local function renderInventory()
 	disconnectCards()
+	disconnectViewports()
 	for _, child in ipairs(ui.grid:GetChildren()) do
 		if child:GetAttribute("EditableInventoryGeneratedCard") == true then
 			child:Destroy()
@@ -633,6 +753,10 @@ local function renderInventory()
 		local card = ui.itemCards[index]
 		card:SetAttribute("InventoryItemId", "")
 		card:SetAttribute("InventoryItemKind", "")
+		local preview = findDescendantByNames(card, { "PreviewViewport", "PetModelPreview", "PreviewIcon", "Preview", "Icon", "ItemPreview", "PreviewFrame" })
+		if preview and preview:IsA("GuiObject") then
+			clearPreview(preview)
+		end
 	end
 
 	if selectedItem then

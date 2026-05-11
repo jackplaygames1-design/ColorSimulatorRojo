@@ -192,6 +192,7 @@ local function buildColorRows(player)
 			Amount = math.max(1, tonumber(entry.stackAmount) or 1),
 			Equipped = equipped[entry.variantKey] == true or equipped[entry.petId] == true,
 			Locked = locked[entry.variantKey] == true,
+			MutationId = entry.mutationId,
 			Mutation = mutationName,
 			Trait = entry.traitName,
 			Power = tostring(entry.finalPower or entry.effectivePower or 0),
