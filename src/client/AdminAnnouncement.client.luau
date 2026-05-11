@@ -1,5 +1,7 @@
 -- Disabled: no PlayerGui UI should be created at runtime.
-return
+if true then
+	return
+end
 
 -- Simple display for moderator/admin announcements.
 local Players = game:GetService("Players")

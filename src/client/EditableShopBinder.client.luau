@@ -1,3 +1,8 @@
+-- Disabled: no shop cards should be created at runtime.
+if true then
+	return
+end
+
 -- Populates the editable Studio ShopWindow with real gamepasses/dev products.
 -- This does not create a duplicate shop window. It only fills the existing editable window.
 local Players = game:GetService("Players")

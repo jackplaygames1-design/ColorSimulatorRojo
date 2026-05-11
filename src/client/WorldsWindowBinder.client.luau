@@ -1,3 +1,8 @@
+-- Disabled: no world rows/cards should be created at runtime.
+if true then
+	return
+end
+
 -- Single controller for the editable Sectors/Worlds window.
 -- Builds the live Worlds/Zones tab inside the Studio-made WorldsWindow.
 local Players = game:GetService("Players")

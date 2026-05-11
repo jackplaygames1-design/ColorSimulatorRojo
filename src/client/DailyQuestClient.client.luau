@@ -1,5 +1,7 @@
 -- Disabled: no PlayerGui UI should be created at runtime.
-return
+if true then
+	return
+end
 
 -- StarterPlayerScripts/Client/DailyQuestClient
 local Players = game:GetService("Players")

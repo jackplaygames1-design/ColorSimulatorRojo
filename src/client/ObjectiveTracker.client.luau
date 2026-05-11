@@ -1,5 +1,7 @@
 -- Disabled: no PlayerGui UI should be created at runtime.
-return
+if true then
+	return
+end
 
 -- Guided tutorial UI. Server-owned values decide progress; this client only presents
 -- the guide, highlights targets, and requests safe tutorial actions.

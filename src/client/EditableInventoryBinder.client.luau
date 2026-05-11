@@ -44,6 +44,18 @@ local cardConnections = {}
 local iconWarnings = {}
 local renderDetails
 
+local function isInventoryCardSlot(object)
+	if not object or not object:IsA("GuiObject") then
+		return false
+	end
+	if object.Name == "ItemCardTemplate" then
+		return false
+	end
+	return string.match(object.Name, "^PreviewSlot%d+$") ~= nil
+		or string.match(object.Name, "^ItemCard%d*$") ~= nil
+		or object:GetAttribute("InventoryCardSlot") == true
+end
+
 local function disconnectCards()
 	for _, connection in ipairs(cardConnections) do
 		if connection and connection.Connected then
@@ -321,18 +333,28 @@ local function prepareStructure()
 	end
 	ui.grid = ui.gridPanel
 
-	for _, child in ipairs(ui.gridPanel:GetChildren()) do
-		if child:IsA("GuiObject") and string.match(child.Name, "^PreviewSlot%d+$") then
-			child.Visible = false
-		end
-	end
-
 	ui.cardTemplate = ui.gridPanel:FindFirstChild("ItemCardTemplate")
 	if ui.cardTemplate and ui.cardTemplate:IsA("GuiObject") then
 		ui.cardTemplate.Visible = false
 	else
 		warn("EditableInventoryBinder: missing InventoryWindow.Content.GridPanel.ItemCardTemplate")
 		ui.cardTemplate = nil
+	end
+
+	ui.itemCards = {}
+	for _, child in ipairs(ui.gridPanel:GetChildren()) do
+		if isInventoryCardSlot(child) then
+			table.insert(ui.itemCards, child)
+		end
+	end
+	table.sort(ui.itemCards, function(a, b)
+		if a.LayoutOrder ~= b.LayoutOrder then
+			return a.LayoutOrder < b.LayoutOrder
+		end
+		return a.Name < b.Name
+	end)
+	if #ui.itemCards == 0 then
+		warn("EditableInventoryBinder: add physical card slots to GridPanel; runtime card cloning is disabled.")
 	end
 
 	ui.emptyText = ui.gridPanel:FindFirstChild("EmptyText", true)
@@ -410,15 +432,13 @@ local function paintPreview(preview, item)
 end
 
 local function makeCard(item, index)
-	if not ui.cardTemplate then
+	local card = ui.itemCards and ui.itemCards[index]
+	if not card then
 		return
 	end
-	local card = ui.cardTemplate:Clone()
-	card.Name = "ItemCard_" .. tostring(index)
-	card:SetAttribute("EditableInventoryGeneratedCard", true)
 	card.Visible = true
-	card.LayoutOrder = index
-	card.Parent = ui.grid
+	card:SetAttribute("InventoryItemId", item.Id or "")
+	card:SetAttribute("InventoryItemKind", item.Kind or "")
 	if card:IsA("TextButton") then
 		card.Text = ""
 	end
@@ -506,8 +526,6 @@ local function renderInventory()
 	for _, child in ipairs(ui.grid:GetChildren()) do
 		if child:GetAttribute("EditableInventoryGeneratedCard") == true then
 			child:Destroy()
-		elseif child:IsA("GuiObject") and string.match(child.Name, "^PreviewSlot%d+$") then
-			child.Visible = false
 		end
 	end
 	if ui.cardTemplate then
@@ -532,6 +550,11 @@ local function renderInventory()
 
 	for index, item in ipairs(items) do
 		makeCard(item, index)
+	end
+	for index = #items + 1, #(ui.itemCards or {}) do
+		local card = ui.itemCards[index]
+		card:SetAttribute("InventoryItemId", "")
+		card:SetAttribute("InventoryItemKind", "")
 	end
 
 	if selectedItem then

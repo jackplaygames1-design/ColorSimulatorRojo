@@ -291,6 +291,9 @@ local function showFeedback(text, color)
 	if not getClientSetting("Popups", true) and text ~= "STORAGE FULL" then
 		return
 	end
+	if not sweepGui then
+		return
+	end
 	local label = Instance.new("TextLabel")
 	label.AnchorPoint = Vector2.new(0.5, 0.5)
 	label.Size = UDim2.new(0, 280, 0, 42)

@@ -1,5 +1,5 @@
 -- Kills old duplicate runtime UI roots so only the editable Studio UI stays on screen.
--- Tutorial UI is intentionally allowed until the handmade tutorial replacement exists.
+-- Runtime tutorial UI is also removed; tutorial panels should be Studio-authored.
 local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
@@ -28,15 +28,36 @@ local LEGACY_SCREEN_GUI_NAMES = {
 	PetInventoryUI = true,
 	SocialPanelUI = true,
 	SocialPanelsUI = true,
+	MutationHatchVFX = true,
+	TutorialUI = true,
+	TutorialGui = true,
 }
 
 local ALLOWED_RUNTIME_SCREEN_GUI_NAMES = {
-	TutorialUI = true,
-	TutorialGui = true,
 	TouchGui = true,
 	Chat = true,
 	BubbleChat = true,
 	Freecam = true,
+}
+
+local RUNTIME_LAYER_NAMES = {
+	AdminAnnouncementUI = true,
+	CodesUI = true,
+	CollectFeedbackUI = true,
+	CoreJuiceUI = true,
+	EggShopUI = true,
+	EquipmentShopUI = true,
+	GamepassUI = true,
+	GroupRewardsGui = true,
+	InventoryUI = true,
+	LiveLeaderboardUI = true,
+	MutationStationGui = true,
+	PaintToolFeedbackUI = true,
+	PetMergeToastUI = true,
+	ShopTransitionUI = true,
+	SocialPanelsUI = true,
+	WildBuffToastUI = true,
+	WorldUI = true,
 }
 
 local warned = {}
@@ -70,6 +91,21 @@ local function clean()
 		if shouldRemove(child) then
 			warnOnce(child.Name)
 			child:Destroy()
+		end
+	end
+	local root = playerGui:FindFirstChild(CURRENT_ROOT)
+	if root then
+		for _, child in ipairs(root:GetChildren()) do
+			if child:IsA("GuiObject") and RUNTIME_LAYER_NAMES[child.Name] then
+				warnOnce(child.Name)
+				child:Destroy()
+			end
+		end
+		for _, descendant in ipairs(root:GetDescendants()) do
+			if descendant:IsA("GuiObject") and descendant.Name == "RuntimeText" then
+				warnOnce(descendant.Name)
+				descendant:Destroy()
+			end
 		end
 	end
 end

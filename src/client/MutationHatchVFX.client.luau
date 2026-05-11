@@ -1,5 +1,7 @@
 -- Disabled: no PlayerGui UI should be created at runtime.
-return
+if true then
+	return
+end
 
 -- Adds an extra visual burst whenever a hatched Color has a mutation.
 -- This is intentionally separate from EggShopUI so the existing hatch animation stays editable/stable.

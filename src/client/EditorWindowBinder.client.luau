@@ -1,3 +1,8 @@
+-- Disabled: no fallback window content should be created at runtime.
+if true then
+	return
+end
+
 -- Binds editor-built MainHUD.Windows to live player data.
 -- This script does not create ScreenGuis or rebuild top-level window frames.
 local Players = game:GetService("Players")

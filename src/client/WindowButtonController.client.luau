@@ -195,22 +195,6 @@ local function prepareDimBackground()
 		return
 	end
 
-	if dimBackground:IsA("GuiButton") then
-		local passiveDim = Instance.new("Frame")
-		passiveDim.Name = dimBackground.Name
-		passiveDim.AnchorPoint = dimBackground.AnchorPoint
-		passiveDim.Position = dimBackground.Position
-		passiveDim.Size = dimBackground.Size
-		passiveDim.BackgroundColor3 = dimBackground.BackgroundColor3
-		passiveDim.BackgroundTransparency = dimBackground.BackgroundTransparency
-		passiveDim.BorderSizePixel = dimBackground.BorderSizePixel
-		passiveDim.Visible = dimBackground.Visible
-		passiveDim.ZIndex = dimBackground.ZIndex
-		passiveDim.Parent = dimBackground.Parent
-		dimBackground:Destroy()
-		dimBackground = passiveDim
-	end
-
 	dimBackground.AnchorPoint = Vector2.new(0, 0)
 	dimBackground.Position = UDim2.fromScale(0, 0)
 	dimBackground.Size = UDim2.fromScale(1, 1)

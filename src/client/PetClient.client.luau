@@ -1171,6 +1171,10 @@ end)
 -- EggShopUI owns hatch reveal animations now.
 
 mergeEvent.OnClientEvent:Connect(function(success, petId, result)
+	if true then
+		return
+	end
+
 	local popup = ClientUIRoot.GetLayer(player.PlayerGui, "PetMergeToastUI")
 
 	local frame = Instance.new("Frame")

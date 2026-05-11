@@ -189,6 +189,9 @@ local function showCollectFeedback(success, amount, message)
 	if not getClientSetting("Popups", true) then
 		return
 	end
+	if not feedbackGui then
+		return
+	end
 
 	local label = Instance.new("TextLabel")
 	label.AnchorPoint = Vector2.new(0.5, 0.5)

@@ -1,5 +1,7 @@
 -- Disabled: no PlayerGui UI should be created at runtime.
-return
+if true then
+	return
+end
 
 -- Hooks the handmade Studio HUD buttons directly to the editable Studio window Frames.
 -- This intentionally does NOT create a new ScreenGui or clone legacy runtime UI.

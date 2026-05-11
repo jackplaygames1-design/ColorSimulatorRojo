@@ -10,6 +10,7 @@ local rootByPlayerGui = setmetatable({}, { __mode = "k" })
 local watchedPlayerGuis = setmetatable({}, { __mode = "k" })
 local printedClientVersion = false
 local warnedLegacy = {}
+local warnedRuntimeLayer = {}
 
 local LEGACY_SCREEN_GUI_NAMES = {
 	ColorSimulatorUI = true,
@@ -34,6 +35,27 @@ local LEGACY_SCREEN_GUI_NAMES = {
 	EquipmentShopUI = true,
 	SocialPanelUI = true,
 	SocialPanelsUI = true,
+	MutationHatchVFX = true,
+}
+
+local RUNTIME_LAYER_NAMES = {
+	AdminAnnouncementUI = true,
+	CodesUI = true,
+	CollectFeedbackUI = true,
+	CoreJuiceUI = true,
+	EggShopUI = true,
+	EquipmentShopUI = true,
+	GamepassUI = true,
+	GroupRewardsGui = true,
+	InventoryUI = true,
+	LiveLeaderboardUI = true,
+	MutationStationGui = true,
+	PaintToolFeedbackUI = true,
+	PetMergeToastUI = true,
+	ShopTransitionUI = true,
+	SocialPanelsUI = true,
+	WildBuffToastUI = true,
+	WorldUI = true,
 }
 
 local function warnLegacyOnce(name)
@@ -55,6 +77,20 @@ local function cleanupLegacyRoots(playerGui)
 				warnLegacyOnce(child.Name)
 				child:Destroy()
 			end
+		end
+	end
+end
+
+local function cleanupRuntimeLayers(root)
+	for _, child in ipairs(root:GetChildren()) do
+		if RUNTIME_LAYER_NAMES[child.Name] and child:IsA("GuiObject") then
+			warnLegacyOnce(child.Name)
+			child:Destroy()
+		end
+	end
+	for _, descendant in ipairs(root:GetDescendants()) do
+		if descendant.Name == "RuntimeText" and descendant:IsA("GuiObject") then
+			descendant:Destroy()
 		end
 	end
 end
@@ -127,6 +163,7 @@ function ClientUIRoot.GetRoot(playerGui)
 	root:SetAttribute("UIScreenVersion", UI_VERSION)
 	playerGui:SetAttribute("CurrentColorSimulatorUI", true)
 	playerGui:SetAttribute("UIScreenVersion", UI_VERSION)
+	cleanupRuntimeLayers(root)
 
 	if not printedClientVersion then
 		printedClientVersion = true
@@ -147,24 +184,17 @@ function ClientUIRoot.GetLayer(playerGui, layerName)
 	local layer = root:FindFirstChild(layerName)
 	if layer and not layer:IsA("Frame") then
 		layer:Destroy()
-		layer = nil
+		return nil
 	end
 
 	if not layer then
-		layer = Instance.new("Frame")
-		layer.Name = layerName
-		layer.Size = UDim2.fromScale(1, 1)
-		layer.BackgroundTransparency = 1
-		layer.BorderSizePixel = 0
-		layer.Active = false
-		layer.Parent = root
-	else
-		for _, child in ipairs(layer:GetChildren()) do
-			child:Destroy()
+		if not warnedRuntimeLayer[layerName] then
+			warnedRuntimeLayer[layerName] = true
+			warn("ClientUIRoot: runtime UI layer creation disabled for " .. tostring(layerName))
 		end
+		return nil
 	end
 
-	layer:SetAttribute("UIScreenVersion", UI_VERSION)
 	return layer
 end
 

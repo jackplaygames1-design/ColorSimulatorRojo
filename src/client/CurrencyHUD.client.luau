@@ -115,8 +115,8 @@ local function polishCurrencyBar(bar)
 
 	local layout = bar:FindFirstChildOfClass("UIListLayout")
 	if not layout then
-		layout = Instance.new("UIListLayout")
-		layout.Parent = bar
+		warnOnce("missing-currency-layout", "CurrencyHUD: missing UIListLayout; add it in Studio.")
+		return
 	end
 	layout.FillDirection = Enum.FillDirection.Vertical
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
@@ -200,10 +200,11 @@ local function styleAmountLabel(label)
 	label.TextYAlignment = Enum.TextYAlignment.Center
 	label.ZIndex = math.max(label.ZIndex, 12)
 
-	local constraint = label:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
-	constraint.MinTextSize = 12
-	constraint.MaxTextSize = 28
-	constraint.Parent = label
+	local constraint = label:FindFirstChildOfClass("UITextSizeConstraint")
+	if constraint then
+		constraint.MinTextSize = 12
+		constraint.MaxTextSize = 28
+	end
 end
 
 local function styleIcon(frame)
@@ -231,19 +232,14 @@ local function playGainEffect(label, frame, delta, prefix)
 	local originalColor = label.TextColor3
 
 	local scale = frame:FindFirstChild("CurrencyPopScale")
-	if not scale then
-		scale = Instance.new("UIScale")
-		scale.Name = "CurrencyPopScale"
-		scale.Scale = 1
-		scale.Parent = frame
+	if scale then
+		TweenService:Create(scale, TweenInfo.new(0.10, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.16 }):Play()
+		task.delay(0.10, function()
+			if scale.Parent then
+				TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+			end
+		end)
 	end
-
-	TweenService:Create(scale, TweenInfo.new(0.10, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.16 }):Play()
-	task.delay(0.10, function()
-		if scale.Parent then
-			TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-		end
-	end)
 
 	label.TextColor3 = Color3.fromRGB(255, 245, 160)
 	task.delay(0.18, function()
@@ -254,38 +250,8 @@ local function playGainEffect(label, frame, delta, prefix)
 		end
 	end)
 
-	local popup = Instance.new("TextLabel")
-	popup.Name = "CurrencyGainPopup"
-	popup.BackgroundTransparency = 1
-	popup.AnchorPoint = Vector2.new(0, 0.5)
-	popup.Position = UDim2.new(1, 6, 0.5, 0)
-	popup.Size = UDim2.fromOffset(120, 34)
-	popup.Font = Enum.Font.GothamBlack
-	popup.Text = prefix .. formatNumber(delta)
-	popup.TextColor3 = Color3.fromRGB(255, 255, 255)
-	popup.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	popup.TextStrokeTransparency = 0
-	popup.TextScaled = true
-	popup.TextXAlignment = Enum.TextXAlignment.Left
-	popup.ZIndex = (frame.ZIndex or 10) + 12
-	popup.Parent = frame
-
-	local popupConstraint = Instance.new("UITextSizeConstraint")
-	popupConstraint.MinTextSize = 12
-	popupConstraint.MaxTextSize = 24
-	popupConstraint.Parent = popup
-
-	TweenService:Create(popup, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Position = UDim2.new(1, 18, 0.5, -30),
-		TextTransparency = 1,
-		TextStrokeTransparency = 1,
-	}):Play()
-
-	task.delay(0.65, function()
-		if popup.Parent then
-			popup:Destroy()
-		end
-	end)
+	prefix = prefix
+	delta = delta
 end
 
 local function connectValue(valueObject, label, frame, missingText, prefix)

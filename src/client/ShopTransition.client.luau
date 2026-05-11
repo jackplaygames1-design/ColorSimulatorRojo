@@ -1,5 +1,7 @@
 -- Disabled: no PlayerGui UI should be created at runtime.
-return
+if true then
+	return
+end
 
 -- Small full-screen fade used by shop door teleports.
 local Players = game:GetService("Players")

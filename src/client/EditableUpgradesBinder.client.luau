@@ -1,3 +1,8 @@
+-- Disabled: no upgrade cards should be created at runtime.
+if true then
+	return
+end
+
 -- Binds the editable Studio UpgradesWindow to the real upgrade system.
 -- Does not create duplicate runtime windows; it only fills the existing editable window.
 local Players = game:GetService("Players")

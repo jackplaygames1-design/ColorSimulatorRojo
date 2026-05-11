@@ -1,5 +1,7 @@
 -- Disabled: no PlayerGui UI should be created or restyled at runtime.
-return
+if true then
+	return
+end
 
 -- Global readability polish for Color Simulator UI.
 -- Fixes unreadable dark/blobbed button text by forcing bold white text with a dark outline.
