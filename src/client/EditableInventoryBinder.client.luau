@@ -16,6 +16,8 @@ local hatchEvent = Events:WaitForChild("HatchEgg")
 local petsLoadedEvent = Events:WaitForChild("PetsLoaded")
 local useItemEvent = Events:WaitForChild("UseItem")
 local equipPaintToolEvent = Events:WaitForChild("EquipPaintTool")
+local paintToolState = ReplicatedStorage:FindFirstChild("PaintToolEquippedState")
+local paintToolEquipChanged = ReplicatedStorage:FindFirstChild("PaintToolEquipChanged")
 
 local InventoryIconConfig = require(ReplicatedStorage:WaitForChild("InventoryIconConfig"))
 
@@ -116,6 +118,46 @@ local function setButtonEnabled(button, enabled)
 	end
 	button.Active = enabled == true
 	button.AutoButtonColor = enabled == true
+end
+
+local function getPaintToolState()
+	if not (paintToolState and paintToolState.Parent) then
+		paintToolState = ReplicatedStorage:FindFirstChild("PaintToolEquippedState")
+	end
+	return paintToolState
+end
+
+local function getPaintToolEquipChanged()
+	if not (paintToolEquipChanged and paintToolEquipChanged.Parent) then
+		paintToolEquipChanged = ReplicatedStorage:FindFirstChild("PaintToolEquipChanged")
+	end
+	return paintToolEquipChanged
+end
+
+local function isPaintToolActive()
+	local state = getPaintToolState()
+	return not (state and state:IsA("BoolValue")) or state.Value == true
+end
+
+local function setPaintToolActive(active)
+	local state = getPaintToolState()
+	if state and state:IsA("BoolValue") then
+		state.Value = active == true
+	end
+	local event = getPaintToolEquipChanged()
+	if event and event:IsA("BindableEvent") then
+		event:Fire(active == true)
+	end
+end
+
+local function isDisplayedEquipped(item)
+	if not item or item.Equipped ~= true then
+		return false
+	end
+	if item.Kind == "Brush" then
+		return isPaintToolActive()
+	end
+	return true
 end
 
 local function findDescendantByNames(parent, names)
@@ -455,12 +497,13 @@ local function makeCard(item, index)
 	setText(name, item.Name or item.Id or "Color")
 
 	local meta = findDescendantByNames(card, { "Meta", "ItemMeta", "Rarity", "Amount", "Status" })
-	setText(meta, item.Equipped and "EQUIPPED" or (item.Amount and ("x" .. tostring(item.Amount)) or tostring(item.Rarity or "")))
+	local displayedEquipped = isDisplayedEquipped(item)
+	setText(meta, displayedEquipped and "EQUIPPED" or (item.Amount and ("x" .. tostring(item.Amount)) or tostring(item.Rarity or "")))
 
 	local stroke = card:FindFirstChildOfClass("UIStroke")
 	if stroke then
-		stroke.Color = item.Equipped and Color3.fromRGB(84, 225, 112) or (item.Locked and Color3.fromRGB(88, 174, 255) or Color3.fromRGB(35, 38, 45))
-		stroke.Thickness = item.Equipped and 4 or 2
+		stroke.Color = displayedEquipped and Color3.fromRGB(84, 225, 112) or (item.Locked and Color3.fromRGB(88, 174, 255) or Color3.fromRGB(35, 38, 45))
+		stroke.Thickness = displayedEquipped and 4 or 2
 	end
 
 	local function selectItem()
@@ -493,6 +536,7 @@ renderDetails = function()
 	setDetailText(ui.selectedDescription, item.Description or item.Bonus or "")
 	setDetailText(ui.statsText, table.concat(item.Stats or {}, "\n"))
 
+	local displayedEquipped = isDisplayedEquipped(item)
 	if item.Kind == "Color" then
 		setButtonText(ui.equipButton, item.Equipped and "UNEQUIP" or "EQUIP")
 		setButtonEnabled(ui.equipButton, true)
@@ -501,8 +545,8 @@ renderDetails = function()
 		setButtonText(ui.deleteButton, "DELETE")
 		setButtonEnabled(ui.deleteButton, not item.Locked and not item.Equipped)
 	elseif item.Kind == "Brush" then
-		setButtonText(ui.equipButton, item.Equipped and "EQUIPPED" or "EQUIP")
-		setButtonEnabled(ui.equipButton, not item.Equipped)
+		setButtonText(ui.equipButton, displayedEquipped and "UNEQUIP" or "EQUIP")
+		setButtonEnabled(ui.equipButton, true)
 		setButtonText(ui.lockButton, "LOCK")
 		setButtonEnabled(ui.lockButton, false)
 		setButtonText(ui.deleteButton, "DELETE")
@@ -622,7 +666,10 @@ local function wireControls()
 			if selectedItem.Kind == "Color" then
 				sendAction(selectedItem.Equipped and "Unequip" or "Equip", selectedItem)
 			elseif selectedItem.Kind == "Brush" then
-				sendAction("Equip", selectedItem)
+				local active = isDisplayedEquipped(selectedItem)
+				setPaintToolActive(not active)
+				sendAction(active and "Unequip" or "Equip", selectedItem)
+				renderInventory()
 			elseif selectedItem.Kind == "Potion" or selectedItem.Kind == "Item" then
 				sendAction("Use", selectedItem)
 			end
@@ -686,6 +733,13 @@ equipPaintToolEvent.OnClientEvent:Connect(function()
 		task.defer(requestInventory)
 	end
 end)
+if paintToolState and paintToolState:IsA("BoolValue") then
+	paintToolState:GetPropertyChangedSignal("Value"):Connect(function()
+		if inventoryWindow.Visible then
+			renderInventory()
+		end
+	end)
+end
 
 if inventoryWindow.Visible then
 	requestInventory()

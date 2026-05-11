@@ -336,7 +336,7 @@ local function markDirty(player, reason)
 	end
 end
 
-local function equipBrush(player, brushId)
+local function setBrushEquipped(player, brushId, equippedRequested)
 	local toolsFolder = player:FindFirstChild("PaintTools")
 	local ownedValue = toolsFolder and toolsFolder:FindFirstChild("Owned")
 	local equippedValue = toolsFolder and toolsFolder:FindFirstChild("Equipped")
@@ -349,6 +349,16 @@ local function equipBrush(player, brushId)
 	if not owned[tool.Id] then
 		return false, "You do not own this brush."
 	end
+
+	if equippedRequested == false then
+		if equippedValue.Value == tool.Id then
+			equippedValue.Value = "StarterBrush"
+			markDirty(player, "paint-tool-equipped")
+			equipPaintToolEvent:FireClient(player, true, "StarterBrush", "Equipped Starter Brush")
+		end
+		return true, "Brush unequipped."
+	end
+
 	equippedValue.Value = tool.Id
 	markDirty(player, "paint-tool-equipped")
 	equipPaintToolEvent:FireClient(player, true, tool.Id, "Equipped " .. (tool.DisplayName or tool.Id))
@@ -408,7 +418,9 @@ inventoryAction.OnServerEvent:Connect(function(player, action, payload)
 	elseif action == "Delete" and kind == "Color" then
 		ok, message = runPetAction(player, "DeleteColor", id)
 	elseif action == "Equip" and kind == "Brush" then
-		ok, message = equipBrush(player, id)
+		ok, message = setBrushEquipped(player, id, true)
+	elseif action == "Unequip" and kind == "Brush" then
+		ok, message = setBrushEquipped(player, id, false)
 	elseif action == "Use" and (kind == "Potion" or kind == "Item") then
 		ok, message = useItem(player, id)
 	end
