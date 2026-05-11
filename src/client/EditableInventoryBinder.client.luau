@@ -448,6 +448,34 @@ local function clearViewportPreview(viewport)
 	end
 end
 
+local function setStaticPreviewVisible(preview, visible)
+	if not preview or not preview:IsA("GuiObject") then
+		return
+	end
+
+	local scope = preview:IsA("ViewportFrame") and preview.Parent or preview
+	if not scope then
+		return
+	end
+
+	local previewNames = {
+		BigPreview = true,
+		IconText = true,
+		IconImage = true,
+		ItemPreview = true,
+		PreviewFrame = true,
+		PreviewIcon = true,
+		PreviewImage = true,
+		PreviewText = true,
+	}
+
+	for _, descendant in ipairs(scope:GetDescendants()) do
+		if descendant ~= preview and not descendant:IsDescendantOf(preview) and previewNames[descendant.Name] == true and descendant:IsA("GuiObject") then
+			descendant.Visible = visible == true
+		end
+	end
+end
+
 local function mountPetViewport(viewport, item, large)
 	if not viewport or not viewport:IsA("ViewportFrame") or not item or item.Kind ~= "Color" or not item.PetId then
 		return false
@@ -491,6 +519,7 @@ local function mountPetViewport(viewport, item, large)
 	model:PivotTo(CFrame.new(0, 0, 0) * CFrame.Angles(0, angle, 0))
 	camera.CFrame = CFrame.new(0, large and 0.52 or 0.42, large and 6.8 or 6.1) * CFrame.Angles(math.rad(-5), 0, 0)
 
+	viewport.Visible = true
 	viewport.Ambient = Color3.fromRGB(210, 220, 255)
 	viewport.LightColor = Color3.fromRGB(255, 255, 245)
 	viewport.LightDirection = Vector3.new(-0.45, -0.75, -0.3)
@@ -572,6 +601,7 @@ local function clearPreview(preview)
 	if not preview or not preview:IsA("GuiObject") then
 		return preview
 	end
+	setStaticPreviewVisible(preview, true)
 	local viewport = findViewportPreview(preview)
 	if viewport then
 		clearViewportPreview(viewport)
@@ -620,7 +650,11 @@ local function paintPreview(preview, item)
 	clearPreview(preview)
 	local viewport = findViewportPreview(preview)
 	if mountPetViewport(viewport, item, preview == ui.bigPreview or preview:IsDescendantOf(ui.detailPanel)) then
+		setStaticPreviewVisible(viewport, false)
 		return
+	end
+	if viewport then
+		viewport.Visible = false
 	end
 	setExistingPreviewImage(preview, item)
 	setExistingPreviewText(preview, item)
