@@ -1,6 +1,6 @@
 -- Script in ServerScriptService named "DataManager"
-local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -56,19 +56,19 @@ end
 -- Default data for a brand new player.
 -- Player-facing companions are called Colors, but saved data keeps Pet fields for backward compatibility.
 local DEFAULT_DATA = {
-	Version      = CURRENT_DATA_VERSION,
-	DataVersion  = CURRENT_DATA_VERSION,
-	Coins        = 0,
-	Gems         = 0,
-	Diamonds     = 0,
-	Rebirths     = 0,
-	UnlockedColors = {"Red"},
+	Version = CURRENT_DATA_VERSION,
+	DataVersion = CURRENT_DATA_VERSION,
+	Coins = 0,
+	Gems = 0,
+	Diamonds = 0,
+	Rebirths = 0,
+	UnlockedColors = { "Red" },
 	CurrentWorld = "Red",
 	UnlockedTeleports = { "OriginSector" },
-	PetInventory = {},   -- canonical saved Color inventory; list of { petId = "RedBlob", stackAmount = 1, traitId = "Neutral", mutationId = "None" }
-	EquippedPets = {},   -- list of Color variant keys
-	LockedPets = {},     -- variant keys protected from deletion
-	OwnedPaintTools = {"StarterBrush"},
+	PetInventory = {}, -- canonical saved Color inventory; list of { petId = "RedBlob", stackAmount = 1, traitId = "Neutral", mutationId = "None" }
+	EquippedPets = {}, -- list of Color variant keys
+	LockedPets = {}, -- variant keys protected from deletion
+	OwnedPaintTools = { "StarterBrush" },
 	EquippedPaintTool = "StarterBrush",
 	Settings = {
 		Music = true,
@@ -77,8 +77,8 @@ local DEFAULT_DATA = {
 		LowFX = false,
 	},
 	Upgrades = {},
-	RedeemedCodes = {},   -- [normalizedCode] = uses
-	TutorialCompleted = false,
+	RedeemedCodes = {}, -- [normalizedCode] = uses
+	TutorialCompleted = true,
 	TutorialProgress = {
 		SeenTraitsTutorial = false,
 		MutationsUnlocked = false,
@@ -139,7 +139,8 @@ local function ensureOwnerRainbowPetList(player, list)
 		if type(record) == "table" then
 			local traitId = PetData.normalizeTraitId(record.traitId or record.TraitId or record.traitName or "Neutral")
 			local mutationId = PetData.normalizeMutationId(record.mutationId or record.MutationId or "None")
-			local personalityId = PetData.normalizePersonalityId(record.personalityId or record.PersonalityId or "Neutral")
+			local personalityId =
+				PetData.normalizePersonalityId(record.personalityId or record.PersonalityId or "Neutral")
 			local recordKey = PetData.makeVariantKey(record.petId or record.PetId, personalityId, mutationId, traitId)
 			if recordKey == wantedKey then
 				record.petId = OWNER_RAINBOW_PET_ID
@@ -377,7 +378,12 @@ local function encodePetRecord(record)
 	end
 
 	local stackAmount = tonumber(record.stackAmount or record.StackAmount or record.amount or record.Amount) or 1
-	local traitId = record.traitId or record.TraitId or record.traitName or record.TraitName or record.trait or "Neutral"
+	local traitId = record.traitId
+		or record.TraitId
+		or record.traitName
+		or record.TraitName
+		or record.trait
+		or "Neutral"
 	if type(traitId) == "table" then
 		traitId = traitId.Id or traitId.id or traitId.name or "Neutral"
 	end
@@ -389,7 +395,19 @@ local function encodePetRecord(record)
 	local mutationId = PetData.normalizeMutationId(record.mutationId or record.MutationId or "None")
 	local variantKey = PetData.makeVariantKey(petId, personalityId, mutationId, traitId)
 
-	return tostring(variantKey) .. ":" .. tostring(petId) .. ":" .. tostring(math.max(1, stackAmount)) .. ":" .. tostring(traitId) .. ":" .. shinyText .. ":" .. tostring(personalityId) .. ":" .. tostring(mutationId)
+	return tostring(variantKey)
+		.. ":"
+		.. tostring(petId)
+		.. ":"
+		.. tostring(math.max(1, stackAmount))
+		.. ":"
+		.. tostring(traitId)
+		.. ":"
+		.. shinyText
+		.. ":"
+		.. tostring(personalityId)
+		.. ":"
+		.. tostring(mutationId)
 end
 
 local function decodePetRecord(encoded)
@@ -444,7 +462,17 @@ local function countPetAmount(records)
 	local total = 0
 	for _, record in pairs(records) do
 		if type(record) == "table" then
-			total += math.max(1, tonumber(record.stackAmount or record.StackAmount or record.amount or record.Amount or record.count or record.Count) or 1)
+			total += math.max(
+				1,
+				tonumber(
+					record.stackAmount
+						or record.StackAmount
+						or record.amount
+						or record.Amount
+						or record.count
+						or record.Count
+				) or 1
+			)
 		elseif type(record) == "string" and record ~= "" then
 			local decoded = decodePetRecord(record)
 			total += decoded and math.max(1, tonumber(decoded.stackAmount) or 1) or 1
@@ -524,7 +552,8 @@ local function resolveEquippedPetKey(records, key)
 		local legacyParts = string.split(key, "|")
 		if #legacyParts >= 3 and legacyParts[1] == record.petId then
 			local traitMatches = PetData.normalizeTraitId(legacyParts[2]) == PetData.normalizeTraitId(record.traitId)
-			local mutationMatches = PetData.normalizeMutationId(legacyParts[3]) == PetData.normalizeMutationId(record.mutationId)
+			local mutationMatches = PetData.normalizeMutationId(legacyParts[3])
+				== PetData.normalizeMutationId(record.mutationId)
 			if traitMatches and mutationMatches then
 				return variantKey
 			end
@@ -553,25 +582,43 @@ local function sanitizeEquippedPetList(equippedList, petRecords, player)
 end
 
 local function formatProfileSummary(data)
-	return "v=" .. tostring(data and (data.DataVersion or data.Version))
-		.. " coins=" .. tostring(data and data.Coins or 0)
-		.. " gems=" .. tostring(data and data.Gems or 0)
-		.. " colorStacks=" .. tostring(countPetStacks(data and data.PetInventory))
-		.. " colorAmount=" .. tostring(countPetAmount(data and data.PetInventory))
-		.. " equippedColors=" .. tostring(countList(data and data.EquippedPets))
-		.. " brushes=" .. tostring(countList(data and data.OwnedPaintTools))
-		.. " equippedBrush=" .. tostring(data and data.EquippedPaintTool or "")
-		.. " sectors=" .. tostring(countUnlockedSectors(data))
-		.. " currentWorld=" .. tostring(data and data.CurrentWorld or "")
-		.. " codes=" .. tostring(countMap(data and data.RedeemedCodes))
-		.. " grants=" .. tostring(countMap(data and data.GamepassGrants))
+	return "v="
+		.. tostring(data and (data.DataVersion or data.Version))
+		.. " coins="
+		.. tostring(data and data.Coins or 0)
+		.. " gems="
+		.. tostring(data and data.Gems or 0)
+		.. " colorStacks="
+		.. tostring(countPetStacks(data and data.PetInventory))
+		.. " colorAmount="
+		.. tostring(countPetAmount(data and data.PetInventory))
+		.. " equippedColors="
+		.. tostring(countList(data and data.EquippedPets))
+		.. " brushes="
+		.. tostring(countList(data and data.OwnedPaintTools))
+		.. " equippedBrush="
+		.. tostring(data and data.EquippedPaintTool or "")
+		.. " sectors="
+		.. tostring(countUnlockedSectors(data))
+		.. " currentWorld="
+		.. tostring(data and data.CurrentWorld or "")
+		.. " codes="
+		.. tostring(countMap(data and data.RedeemedCodes))
+		.. " grants="
+		.. tostring(countMap(data and data.GamepassGrants))
 end
 
 local function logProfileSummary(player, phase, data, reason)
-	print("DataManager [" .. tostring(phase) .. "] "
-		.. tostring(player and (player.Name .. "/" .. player.UserId) or "unknown")
-		.. " reason=" .. tostring(reason or "load")
-		.. " " .. formatProfileSummary(data))
+	print(
+		"DataManager ["
+			.. tostring(phase)
+			.. "] "
+			.. tostring(player and (player.Name .. "/" .. player.UserId) or "unknown")
+			.. " reason="
+			.. tostring(reason or "load")
+			.. " "
+			.. formatProfileSummary(data)
+	)
 end
 
 local function normalizePetIdFromKey(key)
@@ -606,17 +653,34 @@ local function normalizePetRecord(record, sourceKey, backupList)
 			stackAmount = record,
 		}
 	elseif type(record) == "table" then
-		local petId = record.petId or record.PetId
-			or record.colorId or record.ColorId
-			or record.id or record.Id
+		local petId = record.petId
+			or record.PetId
+			or record.colorId
+			or record.ColorId
+			or record.id
+			or record.Id
 			or normalizePetIdFromKey(type(sourceKey) == "string" and sourceKey or nil)
 
 		if petId and petId ~= "" then
 			normalized = {
 				variantKey = record.variantKey or record.VariantKey or record.key or record.Key,
 				petId = tostring(petId),
-				stackAmount = tonumber(record.stackAmount or record.StackAmount or record.amount or record.Amount or record.count or record.Count or record.qty or record.Quantity) or 1,
-				traitId = record.traitId or record.TraitId or record.traitName or record.TraitName or record.trait or record.Trait,
+				stackAmount = tonumber(
+					record.stackAmount
+						or record.StackAmount
+						or record.amount
+						or record.Amount
+						or record.count
+						or record.Count
+						or record.qty
+						or record.Quantity
+				) or 1,
+				traitId = record.traitId
+					or record.TraitId
+					or record.traitName
+					or record.TraitName
+					or record.trait
+					or record.Trait,
 				mutationId = record.mutationId or record.MutationId or record.mutation or record.Mutation,
 				mergeTier = record.mergeTier or record.MergeTier or record.currentStackTier or record.CurrentStackTier,
 				isShiny = record.isShiny or record.IsShiny or record.shiny or record.Shiny,
@@ -641,7 +705,10 @@ local function normalizePetRecord(record, sourceKey, backupList)
 	normalized.isShiny = normalized.isShiny == true or normalized.isShiny == "true" or normalized.isShiny == "shiny"
 
 	if not PetData.Pets[normalized.petId] then
-		warnOnce("unknown-color-" .. normalized.petId, "Unknown saved ColorId preserved: " .. tostring(normalized.petId))
+		warnOnce(
+			"unknown-color-" .. normalized.petId,
+			"Unknown saved ColorId preserved: " .. tostring(normalized.petId)
+		)
 	end
 
 	return normalized
@@ -727,7 +794,12 @@ local function normalizeEquippedSource(source, equippedList, seen)
 			if type(value) == "string" then
 				equippedKey = value
 			elseif type(value) == "table" then
-				equippedKey = value.variantKey or value.VariantKey or value.petId or value.PetId or value.colorId or value.ColorId
+				equippedKey = value.variantKey
+					or value.VariantKey
+					or value.petId
+					or value.PetId
+					or value.colorId
+					or value.ColorId
 			else
 				equippedKey = tostring(key)
 			end
@@ -756,7 +828,11 @@ local function backupLegacyCompanionData(data, oldVersion)
 		or sourceHasEntries(data.ColorInventory)
 		or sourceHasEntries(data.Inventory)
 	local hasOlderCanonicalInventory = (tonumber(oldVersion) or 0) < CURRENT_DATA_VERSION
-		and (sourceHasEntries(data.PetInventory) or sourceHasEntries(data.EquippedPets) or sourceHasEntries(data.EquippedColors))
+		and (
+			sourceHasEntries(data.PetInventory)
+			or sourceHasEntries(data.EquippedPets)
+			or sourceHasEntries(data.EquippedColors)
+		)
 	if not hasLegacyInventory and not hasOlderCanonicalInventory then
 		return
 	end
@@ -803,9 +879,13 @@ local function migrateData(saved)
 		end
 	end
 	data.UnlockedColors = normalizeUnlockedColorList(data.UnlockedColors)
-	data.CurrentWorld = normalizeCurrentWorld(savedCurrentWorld or data.CurrentWorld or data.ActiveWorldColor or data.HighestUnlockedWorld, data.UnlockedColors)
+	data.CurrentWorld = normalizeCurrentWorld(
+		savedCurrentWorld or data.CurrentWorld or data.ActiveWorldColor or data.HighestUnlockedWorld,
+		data.UnlockedColors
+	)
 	data.ActiveWorldColor = data.CurrentWorld
-	data.UnlockedTeleports = normalizeTeleportList(data.UnlockedTeleports or data.UnlockedLocations or data.UnlockedZones)
+	data.UnlockedTeleports =
+		normalizeTeleportList(data.UnlockedTeleports or data.UnlockedLocations or data.UnlockedZones)
 	data.HighestUnlockedWorld = getHighestUnlockedColor(data.UnlockedColors)
 	data.OwnedPaintTools = normalizePaintToolList(data.OwnedPaintTools)
 	data.EquippedPaintTool = normalizeEquippedPaintTool(data.EquippedPaintTool, data.OwnedPaintTools)
@@ -861,7 +941,9 @@ local function migrateData(saved)
 	data.GamepassGrants = type(data.GamepassGrants) == "table" and data.GamepassGrants or {}
 	data.InfinitePackClaims = type(data.InfinitePackClaims) == "table" and data.InfinitePackClaims or {}
 	data.InfinitePackClaims.ResetKey = tostring(data.InfinitePackClaims.ResetKey or "")
-	data.InfinitePackClaims.ClaimedTiers = type(data.InfinitePackClaims.ClaimedTiers) == "table" and data.InfinitePackClaims.ClaimedTiers or {}
+	data.InfinitePackClaims.ClaimedTiers = type(data.InfinitePackClaims.ClaimedTiers) == "table"
+			and data.InfinitePackClaims.ClaimedTiers
+		or {}
 	if data.InfinitePackClaims.ResetKey ~= infinitePackResetKey() then
 		data.InfinitePackClaims.ResetKey = infinitePackResetKey()
 		data.InfinitePackClaims.ClaimedTiers = {}
@@ -880,9 +962,13 @@ local function validateProfileData(player, data, context)
 	data.Rebirths = math.max(0, math.floor(finiteNumber(data.Rebirths, 0, "Rebirths", player)))
 
 	data.UnlockedColors = normalizeUnlockedColorList(data.UnlockedColors)
-	data.CurrentWorld = normalizeCurrentWorld(data.CurrentWorld or data.ActiveWorldColor or data.HighestUnlockedWorld, data.UnlockedColors)
+	data.CurrentWorld = normalizeCurrentWorld(
+		data.CurrentWorld or data.ActiveWorldColor or data.HighestUnlockedWorld,
+		data.UnlockedColors
+	)
 	data.ActiveWorldColor = data.CurrentWorld
-	data.UnlockedTeleports = normalizeTeleportList(data.UnlockedTeleports or data.UnlockedLocations or data.UnlockedZones)
+	data.UnlockedTeleports =
+		normalizeTeleportList(data.UnlockedTeleports or data.UnlockedLocations or data.UnlockedZones)
 	data.HighestUnlockedWorld = getHighestUnlockedColor(data.UnlockedColors)
 
 	local recordsByKey = {}
@@ -900,7 +986,7 @@ local function validateProfileData(player, data, context)
 		data.Upgrades[key] = math.max(0, math.floor(finiteNumber(value, 0, "Upgrades." .. tostring(key), player)))
 	end
 	data.RedeemedCodes = type(data.RedeemedCodes) == "table" and data.RedeemedCodes or {}
-	data.TutorialCompleted = data.TutorialCompleted == true
+	data.TutorialCompleted = true
 	data.TutorialProgress = type(data.TutorialProgress) == "table" and data.TutorialProgress or {}
 	data.TutorialProgress.SeenTraitsTutorial = data.TutorialProgress.SeenTraitsTutorial == true
 	data.TutorialProgress.MutationsUnlocked = data.TutorialProgress.MutationsUnlocked == true
@@ -910,7 +996,9 @@ local function validateProfileData(player, data, context)
 	data.GamepassGrants = type(data.GamepassGrants) == "table" and data.GamepassGrants or {}
 	data.InfinitePackClaims = type(data.InfinitePackClaims) == "table" and data.InfinitePackClaims or {}
 	data.InfinitePackClaims.ResetKey = tostring(data.InfinitePackClaims.ResetKey or "")
-	data.InfinitePackClaims.ClaimedTiers = type(data.InfinitePackClaims.ClaimedTiers) == "table" and data.InfinitePackClaims.ClaimedTiers or {}
+	data.InfinitePackClaims.ClaimedTiers = type(data.InfinitePackClaims.ClaimedTiers) == "table"
+			and data.InfinitePackClaims.ClaimedTiers
+		or {}
 	if data.InfinitePackClaims.ResetKey ~= infinitePackResetKey() then
 		data.InfinitePackClaims.ResetKey = infinitePackResetKey()
 		data.InfinitePackClaims.ClaimedTiers = {}
@@ -927,7 +1015,12 @@ local function validateProfileData(player, data, context)
 			table.insert(data.LegacyPetsBackup.UnreadableEntries, entry)
 		end
 		if player then
-			warn("DataManager: preserved unreadable Color entries during " .. tostring(context or "validation") .. " for " .. player.Name)
+			warn(
+				"DataManager: preserved unreadable Color entries during "
+					.. tostring(context or "validation")
+					.. " for "
+					.. player.Name
+			)
 		end
 	end
 
@@ -958,6 +1051,7 @@ local DATA_FOLDERS = {
 	GroupRewards = true,
 	GamepassGrants = true,
 	InfinitePackClaims = true,
+	TutorialObjectives = true,
 }
 
 local function clearGeneratedDataFolders(player)
@@ -987,7 +1081,11 @@ local function loadData(player)
 			return GameStore:GetAsync(key)
 		end)
 		if success then
-			data = validateProfileData(player, migrateData(result or deepCopy(DEFAULT_DATA)), result and "cloud-load" or "new-profile")
+			data = validateProfileData(
+				player,
+				migrateData(result or deepCopy(DEFAULT_DATA)),
+				result and "cloud-load" or "new-profile"
+			)
 			break
 		else
 			lastError = result
@@ -999,7 +1097,14 @@ local function loadData(player)
 	-- Never fall back to blank/default cloud data after a load failure.
 	-- Saving a default profile in this state can permanently wipe real player progress.
 	if not data then
-		warn("DataManager: profile load failed for " .. player.Name .. "/" .. player.UserId .. "; save disabled for this session. " .. tostring(lastError))
+		warn(
+			"DataManager: profile load failed for "
+				.. player.Name
+				.. "/"
+				.. player.UserId
+				.. "; save disabled for this session. "
+				.. tostring(lastError)
+		)
 		return nil
 	end
 
@@ -1010,7 +1115,9 @@ end
 --   SAVE DATA
 -- ========================
 local function saveData(player, data)
-	if not data then return end
+	if not data then
+		return
+	end
 	if RunService:IsStudio() and not ENABLE_STUDIO_DATASTORE then
 		return true
 	end
@@ -1195,7 +1302,7 @@ local function applyData(player, data)
 
 	-- Upgrade level storage (read by UpgradeHandler)
 	local upgradeFolder = Instance.new("Folder")
-	upgradeFolder.Name   = "Upgrades"
+	upgradeFolder.Name = "Upgrades"
 	upgradeFolder.Parent = player
 
 	for levelKey, levelVal in pairs(data.Upgrades or {}) do
@@ -1203,8 +1310,8 @@ local function applyData(player, data)
 			continue
 		end
 		local v = Instance.new("IntValue")
-		v.Name   = levelKey
-		v.Value  = levelVal
+		v.Name = levelKey
+		v.Value = levelVal
 		v.Parent = upgradeFolder
 		watchValueForDirty(player, v, "upgrade")
 	end
@@ -1260,7 +1367,7 @@ local function applyData(player, data)
 		ownedTools.Name = "Owned"
 		ownedTools.Parent = toolsFolder
 	end
-	ownedTools.Value = table.concat(ownedPaintTools or {"StarterBrush"}, ",")
+	ownedTools.Value = table.concat(ownedPaintTools or { "StarterBrush" }, ",")
 	if ownedTools.Value == "" then
 		ownedTools.Value = "StarterBrush"
 	end
@@ -1306,22 +1413,6 @@ local function applyData(player, data)
 		markPlayerDirty(player, "redeemed-code-added")
 	end)
 
-	local tutorialFolder = player:FindFirstChild("TutorialObjectives")
-	if not tutorialFolder then
-		tutorialFolder = Instance.new("Folder")
-		tutorialFolder.Name = "TutorialObjectives"
-		tutorialFolder.Parent = player
-	end
-
-	local tutorialCompleted = tutorialFolder:FindFirstChild("TutorialCompleted")
-	if not tutorialCompleted then
-		tutorialCompleted = Instance.new("BoolValue")
-		tutorialCompleted.Name = "TutorialCompleted"
-		tutorialCompleted.Parent = tutorialFolder
-	end
-	tutorialCompleted.Value = data.TutorialCompleted == true
-	watchValueForDirty(player, tutorialCompleted, "tutorial-completed")
-
 	local tutorialProgress = player:FindFirstChild("TutorialProgress")
 	if not tutorialProgress then
 		tutorialProgress = Instance.new("Folder")
@@ -1366,8 +1457,8 @@ local function collectData(player)
 
 	local stats = player:FindFirstChild("leaderstats")
 	if stats then
-		data.Coins    = stats:FindFirstChild("Coins")    and stats.Coins.Value    or 0
-		data.Gems     = stats:FindFirstChild("Gems")     and stats.Gems.Value     or 0
+		data.Coins = stats:FindFirstChild("Coins") and stats.Coins.Value or 0
+		data.Gems = stats:FindFirstChild("Gems") and stats.Gems.Value or 0
 		data.Diamonds = stats:FindFirstChild("Diamonds") and stats.Diamonds.Value or 0
 		data.Rebirths = stats:FindFirstChild("Rebirths") and stats.Rebirths.Value or 0
 	end
@@ -1462,9 +1553,7 @@ local function collectData(player)
 		end
 	end
 
-	local tutorialFolder = player:FindFirstChild("TutorialObjectives")
-	local tutorialCompleted = tutorialFolder and tutorialFolder:FindFirstChild("TutorialCompleted")
-	data.TutorialCompleted = tutorialCompleted and tutorialCompleted.Value == true or false
+	data.TutorialCompleted = true
 	local tutorialProgress = player:FindFirstChild("TutorialProgress")
 	local seenTraits = tutorialProgress and tutorialProgress:FindFirstChild("SeenTraitsTutorial")
 	local mutationsUnlocked = tutorialProgress and tutorialProgress:FindFirstChild("MutationsUnlocked")
@@ -1490,7 +1579,8 @@ local function collectData(player)
 	end
 	local infinitePackClaimsFolder = player:FindFirstChild("InfinitePackClaims")
 	local infinitePackResetKey = infinitePackClaimsFolder and infinitePackClaimsFolder:FindFirstChild("ResetKey")
-	local infinitePackClaimedTiers = infinitePackClaimsFolder and infinitePackClaimsFolder:FindFirstChild("ClaimedTiers")
+	local infinitePackClaimedTiers = infinitePackClaimsFolder
+		and infinitePackClaimsFolder:FindFirstChild("ClaimedTiers")
 	data.InfinitePackClaims = {
 		ResetKey = infinitePackResetKey and tostring(infinitePackResetKey.Value or "") or "",
 		ClaimedTiers = {},
@@ -1514,7 +1604,7 @@ end
 -- ========================
 --   PLAYER ADDED / REMOVING
 -- ========================
-sessionData = {}  -- cache data per player during session
+sessionData = {} -- cache data per player during session
 local sessionStartPetAmounts = {}
 local profileLoaded = {}
 local profileLoadFailed = {}
@@ -1583,7 +1673,9 @@ local function checkDestructiveSave(player, previousData, newData, reason)
 
 	local previousEquippedTool = tostring(previousData.EquippedPaintTool or "")
 	local newEquippedTool = tostring(newData.EquippedPaintTool or "")
-	if previousEquippedTool ~= "" and previousEquippedTool ~= "StarterBrush"
+	if
+		previousEquippedTool ~= ""
+		and previousEquippedTool ~= "StarterBrush"
 		and newEquippedTool == "StarterBrush"
 		and ownsPaintTool(newData, previousEquippedTool)
 		and effectiveReason ~= "paint-tool-equipped"
@@ -1595,12 +1687,23 @@ local function checkDestructiveSave(player, previousData, newData, reason)
 		return true
 	end
 
-	warn("DATA LOSS PROTECTION: blocked save for "
-		.. player.Name .. "/" .. player.UserId
-		.. " reason=" .. effectiveReason
-		.. " issues=[" .. table.concat(issues, "; ") .. "]"
-		.. " old={" .. formatProfileSummary(previousData) .. "}"
-		.. " new={" .. formatProfileSummary(newData) .. "}")
+	warn(
+		"DATA LOSS PROTECTION: blocked save for "
+			.. player.Name
+			.. "/"
+			.. player.UserId
+			.. " reason="
+			.. effectiveReason
+			.. " issues=["
+			.. table.concat(issues, "; ")
+			.. "]"
+			.. " old={"
+			.. formatProfileSummary(previousData)
+			.. "}"
+			.. " new={"
+			.. formatProfileSummary(newData)
+			.. "}"
+	)
 	return false
 end
 
@@ -1615,7 +1718,13 @@ local function savePlayerNow(player, reason, force)
 	end
 
 	if not profileLoaded[player] then
-		warn("DataManager: blocked save before profile load completed for " .. player.Name .. " (" .. tostring(reason or "save") .. ")")
+		warn(
+			"DataManager: blocked save before profile load completed for "
+				.. player.Name
+				.. " ("
+				.. tostring(reason or "save")
+				.. ")"
+		)
 		return false
 	end
 
@@ -1630,7 +1739,12 @@ local function savePlayerNow(player, reason, force)
 		end
 
 		if saveInFlight[player] then
-			warn("DataManager: save still in flight for " .. player.Name .. "; skipped forced " .. tostring(reason or "save"))
+			warn(
+				"DataManager: save still in flight for "
+					.. player.Name
+					.. "; skipped forced "
+					.. tostring(reason or "save")
+			)
 			return false
 		end
 	end
@@ -1653,7 +1767,9 @@ local function savePlayerNow(player, reason, force)
 	local loadedPetAmount = sessionStartPetAmounts[player] or countPetAmount(previousData and previousData.PetInventory)
 	local currentPetAmount = countPetAmount(data.PetInventory)
 	if loadedPetAmount > 0 and currentPetAmount == 0 and not intentionalReset then
-		warn("DataManager: Refusing to save suspicious empty pet inventory for player because session loaded with pets.")
+		warn(
+			"DataManager: Refusing to save suspicious empty pet inventory for player because session loaded with pets."
+		)
 		saveInFlight[player] = nil
 		return false
 	end
@@ -1705,7 +1821,9 @@ local function queueCriticalSave(player, reason, delaySeconds)
 
 		if savePlayerNow(player, "critical-" .. tostring(reason or "data"), true) then
 			lastCriticalSaveAt[player] = os.clock()
-			print("DataManager: critical save completed for " .. player.Name .. " (" .. tostring(reason or "data") .. ")")
+			print(
+				"DataManager: critical save completed for " .. player.Name .. " (" .. tostring(reason or "data") .. ")"
+			)
 		end
 	end)
 end
@@ -1715,11 +1833,15 @@ playerDataDirtyEvent.Event:Connect(function(player, reason)
 		return
 	end
 	if profileLoadFailed[player] then
-		warn("DataManager: ignored dirty flag after load failure for " .. player.Name .. " (" .. tostring(reason) .. ")")
+		warn(
+			"DataManager: ignored dirty flag after load failure for " .. player.Name .. " (" .. tostring(reason) .. ")"
+		)
 		return
 	end
 	if not profileLoaded[player] then
-		warn("DataManager: ignored dirty flag before profile load for " .. player.Name .. " (" .. tostring(reason) .. ")")
+		warn(
+			"DataManager: ignored dirty flag before profile load for " .. player.Name .. " (" .. tostring(reason) .. ")"
+		)
 		return
 	end
 
@@ -1836,11 +1958,18 @@ local function printPetData(player)
 		if index > 5 then
 			break
 		end
-		print("  Sample " .. index
-			.. ": " .. tostring(entry.petId)
-			.. " x" .. tostring(entry.stackAmount or entry.Amount or 1)
-			.. " trait=" .. tostring(entry.traitId or entry.TraitId or "Neutral")
-			.. " mutation=" .. tostring(entry.mutationId or entry.MutationId or "None"))
+		print(
+			"  Sample "
+				.. index
+				.. ": "
+				.. tostring(entry.petId)
+				.. " x"
+				.. tostring(entry.stackAmount or entry.Amount or 1)
+				.. " trait="
+				.. tostring(entry.traitId or entry.TraitId or "Neutral")
+				.. " mutation="
+				.. tostring(entry.mutationId or entry.MutationId or "None")
+		)
 	end
 
 	return true
@@ -1876,10 +2005,19 @@ if RunService:IsStudio() then
 		testPetMigrationFunction.Parent = ReplicatedStorage
 	end
 	testPetMigrationFunction.OnInvoke = function(fakeOldData)
-		local migrated = validateProfileData(nil, migrateData(type(fakeOldData) == "table" and fakeOldData or {}), "studio-migration-test")
-		print("TestPetMigration: DataVersion=" .. tostring(migrated.DataVersion)
-			.. " stacks=" .. tostring(countPetStacks(migrated.PetInventory))
-			.. " amount=" .. tostring(countPetAmount(migrated.PetInventory)))
+		local migrated = validateProfileData(
+			nil,
+			migrateData(type(fakeOldData) == "table" and fakeOldData or {}),
+			"studio-migration-test"
+		)
+		print(
+			"TestPetMigration: DataVersion="
+				.. tostring(migrated.DataVersion)
+				.. " stacks="
+				.. tostring(countPetStacks(migrated.PetInventory))
+				.. " amount="
+				.. tostring(countPetAmount(migrated.PetInventory))
+		)
 		return migrated
 	end
 end

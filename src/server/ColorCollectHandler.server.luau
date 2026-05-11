@@ -6,11 +6,11 @@ local ServerStorage = game:GetService("ServerStorage")
 local DEBUG_LOGS = RunService:IsStudio()
 
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
+local ColorEffectHandler = require(script.Parent:WaitForChild("ColorEffectHandler"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
 local GroupRewardsService = require(script.Parent:WaitForChild("GroupRewardsService"))
-local ColorEffectHandler = require(script.Parent:WaitForChild("ColorEffectHandler"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 
 local function loadToolData()
 	local module = ReplicatedStorage:WaitForChild("ToolData", 3)
@@ -128,7 +128,11 @@ local function warnUnexpectedClientValuesOnce(player, action)
 		return
 	end
 	unexpectedClientWarnings[key] = true
-	warn("Collection request ignored unexpected client value fields for " .. tostring(action) .. ". Server calculates rewards.")
+	warn(
+		"Collection request ignored unexpected client value fields for "
+			.. tostring(action)
+			.. ". Server calculates rewards."
+	)
 end
 
 local function isTouchFallbackEnabled()
@@ -253,7 +257,8 @@ local function getInstantCoinMultiplier(player, colorType)
 	multiplier *= GroupRewardsService.GetCoinMultiplier(player)
 
 	local upgrades = player:FindFirstChild("Upgrades")
-	local coinMultiplier = upgrades and (upgrades:FindFirstChild("CoinMultiplier") or upgrades:FindFirstChild("ColorMultiplier"))
+	local coinMultiplier = upgrades
+		and (upgrades:FindFirstChild("CoinMultiplier") or upgrades:FindFirstChild("ColorMultiplier"))
 	if coinMultiplier then
 		multiplier *= coinMultiplier.Value
 	end
@@ -308,7 +313,10 @@ local function getPaintToolRange(player, toolConfig)
 	local effects = ColorEffectHandler.CalculateEquippedColorEffects(player)
 	local baseRange = (toolConfig.Range or 9) + upgradedBonus
 	local toolStats = getToolEffectiveStats(toolConfig)
-	return math.min(baseRange * effects.BrushRangeMultiplier * (toolStats.PickupRadiusMultiplier or 1), toolConfig.MaxServerRange or 24)
+	return math.min(
+		baseRange * effects.BrushRangeMultiplier * (toolStats.PickupRadiusMultiplier or 1),
+		toolConfig.MaxServerRange or 24
+	)
 end
 
 local function getBaseBreakableReward(part, data)
@@ -407,9 +415,7 @@ end
 local function isPointInsideZone(part, worldPosition, margin)
 	local localPoint = part.CFrame:PointToObjectSpace(worldPosition)
 	local half = part.Size * 0.5 + Vector3.new(margin or 0, margin or 0, margin or 0)
-	return math.abs(localPoint.X) <= half.X
-		and math.abs(localPoint.Y) <= half.Y
-		and math.abs(localPoint.Z) <= half.Z
+	return math.abs(localPoint.X) <= half.X and math.abs(localPoint.Y) <= half.Y and math.abs(localPoint.Z) <= half.Z
 end
 
 local function isPlayerInsideColorZone(root, colorType)
@@ -418,7 +424,8 @@ local function isPlayerInsideColorZone(root, colorType)
 	end
 
 	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("BasePart")
+		if
+			obj:IsA("BasePart")
 			and obj:GetAttribute("ColorZone") == true
 			and obj:GetAttribute("ColorType") == colorType
 			and isPointInsideZone(obj, root.Position, 12)
@@ -567,10 +574,10 @@ local function collectBreakable(player, part, options)
 	local toolMult = options.powerMultiplier or 1
 	local reward = math.floor(
 		getBaseBreakableReward(part, data)
-		* areaMult
-		* getCollectMultiplier(player)
-		* toolMult
-		* getInstantCoinMultiplier(player, colorType)
+			* areaMult
+			* getCollectMultiplier(player)
+			* toolMult
+			* getInstantCoinMultiplier(player, colorType)
 	)
 	local upgrades = player:FindFirstChild("Upgrades")
 	local critChance = upgrades and upgrades:FindFirstChild("CritChance")
@@ -665,49 +672,18 @@ local function getPlayerRoot(player)
 end
 
 local function hasCompletedTutorial(player)
-	local folder = player and player:FindFirstChild("TutorialObjectives")
-	local completed = folder and folder:FindFirstChild("TutorialCompleted")
-	return completed and completed.Value == true
+	return true
 end
 
-local function canWalkCollectDuringTutorial(player, candidates)
-	local folder = player and player:FindFirstChild("TutorialObjectives")
-	local completed = folder and folder:FindFirstChild("TutorialCompleted")
-	if completed and completed.Value == true then
-		return true
-	end
-
-	local stage = folder and folder:FindFirstChild("Stage")
-	if stage and stage.Value ~= "CleanSpills" and stage.Value ~= "GoToRed" then
-		return false
-	end
-
-	if type(candidates) ~= "table" then
-		return false
-	end
-
-	local root = getPlayerRoot(player)
-	for _, part in ipairs(candidates) do
-		if typeof(part) == "Instance"
-			and part:IsA("BasePart")
-			and part:GetAttribute("BreakableType")
-			and not part:GetAttribute("IsCollected")
-			and part.Transparency < 1
-		then
-			local colorType = part:GetAttribute("ColorType")
-			if colorType == "Red" or canAccessBreakableColor(player, colorType, root) then
-				return true
-			end
-		end
-	end
-
-	return false
+local function canWalkCollectDuringTutorial(_player, _candidates)
+	return true
 end
 
 local function findNearbyBreakables(player, origin, range, maxTargets)
 	local candidates = {}
 	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("BasePart")
+		if
+			obj:IsA("BasePart")
 			and obj:GetAttribute("BreakableType")
 			and not obj:GetAttribute("IsCollected")
 			and obj.Transparency < 1
@@ -780,20 +756,14 @@ local function tryBrushEffectProcs(player)
 	local caps = GameBalance.ColorEffects or {}
 
 	if effects.LightningProcChance > 0 then
-		local cooldown = math.max(
-			effects.LightningCooldown or 0,
-			caps.LightningGlobalCooldown or 1
-		)
-		if (not lastLightningAt[player] or now - lastLightningAt[player] >= cooldown)
+		local cooldown = math.max(effects.LightningCooldown or 0, caps.LightningGlobalCooldown or 1)
+		if
+			(not lastLightningAt[player] or now - lastLightningAt[player] >= cooldown)
 			and math.random() < effects.LightningProcChance
 		then
 			lastLightningAt[player] = now
 			local range = math.min(effects.LightningRange, caps.LightningMaxRange or 55)
-			local maxTargets = math.clamp(
-				effects.LightningTargets,
-				1,
-				caps.LightningMaxTargetsPerProc or 4
-			)
+			local maxTargets = math.clamp(effects.LightningTargets, 1, caps.LightningMaxTargetsPerProc or 4)
 			local targets = findNearbyBreakables(player, root.Position, range, maxTargets)
 			local _, awarded, positions = collectProcTargets(player, targets, range)
 			totalAwarded += awarded
@@ -803,16 +773,13 @@ local function tryBrushEffectProcs(player)
 
 	if effects.MagnetProcChance > 0 then
 		local cooldown = caps.MagnetGlobalCooldown or 1
-		if (not lastMagnetAt[player] or now - lastMagnetAt[player] >= cooldown)
+		if
+			(not lastMagnetAt[player] or now - lastMagnetAt[player] >= cooldown)
 			and math.random() < effects.MagnetProcChance
 		then
 			lastMagnetAt[player] = now
 			local range = math.min(effects.MagnetRange, caps.MagnetMaxRange or 55)
-			local maxTargets = math.clamp(
-				effects.MagnetTargets,
-				1,
-				caps.MagnetMaxTargetsPerProc or 5
-			)
+			local maxTargets = math.clamp(effects.MagnetTargets, 1, caps.MagnetMaxTargetsPerProc or 5)
 			local targets = findNearbyBreakables(player, root.Position, range, maxTargets)
 			local _, awarded, positions = collectProcTargets(player, targets, range)
 			totalAwarded += awarded
@@ -882,8 +849,11 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 	if paintSpeed then
 		useSpeedMultiplier *= math.max(tonumber(paintSpeed.Value) or 1, 0.01)
 	end
-	local cooldown = ((mode == "walk" and WALK_SWEEP_COOLDOWN or (toolConfig.Cooldown or 0.45)) * effects.BrushCooldownMultiplier) / useSpeedMultiplier
-	local minimumCooldown = mode == "walk" and 0.1 or ((GameBalance.ColorEffects and GameBalance.ColorEffects.MinimumBrushCooldown) or 0.2)
+	local cooldown = (
+		(mode == "walk" and WALK_SWEEP_COOLDOWN or (toolConfig.Cooldown or 0.45)) * effects.BrushCooldownMultiplier
+	) / useSpeedMultiplier
+	local minimumCooldown = mode == "walk" and 0.1
+		or ((GameBalance.ColorEffects and GameBalance.ColorEffects.MinimumBrushCooldown) or 0.2)
 	cooldown = math.max(cooldown, minimumCooldown)
 
 	local now = os.clock()
@@ -931,8 +901,7 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 			if part:GetAttribute("GemDeposit") then
 				continue
 			end
-			local inRange = mode == "walk"
-				and isInsideWalkPickup(player, part, range)
+			local inRange = mode == "walk" and isInsideWalkPickup(player, part, range)
 				or isInsideToolSweep(player, part, range, width)
 			if inRange then
 				markPetPriorityTarget(player, part)
@@ -957,7 +926,16 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 
 	local success = total > 0
 	if DEBUG_LOGS and success then
-		print("PaintToolSweep: " .. player.Name .. " broke " .. tostring(collected) .. " Color blobs for " .. tostring(total) .. " Coins via " .. mode)
+		print(
+			"PaintToolSweep: "
+				.. player.Name
+				.. " broke "
+				.. tostring(collected)
+				.. " Color blobs for "
+				.. tostring(total)
+				.. " Coins via "
+				.. mode
+		)
 	end
 	paintSweepEvent:FireClient(player, {
 		success = success,

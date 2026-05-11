@@ -13,8 +13,10 @@
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).ApplyGamepassIcons()
 -- Worlds-only refresh:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateWorldsWindow()
-local RunService = game:GetService("RunService")
+-- Zork/tutorial windows refresh:
+-- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateZorkWindows()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 
 local Builder = {}
@@ -231,7 +233,8 @@ local function frame(parent, name, position, size, color)
 end
 
 local function makeTabs(window, names)
-	local tabs = frame(window, "Tabs", UDim2.fromOffset(22, 68), UDim2.new(1, -44, 0, 40), Color3.fromRGB(255, 255, 255))
+	local tabs =
+		frame(window, "Tabs", UDim2.fromOffset(22, 68), UDim2.new(1, -44, 0, 40), Color3.fromRGB(255, 255, 255))
 	tabs.BackgroundTransparency = 1
 	local layout = tabs:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
@@ -242,7 +245,14 @@ local function makeTabs(window, names)
 	layout.Parent = tabs
 
 	for index, tabName in ipairs(names) do
-		local tab = button(tabs, tabName .. "Tab", tabName, UDim2.fromOffset(0, 0), UDim2.fromOffset(118, 34), index == 1 and Color3.fromRGB(82, 219, 225) or Color3.fromRGB(232, 238, 248))
+		local tab = button(
+			tabs,
+			tabName .. "Tab",
+			tabName,
+			UDim2.fromOffset(0, 0),
+			UDim2.fromOffset(118, 34),
+			index == 1 and Color3.fromRGB(82, 219, 225) or Color3.fromRGB(232, 238, 248)
+		)
 		tab.LayoutOrder = index
 		tab.TextColor3 = index == 1 and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(38, 36, 52)
 	end
@@ -250,7 +260,13 @@ local function makeTabs(window, names)
 end
 
 local function makeWindow(windowsFolder, name, title, tabs)
-	local window = frame(windowsFolder, name, UDim2.fromScale(0.5, 0.43), UDim2.fromOffset(780, 470), Color3.fromRGB(255, 255, 255))
+	local window = frame(
+		windowsFolder,
+		name,
+		UDim2.fromScale(0.5, 0.43),
+		UDim2.fromOffset(780, 470),
+		Color3.fromRGB(255, 255, 255)
+	)
 	window.AnchorPoint = Vector2.new(0.5, 0.5)
 	window.Visible = false
 	window.ClipsDescendants = false
@@ -263,13 +279,20 @@ local function makeWindow(windowsFolder, name, title, tabs)
 		makeTabs(window, tabs)
 	end
 
-	local content = frame(window, "Content", UDim2.fromOffset(22, tabs and 122 or 82), UDim2.new(1, -44, 1, tabs and -148 or -108), Color3.fromRGB(244, 248, 252))
+	local content = frame(
+		window,
+		"Content",
+		UDim2.fromOffset(22, tabs and 122 or 82),
+		UDim2.new(1, -44, 1, tabs and -148 or -108),
+		Color3.fromRGB(244, 248, 252)
+	)
 	content.ClipsDescendants = false
 	return window, content
 end
 
 local function makeInventory(windowsFolder)
-	local window, content = makeWindow(windowsFolder, "InventoryWindow", "INVENTORY", { "Colors", "Brushes", "Potions", "Items" })
+	local window, content =
+		makeWindow(windowsFolder, "InventoryWindow", "INVENTORY", { "Colors", "Brushes", "Potions", "Items" })
 	window.Size = UDim2.fromOffset(860, 560)
 	window.Position = UDim2.fromScale(0.5, 0.46)
 	content.Size = UDim2.new(1, -44, 1, -148)
@@ -288,26 +311,75 @@ local function makeInventory(windowsFolder)
 		end
 	end
 
-	local grid = frame(content, "ItemGrid", UDim2.fromOffset(12, 12), UDim2.new(0.66, -20, 1, -24), Color3.fromRGB(246, 249, 255))
-	local details = frame(content, "DetailsPanel", UDim2.new(0.68, 0, 0, 12), UDim2.new(0.32, -12, 1, -24), Color3.fromRGB(239, 246, 255))
+	local grid = frame(
+		content,
+		"ItemGrid",
+		UDim2.fromOffset(12, 12),
+		UDim2.new(0.66, -20, 1, -24),
+		Color3.fromRGB(246, 249, 255)
+	)
+	local details = frame(
+		content,
+		"DetailsPanel",
+		UDim2.new(0.68, 0, 0, 12),
+		UDim2.new(0.32, -12, 1, -24),
+		Color3.fromRGB(239, 246, 255)
+	)
 	frame(details, "BigPreview", UDim2.fromOffset(16, 16), UDim2.new(1, -32, 0, 90), Color3.fromRGB(255, 255, 255))
-	text(details, "SelectedName", "Select an Item", UDim2.fromOffset(16, 118), UDim2.new(1, -32, 0, 30), 20).TextXAlignment = Enum.TextXAlignment.Center
-	text(details, "SelectedRarity", "", UDim2.fromOffset(16, 150), UDim2.new(1, -32, 0, 22), 14).TextXAlignment = Enum.TextXAlignment.Center
-	text(details, "SelectedDescription", "Choose a card to see details.", UDim2.fromOffset(16, 178), UDim2.new(1, -32, 0, 46), 13).TextXAlignment = Enum.TextXAlignment.Left
-	local stats = frame(details, "StatsBox", UDim2.fromOffset(16, 230), UDim2.new(1, -32, 0, 34), Color3.fromRGB(255, 255, 255))
+	text(details, "SelectedName", "Select an Item", UDim2.fromOffset(16, 118), UDim2.new(1, -32, 0, 30), 20).TextXAlignment =
+		Enum.TextXAlignment.Center
+	text(details, "SelectedRarity", "", UDim2.fromOffset(16, 150), UDim2.new(1, -32, 0, 22), 14).TextXAlignment =
+		Enum.TextXAlignment.Center
+	text(
+		details,
+		"SelectedDescription",
+		"Choose a card to see details.",
+		UDim2.fromOffset(16, 178),
+		UDim2.new(1, -32, 0, 46),
+		13
+	).TextXAlignment =
+		Enum.TextXAlignment.Left
+	local stats =
+		frame(details, "StatsBox", UDim2.fromOffset(16, 230), UDim2.new(1, -32, 0, 34), Color3.fromRGB(255, 255, 255))
 	text(stats, "StatsText", "", UDim2.fromOffset(10, 6), UDim2.new(1, -20, 1, -12), 12)
 	for i = 1, 12 do
 		local x = ((i - 1) % 4) * 124 + 14
 		local y = math.floor((i - 1) / 4) * 114 + 14
-		local slot = frame(grid, "Slot" .. i, UDim2.fromOffset(x, y), UDim2.fromOffset(112, 102), Color3.fromRGB(235, 239, 246))
-		local icon = frame(slot, "Icon", UDim2.fromOffset(8, 8), UDim2.new(1, -16, 0, 54), Color3.fromRGB(225, 235, 248))
-		text(icon, "IconText", "IMG", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment = Enum.TextXAlignment.Center
-		text(slot, "ItemName", "Item", UDim2.new(0, 6, 1, -36), UDim2.new(1, -12, 0, 18), 12).TextXAlignment = Enum.TextXAlignment.Center
-		text(slot, "ItemMeta", "", UDim2.new(0, 6, 1, -18), UDim2.new(1, -12, 0, 14), 10).TextXAlignment = Enum.TextXAlignment.Center
+		local slot =
+			frame(grid, "Slot" .. i, UDim2.fromOffset(x, y), UDim2.fromOffset(112, 102), Color3.fromRGB(235, 239, 246))
+		local icon =
+			frame(slot, "Icon", UDim2.fromOffset(8, 8), UDim2.new(1, -16, 0, 54), Color3.fromRGB(225, 235, 248))
+		text(icon, "IconText", "IMG", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment =
+			Enum.TextXAlignment.Center
+		text(slot, "ItemName", "Item", UDim2.new(0, 6, 1, -36), UDim2.new(1, -12, 0, 18), 12).TextXAlignment =
+			Enum.TextXAlignment.Center
+		text(slot, "ItemMeta", "", UDim2.new(0, 6, 1, -18), UDim2.new(1, -12, 0, 14), 10).TextXAlignment =
+			Enum.TextXAlignment.Center
 	end
-	button(details, "EquipButton", "EQUIP", UDim2.new(0, 16, 1, -116), UDim2.new(1, -32, 0, 32), Color3.fromRGB(84, 225, 112))
-	button(details, "LockButton", "LOCK", UDim2.new(0, 16, 1, -76), UDim2.new(1, -32, 0, 32), Color3.fromRGB(88, 174, 255))
-	button(details, "DeleteButton", "DELETE", UDim2.new(0, 16, 1, -36), UDim2.new(1, -32, 0, 32), Color3.fromRGB(220, 46, 58))
+	button(
+		details,
+		"EquipButton",
+		"EQUIP",
+		UDim2.new(0, 16, 1, -116),
+		UDim2.new(1, -32, 0, 32),
+		Color3.fromRGB(84, 225, 112)
+	)
+	button(
+		details,
+		"LockButton",
+		"LOCK",
+		UDim2.new(0, 16, 1, -76),
+		UDim2.new(1, -32, 0, 32),
+		Color3.fromRGB(88, 174, 255)
+	)
+	button(
+		details,
+		"DeleteButton",
+		"DELETE",
+		UDim2.new(0, 16, 1, -36),
+		UDim2.new(1, -32, 0, 32),
+		Color3.fromRGB(220, 46, 58)
+	)
 	return window
 end
 
@@ -391,7 +463,10 @@ local function applyUpgradeIconsToWindow(upgradesWindow)
 		if descendant:IsA("GuiObject") and string.match(descendant.Name, "Card$") then
 			local before = descendant:GetAttribute("UpgradeIconKey")
 			applyUpgradeIconToCard(descendant)
-			if descendant:GetAttribute("UpgradeIconKey") ~= before or descendant:GetAttribute("UpgradeIconKey") ~= nil then
+			if
+				descendant:GetAttribute("UpgradeIconKey") ~= before
+				or descendant:GetAttribute("UpgradeIconKey") ~= nil
+			then
 				applied += 1
 			end
 		end
@@ -403,14 +478,29 @@ local function makeCardGrid(content, names)
 	for index, item in ipairs(names) do
 		local x = ((index - 1) % 3) * 238 + 14
 		local y = math.floor((index - 1) / 3) * 132 + 14
-		local card = frame(content, item:gsub("%s+", "") .. "Card", UDim2.fromOffset(x, y), UDim2.fromOffset(222, 118), Color3.fromRGB(255, 255, 255))
-		local icon = frame(card, "Icon", UDim2.fromOffset(10, 10), UDim2.fromOffset(58, 58), Color3.fromRGB(225, 244, 255))
-		text(icon, "IconText", item:sub(1, 2):upper(), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment = Enum.TextXAlignment.Center
+		local card = frame(
+			content,
+			item:gsub("%s+", "") .. "Card",
+			UDim2.fromOffset(x, y),
+			UDim2.fromOffset(222, 118),
+			Color3.fromRGB(255, 255, 255)
+		)
+		local icon =
+			frame(card, "Icon", UDim2.fromOffset(10, 10), UDim2.fromOffset(58, 58), Color3.fromRGB(225, 244, 255))
+		text(icon, "IconText", item:sub(1, 2):upper(), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment =
+			Enum.TextXAlignment.Center
 		applyUpgradeIconToCard(card, item)
 		text(card, "Name", item, UDim2.fromOffset(78, 8), UDim2.new(1, -88, 0, 28), 17)
 		text(card, "Description", "Editable item card.", UDim2.fromOffset(78, 38), UDim2.new(1, -88, 0, 34), 12)
 		text(card, "Price", "Price", UDim2.fromOffset(10, 76), UDim2.fromOffset(90, 28), 13)
-		button(card, "BuyButton", "BUY", UDim2.new(1, -110, 1, -42), UDim2.fromOffset(96, 32), Color3.fromRGB(84, 225, 112))
+		button(
+			card,
+			"BuyButton",
+			"BUY",
+			UDim2.new(1, -110, 1, -42),
+			UDim2.fromOffset(96, 32),
+			Color3.fromRGB(84, 225, 112)
+		)
 	end
 end
 
@@ -469,20 +559,10 @@ local function makeSettingsGrid(content)
 	for index, item in ipairs(cards) do
 		local x = ((index - 1) % 3) * 238 + 14
 		local y = math.floor((index - 1) / 3) * 132 + 14
-		local card = frame(
-			content,
-			item.name,
-			UDim2.fromOffset(x, y),
-			UDim2.fromOffset(222, 118),
-			Color3.fromRGB(255, 255, 255)
-		)
-		local icon = frame(
-			card,
-			"Icon",
-			UDim2.fromOffset(10, 10),
-			UDim2.fromOffset(58, 58),
-			Color3.fromRGB(225, 244, 255)
-		)
+		local card =
+			frame(content, item.name, UDim2.fromOffset(x, y), UDim2.fromOffset(222, 118), Color3.fromRGB(255, 255, 255))
+		local icon =
+			frame(card, "Icon", UDim2.fromOffset(10, 10), UDim2.fromOffset(58, 58), Color3.fromRGB(225, 244, 255))
 		text(icon, "IconText", item.icon, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment =
 			Enum.TextXAlignment.Center
 		text(card, "Name", item.title, UDim2.fromOffset(78, 8), UDim2.new(1, -88, 0, 28), 17)
@@ -539,14 +619,7 @@ local function makeCodesContent(content)
 	content.BackgroundColor3 = Color3.fromRGB(246, 249, 255)
 	content.ClipsDescendants = false
 
-	local prompt = text(
-		content,
-		"CodePrompt",
-		"ENTER A CODE",
-		UDim2.fromOffset(34, 22),
-		UDim2.new(1, -68, 0, 46),
-		32
-	)
+	local prompt = text(content, "CodePrompt", "ENTER A CODE", UDim2.fromOffset(34, 22), UDim2.new(1, -68, 0, 46), 32)
 	prompt.TextXAlignment = Enum.TextXAlignment.Center
 	prompt.TextStrokeTransparency = 0.25
 
@@ -563,17 +636,13 @@ local function makeCodesContent(content)
 	)
 	redeem.TextSize = 22
 
-	local infoPanel = frame(
-		content,
-		"InfoPanel",
-		UDim2.fromOffset(54, 172),
-		UDim2.new(1, -108, 0, 76),
-		Color3.fromRGB(234, 239, 248)
-	)
+	local infoPanel =
+		frame(content, "InfoPanel", UDim2.fromOffset(54, 172), UDim2.new(1, -108, 0, 76), Color3.fromRGB(234, 239, 248))
 	infoPanel.BackgroundTransparency = 0
 	applyStroke(infoPanel, Color3.fromRGB(211, 219, 232), 2)
 
-	local infoAccent = frame(infoPanel, "Accent", UDim2.fromOffset(18, 14), UDim2.fromOffset(7, 48), Color3.fromRGB(88, 140, 255))
+	local infoAccent =
+		frame(infoPanel, "Accent", UDim2.fromOffset(18, 14), UDim2.fromOffset(7, 48), Color3.fromRGB(88, 140, 255))
 	applyCorner(infoAccent, 8)
 	local info = text(
 		infoPanel,
@@ -596,14 +665,8 @@ local function makeCodesContent(content)
 	status.TextColor3 = Color3.fromRGB(88, 96, 120)
 	status.TextStrokeTransparency = 1
 
-	local recentTitle = text(
-		content,
-		"RecentTitle",
-		"RECENT REWARDS",
-		UDim2.fromOffset(54, 266),
-		UDim2.new(1, -108, 0, 28),
-		18
-	)
+	local recentTitle =
+		text(content, "RecentTitle", "RECENT REWARDS", UDim2.fromOffset(54, 266), UDim2.new(1, -108, 0, 28), 18)
 	recentTitle.TextXAlignment = Enum.TextXAlignment.Center
 
 	local rewards = frame(
@@ -710,7 +773,16 @@ local function makeBadge(parent, textValue, position, size, zIndex)
 	badge.ZIndex = zIndex or 1006
 	applyCorner(badge, 12)
 	applyStroke(badge, OUTLINE, 2)
-	local badgeText = makeShopText(badge, "Text", textValue, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 13, TEXT_DARK, badge.ZIndex + 1)
+	local badgeText = makeShopText(
+		badge,
+		"Text",
+		textValue,
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(1, 1),
+		13,
+		TEXT_DARK,
+		badge.ZIndex + 1
+	)
 	badgeText.Font = Enum.Font.GothamBlack
 	badgeText.TextXAlignment = Enum.TextXAlignment.Center
 	badgeText.TextScaled = true
@@ -788,7 +860,14 @@ local function prepShopWindow(shopWindow)
 		runtimeText.TextStrokeColor3 = OUTLINE
 		runtimeText.ZIndex = 1004
 	else
-		closeButton = button(shopWindow, "CloseButton", "X", UDim2.new(1, -72, 0, 16), UDim2.fromOffset(54, 54), Color3.fromRGB(188, 21, 28))
+		closeButton = button(
+			shopWindow,
+			"CloseButton",
+			"X",
+			UDim2.new(1, -72, 0, 16),
+			UDim2.fromOffset(54, 54),
+			Color3.fromRGB(188, 21, 28)
+		)
 		closeButton.ZIndex = 1003
 		closeButton.TextScaled = true
 	end
@@ -797,7 +876,8 @@ local function prepShopWindow(shopWindow)
 end
 
 local function makeShopTabs(shopWindow)
-	local tabs = frame(shopWindow, "Tabs", UDim2.fromOffset(26, 76), UDim2.new(1, -52, 0, 48), Color3.fromRGB(255, 255, 255))
+	local tabs =
+		frame(shopWindow, "Tabs", UDim2.fromOffset(26, 76), UDim2.new(1, -52, 0, 48), Color3.fromRGB(255, 255, 255))
 	tabs.BackgroundTransparency = 1
 	tabs.ZIndex = 1002
 
@@ -819,7 +899,14 @@ local function makeShopTabs(shopWindow)
 	layout.Parent = tabs
 
 	for index, tabName in ipairs(SHOP_TABS) do
-		local tab = button(tabs, tabName .. "Tab", tabName, UDim2.fromOffset(0, 0), UDim2.fromOffset(150, 38), index == 1 and CYAN or TAB_INACTIVE)
+		local tab = button(
+			tabs,
+			tabName .. "Tab",
+			tabName,
+			UDim2.fromOffset(0, 0),
+			UDim2.fromOffset(150, 38),
+			index == 1 and CYAN or TAB_INACTIVE
+		)
 		tab.LayoutOrder = index
 		tab.AutoButtonColor = false
 		tab.TextScaled = false
@@ -835,7 +922,13 @@ local function makeShopTabs(shopWindow)
 end
 
 local function makeShopPages(shopWindow)
-	local content = frame(shopWindow, "Content", UDim2.fromOffset(26, 136), UDim2.new(1, -52, 1, -164), Color3.fromRGB(244, 248, 252))
+	local content = frame(
+		shopWindow,
+		"Content",
+		UDim2.fromOffset(26, 136),
+		UDim2.new(1, -52, 1, -164),
+		Color3.fromRGB(244, 248, 252)
+	)
 	content.BorderSizePixel = 0
 	content.ClipsDescendants = true
 	content.ZIndex = 1001
@@ -844,7 +937,8 @@ local function makeShopPages(shopWindow)
 	clearLegacyContentChildren(content)
 
 	for index, pageName in ipairs({ "FeaturedPage", "GamepassesPage", "BoostsPage", "CurrencyPage" }) do
-		local page = frame(content, pageName, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Color3.fromRGB(244, 248, 252))
+		local page =
+			frame(content, pageName, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Color3.fromRGB(244, 248, 252))
 		page.BackgroundTransparency = 1
 		page.ZIndex = 1002
 		page.Visible = index == 1
@@ -861,7 +955,16 @@ local function makeIconCircle(parent, name, iconTextValue, color, position, size
 	applyStroke(circle, OUTLINE, 2)
 	makeScale(circle, "IconScale")
 
-	local iconLabel = makeShopText(circle, "IconText", iconTextValue, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 26, Color3.fromRGB(255, 255, 255), circle.ZIndex + 1)
+	local iconLabel = makeShopText(
+		circle,
+		"IconText",
+		iconTextValue,
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(1, 1),
+		26,
+		Color3.fromRGB(255, 255, 255),
+		circle.ZIndex + 1
+	)
 	iconLabel.Font = Enum.Font.GothamBlack
 	iconLabel.TextXAlignment = Enum.TextXAlignment.Center
 	iconLabel.TextScaled = true
@@ -906,7 +1009,10 @@ local function applyShopIcon(iconCircle, item)
 		iconImage.Image = image
 		iconImage.Visible = image ~= ""
 		iconImage:SetAttribute("GamepassIconKey", item and item.iconKey or "")
-		iconImage:SetAttribute("ExpectedGamepassIconFile", spec and spec.SourceFile or item and item.iconSourceFile or "")
+		iconImage:SetAttribute(
+			"ExpectedGamepassIconFile",
+			spec and spec.SourceFile or item and item.iconSourceFile or ""
+		)
 	end
 
 	local iconText = iconCircle:FindFirstChild("IconText")
@@ -972,7 +1078,13 @@ local function scrollingFrame(parent, name, position, size)
 end
 
 local function makeInfinitePackTierCard(parent, tier, layoutOrder)
-	local card = frame(parent, tier.id .. "Card", UDim2.fromScale(0, 0), UDim2.fromOffset(96, 118), Color3.fromRGB(255, 255, 255))
+	local card = frame(
+		parent,
+		tier.id .. "Card",
+		UDim2.fromScale(0, 0),
+		UDim2.fromOffset(96, 118),
+		Color3.fromRGB(255, 255, 255)
+	)
 	card:SetAttribute("StudioShopGenerated", true)
 	card:SetAttribute("ShopItemId", tier.id)
 	card:SetAttribute("ShopItemKind", "InfinitePackTier")
@@ -997,7 +1109,16 @@ local function makeInfinitePackTierCard(parent, tier, layoutOrder)
 	iconImage.Image = ""
 	iconImage.Visible = false
 	iconImage.Parent = rewardBox
-	local icon = makeShopText(rewardBox, "IconText", tostring(tier.icon or "?"), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 22, Color3.fromRGB(255, 255, 255), 1007)
+	local icon = makeShopText(
+		rewardBox,
+		"IconText",
+		tostring(tier.icon or "?"),
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(1, 1),
+		22,
+		Color3.fromRGB(255, 255, 255),
+		1007
+	)
 	icon.Font = Enum.Font.GothamBlack
 	icon.TextXAlignment = Enum.TextXAlignment.Center
 	icon.TextScaled = true
@@ -1005,13 +1126,30 @@ local function makeInfinitePackTierCard(parent, tier, layoutOrder)
 	icon.TextStrokeColor3 = OUTLINE
 	applyShopIcon(rewardBox, tier)
 
-	local reward = makeShopText(card, "RewardLabel", tostring(tier.rewardText or tier.displayName or ""), UDim2.fromOffset(7, 72), UDim2.fromOffset(82, 18), 10, TEXT_DARK, 1007)
+	local reward = makeShopText(
+		card,
+		"RewardLabel",
+		tostring(tier.rewardText or tier.displayName or ""),
+		UDim2.fromOffset(7, 72),
+		UDim2.fromOffset(82, 18),
+		10,
+		TEXT_DARK,
+		1007
+	)
 	reward.Font = Enum.Font.GothamBold
 	reward.TextXAlignment = Enum.TextXAlignment.Center
 	reward.TextWrapped = true
 
 	local buttonText = tier.free and "FREE" or tostring(tier.price or 0) .. " R$"
-	local buy = makeShopButton(card, "BuyButton", buttonText, UDim2.fromOffset(9, 90), UDim2.fromOffset(78, 24), tier.free and GREEN or Color3.fromRGB(118, 235, 80), 1007)
+	local buy = makeShopButton(
+		card,
+		"BuyButton",
+		buttonText,
+		UDim2.fromOffset(9, 90),
+		UDim2.fromOffset(78, 24),
+		tier.free and GREEN or Color3.fromRGB(118, 235, 80),
+		1007
+	)
 	buy.TextSize = tier.free and 18 or 15
 end
 
@@ -1023,7 +1161,13 @@ local function makeInfinitePackPanel(featuredPage)
 		return
 	end
 
-	local panel = frame(featuredPage, "InfinitePackPanel", UDim2.fromOffset(16, 12), UDim2.new(1, -32, 0, 214), Color3.fromRGB(184, 246, 255))
+	local panel = frame(
+		featuredPage,
+		"InfinitePackPanel",
+		UDim2.fromOffset(16, 12),
+		UDim2.new(1, -32, 0, 214),
+		Color3.fromRGB(184, 246, 255)
+	)
 	panel:SetAttribute("StudioShopGenerated", true)
 	panel.BorderSizePixel = 0
 	panel.ClipsDescendants = true
@@ -1031,7 +1175,8 @@ local function makeInfinitePackPanel(featuredPage)
 	applyCorner(panel, 18)
 	applyStroke(panel, OUTLINE, 3)
 
-	local rainbow = frame(panel, "RainbowBand", UDim2.new(-0.05, 0, 0, 54), UDim2.new(1.1, 0, 0, 64), Color3.fromRGB(255, 122, 188))
+	local rainbow =
+		frame(panel, "RainbowBand", UDim2.new(-0.05, 0, 0, 54), UDim2.new(1.1, 0, 0, 64), Color3.fromRGB(255, 122, 188))
 	rainbow:SetAttribute("StudioShopGenerated", true)
 	rainbow.BackgroundTransparency = 0.38
 	rainbow.Rotation = -7
@@ -1041,14 +1186,32 @@ local function makeInfinitePackPanel(featuredPage)
 		rainbowStroke:Destroy()
 	end
 
-	local title = makeShopText(panel, "Title", tostring(pack.displayName or "THE INFINITE PACK!"), UDim2.new(0, 210, 0, 12), UDim2.new(1, -230, 0, 40), 32, TEXT_DARK, 1006)
+	local title = makeShopText(
+		panel,
+		"Title",
+		tostring(pack.displayName or "THE INFINITE PACK!"),
+		UDim2.new(0, 210, 0, 12),
+		UDim2.new(1, -230, 0, 40),
+		32,
+		TEXT_DARK,
+		1006
+	)
 	title.Font = Enum.Font.GothamBlack
 	title.TextXAlignment = Enum.TextXAlignment.Center
 	title.TextScaled = true
 	title.TextStrokeTransparency = 0
 	title.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
 
-	local reset = makeShopText(panel, "ResetLabel", "Resets in 23:59:59", UDim2.fromOffset(18, 14), UDim2.fromOffset(190, 34), 22, TEXT_DARK, 1006)
+	local reset = makeShopText(
+		panel,
+		"ResetLabel",
+		"Resets in 23:59:59",
+		UDim2.fromOffset(18, 14),
+		UDim2.fromOffset(190, 34),
+		22,
+		TEXT_DARK,
+		1006
+	)
 	reset.Font = Enum.Font.GothamBlack
 	reset.TextScaled = true
 	reset.TextStrokeTransparency = 0
@@ -1072,7 +1235,16 @@ local function makeInfinitePackPanel(featuredPage)
 	for index, tier in ipairs(tiers) do
 		makeInfinitePackTierCard(track, tier, index * 2)
 		if index < #tiers then
-			local arrow = makeShopText(track, "Arrow" .. tostring(index), "->", UDim2.fromScale(0, 0), UDim2.fromOffset(18, 118), 26, OUTLINE, 1007)
+			local arrow = makeShopText(
+				track,
+				"Arrow" .. tostring(index),
+				"->",
+				UDim2.fromScale(0, 0),
+				UDim2.fromOffset(18, 118),
+				26,
+				OUTLINE,
+				1007
+			)
 			arrow:SetAttribute("StudioShopGenerated", true)
 			arrow.LayoutOrder = (index * 2) + 1
 			arrow.TextXAlignment = Enum.TextXAlignment.Center
@@ -1087,7 +1259,8 @@ local function makeInfiniteHero(featuredPage)
 		return
 	end
 
-	local card = frame(featuredPage, "InfinitePassHeroCard", UDim2.fromOffset(16, 12), UDim2.new(1, -32, 0, 126), pass.color)
+	local card =
+		frame(featuredPage, "InfinitePassHeroCard", UDim2.fromOffset(16, 12), UDim2.new(1, -32, 0, 126), pass.color)
 	card:SetAttribute("StudioShopGenerated", true)
 	card:SetAttribute("ShopItemId", pass.id)
 	card:SetAttribute("ShopItemKind", "Gamepass")
@@ -1098,7 +1271,8 @@ local function makeInfiniteHero(featuredPage)
 	applyCorner(card, 20)
 	applyStroke(card, Color3.fromRGB(72, 235, 255), 4)
 
-	local glow = frame(card, "Glow", UDim2.new(-0.05, 0, -0.2, 0), UDim2.new(1.1, 0, 1.4, 0), Color3.fromRGB(72, 235, 255))
+	local glow =
+		frame(card, "Glow", UDim2.new(-0.05, 0, -0.2, 0), UDim2.new(1.1, 0, 1.4, 0), Color3.fromRGB(72, 235, 255))
 	glow.BackgroundTransparency = 0.72
 	glow.ZIndex = 1004
 	applyCorner(glow, 30)
@@ -1115,7 +1289,13 @@ local function makeInfiniteHero(featuredPage)
 		applyCorner(glowCircle, 99)
 	end
 
-	local shimmer = frame(card, "ShimmerBar", UDim2.new(-0.18, 0, -0.35, 0), UDim2.new(0, 48, 1.75, 0), Color3.fromRGB(255, 255, 255))
+	local shimmer = frame(
+		card,
+		"ShimmerBar",
+		UDim2.new(-0.18, 0, -0.35, 0),
+		UDim2.new(0, 48, 1.75, 0),
+		Color3.fromRGB(255, 255, 255)
+	)
 	shimmer.Rotation = -18
 	shimmer.BackgroundTransparency = 0.7
 	shimmer.ZIndex = 1004
@@ -1124,28 +1304,80 @@ local function makeInfiniteHero(featuredPage)
 		shimmerStroke:Destroy()
 	end
 
-	makeIconCircle(card, "IconCircle", pass.icon or "∞", Color3.fromRGB(30, 35, 70), UDim2.new(0, 18, 0.5, -42), UDim2.fromOffset(84, 84), 1005)
+	makeIconCircle(
+		card,
+		"IconCircle",
+		pass.icon or "∞",
+		Color3.fromRGB(30, 35, 70),
+		UDim2.new(0, 18, 0.5, -42),
+		UDim2.fromOffset(84, 84),
+		1005
+	)
 	local heroIcon = card:FindFirstChild("IconCircle")
 	if heroIcon and heroIcon:IsA("GuiObject") then
 		heroIcon.Position = UDim2.new(0, 18, 0.5, -36)
 		heroIcon.Size = UDim2.fromOffset(72, 72)
 	end
-	local title = makeShopText(card, "Title", "INFINITE PASS", UDim2.fromOffset(104, 14), UDim2.new(0.48, 0, 0, 30), 24, Color3.fromRGB(255, 255, 255), 1006)
+	local title = makeShopText(
+		card,
+		"Title",
+		"INFINITE PASS",
+		UDim2.fromOffset(104, 14),
+		UDim2.new(0.48, 0, 0, 30),
+		24,
+		Color3.fromRGB(255, 255, 255),
+		1006
+	)
 	title.TextScaled = true
-	local description = makeShopText(card, "Description", "The ultimate permanent upgrade.", UDim2.fromOffset(104, 46), UDim2.new(0.48, 0, 0, 22), 16, Color3.fromRGB(230, 245, 255), 1006)
+	local description = makeShopText(
+		card,
+		"Description",
+		"The ultimate permanent upgrade.",
+		UDim2.fromOffset(104, 46),
+		UDim2.new(0.48, 0, 0, 22),
+		16,
+		Color3.fromRGB(230, 245, 255),
+		1006
+	)
 	description.Font = Enum.Font.GothamBold
 	description.TextScaled = true
-	local perks = makeShopText(card, "Perks", "∞ Infinite color capacity\n+5 equipped Colors\nDaily gems\nExclusive aura", UDim2.fromOffset(112, 84), UDim2.new(0.48, 0, 0, 60), 14, Color3.fromRGB(255, 255, 255), 1006)
+	local perks = makeShopText(
+		card,
+		"Perks",
+		"∞ Infinite color capacity\n+5 equipped Colors\nDaily gems\nExclusive aura",
+		UDim2.fromOffset(112, 84),
+		UDim2.new(0.48, 0, 0, 60),
+		14,
+		Color3.fromRGB(255, 255, 255),
+		1006
+	)
 	perks.TextYAlignment = Enum.TextYAlignment.Top
 	perks.Position = UDim2.fromOffset(104, 70)
 	perks.Size = UDim2.new(0.5, 0, 0, 48)
 	perks.TextSize = 12
 
 	makeBadge(card, pass.badge or "BEST VALUE", UDim2.new(1, -150, 0, 14), UDim2.fromOffset(130, 28), 1006)
-	local price = makeShopText(card, "PriceLabel", tostring(pass.price or 999) .. " R$", UDim2.new(1, -190, 0, 50), UDim2.fromOffset(170, 30), 22, Color3.fromRGB(255, 255, 255), 1006)
+	local price = makeShopText(
+		card,
+		"PriceLabel",
+		tostring(pass.price or 999) .. " R$",
+		UDim2.new(1, -190, 0, 50),
+		UDim2.fromOffset(170, 30),
+		22,
+		Color3.fromRGB(255, 255, 255),
+		1006
+	)
 	price.TextScaled = true
 	price.TextXAlignment = Enum.TextXAlignment.Center
-	local buy = makeShopButton(card, "BuyButton", "BUY " .. tostring(pass.price or 999) .. " R$", UDim2.new(1, -190, 1, -42), UDim2.fromOffset(170, 32), GREEN, 1007)
+	local buy = makeShopButton(
+		card,
+		"BuyButton",
+		"BUY " .. tostring(pass.price or 999) .. " R$",
+		UDim2.new(1, -190, 1, -42),
+		UDim2.fromOffset(170, 32),
+		GREEN,
+		1007
+	)
 	buy.TextSize = 20
 end
 
@@ -1184,11 +1416,29 @@ local function makeNormalGamepassCard(parent, pass, layoutOrder, compact)
 		1005
 	)
 	title.TextScaled = false
-	local description = makeShopText(card, "Description", tostring(pass.description or ""), UDim2.fromOffset(72, 30), UDim2.new(1, -82, 0, 22), 10, TEXT_DARK, 1005)
+	local description = makeShopText(
+		card,
+		"Description",
+		tostring(pass.description or ""),
+		UDim2.fromOffset(72, 30),
+		UDim2.new(1, -82, 0, 22),
+		10,
+		TEXT_DARK,
+		1005
+	)
 	description.Font = Enum.Font.GothamBold
 	description.TextWrapped = true
 	description.Visible = not compact
-	local price = makeShopText(card, "PriceLabel", tostring(pass.price or 0) .. " R$", UDim2.new(0, 12, 1, -34), UDim2.fromOffset(82, 24), 16, TEXT_DARK, 1005)
+	local price = makeShopText(
+		card,
+		"PriceLabel",
+		tostring(pass.price or 0) .. " R$",
+		UDim2.new(0, 12, 1, -34),
+		UDim2.fromOffset(82, 24),
+		16,
+		TEXT_DARK,
+		1005
+	)
 	price.Visible = false
 	price.TextXAlignment = Enum.TextXAlignment.Center
 	local buy = makeShopButton(
@@ -1215,7 +1465,13 @@ local function makeNormalGamepassCard(parent, pass, layoutOrder, compact)
 end
 
 local function makeSmallCards(featuredPage)
-	local holder = frame(featuredPage, "SmallCards", UDim2.fromOffset(16, 238), UDim2.new(1, -32, 1, -250), Color3.fromRGB(244, 248, 252))
+	local holder = frame(
+		featuredPage,
+		"SmallCards",
+		UDim2.fromOffset(16, 238),
+		UDim2.new(1, -32, 1, -250),
+		Color3.fromRGB(244, 248, 252)
+	)
 	holder:SetAttribute("StudioShopGenerated", true)
 	holder.BackgroundTransparency = 1
 	holder.ZIndex = 1002
@@ -1240,7 +1496,13 @@ local function makeSmallCards(featuredPage)
 end
 
 local function makeProductCard(parent, product, layoutOrder)
-	local card = frame(parent, product.id .. "Card", UDim2.fromScale(0, 0), UDim2.fromOffset(225, 112), Color3.fromRGB(255, 255, 255))
+	local card = frame(
+		parent,
+		product.id .. "Card",
+		UDim2.fromScale(0, 0),
+		UDim2.fromOffset(225, 112),
+		Color3.fromRGB(255, 255, 255)
+	)
 	card:SetAttribute("StudioShopGenerated", true)
 	card:SetAttribute("ShopItemId", product.id)
 	card:SetAttribute("ShopItemKind", "Product")
@@ -1250,15 +1512,61 @@ local function makeProductCard(parent, product, layoutOrder)
 	applyCorner(card, 16)
 	applyStroke(card, OUTLINE, 2)
 	local iconColor = (product.color or CYAN):Lerp(Color3.fromRGB(255, 255, 255), 0.35)
-	makeIconCircle(card, "IconCircle", tostring(product.icon or "?"), iconColor, UDim2.fromOffset(12, 14), UDim2.fromOffset(58, 58), 1004)
-	makeShopText(card, "Title", tostring(product.displayName or product.id), UDim2.fromOffset(80, 12), UDim2.new(1, -90, 0, 26), 18, TEXT_DARK, 1005).TextScaled = true
-	makeShopText(card, "Description", tostring(product.description or ""), UDim2.fromOffset(80, 42), UDim2.new(1, -90, 0, 32), 12, TEXT_DARK, 1005)
-	makeShopText(card, "PriceLabel", "COMING SOON", UDim2.new(0, 12, 1, -34), UDim2.fromOffset(96, 24), 14, TEXT_DARK, 1005).TextScaled = true
-	makeShopButton(card, "BuyButton", "COMING SOON", UDim2.new(1, -124, 1, -40), UDim2.fromOffset(112, 30), Color3.fromRGB(170, 180, 205), 1005)
+	makeIconCircle(
+		card,
+		"IconCircle",
+		tostring(product.icon or "?"),
+		iconColor,
+		UDim2.fromOffset(12, 14),
+		UDim2.fromOffset(58, 58),
+		1004
+	)
+	makeShopText(
+		card,
+		"Title",
+		tostring(product.displayName or product.id),
+		UDim2.fromOffset(80, 12),
+		UDim2.new(1, -90, 0, 26),
+		18,
+		TEXT_DARK,
+		1005
+	).TextScaled =
+		true
+	makeShopText(
+		card,
+		"Description",
+		tostring(product.description or ""),
+		UDim2.fromOffset(80, 42),
+		UDim2.new(1, -90, 0, 32),
+		12,
+		TEXT_DARK,
+		1005
+	)
+	makeShopText(
+		card,
+		"PriceLabel",
+		"COMING SOON",
+		UDim2.new(0, 12, 1, -34),
+		UDim2.fromOffset(96, 24),
+		14,
+		TEXT_DARK,
+		1005
+	).TextScaled =
+		true
+	makeShopButton(
+		card,
+		"BuyButton",
+		"COMING SOON",
+		UDim2.new(1, -124, 1, -40),
+		UDim2.fromOffset(112, 30),
+		Color3.fromRGB(170, 180, 205),
+		1005
+	)
 end
 
 local function makeGridPage(page, holderName, items, kind)
-	local holder = frame(page, holderName, UDim2.fromOffset(16, 14), UDim2.new(1, -32, 1, -28), Color3.fromRGB(244, 248, 252))
+	local holder =
+		frame(page, holderName, UDim2.fromOffset(16, 14), UDim2.new(1, -32, 1, -28), Color3.fromRGB(244, 248, 252))
 	holder:SetAttribute("StudioShopGenerated", true)
 	holder.BackgroundTransparency = 1
 	holder.ZIndex = 1002
@@ -1315,7 +1623,13 @@ end
 local function makeShopWindow(windowsFolder)
 	local shopWindow = windowsFolder:FindFirstChild("ShopWindow")
 	if not shopWindow or not shopWindow:IsA("GuiObject") then
-		shopWindow = frame(windowsFolder, "ShopWindow", UDim2.fromScale(0.5, 0.5), UDim2.fromOffset(820, 500), Color3.fromRGB(255, 255, 255))
+		shopWindow = frame(
+			windowsFolder,
+			"ShopWindow",
+			UDim2.fromScale(0.5, 0.5),
+			UDim2.fromOffset(820, 500),
+			Color3.fromRGB(255, 255, 255)
+		)
 	end
 
 	prepShopWindow(shopWindow)
@@ -1336,7 +1650,8 @@ local function makeShopTemplates(shopWindow)
 	applyStroke(card, Color3.fromRGB(35, 38, 45), 2)
 
 	local icon = frame(card, "Icon", UDim2.fromOffset(12, 14), UDim2.fromOffset(72, 72), Color3.fromRGB(244, 248, 252))
-	text(icon, "IconText", "VIP", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 20).TextXAlignment = Enum.TextXAlignment.Center
+	text(icon, "IconText", "VIP", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 20).TextXAlignment =
+		Enum.TextXAlignment.Center
 
 	local image = icon:FindFirstChild("IconImage")
 	if not image then
@@ -1351,8 +1666,16 @@ local function makeShopTemplates(shopWindow)
 	text(card, "Name", "Product", UDim2.fromOffset(96, 10), UDim2.new(1, -238, 0, 26), 18)
 	text(card, "Description", "Description", UDim2.fromOffset(96, 38), UDim2.new(1, -238, 0, 40), 13)
 	text(card, "Badge", "BADGE", UDim2.fromOffset(96, 80), UDim2.new(1, -238, 0, 22), 12)
-	text(card, "Price", "R$ 0", UDim2.new(1, -130, 0, 14), UDim2.fromOffset(112, 24), 14).TextXAlignment = Enum.TextXAlignment.Center
-	button(card, "BuyButton", "BUY", UDim2.new(1, -130, 1, -48), UDim2.fromOffset(112, 34), Color3.fromRGB(84, 225, 112))
+	text(card, "Price", "R$ 0", UDim2.new(1, -130, 0, 14), UDim2.fromOffset(112, 24), 14).TextXAlignment =
+		Enum.TextXAlignment.Center
+	button(
+		card,
+		"BuyButton",
+		"BUY",
+		UDim2.new(1, -130, 1, -48),
+		UDim2.fromOffset(112, 34),
+		Color3.fromRGB(84, 225, 112)
+	)
 
 	if created then
 		print("StudioMenuWindowsBuilder: created ShopWindow.Templates.ShopCardTemplate")
@@ -1402,7 +1725,12 @@ local WORLD_TELEPORTS = {
 
 local function clearWorldsContent(content)
 	for _, child in ipairs(content:GetChildren()) do
-		if child:IsA("GuiObject") or child:IsA("UIGridLayout") or child:IsA("UIListLayout") or child:IsA("UIPadding") then
+		if
+			child:IsA("GuiObject")
+			or child:IsA("UIGridLayout")
+			or child:IsA("UIListLayout")
+			or child:IsA("UIPadding")
+		then
 			child:Destroy()
 		end
 	end
@@ -1440,13 +1768,21 @@ local function prepWorldsWindow(worldsWindow)
 	title.TextStrokeTransparency = 1
 	title.ZIndex = 1002
 
-	local closeButton = button(worldsWindow, "CloseButton", "X", UDim2.new(1, -74, 0, 16), UDim2.fromOffset(56, 54), Color3.fromRGB(188, 21, 28))
+	local closeButton = button(
+		worldsWindow,
+		"CloseButton",
+		"X",
+		UDim2.new(1, -74, 0, 16),
+		UDim2.fromOffset(56, 54),
+		Color3.fromRGB(188, 21, 28)
+	)
 	closeButton.TextScaled = true
 	closeButton.ZIndex = 1004
 end
 
 local function makeWorldsTabs(worldsWindow)
-	local tabs = frame(worldsWindow, "Tabs", UDim2.fromOffset(26, 78), UDim2.new(1, -52, 0, 50), Color3.fromRGB(255, 255, 255))
+	local tabs =
+		frame(worldsWindow, "Tabs", UDim2.fromOffset(26, 78), UDim2.new(1, -52, 0, 50), Color3.fromRGB(255, 255, 255))
 	tabs.BackgroundTransparency = 1
 	tabs.ZIndex = 1002
 	for _, child in ipairs(tabs:GetChildren()) do
@@ -1483,30 +1819,58 @@ local function makeWorldsTabs(worldsWindow)
 end
 
 local function makeWorldHeader(parent)
-	local header = frame(parent, "HeaderPanel", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 92), Color3.fromRGB(230, 250, 255))
+	local header =
+		frame(parent, "HeaderPanel", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 92), Color3.fromRGB(230, 250, 255))
 	header:SetAttribute("StudioWorldsGenerated", true)
 	header.ZIndex = 1003
 	applyCorner(header, 18)
 	applyStroke(header, OUTLINE, 3)
 
-	local current = text(header, "CurrentSectorLabel", "Current: Start Sector", UDim2.fromOffset(20, 10), UDim2.new(0.48, 0, 0, 30), 22)
+	local current = text(
+		header,
+		"CurrentSectorLabel",
+		"Current: Start Sector",
+		UDim2.fromOffset(20, 10),
+		UDim2.new(0.48, 0, 0, 30),
+		22
+	)
 	current.TextScaled = true
 	current.TextStrokeTransparency = 1
 	current.ZIndex = 1004
 
-	local hint = text(header, "HintLabel", "Unlock sectors to travel, hatch new Colors, and find new zones.", UDim2.fromOffset(20, 44), UDim2.new(0.58, 0, 0, 28), 13)
+	local hint = text(
+		header,
+		"HintLabel",
+		"Unlock sectors to travel, hatch new Colors, and find new zones.",
+		UDim2.fromOffset(20, 44),
+		UDim2.new(0.58, 0, 0, 28),
+		13
+	)
 	hint.Font = Enum.Font.GothamBold
 	hint.TextColor3 = MUTED
 	hint.TextStrokeTransparency = 1
 	hint.ZIndex = 1004
 
-	local progress = text(header, "ProgressLabel", "1 / 2 sectors unlocked", UDim2.new(1, -244, 0, 12), UDim2.fromOffset(220, 26), 18)
+	local progress = text(
+		header,
+		"ProgressLabel",
+		"1 / 2 sectors unlocked",
+		UDim2.new(1, -244, 0, 12),
+		UDim2.fromOffset(220, 26),
+		18
+	)
 	progress.TextXAlignment = Enum.TextXAlignment.Right
 	progress.TextScaled = true
 	progress.TextStrokeTransparency = 1
 	progress.ZIndex = 1004
 
-	local track = frame(header, "ProgressTrack", UDim2.new(1, -244, 0, 54), UDim2.fromOffset(220, 18), Color3.fromRGB(211, 221, 236))
+	local track = frame(
+		header,
+		"ProgressTrack",
+		UDim2.new(1, -244, 0, 54),
+		UDim2.fromOffset(220, 18),
+		Color3.fromRGB(211, 221, 236)
+	)
 	track.ZIndex = 1004
 	applyCorner(track, 999)
 	local trackStroke = track:FindFirstChildOfClass("UIStroke")
@@ -1531,7 +1895,13 @@ local function makeWorldSectorCard(parent, world)
 	local playable = worldIndex <= maxPlayable
 	local staticCurrent = colorType == "Red"
 	local staticCost = tonumber(world.UnlockCost or world.unlockCost) or 0
-	local card = frame(parent, tostring(colorType) .. "SectorCard", UDim2.fromScale(0, 0), UDim2.fromOffset(744, 206), Color3.fromRGB(255, 255, 255))
+	local card = frame(
+		parent,
+		tostring(colorType) .. "SectorCard",
+		UDim2.fromScale(0, 0),
+		UDim2.fromOffset(744, 206),
+		Color3.fromRGB(255, 255, 255)
+	)
 	card:SetAttribute("StudioWorldsGenerated", true)
 	card:SetAttribute("WorldColor", colorType)
 	card.LayoutOrder = worldIndex
@@ -1546,7 +1916,13 @@ local function makeWorldSectorCard(parent, world)
 		accentStroke:Destroy()
 	end
 
-	local icon = frame(card, "IconCircle", UDim2.fromOffset(34, 34), UDim2.fromOffset(118, 118), accent:Lerp(Color3.fromRGB(255, 255, 255), 0.18))
+	local icon = frame(
+		card,
+		"IconCircle",
+		UDim2.fromOffset(34, 34),
+		UDim2.fromOffset(118, 118),
+		accent:Lerp(Color3.fromRGB(255, 255, 255), 0.18)
+	)
 	icon.ZIndex = 1005
 	applyCorner(icon, 24)
 	applyStroke(icon, OUTLINE, 3)
@@ -1558,12 +1934,26 @@ local function makeWorldSectorCard(parent, world)
 	iconText.TextStrokeTransparency = 0
 	iconText.ZIndex = 1006
 
-	local name = text(card, "Name", tostring(world.DisplayName or world.name or colorType), UDim2.fromOffset(178, 24), UDim2.new(1, -332, 0, 40), 28)
+	local name = text(
+		card,
+		"Name",
+		tostring(world.DisplayName or world.name or colorType),
+		UDim2.fromOffset(178, 24),
+		UDim2.new(1, -332, 0, 40),
+		28
+	)
 	name.TextScaled = true
 	name.TextStrokeTransparency = 1
 	name.ZIndex = 1005
 
-	local meta = text(card, "Meta", "Power x" .. tostring(world.rewardMultiplier or 1) .. " | " .. tostring(#(world.EggIds or {})) .. " eggs", UDim2.fromOffset(180, 68), UDim2.new(1, -360, 0, 24), 15)
+	local meta = text(
+		card,
+		"Meta",
+		"Power x" .. tostring(world.rewardMultiplier or 1) .. " | " .. tostring(#(world.EggIds or {})) .. " eggs",
+		UDim2.fromOffset(180, 68),
+		UDim2.new(1, -360, 0, 24),
+		15
+	)
 	meta.Font = Enum.Font.GothamBold
 	meta.TextColor3 = MUTED
 	meta.TextStrokeTransparency = 1
@@ -1572,7 +1962,8 @@ local function makeWorldSectorCard(parent, world)
 	local defaultRequirement = staticCurrent and "You are here now."
 		or (not playable and "Coming in a future update.")
 		or ("Unlock for " .. formatNumber(staticCost) .. " Coins.")
-	local requirement = text(card, "Requirement", defaultRequirement, UDim2.fromOffset(180, 98), UDim2.new(1, -360, 0, 26), 15)
+	local requirement =
+		text(card, "Requirement", defaultRequirement, UDim2.fromOffset(180, 98), UDim2.new(1, -360, 0, 26), 15)
 	requirement.Font = Enum.Font.GothamBold
 	requirement.TextColor3 = MUTED
 	requirement.TextStrokeTransparency = 1
@@ -1594,12 +1985,20 @@ local function makeWorldSectorCard(parent, world)
 
 	local actionText = staticCurrent and "CURRENT" or (playable and "UNLOCK" or "SOON")
 	local actionColor = playable and GREEN or DISABLED
-	local action = button(card, "TeleportButton", actionText, UDim2.new(1, -190, 0.5, -26), UDim2.fromOffset(160, 52), actionColor)
+	local action =
+		button(card, "TeleportButton", actionText, UDim2.new(1, -190, 0.5, -26), UDim2.fromOffset(160, 52), actionColor)
 	action:SetAttribute("WorldColor", colorType)
 	action.TextScaled = true
 	action.ZIndex = 1006
 
-	local scrollHint = text(card, "ScrollHint", "Scroll sideways to browse sectors", UDim2.new(1, -260, 1, -36), UDim2.fromOffset(230, 22), 12)
+	local scrollHint = text(
+		card,
+		"ScrollHint",
+		"Scroll sideways to browse sectors",
+		UDim2.new(1, -260, 1, -36),
+		UDim2.fromOffset(230, 22),
+		12
+	)
 	scrollHint.Font = Enum.Font.GothamBold
 	scrollHint.TextColor3 = MUTED
 	scrollHint.TextXAlignment = Enum.TextXAlignment.Right
@@ -1648,7 +2047,13 @@ local function makeSectorsPage(content)
 end
 
 local function makeTeleportCard(parent, teleport, layoutOrder)
-	local card = frame(parent, tostring(teleport.id) .. "TeleportCard", UDim2.fromScale(0, 0), UDim2.fromOffset(358, 118), Color3.fromRGB(255, 255, 255))
+	local card = frame(
+		parent,
+		tostring(teleport.id) .. "TeleportCard",
+		UDim2.fromScale(0, 0),
+		UDim2.fromOffset(358, 118),
+		Color3.fromRGB(255, 255, 255)
+	)
 	card:SetAttribute("StudioWorldsGenerated", true)
 	card:SetAttribute("LocationId", teleport.id)
 	card.LayoutOrder = layoutOrder
@@ -1656,7 +2061,13 @@ local function makeTeleportCard(parent, teleport, layoutOrder)
 	applyCorner(card, 16)
 	applyStroke(card, OUTLINE, 2)
 
-	local icon = frame(card, "IconCircle", UDim2.fromOffset(12, 14), UDim2.fromOffset(64, 64), teleport.color:Lerp(Color3.fromRGB(255, 255, 255), 0.16))
+	local icon = frame(
+		card,
+		"IconCircle",
+		UDim2.fromOffset(12, 14),
+		UDim2.fromOffset(64, 64),
+		teleport.color:Lerp(Color3.fromRGB(255, 255, 255), 0.16)
+	)
 	icon.ZIndex = 1005
 	applyCorner(icon, 16)
 	applyStroke(icon, OUTLINE, 2)
@@ -1673,7 +2084,8 @@ local function makeTeleportCard(parent, teleport, layoutOrder)
 	name.TextStrokeTransparency = 1
 	name.ZIndex = 1005
 
-	local description = text(card, "Description", teleport.description, UDim2.fromOffset(88, 40), UDim2.new(1, -104, 0, 34), 12)
+	local description =
+		text(card, "Description", teleport.description, UDim2.fromOffset(88, 40), UDim2.new(1, -104, 0, 34), 12)
 	description.Font = Enum.Font.GothamBold
 	description.TextColor3 = MUTED
 	description.TextStrokeTransparency = 1
@@ -1707,7 +2119,8 @@ local function makeTeleportsPage(content)
 		pageStroke:Destroy()
 	end
 
-	local header = frame(page, "HeaderPanel", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 76), Color3.fromRGB(248, 252, 255))
+	local header =
+		frame(page, "HeaderPanel", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 76), Color3.fromRGB(248, 252, 255))
 	header:SetAttribute("StudioWorldsGenerated", true)
 	header.ZIndex = 1003
 	applyCorner(header, 18)
@@ -1716,7 +2129,14 @@ local function makeTeleportsPage(content)
 	title.TextScaled = true
 	title.TextStrokeTransparency = 1
 	title.ZIndex = 1004
-	local subtitle = text(header, "HeaderSubtitle", "Unlocked locations stay editable and update while you play.", UDim2.fromOffset(20, 42), UDim2.new(0.75, 0, 0, 22), 13)
+	local subtitle = text(
+		header,
+		"HeaderSubtitle",
+		"Unlocked locations stay editable and update while you play.",
+		UDim2.fromOffset(20, 42),
+		UDim2.new(0.75, 0, 0, 22),
+		13
+	)
 	subtitle.Font = Enum.Font.GothamBold
 	subtitle.TextColor3 = MUTED
 	subtitle.TextStrokeTransparency = 1
@@ -1752,7 +2172,13 @@ end
 local function makeWorldsWindow(windowsFolder)
 	local worldsWindow = windowsFolder:FindFirstChild("WorldsWindow")
 	if not worldsWindow or not worldsWindow:IsA("GuiObject") then
-		worldsWindow = frame(windowsFolder, "WorldsWindow", UDim2.fromScale(0.5, 0.46), UDim2.fromOffset(860, 540), Color3.fromRGB(255, 255, 255))
+		worldsWindow = frame(
+			windowsFolder,
+			"WorldsWindow",
+			UDim2.fromScale(0.5, 0.46),
+			UDim2.fromOffset(860, 540),
+			Color3.fromRGB(255, 255, 255)
+		)
 	end
 	worldsWindow.Visible = false
 	prepWorldsWindow(worldsWindow)
@@ -1773,6 +2199,138 @@ local function makeWorldsWindow(windowsFolder)
 	makeSectorsPage(content)
 	makeTeleportsPage(content)
 	return worldsWindow
+end
+
+local function makeBrushShopWindow(windowsFolder)
+	local window, content = makeWindow(windowsFolder, "BrushShopWindow", "ZORK BRUSH SHOP", {})
+	window.Size = UDim2.fromOffset(760, 430)
+	window.Position = UDim2.fromScale(0.5, 0.45)
+
+	local header = text(
+		content,
+		"IntroText",
+		"First sector brushes only. Buy once, then equip or unequip.",
+		UDim2.fromOffset(18, 12),
+		UDim2.new(1, -36, 0, 28),
+		15
+	)
+	header.Font = Enum.Font.GothamBold
+	header.TextColor3 = MUTED
+	header.TextStrokeTransparency = 1
+
+	local grid =
+		frame(content, "ToolGrid", UDim2.fromOffset(14, 52), UDim2.new(1, -28, 1, -66), Color3.fromRGB(246, 249, 255))
+	grid.ClipsDescendants = false
+	local layout = grid:FindFirstChildOfClass("UIGridLayout") or Instance.new("UIGridLayout")
+	layout.CellSize = UDim2.fromOffset(330, 112)
+	layout.CellPadding = UDim2.fromOffset(14, 14)
+	layout.FillDirectionMaxCells = 2
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = grid
+	local padding = grid:FindFirstChildOfClass("UIPadding") or Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 14)
+	padding.PaddingLeft = UDim.new(0, 14)
+	padding.PaddingRight = UDim.new(0, 14)
+	padding.Parent = grid
+
+	local template = frame(
+		grid,
+		"ToolCardTemplate",
+		UDim2.fromScale(0, 0),
+		UDim2.fromOffset(330, 112),
+		Color3.fromRGB(255, 255, 255)
+	)
+	template.Visible = false
+	local icon =
+		frame(template, "Icon", UDim2.fromOffset(12, 14), UDim2.fromOffset(70, 70), Color3.fromRGB(225, 244, 255))
+	text(icon, "IconText", "BR", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment =
+		Enum.TextXAlignment.Center
+	text(template, "Name", "Starter Brush", UDim2.fromOffset(94, 10), UDim2.new(1, -106, 0, 24), 18)
+	local desc =
+		text(template, "Description", "Editable brush card.", UDim2.fromOffset(94, 36), UDim2.new(1, -106, 0, 30), 12)
+	desc.Font = Enum.Font.GothamBold
+	desc.TextColor3 = MUTED
+	desc.TextStrokeTransparency = 1
+	text(template, "Stats", "Power x1.00  Range 9", UDim2.fromOffset(94, 66), UDim2.new(1, -106, 0, 18), 11)
+	text(template, "Price", "FREE", UDim2.fromOffset(12, 86), UDim2.fromOffset(104, 20), 13)
+	text(template, "Status", "OWNED", UDim2.fromOffset(120, 86), UDim2.fromOffset(88, 20), 12).TextXAlignment =
+		Enum.TextXAlignment.Center
+	button(template, "BuyButton", "EQUIP", UDim2.new(1, -106, 1, -36), UDim2.fromOffset(92, 28), GREEN)
+	return window
+end
+
+local function makeZorkDialogueWindow(windowsFolder)
+	local window = frame(
+		windowsFolder,
+		"ZorkDialogueWindow",
+		UDim2.fromScale(0.5, 0.58),
+		UDim2.fromOffset(620, 260),
+		Color3.fromRGB(255, 255, 255)
+	)
+	window.AnchorPoint = Vector2.new(0.5, 0.5)
+	window.Visible = false
+	applyCorner(window, 24)
+	applyStroke(window, OUTLINE, 4)
+	text(window, "Title", "ZORK", UDim2.fromOffset(24, 16), UDim2.new(1, -104, 0, 36), 28)
+	button(window, "CloseButton", "X", UDim2.new(1, -64, 0, 14), UDim2.fromOffset(46, 42), Color3.fromRGB(188, 21, 28))
+
+	local content = frame(window, "Content", UDim2.fromOffset(22, 70), UDim2.new(1, -44, 1, -92), PANEL)
+	local name = text(content, "SpeakerName", "Zork", UDim2.fromOffset(18, 12), UDim2.fromOffset(150, 28), 22)
+	name.TextStrokeTransparency = 1
+	local role = text(
+		content,
+		"SpeakerRole",
+		"Brush Merchant + Daily Quests",
+		UDim2.fromOffset(170, 18),
+		UDim2.new(1, -188, 0, 20),
+		13
+	)
+	role.Font = Enum.Font.GothamBold
+	role.TextColor3 = MUTED
+	role.TextStrokeTransparency = 1
+	local body =
+		text(content, "Body", "Editable Zork dialogue.", UDim2.fromOffset(18, 52), UDim2.new(1, -36, 0, 76), 17)
+	body.Font = Enum.Font.GothamBold
+	body.TextWrapped = true
+	body.TextYAlignment = Enum.TextYAlignment.Top
+	body.TextStrokeTransparency = 1
+	button(content, "ShopButton", "BRUSH SHOP", UDim2.new(0, 18, 1, -48), UDim2.fromOffset(180, 34), GREEN)
+	button(content, "QuestsButton", "DAILY QUESTS", UDim2.new(0, 212, 1, -48), UDim2.fromOffset(180, 34), CYAN)
+	return window
+end
+
+local function makeTutorialWindow(windowsFolder)
+	local window, content = makeWindow(windowsFolder, "TutorialWindow", "TUTORIAL", {})
+	window.Size = UDim2.fromOffset(700, 420)
+	window.Position = UDim2.fromScale(0.5, 0.47)
+
+	local stepLabel = text(content, "StepLabel", "1 / 3", UDim2.new(1, -96, 0, 12), UDim2.fromOffset(76, 24), 14)
+	stepLabel.TextXAlignment = Enum.TextXAlignment.Right
+	stepLabel.Font = Enum.Font.GothamBold
+	stepLabel.TextColor3 = MUTED
+	stepLabel.TextStrokeTransparency = 1
+
+	local steps = findOrCreate(content, "Folder", "Steps")
+	for index, data in ipairs({
+		{ "Step1", "Move Around", "Use the brush to clean Color spills and earn coins." },
+		{ "Step2", "Hatch Colors", "Spend coins at eggs to hatch living Colors." },
+		{ "Step3", "Visit Zork", "Talk to Zork for starter brushes and daily quests." },
+	}) do
+		local step =
+			frame(steps, data[1], UDim2.fromOffset(18, 44), UDim2.new(1, -36, 1, -104), Color3.fromRGB(255, 255, 255))
+		step.LayoutOrder = index
+		step.Visible = index == 1
+		text(step, "Heading", data[2], UDim2.fromOffset(22, 18), UDim2.new(1, -44, 0, 34), 24)
+		local body = text(step, "Body", data[3], UDim2.fromOffset(22, 62), UDim2.new(1, -44, 0, 88), 18)
+		body.Font = Enum.Font.GothamBold
+		body.TextWrapped = true
+		body.TextYAlignment = Enum.TextYAlignment.Top
+		body.TextStrokeTransparency = 1
+	end
+	button(content, "BackButton", "BACK", UDim2.new(0, 18, 1, -46), UDim2.fromOffset(140, 32), DISABLED)
+	button(content, "NextButton", "NEXT", UDim2.new(1, -158, 1, -46), UDim2.fromOffset(140, 32), GREEN)
+	return window
 end
 
 local function getSettingsContent()
@@ -1800,13 +2358,7 @@ local function getWindowContent(windowName)
 		return content
 	end
 
-	return frame(
-		window,
-		"Content",
-		UDim2.fromOffset(22, 82),
-		UDim2.new(1, -44, 1, -108),
-		Color3.fromRGB(244, 248, 252)
-	)
+	return frame(window, "Content", UDim2.fromOffset(22, 82), UDim2.new(1, -44, 1, -108), Color3.fromRGB(244, 248, 252))
 end
 
 function Builder.UpdateSettingsWindow()
@@ -1821,7 +2373,9 @@ function Builder.UpdateSettingsWindow()
 
 	local content = getSettingsContent()
 	if not content then
-		warn("StudioMenuWindowsBuilder.UpdateSettingsWindow could not find StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows.SettingsWindow.Content.")
+		warn(
+			"StudioMenuWindowsBuilder.UpdateSettingsWindow could not find StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows.SettingsWindow.Content."
+		)
 		return
 	end
 
@@ -1868,7 +2422,9 @@ function Builder.UpdateShopWindow()
 		windowsFolder = existingShopWindow.Parent
 	end
 	if not windowsFolder then
-		warn("StudioMenuWindowsBuilder.UpdateShopWindow could not find a ShopWindow or Windows folder under StarterGui.")
+		warn(
+			"StudioMenuWindowsBuilder.UpdateShopWindow could not find a ShopWindow or Windows folder under StarterGui."
+		)
 		return
 	end
 
@@ -1937,12 +2493,41 @@ function Builder.UpdateWorldsWindow()
 		windowsFolder = existingWorldsWindow.Parent
 	end
 	if not windowsFolder then
-		warn("StudioMenuWindowsBuilder.UpdateWorldsWindow could not find a WorldsWindow or Windows folder under StarterGui.")
+		warn(
+			"StudioMenuWindowsBuilder.UpdateWorldsWindow could not find a WorldsWindow or Windows folder under StarterGui."
+		)
 		return
 	end
 
 	makeWorldsWindow(windowsFolder)
 	print("StudioMenuWindowsBuilder: updated WorldsWindow sector select layout.")
+end
+
+function Builder.UpdateZorkWindows()
+	if not RunService:IsStudio() then
+		warn("StudioMenuWindowsBuilder.UpdateZorkWindows can only run in Roblox Studio.")
+		return
+	end
+	if RunService:IsRunning() then
+		warn("StudioMenuWindowsBuilder.UpdateZorkWindows should be run in edit mode, not during Play.")
+		return
+	end
+
+	local root = StarterGui:FindFirstChild("ClientUIRoot")
+	local mainHud = root and root:FindFirstChild("MainHUD")
+	local modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows")
+	local windowsFolder = modalWindows and modalWindows:FindFirstChild("Windows")
+	if not windowsFolder then
+		warn(
+			"StudioMenuWindowsBuilder.UpdateZorkWindows could not find StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows."
+		)
+		return
+	end
+
+	makeZorkDialogueWindow(windowsFolder)
+	makeBrushShopWindow(windowsFolder)
+	makeTutorialWindow(windowsFolder)
+	print("StudioMenuWindowsBuilder: updated editable Zork, BrushShop, and Tutorial windows.")
 end
 
 function Builder.Build()
@@ -1979,6 +2564,8 @@ function Builder.Build()
 	local windowsFolder = findOrCreate(modalWindows, "Folder", "Windows")
 	makeInventory(windowsFolder)
 	makeShopWindow(windowsFolder)
+	makeZorkDialogueWindow(windowsFolder)
+	makeBrushShopWindow(windowsFolder)
 	local _, upgradesContent = makeWindow(windowsFolder, "UpgradesWindow", "UPGRADES", { "Player", "Colors", "Rank" })
 	makeCardGrid(upgradesContent, { "Walk Speed", "Brush Power", "Coin Boost", "Gem Luck" })
 	local _, settingsContent = makeWindow(windowsFolder, "SettingsWindow", "SETTINGS", {})
@@ -1986,10 +2573,12 @@ function Builder.Build()
 	local _, codesContent = makeWindow(windowsFolder, "CodesWindow", "CODES", {})
 	makeCodesContent(codesContent)
 	local _, tradeContent = makeWindow(windowsFolder, "TradeWindow", "TRADE", {})
-	text(tradeContent, "ComingSoon", "Trading is coming soon!", UDim2.fromScale(0, 0.35), UDim2.fromScale(1, 0.18), 28).TextXAlignment = Enum.TextXAlignment.Center
+	text(tradeContent, "ComingSoon", "Trading is coming soon!", UDim2.fromScale(0, 0.35), UDim2.fromScale(1, 0.18), 28).TextXAlignment =
+		Enum.TextXAlignment.Center
 	makeWorldsWindow(windowsFolder)
 	local _, questsContent = makeWindow(windowsFolder, "DailyQuestsWindow", "DAILY QUESTS", {})
 	makeCardGrid(questsContent, { "Clean Color Spills", "Earn Coins", "Hatch Colors" })
+	makeTutorialWindow(windowsFolder)
 
 	print("StudioMenuWindowsBuilder: editable UI created at StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows")
 end

@@ -17,6 +17,9 @@ local WINDOW_NAMES = {
 	Worlds = "WorldsWindow",
 	DailyQuests = "DailyQuestsWindow",
 	Codes = "CodesWindow",
+	BrushShop = "BrushShopWindow",
+	ZorkDialogue = "ZorkDialogueWindow",
+	Tutorial = "TutorialWindow",
 }
 
 local BOTTOM_BUTTONS = {
@@ -121,9 +124,11 @@ local function tweenButtonScale(guiObject, scaleValue, duration, easingStyle)
 	end
 
 	local scale = getOrCreateScale(guiObject)
-	TweenService:Create(scale, TweenInfo.new(duration or 0.1, easingStyle or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Scale = scaleValue,
-	}):Play()
+	TweenService
+		:Create(scale, TweenInfo.new(duration or 0.1, easingStyle or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Scale = scaleValue,
+		})
+		:Play()
 end
 
 local function bindButtonReaction(guiObject)
@@ -142,13 +147,19 @@ local function bindButtonReaction(guiObject)
 	end)
 
 	guiObject.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if
+			input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
 			tweenButtonScale(guiObject, 0.92, 0.06)
 		end
 	end)
 
 	guiObject.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if
+			input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
 			tweenButtonScale(guiObject, 1.06, 0.1, Enum.EasingStyle.Back)
 			task.delay(0.1, function()
 				if guiObject.Parent then
@@ -191,7 +202,10 @@ local function connectPress(guiObject, callback, key)
 	else
 		guiObject.Active = true
 		guiObject.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			if
+				input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch
+			then
 				run()
 			end
 		end)
@@ -319,7 +333,10 @@ end
 local function openWindow(key)
 	local window = windows[key]
 	if not window then
-		warnOnce("missing-window-" .. tostring(key), "WindowButtonController: missing window " .. tostring(WINDOW_NAMES[key] or key))
+		warnOnce(
+			"missing-window-" .. tostring(key),
+			"WindowButtonController: missing window " .. tostring(WINDOW_NAMES[key] or key)
+		)
 		return
 	end
 
@@ -354,7 +371,10 @@ local function openWindowByName(windowName)
 			return
 		end
 	end
-	warnOnce("unknown-request-" .. tostring(windowName), "WindowButtonController: unknown requested window " .. tostring(windowName))
+	warnOnce(
+		"unknown-request-" .. tostring(windowName),
+		"WindowButtonController: unknown requested window " .. tostring(windowName)
+	)
 end
 
 for key, windowName in pairs(WINDOW_NAMES) do
@@ -388,7 +408,10 @@ for key, windowName in pairs(WINDOW_NAMES) do
 			end
 		end)
 	else
-		warnOnce("missing-window-" .. key, "WindowButtonController: missing MainHUD.ModalWindows.Windows." .. windowName)
+		warnOnce(
+			"missing-window-" .. key,
+			"WindowButtonController: missing MainHUD.ModalWindows.Windows." .. windowName
+		)
 	end
 end
 

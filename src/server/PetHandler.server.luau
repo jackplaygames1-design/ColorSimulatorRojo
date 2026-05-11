@@ -4,32 +4,36 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
-local PetData   = require(ReplicatedStorage:WaitForChild("PetData"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
+local ColorEffectHandler = require(script.Parent:WaitForChild("ColorEffectHandler"))
+local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
 local ColorPersonalityData = require(ReplicatedStorage:WaitForChild("ColorPersonalityData"))
 local ColorTraitData = require(ReplicatedStorage:WaitForChild("ColorTraitData"))
-local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
 local GroupRewardsService = require(script.Parent:WaitForChild("GroupRewardsService"))
-local ColorEffectHandler = require(script.Parent:WaitForChild("ColorEffectHandler"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 
 -- Load PetTraits safely
 local PetTraits = nil
 local Modules = ReplicatedStorage:FindFirstChild("Modules")
 if Modules then
 	local pt = Modules:FindFirstChild("PetTraits")
-	if pt then PetTraits = require(pt) end
+	if pt then
+		PetTraits = require(pt)
+	end
 end
-if not PetTraits then warn("PetHandler: PetTraits module not found!") end
+if not PetTraits then
+	warn("PetHandler: PetTraits module not found!")
+end
 
-local Events          = ReplicatedStorage:WaitForChild("Events")
-local hatchEvent      = Events:WaitForChild("HatchEgg")
-local equipEvent      = Events:WaitForChild("EquipPet")
-local lockPetEvent    = Events:WaitForChild("LockPet")
-local deletePetEvent  = Events:WaitForChild("DeletePet")
-local mergeEvent      = Events:WaitForChild("MergePet")
-local petAtkEvent     = Events:WaitForChild("PetAttack")
+local Events = ReplicatedStorage:WaitForChild("Events")
+local hatchEvent = Events:WaitForChild("HatchEgg")
+local equipEvent = Events:WaitForChild("EquipPet")
+local lockPetEvent = Events:WaitForChild("LockPet")
+local deletePetEvent = Events:WaitForChild("DeletePet")
+local mergeEvent = Events:WaitForChild("MergePet")
+local petAtkEvent = Events:WaitForChild("PetAttack")
 local petBreakRewardEvent = Events:FindFirstChild("PetBreakReward")
 if not petBreakRewardEvent then
 	petBreakRewardEvent = Instance.new("RemoteEvent")
@@ -69,7 +73,7 @@ local DEBUG_LOGS = RunService:IsStudio()
 -- inventory: { [player] = { [variantKey] = { petId, stackAmount, traitId, mutationId } } }
 -- equipped:  { [player] = { variantKey, ... } }
 local playerInventory = {}
-local playerEquipped  = {}
+local playerEquipped = {}
 local playerLocked = {}
 local lastMergeAt = {}
 local hatchState = {}
@@ -207,7 +211,10 @@ end
 local function getEggPromptDistance(part)
 	local prompt = part:FindFirstChildWhichIsA("ProximityPrompt", true)
 	if prompt then
-		return math.max(DEFAULT_EGG_HATCH_DISTANCE, tonumber(prompt.MaxActivationDistance) or DEFAULT_EGG_HATCH_DISTANCE)
+		return math.max(
+			DEFAULT_EGG_HATCH_DISTANCE,
+			tonumber(prompt.MaxActivationDistance) or DEFAULT_EGG_HATCH_DISTANCE
+		)
 	end
 	return DEFAULT_EGG_HATCH_DISTANCE
 end
@@ -235,11 +242,14 @@ local function isPlayerNearEgg(player, eggId)
 	end
 
 	if DEBUG_LOGS then
-		warn("PetHandler: blocked hatch for " .. player.Name
-			.. "; egg distance="
-			.. (closestDistance < math.huge and string.format("%.1f", closestDistance) or "missing")
-			.. " allowed="
-			.. string.format("%.1f", closestAllowedDistance))
+		warn(
+			"PetHandler: blocked hatch for "
+				.. player.Name
+				.. "; egg distance="
+				.. (closestDistance < math.huge and string.format("%.1f", closestDistance) or "missing")
+				.. " allowed="
+				.. string.format("%.1f", closestAllowedDistance)
+		)
 	end
 	return false
 end
@@ -407,7 +417,14 @@ local function buildEntry(variantKey, data)
 		return nil
 	end
 
-	local entry = PetData.buildPetEntry(data.petId, data.stackAmount, data.isShiny, data.personalityId, data.mutationId, data.traitId)
+	local entry = PetData.buildPetEntry(
+		data.petId,
+		data.stackAmount,
+		data.isShiny,
+		data.personalityId,
+		data.mutationId,
+		data.traitId
+	)
 	if entry then
 		entry.variantKey = variantKey or entry.variantKey
 		local trait = ColorTraitData.get(data.traitId)
@@ -578,12 +595,16 @@ end
 -- ========================
 local function syncPetFolder(player, dirtyReason)
 	local petFolder = player:FindFirstChild("PetData")
-	if not petFolder then return end
-	if not playerInventory[player] or not playerEquipped[player] then return end
+	if not petFolder then
+		return
+	end
+	if not playerInventory[player] or not playerEquipped[player] then
+		return
+	end
 	repairOwnerRainbowPetInMemory(player)
 	sanitizeEquippedList(player)
 
-	local invVal      = petFolder:FindFirstChild("Inventory")
+	local invVal = petFolder:FindFirstChild("Inventory")
 	local equippedVal = petFolder:FindFirstChild("Equipped")
 	local lockedVal = petFolder:FindFirstChild("Locked")
 
@@ -593,7 +614,22 @@ local function syncPetFolder(player, dirtyReason)
 			-- Format: "variantKey:petId:stackAmount:traitId:shiny:personalityId:mutationId"
 			local traitStr = PetData.normalizeTraitId(data.traitId)
 			local shinyStr = data.isShiny and "shiny" or "normal"
-			table.insert(parts, tostring(variantKey) .. ":" .. data.petId .. ":" .. data.stackAmount .. ":" .. traitStr .. ":" .. shinyStr .. ":" .. (data.personalityId or "Neutral") .. ":" .. (data.mutationId or "None"))
+			table.insert(
+				parts,
+				tostring(variantKey)
+					.. ":"
+					.. data.petId
+					.. ":"
+					.. data.stackAmount
+					.. ":"
+					.. traitStr
+					.. ":"
+					.. shinyStr
+					.. ":"
+					.. (data.personalityId or "Neutral")
+					.. ":"
+					.. (data.mutationId or "None")
+			)
 		end
 		invVal.Value = table.concat(parts, ",")
 	end
@@ -703,7 +739,9 @@ end
 -- ========================
 local function parseInventory(str)
 	local inv = {}
-	if not str or str == "" then return inv end
+	if not str or str == "" then
+		return inv
+	end
 	for _, part in ipairs(string.split(str, ",")) do
 		local segments = string.split(part, ":")
 		local variantKey
@@ -718,7 +756,7 @@ local function parseInventory(str)
 			stackIndex = 3
 		end
 
-		local amt      = tonumber(segments[stackIndex]) or 1
+		local amt = tonumber(segments[stackIndex]) or 1
 		local traitId = PetData.normalizeTraitId(segments[stackIndex + 1])
 		local shinyStr = segments[stackIndex + 2] or "normal"
 		local personalityId = PetData.normalizePersonalityId(segments[stackIndex + 3] or "Neutral")
@@ -748,7 +786,7 @@ end
 -- ========================
 Players.PlayerAdded:Connect(function(player)
 	playerInventory[player] = {}
-	playerEquipped[player]  = {}
+	playerEquipped[player] = {}
 	playerLocked[player] = {}
 
 	if player:GetAttribute("DataManagerReady") ~= true then
@@ -759,10 +797,12 @@ Players.PlayerAdded:Connect(function(player)
 	end
 
 	local petFolder = player:WaitForChild("PetData", 10)
-	if not petFolder then return end
+	if not petFolder then
+		return
+	end
 
-	local invVal      = petFolder:WaitForChild("Inventory", 5)
-	local equippedVal = petFolder:WaitForChild("Equipped",  5)
+	local invVal = petFolder:WaitForChild("Inventory", 5)
+	local equippedVal = petFolder:WaitForChild("Equipped", 5)
 	local lockedVal = petFolder:FindFirstChild("Locked")
 	if not lockedVal then
 		lockedVal = Instance.new("StringValue")
@@ -820,7 +860,7 @@ end)
 Players.PlayerRemoving:Connect(function(player)
 	syncPetFolder(player, "player-removing")
 	playerInventory[player] = nil
-	playerEquipped[player]  = nil
+	playerEquipped[player] = nil
 	playerLocked[player] = nil
 	lastMergeAt[player] = nil
 	hatchState[player] = nil
@@ -877,19 +917,7 @@ local function clearHatchStateLater(player, state, delaySeconds)
 end
 
 local function isTutorialFirstHatch(player, eggId)
-	if eggId ~= "ColorEgg" then
-		return false
-	end
-
-	local folder = player and player:FindFirstChild("TutorialObjectives")
-	local stage = folder and folder:FindFirstChild("Stage")
-	local completed = folder and folder:FindFirstChild("TutorialCompleted")
-	local hatched = folder and folder:FindFirstChild("ColorsHatched")
-
-	return stage
-		and stage.Value == "HatchFirstColor"
-		and (not completed or completed.Value ~= true)
-		and (not hatched or hatched.Value < 1)
+	return false
 end
 
 local function getEggWorldIndex(egg)
@@ -910,15 +938,13 @@ local function getHighestUnlockedWorldIndex(player)
 end
 
 local function isFeatureUnlocked(player, featureName)
-	local requiredIndex = GameBalance.getFeatureUnlockWorldIndex
-		and GameBalance.getFeatureUnlockWorldIndex(featureName)
+	local requiredIndex = GameBalance.getFeatureUnlockWorldIndex and GameBalance.getFeatureUnlockWorldIndex(featureName)
 		or 1
 	return getHighestUnlockedWorldIndex(player) >= requiredIndex
 end
 
 local function getFeatureLockedMessage(featureName)
-	return GameBalance.getFeatureUnlockText
-		and GameBalance.getFeatureUnlockText(featureName)
+	return GameBalance.getFeatureUnlockText and GameBalance.getFeatureUnlockText(featureName)
 		or ("Unlock " .. tostring(featureName) .. " later.")
 end
 
@@ -1117,7 +1143,9 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 		rollbackHatchInventory()
 		hatchState[player] = nil
 		failHatch("Inventory update failed. Try again.", 1.5)
-		warn("PetHandler: hatch rolled " .. tostring(petId) .. " but failed to build inventory entry for " .. player.Name)
+		warn(
+			"PetHandler: hatch rolled " .. tostring(petId) .. " but failed to build inventory entry for " .. player.Name
+		)
 		return
 	end
 
@@ -1143,12 +1171,19 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	entry.traitsUnlockedForEgg = canRollTraits
 	entry.mutationsUnlockedForEgg = canRollMutations
 	if DEBUG_LOGS then
-		print("Hatched Color " .. tostring(entry.displayName or petId)
-			.. " | Trait: " .. tostring(entry.traitName)
-			.. " | Mutation: " .. tostring(entry.mutationName)
-			.. " | Egg: " .. tostring(eggId)
-			.. " | Cost: " .. tostring(cost)
-			.. (tutorialFreeHatch and " | Tutorial free hatch" or ""))
+		print(
+			"Hatched Color "
+				.. tostring(entry.displayName or petId)
+				.. " | Trait: "
+				.. tostring(entry.traitName)
+				.. " | Mutation: "
+				.. tostring(entry.mutationName)
+				.. " | Egg: "
+				.. tostring(eggId)
+				.. " | Cost: "
+				.. tostring(cost)
+				.. (tutorialFreeHatch and " | Tutorial free hatch" or "")
+		)
 	end
 
 	syncPetFolder(player, "hatch-color")
@@ -1177,7 +1212,7 @@ end
 --   EQUIP / UNEQUIP
 -- ========================
 local function handleEquipPetAction(player, action, variantKey)
-	local equipped  = playerEquipped[player]
+	local equipped = playerEquipped[player]
 	local inventory = playerInventory[player]
 	if not equipped or not inventory then
 		return false, "Color inventory is not ready."
@@ -1221,7 +1256,12 @@ local function handleEquipPetAction(player, action, variantKey)
 
 	syncPetFolder(player, "equip-color")
 	sendState(player)
-	if action == "equip" and #equipped > 0 and tutorialColorEquippedEvent and tutorialColorEquippedEvent:IsA("BindableEvent") then
+	if
+		action == "equip"
+		and #equipped > 0
+		and tutorialColorEquippedEvent
+		and tutorialColorEquippedEvent:IsA("BindableEvent")
+	then
 		tutorialColorEquippedEvent:Fire(player, variantKey)
 	end
 	return true, action == "equip" and "Color equipped." or "Color unequipped."
@@ -1258,7 +1298,9 @@ local function handleLockPetAction(player, variantKey, locked)
 	syncPetFolder(player, "lock-color")
 	sendState(player)
 	lockPetEvent:FireClient(player, true, resolvedKey, playerLocked[player][resolvedKey] == true)
-	return true, playerLocked[player][resolvedKey] == true and "Color locked." or "Color unlocked.", playerLocked[player][resolvedKey] == true
+	return true,
+		playerLocked[player][resolvedKey] == true and "Color locked." or "Color unlocked.",
+		playerLocked[player][resolvedKey] == true
 end
 
 lockPetEvent.OnServerEvent:Connect(function(player, variantKey, locked)
@@ -1321,7 +1363,9 @@ end
 -- ========================
 mergeEvent.OnServerEvent:Connect(function(player, variantKey)
 	local inventory = playerInventory[player]
-	if not inventory then return end
+	if not inventory then
+		return
+	end
 
 	if not isFeatureUnlocked(player, "Merge") then
 		mergeEvent:FireClient(player, false, variantKey, getFeatureLockedMessage("Merge"))
@@ -1362,18 +1406,29 @@ end)
 --   GET PET STATS (with trait multipliers)
 -- ========================
 local function getPlayerPetStats(player)
-	local stats = { breakPower = 0, colorMult = 1.0, coinMult = 1.0, speedMult = 1.0, pickupRangeMult = 1.0, luckBonus = 0 }
-	local equipped  = playerEquipped[player]
+	local stats =
+		{ breakPower = 0, colorMult = 1.0, coinMult = 1.0, speedMult = 1.0, pickupRangeMult = 1.0, luckBonus = 0 }
+	local equipped = playerEquipped[player]
 	local inventory = playerInventory[player]
-	if not equipped or not inventory then return stats end
+	if not equipped or not inventory then
+		return stats
+	end
 	local personalityStats = getEquippedPersonalityStats(player)
 	local colorBonus = 0
 	local coinBonus = 0
 
 	for _, variantKey in ipairs(equipped) do
-		local data  = inventory[variantKey]
+		local data = inventory[variantKey]
 		local stack = data and data.stackAmount or 1
-		local entry = data and PetData.buildPetEntry(data.petId, stack, data.isShiny, data.personalityId, data.mutationId, data.traitId)
+		local entry = data
+			and PetData.buildPetEntry(
+				data.petId,
+				stack,
+				data.isShiny,
+				data.personalityId,
+				data.mutationId,
+				data.traitId
+			)
 		if entry then
 			local effPower = entry.finalPower
 
@@ -1399,7 +1454,8 @@ local function getPlayerPetStats(player)
 		stats.colorMult *= playerPower.Value
 	end
 
-	local coinMultiplier = upgrades and (upgrades:FindFirstChild("CoinMultiplier") or upgrades:FindFirstChild("ColorMultiplier"))
+	local coinMultiplier = upgrades
+		and (upgrades:FindFirstChild("CoinMultiplier") or upgrades:FindFirstChild("ColorMultiplier"))
 	if coinMultiplier then
 		stats.coinMult *= coinMultiplier.Value
 	end
@@ -1410,7 +1466,7 @@ end
 -- ========================
 --   BREAKABLE TRACKING
 -- ========================
-local objectHealth    = {}
+local objectHealth = {}
 local objectMaxHealth = {}
 local trackedBreakables = {}
 
@@ -1449,13 +1505,15 @@ local function registerObject(obj)
 		objectMaxHealth[obj] = data.health
 	end
 end
-for _, obj in ipairs(workspace:GetDescendants()) do registerObject(obj) end
+for _, obj in ipairs(workspace:GetDescendants()) do
+	registerObject(obj)
+end
 workspace.DescendantAdded:Connect(registerObject)
 
 -- ========================
 --   PET AUTO-ATTACK LOOP
 -- ========================
-local PET_ATTACK_RANGE    = tonumber(GameBalance.Pets and GameBalance.Pets.AttackRange) or 16
+local PET_ATTACK_RANGE = tonumber(GameBalance.Pets and GameBalance.Pets.AttackRange) or 16
 local PET_ATTACK_INTERVAL = tonumber(GameBalance.Pets and GameBalance.Pets.AttackInterval) or 0.65
 local PET_DAMAGE_SCALE = tonumber(GameBalance.Pets and GameBalance.Pets.DamageScale) or 0.35
 local MIN_PET_DAMAGE_FRACTION = tonumber(GameBalance.Pets and GameBalance.Pets.MinDamageFraction) or 0.08
@@ -1464,9 +1522,7 @@ local lastAttack = {}
 local function isPointInsideZone(part, worldPosition, margin)
 	local localPoint = part.CFrame:PointToObjectSpace(worldPosition)
 	local half = part.Size * 0.5 + Vector3.new(margin or 0, margin or 0, margin or 0)
-	return math.abs(localPoint.X) <= half.X
-		and math.abs(localPoint.Y) <= half.Y
-		and math.abs(localPoint.Z) <= half.Z
+	return math.abs(localPoint.X) <= half.X and math.abs(localPoint.Y) <= half.Y and math.abs(localPoint.Z) <= half.Z
 end
 
 local function getPhysicalZoneColors(root)
@@ -1492,7 +1548,8 @@ local function canPetAttackBreakable(player, obj, health, root, unlockedColors, 
 	end
 
 	local colorType = obj:GetAttribute("ColorType")
-	if unlockedColors
+	if
+		unlockedColors
 		and colorType
 		and not ColorData.isColorUnlocked(unlockedColors.Value, colorType)
 		and not (physicalZoneColors and physicalZoneColors[colorType])
@@ -1508,7 +1565,8 @@ local function getPriorityTarget(player, root, unlockedColors, physicalZoneColor
 	local bestSetAt = -math.huge
 	local now = os.clock()
 	for obj, health in pairs(objectHealth) do
-		if obj:GetAttribute("PetPriorityOwnerUserId") == player.UserId
+		if
+			obj:GetAttribute("PetPriorityOwnerUserId") == player.UserId
 			and (tonumber(obj:GetAttribute("PetPriorityUntil")) or 0) > now
 			and canPetAttackBreakable(player, obj, health, root, unlockedColors, PET_ATTACK_RANGE, physicalZoneColors)
 		then
@@ -1526,13 +1584,21 @@ RunService.Heartbeat:Connect(function()
 	local now = tick()
 	for _, player in ipairs(Players:GetPlayers()) do
 		local char = player.Character
-		if not char then continue end
+		if not char then
+			continue
+		end
 		local root = char:FindFirstChild("HumanoidRootPart")
-		if not root then continue end
-		if (now - (lastAttack[player] or 0)) < PET_ATTACK_INTERVAL then continue end
+		if not root then
+			continue
+		end
+		if (now - (lastAttack[player] or 0)) < PET_ATTACK_INTERVAL then
+			continue
+		end
 
 		local petStats = getPlayerPetStats(player)
-		if petStats.breakPower <= 0 then continue end
+		if petStats.breakPower <= 0 then
+			continue
+		end
 
 		local storage = player:FindFirstChild("ColorStorage")
 		local unlockedColors = storage and storage:FindFirstChild("UnlockedColors")
@@ -1542,7 +1608,17 @@ RunService.Heartbeat:Connect(function()
 		local nearestDist = PET_ATTACK_RANGE
 		if not nearest then
 			for obj, health in pairs(objectHealth) do
-				if canPetAttackBreakable(player, obj, health, root, unlockedColors, PET_ATTACK_RANGE, physicalZoneColors) then
+				if
+					canPetAttackBreakable(
+						player,
+						obj,
+						health,
+						root,
+						unlockedColors,
+						PET_ATTACK_RANGE,
+						physicalZoneColors
+					)
+				then
 					local dist = (root.Position - obj.Position).Magnitude
 					if dist < nearestDist then
 						nearest = obj
@@ -1555,12 +1631,16 @@ RunService.Heartbeat:Connect(function()
 		if nearest then
 			lastAttack[player] = now
 			local breakableType = nearest:GetAttribute("BreakableType")
-			local colorType     = nearest:GetAttribute("ColorType")
-			local colorData     = ColorData.Breakables[breakableType]
+			local colorType = nearest:GetAttribute("ColorType")
+			local colorData = ColorData.Breakables[breakableType]
 			if colorData and (not objectMaxHealth[nearest] or objectMaxHealth[nearest] <= 0) then
 				objectMaxHealth[nearest] = colorData.health
 			end
-			if colorData and (not objectHealth[nearest] or objectHealth[nearest] <= 0) and not nearest:GetAttribute("IsCollected") then
+			if
+				colorData
+				and (not objectHealth[nearest] or objectHealth[nearest] <= 0)
+				and not nearest:GetAttribute("IsCollected")
+			then
 				objectHealth[nearest] = colorData.health
 			end
 
@@ -1580,12 +1660,15 @@ RunService.Heartbeat:Connect(function()
 			if objectHealth[nearest] <= 0 and colorData then
 				local baseReward = getBaseBreakableReward(nearest, colorData)
 				local areaMult = tonumber(nearest:GetAttribute("RewardMultiplier")) or 1
-				local reward = math.max(1, math.floor(
-					baseReward
-					* areaMult
-					* petStats.colorMult
-					* getInstantCoinMultiplier(player, colorType, petStats)
-				))
+				local reward = math.max(
+					1,
+					math.floor(
+						baseReward
+							* areaMult
+							* petStats.colorMult
+							* getInstantCoinMultiplier(player, colorType, petStats)
+					)
+				)
 				petBreakRewardEvent:FireClient(player, {
 					Amount = reward,
 					ColorType = colorType,
@@ -1602,7 +1685,7 @@ RunService.Heartbeat:Connect(function()
 				nearest:SetAttribute("PetPriorityUntil", nil)
 				nearest:SetAttribute("PetPrioritySetAt", nil)
 				nearest.Transparency = 1
-				nearest.CanCollide   = false
+				nearest.CanCollide = false
 				objectHealth[nearest] = 0
 
 				task.delay(5, function()
@@ -1611,13 +1694,15 @@ RunService.Heartbeat:Connect(function()
 						if data then
 							local ci = ColorData.Colors[nearest:GetAttribute("ColorType")]
 							local respawnColorType = nearest:GetAttribute("ColorType")
-							if ci then nearest.Color = getStoredColor(nearest, respawnColorType) end
-							objectHealth[nearest]    = data.health
+							if ci then
+								nearest.Color = getStoredColor(nearest, respawnColorType)
+							end
+							objectHealth[nearest] = data.health
 							objectMaxHealth[nearest] = data.health
-							nearest.Transparency     = 0
-							nearest.CanCollide       = false
-							nearest.CanTouch         = false
-							nearest.CanQuery         = true
+							nearest.Transparency = 0
+							nearest.CanCollide = false
+							nearest.CanTouch = false
+							nearest.CanQuery = true
 							nearest:SetAttribute("IsCollected", false)
 							nearest:SetAttribute("Respawning", false)
 							nearest:SetAttribute("PetPriorityOwnerUserId", nil)
