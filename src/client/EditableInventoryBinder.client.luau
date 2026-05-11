@@ -56,34 +56,19 @@ end
 local function setText(object, value)
 	if object and (object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox")) then
 		object.Text = tostring(value or "")
-		object.Visible = true
-		object.TextTransparency = 0
-		if object.Parent and object.Parent:IsA("GuiObject") then
-			object.ZIndex = math.max(object.ZIndex, object.Parent.ZIndex + 1)
-		end
 	end
 end
 
 local function setDetailText(object, value)
 	setText(object, value)
-	if object and (object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox")) then
-		object.TextColor3 = Color3.fromRGB(38, 36, 52)
-		object.TextStrokeTransparency = math.min(object.TextStrokeTransparency, 0.65)
-		object.TextWrapped = true
-		if object:IsA("TextLabel") or object:IsA("TextButton") then
-			object.TextScaled = true
-		end
-	end
 end
 
 local function setButtonEnabled(button, enabled)
 	if not button then
 		return
 	end
-	button.Visible = true
 	button.Active = enabled == true
 	button.AutoButtonColor = enabled == true
-	button.BackgroundTransparency = enabled and 0 or 0.35
 end
 
 local function findDescendantByNames(parent, names)
@@ -110,20 +95,6 @@ local function findChildByNames(parent, names)
 		end
 	end
 	return findDescendantByNames(parent, names)
-end
-
-local function raiseGuiObject(object, zIndex)
-	if not object or not object:IsA("GuiObject") then
-		return
-	end
-	object.Visible = true
-	object.ZIndex = math.max(object.ZIndex, zIndex or 1)
-	for _, descendant in ipairs(object:GetDescendants()) do
-		if descendant:IsA("GuiObject") then
-			descendant.Visible = true
-			descendant.ZIndex = math.max(descendant.ZIndex, object.ZIndex + 1)
-		end
-	end
 end
 
 local function connectGuiClick(guiObject, callback)
@@ -269,7 +240,6 @@ local function applyInventoryIcon(button, iconName)
 	icon:SetAttribute("ExpectedIconSheet", InventoryIconConfig.SheetSourceFile or "")
 
 	if not imageId then
-		icon.Visible = false
 		warnIconOnce(
 			"missing-icon-" .. iconName,
 			"EditableInventoryBinder: paste a Roblox image id into InventoryIconConfig for " .. iconName
@@ -277,11 +247,7 @@ local function applyInventoryIcon(button, iconName)
 		return
 	end
 
-	icon.Visible = true
-	icon.BackgroundTransparency = 1
 	icon.Image = imageId
-	icon.ImageTransparency = 0
-	icon.ScaleType = Enum.ScaleType.Fit
 	if usesSheet then
 		icon.ImageRectOffset = spec.RectOffset or Vector2.new(0, 0)
 		icon.ImageRectSize = spec.RectSize or Vector2.new(0, 0)
@@ -357,21 +323,13 @@ local function prepareStructure()
 end
 
 local function clearPreview(preview)
-	if not preview then
-		return
-	end
-	for _, child in ipairs(preview:GetChildren()) do
-		if child.Name == "PreviewViewport" or child.Name == "PreviewImage" or child.Name == "PreviewText" or child.Name == "IconText" then
-			child:Destroy()
-		end
-	end
+	return preview
 end
 
 local function setExistingPreviewImage(preview, item)
 	if preview:IsA("ImageLabel") or preview:IsA("ImageButton") then
 		if item.IconImage and item.IconImage ~= "" then
 			preview.Image = item.IconImage
-			preview.ImageTransparency = 0
 		end
 		if item.IconColor then
 			preview.ImageColor3 = item.IconColor
@@ -383,12 +341,10 @@ local function setExistingPreviewImage(preview, item)
 	if image and (image:IsA("ImageLabel") or image:IsA("ImageButton")) then
 		if item.IconImage and item.IconImage ~= "" then
 			image.Image = item.IconImage
-			image.ImageTransparency = 0
 		end
 		if item.IconColor then
 			image.ImageColor3 = item.IconColor
 		end
-		image.Visible = true
 		return true
 	end
 	return false
@@ -413,16 +369,9 @@ local function paintPreview(preview, item)
 	if not preview or not preview:IsA("GuiObject") then
 		return
 	end
-	preview.Visible = true
-	if preview.Parent and preview.Parent:IsA("GuiObject") then
-		preview.ZIndex = math.max(preview.ZIndex, preview.Parent.ZIndex + 1)
-	end
 	clearPreview(preview)
 	setExistingPreviewImage(preview, item)
 	setExistingPreviewText(preview, item)
-	if item.IconColor then
-		preview.BackgroundColor3 = item.IconColor
-	end
 end
 
 local function makeCard(item, index)
@@ -468,9 +417,6 @@ end
 
 renderDetails = function()
 	local item = selectedItem
-	if ui.detailPanel and ui.detailPanel:IsA("GuiObject") then
-		ui.detailPanel.Visible = true
-	end
 	if not item then
 		clearPreview(ui.bigPreview)
 		setDetailText(ui.selectedName, "Select an Item")
@@ -486,14 +432,6 @@ renderDetails = function()
 		return
 	end
 
-	raiseGuiObject(ui.bigPreview, ui.detailPanel.ZIndex + 2)
-	raiseGuiObject(ui.selectedName, ui.detailPanel.ZIndex + 2)
-	raiseGuiObject(ui.selectedRarity, ui.detailPanel.ZIndex + 2)
-	raiseGuiObject(ui.selectedDescription, ui.detailPanel.ZIndex + 2)
-	raiseGuiObject(ui.statsText, ui.detailPanel.ZIndex + 2)
-	raiseGuiObject(ui.equipButton, ui.detailPanel.ZIndex + 2)
-	raiseGuiObject(ui.lockButton, ui.detailPanel.ZIndex + 2)
-	raiseGuiObject(ui.deleteButton, ui.detailPanel.ZIndex + 2)
 	paintPreview(ui.bigPreview, item)
 	setDetailText(ui.selectedName, item.Name)
 	setDetailText(ui.selectedRarity, item.Rarity or item.Mutation or item.Kind)
