@@ -9,6 +9,8 @@
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateShopWindow()
 -- Upgrades icon refresh:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).ApplyUpgradeIcons()
+-- Gamepass icon refresh:
+-- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).ApplyGamepassIcons()
 -- Worlds-only refresh:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateWorldsWindow()
 local RunService = game:GetService("RunService")
@@ -33,6 +35,7 @@ local RobuxShopConfig = requireFresh(ReplicatedStorage:WaitForChild("RobuxShopCo
 local ColorData = requireFresh(ReplicatedStorage:WaitForChild("ColorData"))
 local GameBalance = requireFresh(ReplicatedStorage:WaitForChild("GameBalance"))
 local UpgradeIconConfig = requireFresh(ReplicatedStorage:WaitForChild("UpgradeIconConfig"))
+local GamepassIconConfig = requireFresh(ReplicatedStorage:WaitForChild("GamepassIconConfig"))
 
 local OUTLINE = Color3.fromRGB(35, 38, 45)
 local TEXT_DARK = Color3.fromRGB(38, 36, 52)
@@ -864,7 +867,80 @@ local function makeIconCircle(parent, name, iconTextValue, color, position, size
 	iconLabel.TextScaled = true
 	iconLabel.TextStrokeTransparency = 0
 	iconLabel.TextStrokeColor3 = OUTLINE
+
+	local iconImage = circle:FindFirstChild("IconImage")
+	if not iconImage or not iconImage:IsA("ImageLabel") then
+		iconImage = Instance.new("ImageLabel")
+		iconImage.Name = "IconImage"
+		iconImage.Parent = circle
+	end
+	iconImage.BackgroundTransparency = 1
+	iconImage.BorderSizePixel = 0
+	iconImage.Position = UDim2.fromOffset(2, 2)
+	iconImage.Size = UDim2.new(1, -4, 1, -4)
+	iconImage.ScaleType = Enum.ScaleType.Fit
+	iconImage.ZIndex = circle.ZIndex + 2
+	iconImage.Image = ""
+	iconImage.Visible = false
 	return circle
+end
+
+local function getShopIconSpec(item)
+	if type(item) ~= "table" then
+		return nil
+	end
+
+	local iconKey = item.iconKey or (GamepassIconConfig.ByShopItemId and GamepassIconConfig.ByShopItemId[item.id])
+	return iconKey and GamepassIconConfig.Icons and GamepassIconConfig.Icons[iconKey] or nil
+end
+
+local function applyShopIcon(iconCircle, item)
+	if not iconCircle or not iconCircle:IsA("GuiObject") then
+		return
+	end
+
+	local spec = getShopIconSpec(item)
+	local iconImage = iconCircle:FindFirstChild("IconImage")
+	local image = spec and tostring(spec.Image or "") or tostring(item and item.iconImage or "")
+	if iconImage and iconImage:IsA("ImageLabel") then
+		iconImage.Image = image
+		iconImage.Visible = image ~= ""
+		iconImage:SetAttribute("GamepassIconKey", item and item.iconKey or "")
+		iconImage:SetAttribute("ExpectedGamepassIconFile", spec and spec.SourceFile or item and item.iconSourceFile or "")
+	end
+
+	local iconText = iconCircle:FindFirstChild("IconText")
+	if iconText and iconText:IsA("TextLabel") then
+		iconText.Visible = image == ""
+	end
+
+	iconCircle:SetAttribute("GamepassIconKey", item and item.iconKey or "")
+	iconCircle:SetAttribute("ExpectedGamepassIconFile", spec and spec.SourceFile or item and item.iconSourceFile or "")
+end
+
+local function applyGamepassIconsToWindow(shopWindow)
+	if not shopWindow then
+		return 0
+	end
+
+	local applied = 0
+	for _, descendant in ipairs(shopWindow:GetDescendants()) do
+		if descendant:IsA("GuiObject") then
+			local shopItemId = descendant:GetAttribute("ShopItemId")
+			local shopItemKind = descendant:GetAttribute("ShopItemKind")
+			local pass = shopItemKind == "Gamepass"
+				and shopItemId
+				and RobuxShopConfig.getGamepass(tostring(shopItemId))
+			if pass then
+				local iconCircle = descendant:FindFirstChild("IconCircle", true)
+				if iconCircle and iconCircle:IsA("GuiObject") then
+					applyShopIcon(iconCircle, pass)
+					applied += 1
+				end
+			end
+		end
+	end
+	return applied
 end
 
 local function scrollingFrame(parent, name, position, size)
@@ -1066,7 +1142,7 @@ local function makeNormalGamepassCard(parent, pass, layoutOrder, compact)
 	applyStroke(card, OUTLINE, 2)
 
 	local iconColor = (pass.color or CYAN):Lerp(Color3.fromRGB(255, 255, 255), 0.35)
-	makeIconCircle(
+	local iconCircle = makeIconCircle(
 		card,
 		"IconCircle",
 		tostring(pass.icon or "?"),
@@ -1075,6 +1151,7 @@ local function makeNormalGamepassCard(parent, pass, layoutOrder, compact)
 		compact and UDim2.fromOffset(42, 42) or UDim2.fromOffset(50, 50),
 		1004
 	)
+	applyShopIcon(iconCircle, pass)
 
 	local title = makeShopText(
 		card,
@@ -1798,6 +1875,27 @@ function Builder.ApplyUpgradeIcons()
 
 	local applied = applyUpgradeIconsToWindow(upgradesWindow)
 	print("StudioMenuWindowsBuilder: applied upgrade icon slots to " .. tostring(applied) .. " cards.")
+end
+
+function Builder.ApplyGamepassIcons()
+	if not RunService:IsStudio() then
+		warn("StudioMenuWindowsBuilder.ApplyGamepassIcons can only run in Roblox Studio.")
+		return
+	end
+	if RunService:IsRunning() then
+		warn("StudioMenuWindowsBuilder.ApplyGamepassIcons should be run in edit mode, not during Play.")
+		return
+	end
+
+	local root = StarterGui:FindFirstChild("ClientUIRoot")
+	local shopWindow = root and root:FindFirstChild("ShopWindow", true)
+	if not shopWindow or not shopWindow:IsA("GuiObject") then
+		warn("StudioMenuWindowsBuilder.ApplyGamepassIcons could not find StarterGui.ClientUIRoot...ShopWindow.")
+		return
+	end
+
+	local applied = applyGamepassIconsToWindow(shopWindow)
+	print("StudioMenuWindowsBuilder: applied gamepass icon slots to " .. tostring(applied) .. " cards.")
 end
 
 function Builder.UpdateWorldsWindow()

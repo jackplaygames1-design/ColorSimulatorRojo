@@ -8,6 +8,8 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
+local iconConfigModule = ReplicatedStorage:FindFirstChild("GamepassIconConfig")
+local GamepassIconConfig = iconConfigModule and require(iconConfigModule) or { Icons = {}, ByShopItemId = {} }
 local Events = ReplicatedStorage:WaitForChild("Events", 30)
 local claimInfinitePackTierEvent = Events and Events:WaitForChild("ClaimInfinitePackTier", 30)
 
