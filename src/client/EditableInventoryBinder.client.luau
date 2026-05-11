@@ -448,7 +448,7 @@ local function clearViewportPreview(viewport)
 	end
 end
 
-local function setStaticPreviewVisible(preview, visible)
+local function setStaticPreviewVisible(preview, visible, includeLooseText)
 	if not preview or not preview:IsA("GuiObject") then
 		return
 	end
@@ -470,8 +470,10 @@ local function setStaticPreviewVisible(preview, visible)
 	}
 
 	for _, descendant in ipairs(scope:GetDescendants()) do
-		if descendant ~= preview and not descendant:IsDescendantOf(preview) and previewNames[descendant.Name] == true and descendant:IsA("GuiObject") then
-			descendant.Visible = visible == true
+		if descendant ~= preview and not descendant:IsDescendantOf(preview) and descendant:IsA("GuiObject") then
+			if previewNames[descendant.Name] == true or (includeLooseText == true and (descendant:IsA("TextLabel") or descendant:IsA("TextButton"))) then
+				descendant.Visible = visible == true
+			end
 		end
 	end
 end
@@ -649,8 +651,9 @@ local function paintPreview(preview, item)
 	end
 	clearPreview(preview)
 	local viewport = findViewportPreview(preview)
-	if mountPetViewport(viewport, item, preview == ui.bigPreview or preview:IsDescendantOf(ui.detailPanel)) then
-		setStaticPreviewVisible(viewport, false)
+	local isDetailsPreview = preview == ui.bigPreview or preview:IsDescendantOf(ui.detailPanel)
+	if mountPetViewport(viewport, item, isDetailsPreview) then
+		setStaticPreviewVisible(viewport, false, not isDetailsPreview)
 		return
 	end
 	if viewport then
