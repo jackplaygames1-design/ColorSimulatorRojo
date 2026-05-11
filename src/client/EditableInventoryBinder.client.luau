@@ -57,6 +57,8 @@ end
 local function setText(object, value)
 	if object and (object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox")) then
 		object.Text = tostring(value or "")
+		object.Visible = true
+		object.TextTransparency = 0
 	end
 end
 
@@ -81,6 +83,76 @@ local function findDescendantByNames(parent, names)
 		end
 	end
 	return nil
+end
+
+local function connectGuiClick(guiObject, callback)
+	if not guiObject or not guiObject:IsA("GuiObject") then
+		return nil
+	end
+
+	guiObject.Active = true
+	if guiObject:IsA("GuiButton") then
+		guiObject.Selectable = true
+		return guiObject.Activated:Connect(callback)
+	end
+
+	guiObject.Selectable = false
+	return guiObject.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			callback()
+		end
+	end)
+end
+
+local function findCardClickTarget(card)
+	if card:IsA("GuiButton") then
+		return card
+	end
+
+	local namedTarget = findDescendantByNames(card, {
+		"SelectButton",
+		"ItemButton",
+		"CardButton",
+		"ClickButton",
+		"Hitbox",
+		"PreviewButton",
+		"PreviewIcon",
+		"Preview",
+		"Icon",
+		"ItemPreview",
+		"PreviewFrame",
+	})
+	if namedTarget and namedTarget:IsA("GuiObject") then
+		return namedTarget
+	end
+
+	return card
+end
+
+local function connectCardSelection(card, callback)
+	local connected = {}
+
+	local function connect(object)
+		if not object:IsA("GuiObject") or connected[object] then
+			return
+		end
+		connected[object] = true
+		local connection = connectGuiClick(object, callback)
+		if connection then
+			table.insert(cardConnections, connection)
+		end
+	end
+
+	connect(card)
+	local preferred = findCardClickTarget(card)
+	if preferred then
+		connect(preferred)
+	end
+	for _, descendant in ipairs(card:GetDescendants()) do
+		if descendant:IsA("GuiObject") then
+			connect(descendant)
+		end
+	end
 end
 
 local function warnIconOnce(key, message)
@@ -245,12 +317,12 @@ local function prepareStructure()
 		return false
 	end
 
-	ui.bigPreview = findDescendantByNames(ui.detailPanel, { "BigPreview", "Preview", "Icon", "ItemPreview" })
+	ui.bigPreview = findDescendantByNames(ui.detailPanel, { "BigPreview", "PreviewIcon", "PreviewImage", "Preview", "Icon", "ItemPreview" })
 	ui.selectedName = findDescendantByNames(ui.detailPanel, { "SelectedName", "Name", "ItemName", "Title", "SelectLabel" })
-	ui.selectedRarity = findDescendantByNames(ui.detailPanel, { "SelectedRarity", "Rarity", "Meta", "ItemMeta" })
+	ui.selectedRarity = findDescendantByNames(ui.detailPanel, { "SelectedRarity", "RarityLabel", "Rarity", "Meta", "ItemMeta" })
 	ui.selectedDescription = findDescendantByNames(ui.detailPanel, { "SelectedDescription", "Description", "ItemDescription" })
 	ui.statsBox = findDescendantByNames(ui.detailPanel, { "StatsBox" })
-	ui.statsText = findDescendantByNames(ui.detailPanel, { "StatsText", "Stats" })
+	ui.statsText = findDescendantByNames(ui.detailPanel, { "StatsText", "StatsLabel", "Stats" })
 	ui.equipButton = findDescendantByNames(ui.detailPanel, { "EquipButton", "UseButton", "PrimaryButton" })
 	ui.lockButton = findDescendantByNames(ui.detailPanel, { "LockButton" })
 	ui.deleteButton = findDescendantByNames(ui.detailPanel, { "DeleteButton" })
@@ -272,6 +344,7 @@ local function paintPreview(preview, item)
 	if not preview or not preview:IsA("GuiObject") then
 		return
 	end
+	preview.Visible = true
 	clearPreview(preview)
 	if item.IconImage and item.IconImage ~= "" then
 		local image = Instance.new("ImageLabel")
@@ -330,7 +403,7 @@ local function makeCard(item, index)
 		card.AutoButtonColor = true
 	end
 
-	local preview = findDescendantByNames(card, { "Preview", "Icon", "ItemPreview", "PreviewFrame" })
+	local preview = findDescendantByNames(card, { "PreviewIcon", "Preview", "Icon", "ItemPreview", "PreviewFrame" })
 	if preview and preview:IsA("GuiObject") then
 		paintPreview(preview, item)
 	end
@@ -347,11 +420,12 @@ local function makeCard(item, index)
 		stroke.Thickness = item.Equipped and 4 or 2
 	end
 
-	local connection = card.Activated:Connect(function()
+	local function selectItem()
 		selectedItem = item
+		print("[EditableInventoryBinder] selected " .. tostring(item.Name or item.Id or "item"))
 		renderDetails()
-	end)
-	table.insert(cardConnections, connection)
+	end
+	connectCardSelection(card, selectItem)
 end
 
 renderDetails = function()

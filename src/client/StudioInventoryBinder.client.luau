@@ -1,5 +1,9 @@
 -- Hooks the editable Studio InventoryWindow without rebuilding the UI.
 -- Works with PreviewSlot frames/buttons and clickable Icon children.
+-- Disabled: EditableInventoryBinder.client.luau is the server-backed owner of InventoryWindow.
+if true then
+	return
+end
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
