@@ -63,6 +63,41 @@ local function setDetailText(object, value)
 	setText(object, value)
 end
 
+local function findTextChildByNames(parent, names)
+	if not parent then
+		return nil
+	end
+	for _, name in ipairs(names) do
+		local found = parent:FindFirstChild(name, true)
+		if found and (found:IsA("TextLabel") or found:IsA("TextBox")) then
+			return found
+		end
+	end
+	return nil
+end
+
+local function setButtonText(button, value)
+	if not button then
+		return
+	end
+	local label = findTextChildByNames(button, {
+		"TextLabel",
+		"Label",
+		"Title",
+		"ButtonText",
+		"ActionText",
+		"Name",
+	})
+	if label then
+		setText(label, value)
+		if button:IsA("TextButton") then
+			button.Text = ""
+		end
+		return
+	end
+	setText(button, value)
+end
+
 local function setButtonEnabled(button, enabled)
 	if not button then
 		return
@@ -352,13 +387,13 @@ end
 
 local function setExistingPreviewText(preview, item)
 	local iconText = item.IconText or string.upper(string.sub(item.Name or item.Id or "IT", 1, 2))
-	if preview:IsA("TextLabel") or preview:IsA("TextButton") then
+	if preview:IsA("TextLabel") then
 		setText(preview, iconText)
 		return true
 	end
 
-	local label = findDescendantByNames(preview, { "PreviewText", "IconText", "Label", "Text" })
-	if label and (label:IsA("TextLabel") or label:IsA("TextButton") or label:IsA("TextBox")) then
+	local label = findTextChildByNames(preview, { "PreviewText", "IconText" })
+	if label then
 		setText(label, iconText)
 		return true
 	end
@@ -423,11 +458,11 @@ renderDetails = function()
 		setDetailText(ui.selectedRarity, "")
 		setDetailText(ui.selectedDescription, "Choose a card to see details.")
 		setDetailText(ui.statsText, "")
-		setText(ui.equipButton, "SELECT")
+		setButtonText(ui.equipButton, "SELECT")
 		setButtonEnabled(ui.equipButton, false)
-		setText(ui.lockButton, "LOCK")
+		setButtonText(ui.lockButton, "LOCK")
 		setButtonEnabled(ui.lockButton, false)
-		setText(ui.deleteButton, "DELETE")
+		setButtonText(ui.deleteButton, "DELETE")
 		setButtonEnabled(ui.deleteButton, false)
 		return
 	end
@@ -439,25 +474,25 @@ renderDetails = function()
 	setDetailText(ui.statsText, table.concat(item.Stats or {}, "\n"))
 
 	if item.Kind == "Color" then
-		setText(ui.equipButton, item.Equipped and "UNEQUIP" or "EQUIP")
+		setButtonText(ui.equipButton, item.Equipped and "UNEQUIP" or "EQUIP")
 		setButtonEnabled(ui.equipButton, true)
-		setText(ui.lockButton, item.Locked and "UNLOCK" or "LOCK")
+		setButtonText(ui.lockButton, item.Locked and "UNLOCK" or "LOCK")
 		setButtonEnabled(ui.lockButton, true)
-		setText(ui.deleteButton, "DELETE")
+		setButtonText(ui.deleteButton, "DELETE")
 		setButtonEnabled(ui.deleteButton, not item.Locked and not item.Equipped)
 	elseif item.Kind == "Brush" then
-		setText(ui.equipButton, item.Equipped and "EQUIPPED" or "EQUIP")
+		setButtonText(ui.equipButton, item.Equipped and "EQUIPPED" or "EQUIP")
 		setButtonEnabled(ui.equipButton, not item.Equipped)
-		setText(ui.lockButton, "LOCK")
+		setButtonText(ui.lockButton, "LOCK")
 		setButtonEnabled(ui.lockButton, false)
-		setText(ui.deleteButton, "DELETE")
+		setButtonText(ui.deleteButton, "DELETE")
 		setButtonEnabled(ui.deleteButton, false)
 	else
-		setText(ui.equipButton, item.Usable and "USE" or "INFO")
+		setButtonText(ui.equipButton, item.Usable and "USE" or "INFO")
 		setButtonEnabled(ui.equipButton, item.Usable == true)
-		setText(ui.lockButton, "LOCK")
+		setButtonText(ui.lockButton, "LOCK")
 		setButtonEnabled(ui.lockButton, false)
-		setText(ui.deleteButton, "DELETE")
+		setButtonText(ui.deleteButton, "DELETE")
 		setButtonEnabled(ui.deleteButton, false)
 	end
 end
