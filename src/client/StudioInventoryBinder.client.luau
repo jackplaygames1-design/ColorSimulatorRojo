@@ -28,9 +28,7 @@ local DEMO_ITEMS = {
 }
 
 local function warnOnce(key, message)
-	if warned[key] then
-		return
-	end
+	if warned[key] then return end
 	warned[key] = true
 	warn(message)
 end
@@ -63,27 +61,20 @@ end
 local function findFirst(parent, names)
 	for _, name in ipairs(names) do
 		local found = parent:FindFirstChild(name, true)
-		if found then
-			return found
-		end
+		if found then return found end
 	end
 	return nil
 end
 
 local function getContent(window)
 	local content = window:FindFirstChild("Content")
-	if content and content:IsA("GuiObject") then
-		return content
-	end
+	if content and content:IsA("GuiObject") then return content end
 	return window
 end
 
 local function removeGeneratedOverlay(window)
-	local content = getContent(window)
-	local generated = content:FindFirstChild("AutoFunctionalContent")
-	if generated then
-		generated:Destroy()
-	end
+	local generated = getContent(window):FindFirstChild("AutoFunctionalContent")
+	if generated then generated:Destroy() end
 end
 
 local function getManualParts(window)
@@ -94,7 +85,6 @@ local function getManualParts(window)
 		warnOnce("missing_details", "StudioInventoryBinder: DetailsPanel missing in InventoryWindow.")
 		return nil
 	end
-
 	return {
 		content = content,
 		gridPanel = gridPanel,
@@ -140,42 +130,29 @@ local function getMutationColor(item)
 end
 
 local function updateSlotVisual(slot, item, isSelected)
-	if not slot or not slot:IsA("GuiObject") then
-		return
-	end
-
+	if not slot or not slot:IsA("GuiObject") then return end
 	local icon = slot:FindFirstChild("Icon", true) or slot:FindFirstChild("PreviewIcon", true)
 	local glow = slot:FindFirstChild("MutationGlow", true)
 	local equippedBadge = slot:FindFirstChild("EquippedBadge", true)
 	local lockBadge = slot:FindFirstChild("LockBadge", true)
 	local stroke = slot:FindFirstChildOfClass("UIStroke")
-
-	if slot:IsA("TextButton") then
-		slot.Text = ""
-	end
+	if slot:IsA("TextButton") then slot.Text = "" end
 	if slot:IsA("GuiButton") then
 		slot.Active = true
 		slot.Selectable = true
 		slot.AutoButtonColor = false
 	end
-
 	if icon then
 		setImageColor(icon, item.color)
-		if icon:IsA("TextLabel") or icon:IsA("TextButton") then
-			icon.Text = item.name:sub(1, 3):upper()
-		end
+		if icon:IsA("TextLabel") or icon:IsA("TextButton") then icon.Text = item.name:sub(1, 3):upper() end
 	end
 	if glow and glow:IsA("GuiObject") then
 		glow.BackgroundColor3 = getMutationColor(item)
 		glow.BackgroundTransparency = item.mutation == "None" and 0.85 or 0.35
 		glow.Visible = true
 	end
-	if equippedBadge and equippedBadge:IsA("GuiObject") then
-		equippedBadge.Visible = item.equipped == true
-	end
-	if lockBadge and lockBadge:IsA("GuiObject") then
-		lockBadge.Visible = item.locked == true
-	end
+	if equippedBadge and equippedBadge:IsA("GuiObject") then equippedBadge.Visible = item.equipped == true end
+	if lockBadge and lockBadge:IsA("GuiObject") then lockBadge.Visible = item.locked == true end
 	if stroke then
 		stroke.Color = isSelected and Color3.fromRGB(72, 235, 255) or Color3.fromRGB(35, 38, 45)
 		stroke.Thickness = isSelected and 4 or 2
@@ -188,56 +165,60 @@ local function updateDetails(parts, item)
 	setText(parts.rarityLabel, item.rarity .. " • " .. item.mutation)
 	setText(parts.statsLabel, "Power: " .. tostring(item.power) .. "\nEquipped: " .. (item.equipped and "Yes" or "No") .. "\nLocked: " .. (item.locked and "Yes" or "No"))
 	setImageColor(parts.previewImage, item.color)
-	if parts.equipButton and parts.equipButton:IsA("GuiButton") then
-		parts.equipButton.Text = item.equipped and "UNEQUIP" or "EQUIP"
-	end
-	if parts.lockButton and parts.lockButton:IsA("GuiButton") then
-		parts.lockButton.Text = item.locked and "UNLOCK" or "LOCK"
-	end
+	if parts.equipButton and parts.equipButton:IsA("GuiButton") then parts.equipButton.Text = item.equipped and "UNEQUIP" or "EQUIP" end
+	if parts.lockButton and parts.lockButton:IsA("GuiButton") then parts.lockButton.Text = item.locked and "UNLOCK" or "LOCK" end
 end
 
 local function addButtonPop(button)
-	if not button or not button:IsA("GuiButton") or popConnected[button] then
-		return
-	end
+	if not button or not button:IsA("GuiButton") or popConnected[button] then return end
 	popConnected[button] = true
 	local scale = button:FindFirstChildOfClass("UIScale") or Instance.new("UIScale")
 	scale.Scale = 1
 	scale.Parent = button
-	button.MouseEnter:Connect(function()
-		TweenService:Create(scale, TweenInfo.new(0.1), { Scale = 1.05 }):Play()
-	end)
-	button.MouseLeave:Connect(function()
-		TweenService:Create(scale, TweenInfo.new(0.1), { Scale = 1 }):Play()
-	end)
-	button.MouseButton1Down:Connect(function()
-		TweenService:Create(scale, TweenInfo.new(0.06), { Scale = 0.94 }):Play()
-	end)
-	button.MouseButton1Up:Connect(function()
-		TweenService:Create(scale, TweenInfo.new(0.08), { Scale = 1.05 }):Play()
-	end)
+	button.MouseEnter:Connect(function() TweenService:Create(scale, TweenInfo.new(0.1), { Scale = 1.05 }):Play() end)
+	button.MouseLeave:Connect(function() TweenService:Create(scale, TweenInfo.new(0.1), { Scale = 1 }):Play() end)
+	button.MouseButton1Down:Connect(function() TweenService:Create(scale, TweenInfo.new(0.06), { Scale = 0.94 }):Play() end)
+	button.MouseButton1Up:Connect(function() TweenService:Create(scale, TweenInfo.new(0.08), { Scale = 1.05 }):Play() end)
 end
 
 local function collectSlots(parts)
 	local slots = {}
 	for _, descendant in ipairs(parts.gridPanel:GetDescendants()) do
-		if descendant:IsA("GuiButton") and descendant.Name:match("^PreviewSlot%d+") then
+		if descendant:IsA("GuiButton") and (descendant.Name:match("^PreviewSlot%d+") or descendant.Name == "ItemCardTemplate") then
 			table.insert(slots, descendant)
 		end
 	end
-	table.sort(slots, function(a, b)
-		return a.Name < b.Name
-	end)
+	table.sort(slots, function(a, b) return a.Name < b.Name end)
 	return slots
+end
+
+local function hookClickable(button, callback)
+	if button and button:IsA("GuiButton") and not signalConnected[button] then
+		signalConnected[button] = true
+		button.Active = true
+		button.Selectable = true
+		button.Activated:Connect(callback)
+	end
+end
+
+local function hookSlotAndChildren(slot, callback)
+	hookClickable(slot, callback)
+	addButtonPop(slot)
+	for _, child in ipairs(slot:GetDescendants()) do
+		if child:IsA("GuiButton") then
+			hookClickable(child, callback)
+			addButtonPop(child)
+		elseif child:IsA("GuiObject") then
+			child.Active = false
+			child.Selectable = false
+		end
+	end
 end
 
 local function hookInventory(window)
 	removeGeneratedOverlay(window)
 	local parts = getManualParts(window)
-	if not parts then
-		return false
-	end
-
+	if not parts then return false end
 	local slots = collectSlots(parts)
 	if #slots == 0 then
 		warnOnce("missing_slots", "StudioInventoryBinder: no PreviewSlot buttons found inside GridPanel.")
@@ -259,48 +240,31 @@ local function hookInventory(window)
 	for index, slot in ipairs(slots) do
 		local item = DEMO_ITEMS[index]
 		if item then
-			slot.Active = true
-			slot.Selectable = true
-			addButtonPop(slot)
-			if not signalConnected[slot] then
-				signalConnected[slot] = true
-				slot.Activated:Connect(function()
-					updateDetails(parts, item)
-					refreshAll()
-				end)
-			end
+			hookSlotAndChildren(slot, function()
+				print("StudioInventoryBinder: selected " .. item.name)
+				updateDetails(parts, item)
+				refreshAll()
+			end)
 		end
 	end
 
 	local function hookAction(button, callback)
 		if button and button:IsA("GuiButton") then
 			addButtonPop(button)
-			if not signalConnected[button] then
-				signalConnected[button] = true
-				button.Activated:Connect(function()
-					if selectedItem then
-						callback(selectedItem)
-						updateDetails(parts, selectedItem)
-						refreshAll()
-					end
-				end)
-			end
+			hookClickable(button, function()
+				if selectedItem then
+					callback(selectedItem)
+					updateDetails(parts, selectedItem)
+					refreshAll()
+				end
+			end)
 		end
 	end
 
-	hookAction(parts.equipButton, function(item)
-		item.equipped = not item.equipped
-		fireRemote("EquipPet", item)
-	end)
-	hookAction(parts.lockButton, function(item)
-		item.locked = not item.locked
-		fireRemote("LockPet", item)
-	end)
+	hookAction(parts.equipButton, function(item) item.equipped = not item.equipped; fireRemote("EquipPet", item) end)
+	hookAction(parts.lockButton, function(item) item.locked = not item.locked; fireRemote("LockPet", item) end)
 	hookAction(parts.deleteButton, function(item)
-		if item.locked then
-			warn("StudioInventoryBinder: cannot delete locked item " .. item.name)
-			return
-		end
+		if item.locked then warn("StudioInventoryBinder: cannot delete locked item " .. item.name); return end
 		fireRemote("DeletePet", item)
 	end)
 
@@ -308,23 +272,20 @@ local function hookInventory(window)
 	updateDetails(parts, selectedItem)
 	refreshAll()
 	window:SetAttribute("StudioInventoryBound", true)
+	print("StudioInventoryBinder: hooked " .. tostring(#slots) .. " inventory slots.")
 	return true
 end
 
 local function tryHook()
 	local window = findInventoryWindow()
-	if not window then
-		return false
-	end
+	if not window then return false end
 	return hookInventory(window)
 end
 
 task.defer(function()
 	local started = os.clock()
 	while os.clock() - started < 12 do
-		if tryHook() then
-			return
-		end
+		if tryHook() then return end
 		task.wait(0.25)
 	end
 	warnOnce("not_found", "StudioInventoryBinder: InventoryWindow was not found or is missing required objects.")
@@ -338,7 +299,5 @@ end)
 
 while task.wait(1) do
 	local window = findInventoryWindow()
-	if window then
-		removeGeneratedOverlay(window)
-	end
+	if window then removeGeneratedOverlay(window) end
 end
