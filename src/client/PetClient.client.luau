@@ -76,6 +76,8 @@ local MUTATION_TYPE_COLOR = {
 	Corrupted = Color3.fromRGB(255, 42, 84),
 }
 
+local PET_APPEARANCE_SOURCE_NAME = "PetAppearanceStudio"
+
 -- State
 local spawnedPets  = {}  -- { { model, variantKey } }
 local allPets      = {}  -- list of buildPetEntry results
@@ -1043,6 +1045,93 @@ function rebuildOrbitingPets()
 	end
 end
 
+local petAppearanceConnections = {}
+local watchedPetAppearanceSource = nil
+local petAppearanceRefreshQueued = false
+
+local function disconnectPetAppearanceWatch()
+	for _, connection in ipairs(petAppearanceConnections) do
+		if connection and connection.Connected then
+			connection:Disconnect()
+		end
+	end
+	table.clear(petAppearanceConnections)
+	watchedPetAppearanceSource = nil
+end
+
+local function queuePetAppearanceRefresh()
+	if petAppearanceRefreshQueued then
+		return
+	end
+	petAppearanceRefreshQueued = true
+	task.delay(0.2, function()
+		petAppearanceRefreshQueued = false
+		if #equippedPets > 0 then
+			rebuildOrbitingPets()
+		end
+	end)
+end
+
+local function watchPetAppearanceObject(object)
+	table.insert(petAppearanceConnections, object.Changed:Connect(queuePetAppearanceRefresh))
+end
+
+local function watchPetAppearanceSource(source)
+	if not source or watchedPetAppearanceSource == source then
+		return
+	end
+
+	disconnectPetAppearanceWatch()
+	watchedPetAppearanceSource = source
+	watchPetAppearanceObject(source)
+
+	for _, descendant in ipairs(source:GetDescendants()) do
+		watchPetAppearanceObject(descendant)
+	end
+
+	table.insert(petAppearanceConnections, source.DescendantAdded:Connect(function(descendant)
+		watchPetAppearanceObject(descendant)
+		queuePetAppearanceRefresh()
+	end))
+	table.insert(petAppearanceConnections, source.DescendantRemoving:Connect(queuePetAppearanceRefresh))
+	table.insert(petAppearanceConnections, source.AncestryChanged:Connect(function(_, parent)
+		if not parent then
+			disconnectPetAppearanceWatch()
+			return
+		end
+		queuePetAppearanceRefresh()
+	end))
+
+	queuePetAppearanceRefresh()
+end
+
+local function findPetAppearanceSource()
+	return ReplicatedStorage:FindFirstChild(PET_APPEARANCE_SOURCE_NAME) or workspace:FindFirstChild(PET_APPEARANCE_SOURCE_NAME)
+end
+
+local function startPetAppearanceWatch()
+	local function refreshSource()
+		local source = findPetAppearanceSource()
+		if source then
+			watchPetAppearanceSource(source)
+		end
+	end
+
+	ReplicatedStorage.ChildAdded:Connect(function(child)
+		if child.Name == PET_APPEARANCE_SOURCE_NAME then
+			refreshSource()
+		end
+	end)
+	workspace.ChildAdded:Connect(function(child)
+		if child.Name == PET_APPEARANCE_SOURCE_NAME then
+			refreshSource()
+		end
+	end)
+
+	refreshSource()
+	task.delay(1, refreshSource)
+end
+
 -- ========================
 --   DRAIN BEAM
 -- ========================
@@ -1139,6 +1228,8 @@ end
 -- ========================
 --   EVENTS
 -- ========================
+startPetAppearanceWatch()
+
 petsLoadedEvent.OnClientEvent:Connect(function(inventory, equipped)
 	applyPetState(inventory, equipped, "PetsLoaded")
 end)

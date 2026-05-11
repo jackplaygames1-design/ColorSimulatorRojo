@@ -14,12 +14,6 @@ local ROW_SPACING = 35
 local PET_SPACING = 14
 local MUTATION_SPACING = 8
 
-local PREVIEW_MUTATIONS = {
-	"Shadowed",
-	"Glimmer",
-	"Glitched",
-}
-
 local function isVisualObject(object)
 	return object and (object:IsA("Model") or object:IsA("BasePart"))
 end
@@ -224,26 +218,10 @@ local function addPreviewLabel(object, text)
 	label.Parent = billboard
 end
 
-local function ensureMutationVariants(petsFolder, entry)
-	local variantsFolder = getOrCreateFolder(petsFolder, entry.petId .. "_Mutations")
-	for _, mutationId in ipairs(PREVIEW_MUTATIONS) do
-		local existing = variantsFolder:FindFirstChild(mutationId)
-		if not existing then
-			local clone = PetModelUtil.ClonePetModel(entry.petId, {
-				anchored = true,
-				removeBillboards = true,
-				mutationId = mutationId,
-			})
-			if clone then
-				clone.Name = mutationId
-				clone.Parent = variantsFolder
-				clone:SetAttribute("MutationId", mutationId)
-			end
-		end
-		local variant = variantsFolder:FindFirstChild(mutationId)
-		if variant then
-			applyPetAttributes(variant, entry.eggId or "Unknown", entry)
-			variant:SetAttribute("MutationId", mutationId)
+local function removeMutationVariantFolders(petsFolder)
+	for _, child in ipairs(petsFolder:GetChildren()) do
+		if child:IsA("Folder") and string.match(child.Name, "_Mutations$") then
+			child:Destroy()
 		end
 	end
 end
@@ -270,6 +248,7 @@ function StudioPetAppearanceBuilder.Build()
 		end
 
 		local petsFolder = getOrCreateFolder(eggFolder, "Pets")
+		removeMutationVariantFolders(petsFolder)
 		for _, entry in ipairs(egg.pets or {}) do
 			if not entry.petId then
 				continue
@@ -285,13 +264,12 @@ function StudioPetAppearanceBuilder.Build()
 			end
 			if petObject then
 				applyPetAttributes(petObject, eggId, entry)
-				ensureMutationVariants(petsFolder, entry)
 			end
 		end
 	end
 
 	StudioPetAppearanceBuilder.Arrange()
-	print("StudioPetAppearanceBuilder: ready at Workspace." .. SOURCE_NAME .. " with mutation variants enabled.")
+	print("StudioPetAppearanceBuilder: ready at Workspace." .. SOURCE_NAME .. " with editable pet templates only.")
 	return source
 end
 

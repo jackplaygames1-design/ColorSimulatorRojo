@@ -98,6 +98,14 @@ local function awardReward(player, reward)
 		end
 		coins.Value += amount
 		return true
+	elseif rewardType == "Gems" or rewardType == "Diamonds" then
+		local stats = player:FindFirstChild("leaderstats")
+		local gems = stats and (stats:FindFirstChild("Gems") or stats:FindFirstChild("Diamonds"))
+		if not gems then
+			return false, "Gems are not ready."
+		end
+		gems.Value += amount
+		return true
 	elseif rewardType == "Pet" then
 		if not grantPetFunction then
 			return false, "Color rewards are not ready."

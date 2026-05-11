@@ -91,6 +91,30 @@ if not inventoryAction then
 	inventoryAction.Parent = remotes
 end
 
+local tradeRequest = remotes:FindFirstChild("TradeRequest")
+if tradeRequest and not tradeRequest:IsA("RemoteFunction") then
+	warn("RemoteSetup: replacing invalid Remotes.TradeRequest")
+	tradeRequest:Destroy()
+	tradeRequest = nil
+end
+if not tradeRequest then
+	tradeRequest = Instance.new("RemoteFunction")
+	tradeRequest.Name = "TradeRequest"
+	tradeRequest.Parent = remotes
+end
+
+local tradeUpdate = remotes:FindFirstChild("TradeUpdate")
+if tradeUpdate and not tradeUpdate:IsA("RemoteEvent") then
+	warn("RemoteSetup: replacing invalid Remotes.TradeUpdate")
+	tradeUpdate:Destroy()
+	tradeUpdate = nil
+end
+if not tradeUpdate then
+	tradeUpdate = Instance.new("RemoteEvent")
+	tradeUpdate.Name = "TradeUpdate"
+	tradeUpdate.Parent = remotes
+end
+
 local bindableEvents = {
 	"PlayerDataDirty",
 	"TutorialPatchCleared",

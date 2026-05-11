@@ -88,6 +88,57 @@ local function getStroke(parent)
 	return parent and parent:FindFirstChildOfClass("UIStroke")
 end
 
+local function getShopIconSpec(item)
+	if type(item) ~= "table" then
+		return nil
+	end
+
+	local iconKey = item.iconKey or (GamepassIconConfig.ByShopItemId and GamepassIconConfig.ByShopItemId[item.id])
+	return iconKey and GamepassIconConfig.Icons and GamepassIconConfig.Icons[iconKey] or nil
+end
+
+local function applyShopIcon(card, item)
+	if not card or type(item) ~= "table" then
+		return
+	end
+
+	local iconCircle = card:FindFirstChild("IconCircle", true)
+	if not iconCircle or not iconCircle:IsA("GuiObject") then
+		return
+	end
+
+	local spec = getShopIconSpec(item)
+	local image = spec and tostring(spec.Image or "") or ""
+	if image == "" then
+		image = tostring(item.iconImage or "")
+	end
+
+	local iconImage = iconCircle:FindFirstChild("IconImage")
+	if not iconImage or not iconImage:IsA("ImageLabel") then
+		iconImage = Instance.new("ImageLabel")
+		iconImage.Name = "IconImage"
+		iconImage.Parent = iconCircle
+	end
+	iconImage.BackgroundTransparency = 1
+	iconImage.BorderSizePixel = 0
+	iconImage.Position = UDim2.fromOffset(2, 2)
+	iconImage.Size = UDim2.new(1, -4, 1, -4)
+	iconImage.ScaleType = Enum.ScaleType.Fit
+	iconImage.ZIndex = iconCircle.ZIndex + 2
+	iconImage.Image = image
+	iconImage.Visible = image ~= ""
+	iconImage:SetAttribute("GamepassIconKey", item.iconKey or "")
+	iconImage:SetAttribute("ExpectedGamepassIconFile", spec and spec.SourceFile or item.iconSourceFile or "")
+
+	local iconText = iconCircle:FindFirstChild("IconText")
+	if iconText and iconText:IsA("TextLabel") then
+		iconText.Visible = image == ""
+	end
+
+	iconCircle:SetAttribute("GamepassIconKey", item.iconKey or "")
+	iconCircle:SetAttribute("ExpectedGamepassIconFile", spec and spec.SourceFile or item.iconSourceFile or "")
+end
+
 local function getOrCreateScale(parent, name)
 	local scale = parent:FindFirstChild(name)
 	if not scale or not scale:IsA("UIScale") then
@@ -291,6 +342,7 @@ local function updateCardState(card)
 	if kind == "Gamepass" then
 		local pass = gamepassesById[itemId]
 		if pass then
+			applyShopIcon(card, pass)
 			updateGamepassCard(card, pass)
 		end
 	elseif kind == "Product" then

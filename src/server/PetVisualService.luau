@@ -32,7 +32,9 @@ local function getSourceFolder(optional)
 		return sourceFolder
 	end
 
-	sourceFolder = Workspace:FindFirstChild(SOURCE_NAME) or ServerStorage:FindFirstChild(SOURCE_NAME)
+	sourceFolder = ReplicatedStorage:FindFirstChild(SOURCE_NAME)
+		or Workspace:FindFirstChild(SOURCE_NAME)
+		or ServerStorage:FindFirstChild(SOURCE_NAME)
 	if not sourceFolder and not optional then
 		warn("PetVisualService: missing Workspace." .. SOURCE_NAME .. ". Run the StudioPetAppearanceBuilder command to create it.")
 	end
@@ -158,6 +160,20 @@ local function clearPublishedTemplates(folder)
 	end
 end
 
+local function removeGeneratedMutationFolders(source)
+	for _, eggFolder in ipairs(source:GetChildren()) do
+		local petsFolder = eggFolder:FindFirstChild("Pets")
+		if not petsFolder then
+			continue
+		end
+		for _, child in ipairs(petsFolder:GetChildren()) do
+			if child:IsA("Folder") and string.match(child.Name, "_Mutations$") then
+				child:Destroy()
+			end
+		end
+	end
+end
+
 function PetVisualService.GetSourceFolder()
 	return getSourceFolder(false)
 end
@@ -270,6 +286,7 @@ function PetVisualService.PublishToReplicatedStorage()
 	local published = 0
 	local petModelsFolder = getPetModelsFolder()
 	clearPublishedTemplates(petModelsFolder)
+	removeGeneratedMutationFolders(source)
 
 	local eggModelsFolder = petModelsFolder:FindFirstChild(EGG_MODELS_FOLDER_NAME)
 	if not eggModelsFolder then
@@ -313,8 +330,9 @@ function PetVisualService.PublishToReplicatedStorage()
 		end
 	end
 
-	if source.Parent == Workspace then
-		source.Parent = ServerStorage
+	if source.Parent ~= ReplicatedStorage then
+		source.Parent = ReplicatedStorage
+		source:SetAttribute("RuntimeTemplateSource", true)
 	end
 
 	return published

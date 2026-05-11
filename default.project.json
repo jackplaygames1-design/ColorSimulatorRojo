@@ -219,6 +219,12 @@
         },
         "InventoryAction": {
           "$className": "RemoteEvent"
+        },
+        "TradeRequest": {
+          "$className": "RemoteFunction"
+        },
+        "TradeUpdate": {
+          "$className": "RemoteEvent"
         }
       }
     },

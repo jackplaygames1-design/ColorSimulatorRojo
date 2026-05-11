@@ -101,6 +101,6 @@ if redeemEvent then
 end
 
 setPending(false)
-setStatus("Try RELEASE, COLOR, or PET.")
+setStatus("Try RELEASE, COLOR, PET, or UPDATE.")
 
 print("[EditableCodesBinder] CodesWindow bound to existing Studio UI.")

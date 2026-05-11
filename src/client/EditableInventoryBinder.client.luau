@@ -28,6 +28,7 @@ local currentTab = "Colors"
 local inventoryData = { Colors = {}, Brushes = {}, Potions = {}, Items = {}, Count = 0, Capacity = 75 }
 local selectedItem = nil
 local loading = false
+local PET_APPEARANCE_SOURCE_NAME = "PetAppearanceStudio"
 
 local function waitForInventoryWindow()
 	local root = playerGui:WaitForChild("ClientUIRoot", 30)
@@ -46,6 +47,9 @@ end
 local ui = {}
 local cardConnections = {}
 local viewportConnections = {}
+local petAppearanceConnections = {}
+local watchedPetAppearanceSource = nil
+local petAppearanceRefreshQueued = false
 local iconWarnings = {}
 local renderDetails
 
@@ -812,6 +816,87 @@ local function renderInventory()
 	renderDetails()
 end
 
+local function disconnectPetAppearanceWatch()
+	for _, connection in ipairs(petAppearanceConnections) do
+		if connection and connection.Connected then
+			connection:Disconnect()
+		end
+	end
+	table.clear(petAppearanceConnections)
+	watchedPetAppearanceSource = nil
+end
+
+local function queuePetAppearanceRefresh()
+	if petAppearanceRefreshQueued then
+		return
+	end
+	petAppearanceRefreshQueued = true
+	task.delay(0.2, function()
+		petAppearanceRefreshQueued = false
+		if inventoryWindow.Visible then
+			renderInventory()
+		end
+	end)
+end
+
+local function watchPetAppearanceObject(object)
+	table.insert(petAppearanceConnections, object.Changed:Connect(queuePetAppearanceRefresh))
+end
+
+local function watchPetAppearanceSource(source)
+	if not source or watchedPetAppearanceSource == source then
+		return
+	end
+
+	disconnectPetAppearanceWatch()
+	watchedPetAppearanceSource = source
+	watchPetAppearanceObject(source)
+
+	for _, descendant in ipairs(source:GetDescendants()) do
+		watchPetAppearanceObject(descendant)
+	end
+
+	table.insert(petAppearanceConnections, source.DescendantAdded:Connect(function(descendant)
+		watchPetAppearanceObject(descendant)
+		queuePetAppearanceRefresh()
+	end))
+	table.insert(petAppearanceConnections, source.DescendantRemoving:Connect(queuePetAppearanceRefresh))
+	table.insert(petAppearanceConnections, source.AncestryChanged:Connect(function(_, parent)
+		if not parent then
+			disconnectPetAppearanceWatch()
+			return
+		end
+		queuePetAppearanceRefresh()
+	end))
+end
+
+local function findPetAppearanceSource()
+	return ReplicatedStorage:FindFirstChild(PET_APPEARANCE_SOURCE_NAME) or workspace:FindFirstChild(PET_APPEARANCE_SOURCE_NAME)
+end
+
+local function startPetAppearanceWatch()
+	local function refreshSource()
+		local source = findPetAppearanceSource()
+		if source then
+			watchPetAppearanceSource(source)
+		end
+	end
+
+	ReplicatedStorage.ChildAdded:Connect(function(child)
+		if child.Name == PET_APPEARANCE_SOURCE_NAME then
+			refreshSource()
+		end
+	end)
+	workspace.ChildAdded:Connect(function(child)
+		if child.Name == PET_APPEARANCE_SOURCE_NAME then
+			refreshSource()
+		end
+	end)
+
+	refreshSource()
+	task.delay(1, refreshSource)
+end
+
 local function requestInventory()
 	if loading then
 		return
@@ -892,6 +977,7 @@ end
 applyInventoryIcons()
 wireControls()
 renderDetails()
+startPetAppearanceWatch()
 
 inventoryWindow:GetPropertyChangedSignal("Visible"):Connect(function()
 	if inventoryWindow.Visible then

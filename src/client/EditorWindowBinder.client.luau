@@ -1436,6 +1436,9 @@ local function renderTrade()
 	if not content then
 		return
 	end
+	if content:GetAttribute("EditableTradeBinderOwns") == true then
+		return
+	end
 	local list = ensureBinderList(content)
 	makeWindowCard(list, 1, "Trading", "Trading is coming soon.", nil, nil, Color3.fromRGB(192, 154, 255))
 end

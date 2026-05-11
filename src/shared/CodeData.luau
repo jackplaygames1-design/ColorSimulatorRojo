@@ -20,6 +20,15 @@ CodeData.Codes = {
 			{ Type = "Color", Amount = 250 },
 		},
 	},
+	UPDATE = {
+		Code = "UPDATE",
+		Active = true,
+		MaxUsesPerPlayer = 1,
+		Message = "Update reward claimed!",
+		Rewards = {
+			{ Type = "Gems", Amount = 200 },
+		},
+	},
 	PET = {
 		Code = "PET",
 		Active = true,

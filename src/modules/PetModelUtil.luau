@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local PetDefinitions = require(script.Parent:WaitForChild("PetDefinitions"))
 local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
@@ -80,6 +81,26 @@ local function prepPart(part, anchored)
 	part.BottomSurface = Enum.SurfaceType.Smooth
 end
 
+local function findStudioSource()
+	return ReplicatedStorage:FindFirstChild("PetAppearanceStudio") or Workspace:FindFirstChild("PetAppearanceStudio")
+end
+
+local function findStudioTemplate(petId)
+	local source = findStudioSource()
+	if not source then
+		return nil
+	end
+
+	for _, eggFolder in ipairs(source:GetChildren()) do
+		local petsFolder = eggFolder:FindFirstChild("Pets")
+		local template = petsFolder and petsFolder:FindFirstChild(tostring(petId))
+		if template and template:IsA("Model") then
+			return template
+		end
+	end
+	return nil
+end
+
 local function makePart(model, name, shape, size, cframe, color, material, transparency)
 	local part = Instance.new("Part")
 	part.Name = name
@@ -157,6 +178,15 @@ function PetModelUtil.FindTemplate(petId)
 	local definition = PetDefinitions.Get(petId)
 	if not definition then
 		return nil, nil
+	end
+
+	local studioTemplate = findStudioTemplate(definition.Id)
+	if studioTemplate then
+		applyTemplateAttributes(studioTemplate, definition)
+		if not findPrimary(studioTemplate) then
+			warnOnce("missing-primary:" .. definition.Id, "PetModelUtil: " .. studioTemplate:GetFullName() .. " is missing a PrimaryPart/Core for pet " .. definition.Id)
+		end
+		return studioTemplate, definition
 	end
 
 	local folder = PetModelUtil.GetPetModelsFolder()
