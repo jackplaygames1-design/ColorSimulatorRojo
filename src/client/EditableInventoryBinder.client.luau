@@ -288,6 +288,45 @@ local function getInventoryIconImage(iconName)
 	return nil, spec, false
 end
 
+local function getItemIconName(item)
+	if not item then
+		return nil
+	end
+	if item.IconName then
+		return item.IconName
+	end
+	if item.Kind == "Color" then
+		return "Sparkle"
+	elseif item.Kind == "Brush" then
+		return "Tag"
+	elseif item.Kind == "Potion" then
+		return "Stats"
+	elseif item.Kind == "Item" then
+		return "Inspect"
+	end
+	return nil
+end
+
+local function applyImageToIcon(icon, imageId, spec, usesSheet, tint)
+	if not icon or not (icon:IsA("ImageLabel") or icon:IsA("ImageButton")) then
+		return false
+	end
+	if imageId and imageId ~= "" then
+		icon.Image = imageId
+	end
+	if usesSheet then
+		icon.ImageRectOffset = spec and spec.RectOffset or Vector2.new(0, 0)
+		icon.ImageRectSize = spec and spec.RectSize or Vector2.new(0, 0)
+	else
+		icon.ImageRectOffset = Vector2.new(0, 0)
+		icon.ImageRectSize = Vector2.new(0, 0)
+	end
+	if tint then
+		icon.ImageColor3 = tint
+	end
+	return true
+end
+
 local function getButtonIcon(button, iconName)
 	if not button or not button:IsA("GuiObject") then
 		return nil
@@ -301,10 +340,17 @@ local function getButtonIcon(button, iconName)
 		"ActionIcon",
 		"TabIcon",
 		"ButtonIcon",
+		"IconImage",
+		"Image",
 		"Icon",
 	})
 	if icon and (icon:IsA("ImageLabel") or icon:IsA("ImageButton")) then
 		return icon
+	end
+	for _, descendant in ipairs(button:GetDescendants()) do
+		if descendant:IsA("ImageLabel") or descendant:IsA("ImageButton") then
+			return descendant
+		end
 	end
 	return nil
 end
@@ -336,14 +382,7 @@ local function applyInventoryIcon(button, iconName)
 		return
 	end
 
-	icon.Image = imageId
-	if usesSheet then
-		icon.ImageRectOffset = spec.RectOffset or Vector2.new(0, 0)
-		icon.ImageRectSize = spec.RectSize or Vector2.new(0, 0)
-	else
-		icon.ImageRectOffset = Vector2.new(0, 0)
-		icon.ImageRectSize = Vector2.new(0, 0)
-	end
+	applyImageToIcon(icon, imageId, spec, usesSheet)
 end
 
 local function applyInventoryIcons()
@@ -426,25 +465,20 @@ local function clearPreview(preview)
 end
 
 local function setExistingPreviewImage(preview, item)
+	local imageId = item.IconImage
+	local iconSpec = nil
+	local usesSheet = false
+	if not imageId or imageId == "" then
+		local iconName = getItemIconName(item)
+		imageId, iconSpec, usesSheet = getInventoryIconImage(iconName)
+	end
 	if preview:IsA("ImageLabel") or preview:IsA("ImageButton") then
-		if item.IconImage and item.IconImage ~= "" then
-			preview.Image = item.IconImage
-		end
-		if item.IconColor then
-			preview.ImageColor3 = item.IconColor
-		end
-		return true
+		return applyImageToIcon(preview, imageId, iconSpec, usesSheet, item.IconColor)
 	end
 
 	local image = findDescendantByNames(preview, { "PreviewImage", "IconImage", "Image", "Icon" })
 	if image and (image:IsA("ImageLabel") or image:IsA("ImageButton")) then
-		if item.IconImage and item.IconImage ~= "" then
-			image.Image = item.IconImage
-		end
-		if item.IconColor then
-			image.ImageColor3 = item.IconColor
-		end
-		return true
+		return applyImageToIcon(image, imageId, iconSpec, usesSheet, item.IconColor)
 	end
 	return false
 end
