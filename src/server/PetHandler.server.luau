@@ -480,6 +480,11 @@ local function getPlayerLuckMultiplier(player)
 	if ColorEffectHandler.GetHatchLuckMultiplier then
 		luckMult *= ColorEffectHandler.GetHatchLuckMultiplier(player)
 	end
+	local upgrades = player:FindFirstChild("Upgrades")
+	local luckUpgrade = upgrades and (upgrades:FindFirstChild("Luck") or upgrades:FindFirstChild("HatchLuckMultiplier"))
+	if luckUpgrade then
+		luckMult *= math.max(tonumber(luckUpgrade.Value) or 1, 1)
+	end
 	luckMult *= GamepassBenefits.getLuckMultiplier(player)
 	luckMult *= GroupRewardsService.GetLuckMultiplier(player)
 	local maxLuckMult = 2.5
@@ -1381,9 +1386,14 @@ local function getPlayerPetStats(player)
 	stats.luckBonus = personalityStats.luckBonus
 
 	local upgrades = player:FindFirstChild("Upgrades")
-	local colorMultiplier = upgrades and upgrades:FindFirstChild("ColorMultiplier")
-	if colorMultiplier then
-		stats.colorMult *= colorMultiplier.Value
+	local playerPower = upgrades and upgrades:FindFirstChild("PlayerPower")
+	if playerPower then
+		stats.colorMult *= playerPower.Value
+	end
+
+	local coinMultiplier = upgrades and (upgrades:FindFirstChild("CoinMultiplier") or upgrades:FindFirstChild("ColorMultiplier"))
+	if coinMultiplier then
+		stats.coinMult *= coinMultiplier.Value
 	end
 
 	return stats

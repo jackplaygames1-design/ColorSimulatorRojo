@@ -39,6 +39,7 @@ local remoteEvents = {
 	"RequestSetSetting",
 	"SettingsUpdated",
 	"GroupRewards",
+	"ClaimInfinitePackTier",
 	"MutationStation",
 	"MarkTutorialProgress",
 	"TutorialAction",

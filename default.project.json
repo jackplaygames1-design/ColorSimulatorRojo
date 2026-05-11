@@ -22,6 +22,9 @@
       "InventoryIconConfig": {
         "$path": "src/shared/InventoryIconConfig.luau"
       },
+      "GamepassIconConfig": {
+        "$path": "src/shared/GamepassIconConfig.luau"
+      },
       "LightingConfig": {
         "$path": "src/shared/LightingConfig.luau"
       },
@@ -99,6 +102,9 @@
       },
       "UpgradeData": {
         "$path": "src/shared/UpgradeData.luau"
+      },
+      "UpgradeIconConfig": {
+        "$path": "src/shared/UpgradeIconConfig.luau"
       },
 
       "Modules": {

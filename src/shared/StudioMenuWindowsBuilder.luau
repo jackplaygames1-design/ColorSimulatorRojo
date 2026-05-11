@@ -7,6 +7,10 @@
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateCodesWindow()
 -- Shop-only refresh:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateShopWindow()
+-- Upgrades icon refresh:
+-- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).ApplyUpgradeIcons()
+-- Worlds-only refresh:
+-- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateWorldsWindow()
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
@@ -26,12 +30,31 @@ local function requireFresh(module)
 end
 
 local RobuxShopConfig = requireFresh(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
+local ColorData = requireFresh(ReplicatedStorage:WaitForChild("ColorData"))
+local GameBalance = requireFresh(ReplicatedStorage:WaitForChild("GameBalance"))
+local UpgradeIconConfig = requireFresh(ReplicatedStorage:WaitForChild("UpgradeIconConfig"))
 
 local OUTLINE = Color3.fromRGB(35, 38, 45)
 local TEXT_DARK = Color3.fromRGB(38, 36, 52)
 local TAB_INACTIVE = Color3.fromRGB(232, 238, 248)
 local CYAN = Color3.fromRGB(76, 214, 224)
 local GREEN = Color3.fromRGB(84, 225, 112)
+local MUTED = Color3.fromRGB(92, 98, 116)
+local DISABLED = Color3.fromRGB(170, 180, 205)
+local PANEL = Color3.fromRGB(244, 248, 252)
+
+local function formatNumber(value)
+	if GameBalance and GameBalance.formatNumber then
+		return GameBalance.formatNumber(value)
+	end
+	value = tonumber(value) or 0
+	if value >= 1000000 then
+		return string.format("%.1fM", value / 1000000):gsub("%.0M", "M")
+	elseif value >= 1000 then
+		return string.format("%.1fK", value / 1000):gsub("%.0K", "K")
+	end
+	return tostring(math.floor(value))
+end
 
 local FALLBACK_INFINITE_PACK = {
 	displayName = "THE INFINITE PACK!",
@@ -44,6 +67,10 @@ local FALLBACK_INFINITE_PACK = {
 			price = 0,
 			free = true,
 			color = Color3.fromRGB(92, 240, 150),
+			rewardKind = "Gem",
+			amount = 250,
+			iconKey = "Gems",
+			gemReward = 250,
 		},
 		{
 			id = "InfinitePackTier02",
@@ -78,6 +105,10 @@ local FALLBACK_INFINITE_PACK = {
 			price = 0,
 			free = true,
 			color = Color3.fromRGB(255, 199, 87),
+			rewardKind = "Coin",
+			amount = 25000,
+			iconKey = "Coins",
+			coinReward = 25000,
 		},
 		{
 			id = "InfinitePackTier06",
@@ -277,6 +308,94 @@ local function makeInventory(windowsFolder)
 	return window
 end
 
+local function getUpgradeIconSpec(cardName, upgradeId)
+	local iconKey = nil
+	if upgradeId and UpgradeIconConfig.ByUpgradeId then
+		iconKey = UpgradeIconConfig.ByUpgradeId[upgradeId]
+	end
+	if not iconKey and cardName and UpgradeIconConfig.ByCardName then
+		iconKey = UpgradeIconConfig.ByCardName[cardName]
+	end
+	if not iconKey then
+		return nil, nil
+	end
+	local spec = UpgradeIconConfig.Icons and UpgradeIconConfig.Icons[iconKey]
+	return iconKey, spec
+end
+
+local function getUpgradeCardName(card)
+	local nameLabel = card and card:FindFirstChild("Name", true)
+	if nameLabel and (nameLabel:IsA("TextLabel") or nameLabel:IsA("TextButton")) then
+		return tostring(nameLabel.Text or "")
+	end
+	local fallback = tostring(card and card.Name or "")
+	fallback = fallback:gsub("Card$", "")
+	fallback = fallback:gsub("(%l)(%u)", "%1 %2")
+	return fallback
+end
+
+local function applyUpgradeIconToCard(card, cardName, upgradeId)
+	if not card or not card:IsA("GuiObject") then
+		return
+	end
+
+	local iconKey, spec = getUpgradeIconSpec(cardName or getUpgradeCardName(card), upgradeId)
+	if not spec then
+		return
+	end
+
+	card:SetAttribute("UpgradeIconKey", iconKey)
+	card:SetAttribute("ExpectedUpgradeIconFile", spec.SourceFile or "")
+
+	local iconFrame = card:FindFirstChild("Icon", true)
+	if not iconFrame or not iconFrame:IsA("GuiObject") then
+		return
+	end
+	iconFrame:SetAttribute("UpgradeIconKey", iconKey)
+	iconFrame:SetAttribute("ExpectedUpgradeIconFile", spec.SourceFile or "")
+
+	local iconImage = iconFrame:FindFirstChild("IconImage")
+	if not iconImage or not iconImage:IsA("ImageLabel") then
+		iconImage = Instance.new("ImageLabel")
+		iconImage.Name = "IconImage"
+		iconImage.Parent = iconFrame
+	end
+	iconImage.BackgroundTransparency = 1
+	iconImage.BorderSizePixel = 0
+	iconImage.Position = UDim2.fromOffset(2, 2)
+	iconImage.Size = UDim2.new(1, -4, 1, -4)
+	iconImage.ScaleType = Enum.ScaleType.Fit
+	iconImage.ZIndex = iconFrame.ZIndex + 1
+	iconImage:SetAttribute("UpgradeIconKey", iconKey)
+	iconImage:SetAttribute("ExpectedUpgradeIconFile", spec.SourceFile or "")
+	iconImage.Image = tostring(spec.Image or "")
+	iconImage.Visible = iconImage.Image ~= ""
+
+	local iconText = iconFrame:FindFirstChild("IconText")
+	if iconText and iconText:IsA("TextLabel") then
+		iconText.Visible = iconImage.Image == ""
+		iconText.ZIndex = iconFrame.ZIndex + 2
+	end
+end
+
+local function applyUpgradeIconsToWindow(upgradesWindow)
+	if not upgradesWindow then
+		return 0
+	end
+
+	local applied = 0
+	for _, descendant in ipairs(upgradesWindow:GetDescendants()) do
+		if descendant:IsA("GuiObject") and string.match(descendant.Name, "Card$") then
+			local before = descendant:GetAttribute("UpgradeIconKey")
+			applyUpgradeIconToCard(descendant)
+			if descendant:GetAttribute("UpgradeIconKey") ~= before or descendant:GetAttribute("UpgradeIconKey") ~= nil then
+				applied += 1
+			end
+		end
+	end
+	return applied
+end
+
 local function makeCardGrid(content, names)
 	for index, item in ipairs(names) do
 		local x = ((index - 1) % 3) * 238 + 14
@@ -284,6 +403,7 @@ local function makeCardGrid(content, names)
 		local card = frame(content, item:gsub("%s+", "") .. "Card", UDim2.fromOffset(x, y), UDim2.fromOffset(222, 118), Color3.fromRGB(255, 255, 255))
 		local icon = frame(card, "Icon", UDim2.fromOffset(10, 10), UDim2.fromOffset(58, 58), Color3.fromRGB(225, 244, 255))
 		text(icon, "IconText", item:sub(1, 2):upper(), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment = Enum.TextXAlignment.Center
+		applyUpgradeIconToCard(card, item)
 		text(card, "Name", item, UDim2.fromOffset(78, 8), UDim2.new(1, -88, 0, 28), 17)
 		text(card, "Description", "Editable item card.", UDim2.fromOffset(78, 38), UDim2.new(1, -88, 0, 34), 12)
 		text(card, "Price", "Price", UDim2.fromOffset(10, 76), UDim2.fromOffset(90, 28), 13)
@@ -1142,6 +1262,422 @@ local function makeShopTemplates(shopWindow)
 	end
 end
 
+local WORLD_TELEPORTS = {
+	{
+		id = "OriginSector",
+		title = "Origin Sector",
+		description = "Main spawn and starter area.",
+		icon = "OR",
+		color = Color3.fromRGB(220, 50, 50),
+	},
+	{
+		id = "RedWastelands",
+		title = "Red Wastelands",
+		description = "Fast travel to the red cleanup field.",
+		icon = "RW",
+		color = Color3.fromRGB(220, 50, 50),
+	},
+	{
+		id = "ZorkShop",
+		title = "Zork Shop",
+		description = "Jump back to the starter shop area.",
+		icon = "ZS",
+		color = Color3.fromRGB(255, 199, 87),
+	},
+	{
+		id = "OrangeSector",
+		title = "Orange Sector",
+		description = "Unlocked after buying Orange Sector.",
+		icon = "OR",
+		color = Color3.fromRGB(240, 130, 30),
+		requiredColor = "Orange",
+	},
+	{
+		id = "InsidePipes",
+		title = "Inside the Pipes",
+		description = "Visit the pipe entrance first to unlock this teleport.",
+		icon = "PI",
+		color = Color3.fromRGB(76, 214, 224),
+		requiredColor = "Orange",
+		requiresTeleportUnlock = true,
+	},
+}
+
+local function clearWorldsContent(content)
+	for _, child in ipairs(content:GetChildren()) do
+		if child:IsA("GuiObject") or child:IsA("UIGridLayout") or child:IsA("UIListLayout") or child:IsA("UIPadding") then
+			child:Destroy()
+		end
+	end
+end
+
+local function worldAccent(colorType)
+	local config = ColorData.Colors and ColorData.Colors[colorType]
+	return config and config.color or CYAN
+end
+
+local function worldIconText(colorType)
+	if colorType == "Orange" then
+		return "OR"
+	elseif colorType == "Rainbow" then
+		return "RB"
+	elseif colorType == "Neon" then
+		return "NE"
+	end
+	return string.upper(string.sub(tostring(colorType or "??"), 1, 2))
+end
+
+local function prepWorldsWindow(worldsWindow)
+	worldsWindow.AnchorPoint = Vector2.new(0.5, 0.5)
+	worldsWindow.Position = UDim2.fromScale(0.5, 0.46)
+	worldsWindow.Size = UDim2.fromOffset(860, 540)
+	worldsWindow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	worldsWindow.BorderSizePixel = 0
+	worldsWindow.ClipsDescendants = false
+	worldsWindow.ZIndex = 1000
+	applyCorner(worldsWindow, 24)
+	applyStroke(worldsWindow, OUTLINE, 4)
+
+	local title = text(worldsWindow, "Title", "SECTOR SELECT", UDim2.fromOffset(28, 16), UDim2.new(1, -124, 0, 46), 32)
+	title.TextScaled = true
+	title.TextStrokeTransparency = 1
+	title.ZIndex = 1002
+
+	local closeButton = button(worldsWindow, "CloseButton", "X", UDim2.new(1, -74, 0, 16), UDim2.fromOffset(56, 54), Color3.fromRGB(188, 21, 28))
+	closeButton.TextScaled = true
+	closeButton.ZIndex = 1004
+end
+
+local function makeWorldsTabs(worldsWindow)
+	local tabs = frame(worldsWindow, "Tabs", UDim2.fromOffset(26, 78), UDim2.new(1, -52, 0, 50), Color3.fromRGB(255, 255, 255))
+	tabs.BackgroundTransparency = 1
+	tabs.ZIndex = 1002
+	for _, child in ipairs(tabs:GetChildren()) do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+
+	local layout = tabs:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, 12)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = tabs
+
+	for index, tabConfig in ipairs({
+		{ key = "Sectors", text = "Sectors" },
+		{ key = "Teleports", text = "Teleports" },
+	}) do
+		local tab = button(
+			tabs,
+			tabConfig.key .. "Tab",
+			tabConfig.text,
+			UDim2.fromOffset(0, 0),
+			UDim2.fromOffset(180, 38),
+			index == 1 and CYAN or TAB_INACTIVE
+		)
+		tab.LayoutOrder = index
+		tab.TextScaled = true
+		tab.TextColor3 = index == 1 and Color3.fromRGB(255, 255, 255) or TEXT_DARK
+		tab.ZIndex = 1003
+	end
+end
+
+local function makeWorldHeader(parent)
+	local header = frame(parent, "HeaderPanel", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 92), Color3.fromRGB(230, 250, 255))
+	header:SetAttribute("StudioWorldsGenerated", true)
+	header.ZIndex = 1003
+	applyCorner(header, 18)
+	applyStroke(header, OUTLINE, 3)
+
+	local current = text(header, "CurrentSectorLabel", "Current: Start Sector", UDim2.fromOffset(20, 10), UDim2.new(0.48, 0, 0, 30), 22)
+	current.TextScaled = true
+	current.TextStrokeTransparency = 1
+	current.ZIndex = 1004
+
+	local hint = text(header, "HintLabel", "Unlock sectors to travel, hatch new Colors, and find new zones.", UDim2.fromOffset(20, 44), UDim2.new(0.58, 0, 0, 28), 13)
+	hint.Font = Enum.Font.GothamBold
+	hint.TextColor3 = MUTED
+	hint.TextStrokeTransparency = 1
+	hint.ZIndex = 1004
+
+	local progress = text(header, "ProgressLabel", "1 / 2 sectors unlocked", UDim2.new(1, -244, 0, 12), UDim2.fromOffset(220, 26), 18)
+	progress.TextXAlignment = Enum.TextXAlignment.Right
+	progress.TextScaled = true
+	progress.TextStrokeTransparency = 1
+	progress.ZIndex = 1004
+
+	local track = frame(header, "ProgressTrack", UDim2.new(1, -244, 0, 54), UDim2.fromOffset(220, 18), Color3.fromRGB(211, 221, 236))
+	track.ZIndex = 1004
+	applyCorner(track, 999)
+	local trackStroke = track:FindFirstChildOfClass("UIStroke")
+	if trackStroke then
+		trackStroke:Destroy()
+	end
+
+	local fill = frame(track, "ProgressFill", UDim2.fromScale(0, 0), UDim2.fromScale(0.5, 1), GREEN)
+	fill.ZIndex = 1005
+	applyCorner(fill, 999)
+	local fillStroke = fill:FindFirstChildOfClass("UIStroke")
+	if fillStroke then
+		fillStroke:Destroy()
+	end
+end
+
+local function makeWorldSectorCard(parent, world)
+	local colorType = world.primaryColor or world.id
+	local accent = worldAccent(colorType)
+	local maxPlayable = tonumber((GameBalance.Progression or {}).MaxPlayableSectorIndex) or math.huge
+	local worldIndex = tonumber(world.WorldIndex or ColorData.getWorldIndex(colorType)) or 1
+	local playable = worldIndex <= maxPlayable
+	local staticCurrent = colorType == "Red"
+	local staticCost = tonumber(world.UnlockCost or world.unlockCost) or 0
+	local card = frame(parent, tostring(colorType) .. "SectorCard", UDim2.fromScale(0, 0), UDim2.fromOffset(744, 206), Color3.fromRGB(255, 255, 255))
+	card:SetAttribute("StudioWorldsGenerated", true)
+	card:SetAttribute("WorldColor", colorType)
+	card.LayoutOrder = worldIndex
+	card.ZIndex = 1004
+	applyCorner(card, 16)
+	applyStroke(card, OUTLINE, 2)
+
+	local accentBand = frame(card, "AccentBand", UDim2.fromScale(0, 0), UDim2.new(0, 16, 1, 0), accent)
+	accentBand.ZIndex = 1005
+	local accentStroke = accentBand:FindFirstChildOfClass("UIStroke")
+	if accentStroke then
+		accentStroke:Destroy()
+	end
+
+	local icon = frame(card, "IconCircle", UDim2.fromOffset(34, 34), UDim2.fromOffset(118, 118), accent:Lerp(Color3.fromRGB(255, 255, 255), 0.18))
+	icon.ZIndex = 1005
+	applyCorner(icon, 24)
+	applyStroke(icon, OUTLINE, 3)
+	local iconText = text(icon, "IconText", worldIconText(colorType), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 42)
+	iconText.TextXAlignment = Enum.TextXAlignment.Center
+	iconText.TextScaled = true
+	iconText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	iconText.TextStrokeColor3 = OUTLINE
+	iconText.TextStrokeTransparency = 0
+	iconText.ZIndex = 1006
+
+	local name = text(card, "Name", tostring(world.DisplayName or world.name or colorType), UDim2.fromOffset(178, 24), UDim2.new(1, -332, 0, 40), 28)
+	name.TextScaled = true
+	name.TextStrokeTransparency = 1
+	name.ZIndex = 1005
+
+	local meta = text(card, "Meta", "Power x" .. tostring(world.rewardMultiplier or 1) .. " | " .. tostring(#(world.EggIds or {})) .. " eggs", UDim2.fromOffset(180, 68), UDim2.new(1, -360, 0, 24), 15)
+	meta.Font = Enum.Font.GothamBold
+	meta.TextColor3 = MUTED
+	meta.TextStrokeTransparency = 1
+	meta.ZIndex = 1005
+
+	local defaultRequirement = staticCurrent and "You are here now."
+		or (not playable and "Coming in a future update.")
+		or ("Unlock for " .. formatNumber(staticCost) .. " Coins.")
+	local requirement = text(card, "Requirement", defaultRequirement, UDim2.fromOffset(180, 98), UDim2.new(1, -360, 0, 26), 15)
+	requirement.Font = Enum.Font.GothamBold
+	requirement.TextColor3 = MUTED
+	requirement.TextStrokeTransparency = 1
+	requirement.ZIndex = 1005
+
+	local statusText = staticCurrent and "CURRENT" or (playable and (formatNumber(staticCost) .. " COINS") or "SOON")
+	local statusColor = staticCurrent and GREEN or (playable and Color3.fromRGB(255, 218, 74) or DISABLED)
+	local statusTextColor = staticCurrent and Color3.fromRGB(255, 255, 255) or TEXT_DARK
+	local status = text(card, "Status", statusText, UDim2.fromOffset(180, 134), UDim2.fromOffset(142, 30), 14)
+	status.BackgroundTransparency = 0
+	status.BackgroundColor3 = statusColor
+	status.TextColor3 = statusTextColor
+	status.TextXAlignment = Enum.TextXAlignment.Center
+	status.TextScaled = true
+	status.TextStrokeTransparency = 1
+	status.ZIndex = 1005
+	applyCorner(status, 999)
+	applyStroke(status, OUTLINE, 2)
+
+	local actionText = staticCurrent and "CURRENT" or (playable and "UNLOCK" or "SOON")
+	local actionColor = playable and GREEN or DISABLED
+	local action = button(card, "TeleportButton", actionText, UDim2.new(1, -190, 0.5, -26), UDim2.fromOffset(160, 52), actionColor)
+	action:SetAttribute("WorldColor", colorType)
+	action.TextScaled = true
+	action.ZIndex = 1006
+
+	local scrollHint = text(card, "ScrollHint", "Scroll sideways to browse sectors", UDim2.new(1, -260, 1, -36), UDim2.fromOffset(230, 22), 12)
+	scrollHint.Font = Enum.Font.GothamBold
+	scrollHint.TextColor3 = MUTED
+	scrollHint.TextXAlignment = Enum.TextXAlignment.Right
+	scrollHint.TextStrokeTransparency = 1
+	scrollHint.ZIndex = 1005
+end
+
+local function makeSectorsPage(content)
+	local page = frame(content, "SectorsPage", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), PANEL)
+	page:SetAttribute("StudioWorldsGenerated", true)
+	page.BackgroundTransparency = 1
+	page.ZIndex = 1002
+	local pageStroke = page:FindFirstChildOfClass("UIStroke")
+	if pageStroke then
+		pageStroke:Destroy()
+	end
+	makeWorldHeader(page)
+
+	local carousel = scrollingFrame(page, "SectorCarousel", UDim2.fromOffset(14, 116), UDim2.new(1, -28, 1, -130))
+	carousel:SetAttribute("StudioWorldsGenerated", true)
+	carousel:SetAttribute("CardStep", 768)
+	carousel.BackgroundColor3 = Color3.fromRGB(246, 249, 255)
+	carousel.ScrollBarThickness = 8
+	carousel.ScrollingDirection = Enum.ScrollingDirection.X
+	carousel.ZIndex = 1003
+	carousel.CanvasSize = UDim2.fromOffset((#(ColorData.Worlds or {}) * 768) + 36, 0)
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 14)
+	padding.PaddingBottom = UDim.new(0, 14)
+	padding.PaddingLeft = UDim.new(0, 18)
+	padding.PaddingRight = UDim.new(0, 18)
+	padding.Parent = carousel
+
+	local layout = carousel:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, 24)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = carousel
+
+	for _, world in ipairs(ColorData.Worlds or {}) do
+		makeWorldSectorCard(carousel, world)
+	end
+end
+
+local function makeTeleportCard(parent, teleport, layoutOrder)
+	local card = frame(parent, tostring(teleport.id) .. "TeleportCard", UDim2.fromScale(0, 0), UDim2.fromOffset(358, 118), Color3.fromRGB(255, 255, 255))
+	card:SetAttribute("StudioWorldsGenerated", true)
+	card:SetAttribute("LocationId", teleport.id)
+	card.LayoutOrder = layoutOrder
+	card.ZIndex = 1004
+	applyCorner(card, 16)
+	applyStroke(card, OUTLINE, 2)
+
+	local icon = frame(card, "IconCircle", UDim2.fromOffset(12, 14), UDim2.fromOffset(64, 64), teleport.color:Lerp(Color3.fromRGB(255, 255, 255), 0.16))
+	icon.ZIndex = 1005
+	applyCorner(icon, 16)
+	applyStroke(icon, OUTLINE, 2)
+	local iconText = text(icon, "IconText", teleport.icon, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 20)
+	iconText.TextXAlignment = Enum.TextXAlignment.Center
+	iconText.TextScaled = true
+	iconText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	iconText.TextStrokeColor3 = OUTLINE
+	iconText.TextStrokeTransparency = 0
+	iconText.ZIndex = 1006
+
+	local name = text(card, "Name", teleport.title, UDim2.fromOffset(88, 10), UDim2.new(1, -104, 0, 28), 18)
+	name.TextScaled = true
+	name.TextStrokeTransparency = 1
+	name.ZIndex = 1005
+
+	local description = text(card, "Description", teleport.description, UDim2.fromOffset(88, 40), UDim2.new(1, -104, 0, 34), 12)
+	description.Font = Enum.Font.GothamBold
+	description.TextColor3 = MUTED
+	description.TextStrokeTransparency = 1
+	description.ZIndex = 1005
+
+	local status = text(card, "Status", "LOCKED", UDim2.fromOffset(12, 84), UDim2.fromOffset(112, 24), 12)
+	status.BackgroundTransparency = 0
+	status.BackgroundColor3 = TAB_INACTIVE
+	status.TextColor3 = TEXT_DARK
+	status.TextXAlignment = Enum.TextXAlignment.Center
+	status.TextScaled = true
+	status.TextStrokeTransparency = 1
+	status.ZIndex = 1005
+	applyCorner(status, 999)
+	applyStroke(status, OUTLINE, 2)
+
+	local action = button(card, "TeleportButton", "GO", UDim2.new(1, -122, 1, -36), UDim2.fromOffset(108, 28), GREEN)
+	action:SetAttribute("LocationId", teleport.id)
+	action.TextScaled = true
+	action.ZIndex = 1006
+end
+
+local function makeTeleportsPage(content)
+	local page = frame(content, "TeleportsPage", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), PANEL)
+	page:SetAttribute("StudioWorldsGenerated", true)
+	page.BackgroundTransparency = 1
+	page.Visible = false
+	page.ZIndex = 1002
+	local pageStroke = page:FindFirstChildOfClass("UIStroke")
+	if pageStroke then
+		pageStroke:Destroy()
+	end
+
+	local header = frame(page, "HeaderPanel", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 76), Color3.fromRGB(248, 252, 255))
+	header:SetAttribute("StudioWorldsGenerated", true)
+	header.ZIndex = 1003
+	applyCorner(header, 18)
+	applyStroke(header, OUTLINE, 3)
+	local title = text(header, "HeaderTitle", "FAST TRAVEL", UDim2.fromOffset(20, 10), UDim2.new(0.42, 0, 0, 30), 24)
+	title.TextScaled = true
+	title.TextStrokeTransparency = 1
+	title.ZIndex = 1004
+	local subtitle = text(header, "HeaderSubtitle", "Unlocked locations stay editable and update while you play.", UDim2.fromOffset(20, 42), UDim2.new(0.75, 0, 0, 22), 13)
+	subtitle.Font = Enum.Font.GothamBold
+	subtitle.TextColor3 = MUTED
+	subtitle.TextStrokeTransparency = 1
+	subtitle.ZIndex = 1004
+
+	local grid = scrollingFrame(page, "TeleportGrid", UDim2.fromOffset(14, 100), UDim2.new(1, -28, 1, -114))
+	grid:SetAttribute("StudioWorldsGenerated", true)
+	grid.BackgroundColor3 = Color3.fromRGB(246, 249, 255)
+	grid.ScrollBarThickness = 7
+	grid.ZIndex = 1003
+	grid.CanvasSize = UDim2.fromOffset(0, 420)
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 12)
+	padding.PaddingBottom = UDim.new(0, 12)
+	padding.PaddingLeft = UDim.new(0, 12)
+	padding.PaddingRight = UDim.new(0, 12)
+	padding.Parent = grid
+
+	local layout = grid:FindFirstChildOfClass("UIGridLayout") or Instance.new("UIGridLayout")
+	layout.CellSize = UDim2.fromOffset(358, 118)
+	layout.CellPadding = UDim2.fromOffset(12, 12)
+	layout.FillDirectionMaxCells = 2
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = grid
+
+	for index, teleport in ipairs(WORLD_TELEPORTS) do
+		makeTeleportCard(grid, teleport, index)
+	end
+end
+
+local function makeWorldsWindow(windowsFolder)
+	local worldsWindow = windowsFolder:FindFirstChild("WorldsWindow")
+	if not worldsWindow or not worldsWindow:IsA("GuiObject") then
+		worldsWindow = frame(windowsFolder, "WorldsWindow", UDim2.fromScale(0.5, 0.46), UDim2.fromOffset(860, 540), Color3.fromRGB(255, 255, 255))
+	end
+	worldsWindow.Visible = false
+	prepWorldsWindow(worldsWindow)
+	makeWorldsTabs(worldsWindow)
+
+	local content = worldsWindow:FindFirstChild("Content")
+	if not content or not content:IsA("GuiObject") then
+		content = frame(worldsWindow, "Content", UDim2.fromOffset(26, 140), UDim2.new(1, -52, 1, -166), PANEL)
+	end
+	content.Position = UDim2.fromOffset(26, 140)
+	content.Size = UDim2.new(1, -52, 1, -166)
+	content.BackgroundColor3 = PANEL
+	content.ClipsDescendants = true
+	content.ZIndex = 1001
+	applyCorner(content, 18)
+	applyStroke(content, OUTLINE, 3)
+	clearWorldsContent(content)
+	makeSectorsPage(content)
+	makeTeleportsPage(content)
+	return worldsWindow
+end
+
 local function getSettingsContent()
 	local root = StarterGui:FindFirstChild("ClientUIRoot")
 	local mainHud = root and root:FindFirstChild("MainHUD")
@@ -1243,6 +1779,54 @@ function Builder.UpdateShopWindow()
 	print("StudioMenuWindowsBuilder: updated ShopWindow Featured shop layout.")
 end
 
+function Builder.ApplyUpgradeIcons()
+	if not RunService:IsStudio() then
+		warn("StudioMenuWindowsBuilder.ApplyUpgradeIcons can only run in Roblox Studio.")
+		return
+	end
+	if RunService:IsRunning() then
+		warn("StudioMenuWindowsBuilder.ApplyUpgradeIcons should be run in edit mode, not during Play.")
+		return
+	end
+
+	local root = StarterGui:FindFirstChild("ClientUIRoot")
+	local upgradesWindow = root and root:FindFirstChild("UpgradesWindow", true)
+	if not upgradesWindow or not upgradesWindow:IsA("GuiObject") then
+		warn("StudioMenuWindowsBuilder.ApplyUpgradeIcons could not find StarterGui.ClientUIRoot...UpgradesWindow.")
+		return
+	end
+
+	local applied = applyUpgradeIconsToWindow(upgradesWindow)
+	print("StudioMenuWindowsBuilder: applied upgrade icon slots to " .. tostring(applied) .. " cards.")
+end
+
+function Builder.UpdateWorldsWindow()
+	if not RunService:IsStudio() then
+		warn("StudioMenuWindowsBuilder.UpdateWorldsWindow can only run in Roblox Studio.")
+		return
+	end
+	if RunService:IsRunning() then
+		warn("StudioMenuWindowsBuilder.UpdateWorldsWindow should be run in edit mode, not during Play.")
+		return
+	end
+
+	local root = StarterGui:FindFirstChild("ClientUIRoot")
+	local mainHud = root and root:FindFirstChild("MainHUD")
+	local modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows")
+	local windowsFolder = modalWindows and modalWindows:FindFirstChild("Windows")
+	local existingWorldsWindow = StarterGui:FindFirstChild("WorldsWindow", true)
+	if not windowsFolder and existingWorldsWindow and existingWorldsWindow.Parent then
+		windowsFolder = existingWorldsWindow.Parent
+	end
+	if not windowsFolder then
+		warn("StudioMenuWindowsBuilder.UpdateWorldsWindow could not find a WorldsWindow or Windows folder under StarterGui.")
+		return
+	end
+
+	makeWorldsWindow(windowsFolder)
+	print("StudioMenuWindowsBuilder: updated WorldsWindow sector select layout.")
+end
+
 function Builder.Build()
 	if not RunService:IsStudio() then
 		warn("StudioMenuWindowsBuilder.Build can only run in Roblox Studio.")
@@ -1285,8 +1869,7 @@ function Builder.Build()
 	makeCodesContent(codesContent)
 	local _, tradeContent = makeWindow(windowsFolder, "TradeWindow", "TRADE", {})
 	text(tradeContent, "ComingSoon", "Trading is coming soon!", UDim2.fromScale(0, 0.35), UDim2.fromScale(1, 0.18), 28).TextXAlignment = Enum.TextXAlignment.Center
-	local _, worldsContent = makeWindow(windowsFolder, "WorldsWindow", "WORLDS", {})
-	makeCardGrid(worldsContent, { "Origin Sector", "Red Wastelands", "Orange Sector", "Inside Pipes" })
+	makeWorldsWindow(windowsFolder)
 	local _, questsContent = makeWindow(windowsFolder, "DailyQuestsWindow", "DAILY QUESTS", {})
 	makeCardGrid(questsContent, { "Clean Color Spills", "Earn Coins", "Hatch Colors" })
 

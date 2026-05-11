@@ -218,9 +218,14 @@ end
 local function getCollectMultiplier(player)
 	local multiplier = getPetColorMultiplier(player)
 	local upgrades = player:FindFirstChild("Upgrades")
-	local colorMultiplier = upgrades and upgrades:FindFirstChild("ColorMultiplier")
-	if colorMultiplier then
-		multiplier *= colorMultiplier.Value
+	local playerPower = upgrades and upgrades:FindFirstChild("PlayerPower")
+	if playerPower then
+		multiplier *= playerPower.Value
+	end
+
+	local brushPower = upgrades and upgrades:FindFirstChild("BrushPower")
+	if brushPower then
+		multiplier *= brushPower.Value
 	end
 
 	return multiplier
@@ -246,6 +251,17 @@ local function getInstantCoinMultiplier(player, colorType)
 
 	multiplier *= GamepassBenefits.getCoinMultiplier(player)
 	multiplier *= GroupRewardsService.GetCoinMultiplier(player)
+
+	local upgrades = player:FindFirstChild("Upgrades")
+	local coinMultiplier = upgrades and (upgrades:FindFirstChild("CoinMultiplier") or upgrades:FindFirstChild("ColorMultiplier"))
+	if coinMultiplier then
+		multiplier *= coinMultiplier.Value
+	end
+
+	local sellValue = upgrades and upgrades:FindFirstChild("SellValue")
+	if sellValue then
+		multiplier *= sellValue.Value
+	end
 	return multiplier
 end
 
@@ -556,6 +572,11 @@ local function collectBreakable(player, part, options)
 		* toolMult
 		* getInstantCoinMultiplier(player, colorType)
 	)
+	local upgrades = player:FindFirstChild("Upgrades")
+	local critChance = upgrades and upgrades:FindFirstChild("CritChance")
+	if critChance and math.random() < math.clamp(critChance.Value, 0, 0.95) then
+		reward *= 2
+	end
 	reward = math.max(reward, 1)
 
 	if not awardCoins(player, reward) then
@@ -856,6 +877,11 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 	local effects = ColorEffectHandler.CalculateEquippedColorEffects(player)
 	local toolStats = getToolEffectiveStats(toolConfig)
 	local useSpeedMultiplier = math.max(tonumber(toolStats.UseSpeedMultiplier) or 1, 0.01)
+	local upgrades = player:FindFirstChild("Upgrades")
+	local paintSpeed = upgrades and upgrades:FindFirstChild("PaintSpeed")
+	if paintSpeed then
+		useSpeedMultiplier *= math.max(tonumber(paintSpeed.Value) or 1, 0.01)
+	end
 	local cooldown = ((mode == "walk" and WALK_SWEEP_COOLDOWN or (toolConfig.Cooldown or 0.45)) * effects.BrushCooldownMultiplier) / useSpeedMultiplier
 	local minimumCooldown = mode == "walk" and 0.1 or ((GameBalance.ColorEffects and GameBalance.ColorEffects.MinimumBrushCooldown) or 0.2)
 	cooldown = math.max(cooldown, minimumCooldown)
@@ -883,6 +909,10 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 
 	local range = getPaintToolRange(player, toolConfig)
 	local width = (tonumber(toolConfig.Width) or 7) * (tonumber(toolStats.SweepWidthMultiplier) or 1)
+	local brushSize = upgrades and upgrades:FindFirstChild("BrushSize")
+	if brushSize then
+		width *= math.max(tonumber(brushSize.Value) or 1, 0.1)
+	end
 	if mode == "walk" then
 		range = math.min(WALK_PICKUP_RANGE * (tonumber(toolStats.PickupRadiusMultiplier) or 1), range)
 	end

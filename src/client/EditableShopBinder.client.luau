@@ -8,6 +8,8 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
+local Events = ReplicatedStorage:WaitForChild("Events", 30)
+local claimInfinitePackTierEvent = Events and Events:WaitForChild("ClaimInfinitePackTier", 30)
 
 local OUTLINE = Color3.fromRGB(35, 38, 45)
 local TEXT_DARK = Color3.fromRGB(38, 36, 52)
@@ -47,6 +49,7 @@ end
 
 local warned = {}
 local ownedCache = {}
+local claimingInfinitePackTier = {}
 
 local function warnOnce(key, message)
 	if warned[key] then
@@ -112,6 +115,37 @@ local function setButtonEnabled(button, enabled)
 	pcall(function()
 		button.Interactable = enabled
 	end)
+end
+
+local function getCurrencyRewardAmount(reward, currencyName)
+	local rewardKind = tostring(reward.rewardKind or "")
+	if currencyName == "Coins" then
+		return math.floor(tonumber(reward.coinReward or (rewardKind == "Coin" and reward.amount) or 0) or 0)
+	elseif currencyName == "Gems" then
+		return math.floor(tonumber(reward.gemReward or (rewardKind == "Gem" and reward.amount) or 0) or 0)
+	elseif currencyName == "Diamonds" then
+		return math.floor(tonumber(reward.diamondReward or (rewardKind == "Diamond" and reward.amount) or 0) or 0)
+	end
+	return 0
+end
+
+local function hasClaimableFreeReward(tier)
+	return getCurrencyRewardAmount(tier, "Coins") > 0
+		or getCurrencyRewardAmount(tier, "Gems") > 0
+		or getCurrencyRewardAmount(tier, "Diamonds") > 0
+end
+
+local function isInfinitePackTierClaimed(tier)
+	if not tier then
+		return false
+	end
+	if player:GetAttribute("InfinitePackClaimed_" .. tostring(tier.id)) == true then
+		return true
+	end
+	local folder = player:FindFirstChild("InfinitePackClaims")
+	local claimedTiers = folder and folder:FindFirstChild("ClaimedTiers")
+	local claim = claimedTiers and claimedTiers:FindFirstChild(tostring(tier.id))
+	return claim and claim:IsA("BoolValue") and claim.Value == true
 end
 
 local function ownsPass(pass)
@@ -210,20 +244,34 @@ local function updateInfinitePackTierCard(card, tier)
 	local productId = tonumber(tier.productId)
 	local isFree = tier.free == true or tonumber(tier.price) == 0
 	local hasRealId = productId and productId > 0
+	local claimed = isInfinitePackTierClaimed(tier)
+	local claimableFreeReward = hasClaimableFreeReward(tier)
 
 	if priceLabel then
 		priceLabel.Text = isFree and "FREE" or (tostring(tier.price or 0) .. " R$")
 	end
 
-	setOwnedVisual(card, false)
+	setOwnedVisual(card, claimed)
 	if not button then
 		return
 	end
 
-	if isFree then
+	if claimed then
+		setButtonText(button, "CLAIMED")
+		button.BackgroundColor3 = GREEN
+		setButtonEnabled(button, false)
+	elseif claimingInfinitePackTier[tier.id] then
+		setButtonText(button, "CLAIMING")
+		button.BackgroundColor3 = DISABLED
+		setButtonEnabled(button, false)
+	elseif isFree and claimableFreeReward then
 		setButtonText(button, "FREE")
 		button.BackgroundColor3 = GREEN
 		setButtonEnabled(button, true)
+	elseif isFree then
+		setButtonText(button, "SOON")
+		button.BackgroundColor3 = DISABLED
+		setButtonEnabled(button, false)
 	elseif hasRealId then
 		setButtonText(button, tostring(tier.price or 0) .. " R$")
 		button.BackgroundColor3 = GREEN
@@ -319,8 +367,16 @@ local function bindButton(card)
 			local tier = infinitePackTiersById[itemId]
 			local productId = tier and tonumber(tier.productId)
 			local isFree = tier and (tier.free == true or tonumber(tier.price) == 0)
-			if tier and isFree then
-				warnOnce("infinite-pack-free", "EditableShopBinder: free Infinite Pack tier claiming needs a server grant remote.")
+			if tier and isFree and hasClaimableFreeReward(tier) and not isInfinitePackTierClaimed(tier) then
+				if claimInfinitePackTierEvent and claimInfinitePackTierEvent:IsA("RemoteEvent") then
+					claimingInfinitePackTier[tier.id] = true
+					updateCardState(card)
+					claimInfinitePackTierEvent:FireServer(tier.id)
+				else
+					warnOnce("infinite-pack-free", "EditableShopBinder: ClaimInfinitePackTier remote is missing.")
+				end
+			elseif tier and isFree then
+				warnOnce("infinite-pack-unsupported-free", "EditableShopBinder: this free Infinite Pack reward is not wired yet.")
 			elseif tier and productId and productId > 0 then
 				MarketplaceService:PromptProductPurchase(player, productId)
 			end
@@ -386,6 +442,47 @@ local function updateAllCards(shopWindow)
 	end
 end
 
+local function watchInfinitePackClaims(shopWindow)
+	local function refresh()
+		updateAllCards(shopWindow)
+	end
+
+	local function bindClaimFolder(folder)
+		if not folder then
+			return
+		end
+		if folder:GetAttribute("EditableShopClaimFolderWatched") ~= true then
+			folder:SetAttribute("EditableShopClaimFolderWatched", true)
+			folder.ChildAdded:Connect(function(child)
+				if child.Name == "ClaimedTiers" then
+					bindClaimFolder(folder)
+					refresh()
+				end
+			end)
+		end
+
+		local claimedTiers = folder and folder:FindFirstChild("ClaimedTiers")
+		if not claimedTiers or claimedTiers:GetAttribute("EditableShopClaimsWatched") == true then
+			return
+		end
+		claimedTiers:SetAttribute("EditableShopClaimsWatched", true)
+		claimedTiers.ChildAdded:Connect(refresh)
+		claimedTiers.ChildRemoved:Connect(refresh)
+	end
+
+	bindClaimFolder(player:FindFirstChild("InfinitePackClaims"))
+	player.ChildAdded:Connect(function(child)
+		if child.Name == "InfinitePackClaims" then
+			bindClaimFolder(child)
+			refresh()
+		end
+	end)
+
+	for _, tier in pairs(infinitePackTiersById) do
+		player:GetAttributeChangedSignal("InfinitePackClaimed_" .. tostring(tier.id)):Connect(refresh)
+	end
+end
+
 local function getTabs(shopWindow)
 	return shopWindow:FindFirstChild("Tabs", true)
 end
@@ -446,6 +543,20 @@ if not shopWindow then
 	return
 end
 
+if claimInfinitePackTierEvent and claimInfinitePackTierEvent:IsA("RemoteEvent") then
+	claimInfinitePackTierEvent.OnClientEvent:Connect(function(action, tierId, payload)
+		tierId = tostring(tierId or "")
+		claimingInfinitePackTier[tierId] = nil
+		if action == "Claimed" then
+			player:SetAttribute("InfinitePackClaimed_" .. tierId, true)
+		elseif payload and payload.message then
+			warnOnce("infinite-pack-claim-" .. tierId .. "-" .. tostring(payload.message), "EditableShopBinder: " .. tostring(payload.message))
+		end
+		updateAllCards(shopWindow)
+	end)
+end
+
+watchInfinitePackClaims(shopWindow)
 bindTabs(shopWindow)
 updateAllCards(shopWindow)
 shopWindow.DescendantAdded:Connect(function(descendant)

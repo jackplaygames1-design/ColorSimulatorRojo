@@ -88,7 +88,15 @@ local DEFAULT_DATA = {
 		LastDailyGemClaim = "",
 	},
 	GamepassGrants = {},
+	InfinitePackClaims = {
+		ResetKey = "",
+		ClaimedTiers = {},
+	},
 }
+
+local function infinitePackResetKey()
+	return os.date("!%Y-%m-%d")
+end
 
 local OWNER_RAINBOW_PET_ID = "DevRainbowPet"
 local OWNER_RAINBOW_PET_TRAIT = "SuperLucky"
@@ -851,6 +859,13 @@ local function migrateData(saved)
 	data.TutorialProgress.HasSeenMutationTutorial = data.TutorialProgress.HasSeenMutationTutorial == true
 	data.GroupRewards = type(data.GroupRewards) == "table" and data.GroupRewards or {}
 	data.GamepassGrants = type(data.GamepassGrants) == "table" and data.GamepassGrants or {}
+	data.InfinitePackClaims = type(data.InfinitePackClaims) == "table" and data.InfinitePackClaims or {}
+	data.InfinitePackClaims.ResetKey = tostring(data.InfinitePackClaims.ResetKey or "")
+	data.InfinitePackClaims.ClaimedTiers = type(data.InfinitePackClaims.ClaimedTiers) == "table" and data.InfinitePackClaims.ClaimedTiers or {}
+	if data.InfinitePackClaims.ResetKey ~= infinitePackResetKey() then
+		data.InfinitePackClaims.ResetKey = infinitePackResetKey()
+		data.InfinitePackClaims.ClaimedTiers = {}
+	end
 	data.DataVersion = CURRENT_DATA_VERSION
 	data.Version = CURRENT_DATA_VERSION
 	return data
@@ -893,6 +908,13 @@ local function validateProfileData(player, data, context)
 	data.GroupRewards = type(data.GroupRewards) == "table" and data.GroupRewards or {}
 	data.GroupRewards.LastDailyGemClaim = tostring(data.GroupRewards.LastDailyGemClaim or "")
 	data.GamepassGrants = type(data.GamepassGrants) == "table" and data.GamepassGrants or {}
+	data.InfinitePackClaims = type(data.InfinitePackClaims) == "table" and data.InfinitePackClaims or {}
+	data.InfinitePackClaims.ResetKey = tostring(data.InfinitePackClaims.ResetKey or "")
+	data.InfinitePackClaims.ClaimedTiers = type(data.InfinitePackClaims.ClaimedTiers) == "table" and data.InfinitePackClaims.ClaimedTiers or {}
+	if data.InfinitePackClaims.ResetKey ~= infinitePackResetKey() then
+		data.InfinitePackClaims.ResetKey = infinitePackResetKey()
+		data.InfinitePackClaims.ClaimedTiers = {}
+	end
 	data.DataVersion = CURRENT_DATA_VERSION
 	data.Version = CURRENT_DATA_VERSION
 	data.Pets = deepCopy(data.PetInventory)
@@ -935,6 +957,7 @@ local DATA_FOLDERS = {
 	Settings = true,
 	GroupRewards = true,
 	GamepassGrants = true,
+	InfinitePackClaims = true,
 }
 
 local function clearGeneratedDataFolders(player)
@@ -1140,6 +1163,34 @@ local function applyData(player, data)
 	gamepassGrantsFolder.ChildAdded:Connect(function(child)
 		watchValueForDirty(player, child, "gamepass-grants")
 		markPlayerDirty(player, "gamepass-grants")
+	end)
+
+	local infinitePackClaimsFolder = Instance.new("Folder")
+	infinitePackClaimsFolder.Name = "InfinitePackClaims"
+	infinitePackClaimsFolder.Parent = player
+
+	local infinitePackResetKey = Instance.new("StringValue")
+	infinitePackResetKey.Name = "ResetKey"
+	infinitePackResetKey.Value = data.InfinitePackClaims and tostring(data.InfinitePackClaims.ResetKey or "") or ""
+	infinitePackResetKey.Parent = infinitePackClaimsFolder
+	watchValueForDirty(player, infinitePackResetKey, "infinite-pack-claims")
+
+	local infinitePackClaimedTiers = Instance.new("Folder")
+	infinitePackClaimedTiers.Name = "ClaimedTiers"
+	infinitePackClaimedTiers.Parent = infinitePackClaimsFolder
+	for tierId, claimed in pairs((data.InfinitePackClaims and data.InfinitePackClaims.ClaimedTiers) or {}) do
+		if claimed == true then
+			local value = Instance.new("BoolValue")
+			value.Name = tostring(tierId)
+			value.Value = true
+			value.Parent = infinitePackClaimedTiers
+			watchValueForDirty(player, value, "infinite-pack-claims")
+			player:SetAttribute("InfinitePackClaimed_" .. tostring(tierId), true)
+		end
+	end
+	infinitePackClaimedTiers.ChildAdded:Connect(function(child)
+		watchValueForDirty(player, child, "infinite-pack-claims")
+		markPlayerDirty(player, "infinite-pack-claims")
 	end)
 
 	-- Upgrade level storage (read by UpgradeHandler)
@@ -1434,6 +1485,20 @@ local function collectData(player)
 		for _, child in ipairs(gamepassGrantsFolder:GetChildren()) do
 			if child:IsA("BoolValue") and child.Value == true then
 				data.GamepassGrants[child.Name] = true
+			end
+		end
+	end
+	local infinitePackClaimsFolder = player:FindFirstChild("InfinitePackClaims")
+	local infinitePackResetKey = infinitePackClaimsFolder and infinitePackClaimsFolder:FindFirstChild("ResetKey")
+	local infinitePackClaimedTiers = infinitePackClaimsFolder and infinitePackClaimsFolder:FindFirstChild("ClaimedTiers")
+	data.InfinitePackClaims = {
+		ResetKey = infinitePackResetKey and tostring(infinitePackResetKey.Value or "") or "",
+		ClaimedTiers = {},
+	}
+	if infinitePackClaimedTiers then
+		for _, child in ipairs(infinitePackClaimedTiers:GetChildren()) do
+			if child:IsA("BoolValue") and child.Value == true then
+				data.InfinitePackClaims.ClaimedTiers[child.Name] = true
 			end
 		end
 	end

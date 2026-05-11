@@ -6,6 +6,7 @@ local UpgradeData = require(ReplicatedStorage:WaitForChild("UpgradeData"))
 
 local Events         = ReplicatedStorage:WaitForChild("Events")
 local purchaseEvent  = Events:WaitForChild("PurchaseUpgrade")
+local LEGACY_PURCHASE_HANDLER_ENABLED = false
 
 -- Store upgrade levels per player
 local playerUpgrades = {}
@@ -215,39 +216,45 @@ local function handlePurchase(player, upgradeId, ...)
 	print(player.Name .. " upgraded " .. upgradeId .. " to level " .. nextLevel)
 end
 
-purchaseEvent.OnServerEvent:Connect(function(player, upgradeId, ...)
-	local ok, err = pcall(handlePurchase, player, upgradeId, ...)
-	if not ok then
-		warn("Upgrade purchase failed: " .. tostring(err))
-		respond(player, false, upgradeId, "Purchase failed. Try again.")
-	end
-end)
+if LEGACY_PURCHASE_HANDLER_ENABLED then
+	purchaseEvent.OnServerEvent:Connect(function(player, upgradeId, ...)
+		local ok, err = pcall(handlePurchase, player, upgradeId, ...)
+		if not ok then
+			warn("Upgrade purchase failed: " .. tostring(err))
+			respond(player, false, upgradeId, "Purchase failed. Try again.")
+		end
+	end)
+end
 
 -- ========================
 --   PLAYER SETUP
 -- ========================
-Players.PlayerAdded:Connect(function(player)
-	-- Wait for DataManager to load player data first
-	local upgradeFolder = player:WaitForChild("Upgrades", 10)
+if LEGACY_PURCHASE_HANDLER_ENABLED then
+	Players.PlayerAdded:Connect(function(player)
+		-- Wait for DataManager to load player data first
+		local upgradeFolder = player:WaitForChild("Upgrades", 10)
 
-	loadUpgrades(player)
+		loadUpgrades(player)
 
-	-- Apply on spawn and re-apply on respawn
-	local function onCharacterAdded(char)
-		task.wait(0.5)
-		applyUpgrades(player)
-	end
+		-- Apply on spawn and re-apply on respawn
+		local function onCharacterAdded(char)
+			task.wait(0.5)
+			applyUpgrades(player)
+		end
 
-	player.CharacterAdded:Connect(onCharacterAdded)
-	if player.Character then
-		onCharacterAdded(player.Character)
-	end
-end)
+		player.CharacterAdded:Connect(onCharacterAdded)
+		if player.Character then
+			onCharacterAdded(player.Character)
+		end
+	end)
+end
 
-Players.PlayerRemoving:Connect(function(player)
-	saveUpgrades(player)
-	playerUpgrades[player] = nil
-end)
+if LEGACY_PURCHASE_HANDLER_ENABLED then
+	Players.PlayerRemoving:Connect(function(player)
+		saveUpgrades(player)
+		playerUpgrades[player] = nil
+	end)
+end
 
 -- Expose for other scripts
 return {

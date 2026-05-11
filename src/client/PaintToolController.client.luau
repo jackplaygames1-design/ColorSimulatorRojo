@@ -134,6 +134,12 @@ local function getClientRange(toolConfig)
 	return math.min(range * (stats.PickupRadiusMultiplier or 1) * buffMultiplier, toolConfig.MaxServerRange or 24)
 end
 
+local function getUpgradeMultiplier(name, defaultValue)
+	local upgrades = player:FindFirstChild("Upgrades")
+	local value = upgrades and upgrades:FindFirstChild(name)
+	return value and math.max(tonumber(value.Value) or defaultValue, 0.01) or defaultValue
+end
+
 local function playSweepSound()
 	-- Keep silent for now; invalid public sound assets create noisy client error reports.
 end
@@ -394,6 +400,7 @@ local function findSweepCandidates(root, toolConfig)
 	local range = getClientRange(toolConfig)
 	local stats = getToolEffectiveStats(toolConfig)
 	local width = (toolConfig.Width or 7) * (stats.SweepWidthMultiplier or 1)
+	width *= getUpgradeMultiplier("BrushSize", 1)
 	local look = root.CFrame.LookVector
 	local center = root.Position + look * (range * 0.5)
 
@@ -476,6 +483,7 @@ local function activateBrush(tool)
 		return
 	end
 	local useSpeedMultiplier = math.max(tonumber(getToolEffectiveStats(toolConfig).UseSpeedMultiplier) or 1, 0.01)
+	useSpeedMultiplier *= getUpgradeMultiplier("PaintSpeed", 1)
 	localCooldownUntil = now + ((toolConfig.Cooldown or 0.45) / useSpeedMultiplier)
 
 	local character = player.Character

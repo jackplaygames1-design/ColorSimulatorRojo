@@ -507,6 +507,15 @@ local function breakDeposit(player, model)
 	reward = math.floor(reward * BuffService.GetMultiplier(player, "GemRewardMultiplier"))
 	if player then
 		reward = math.floor(reward * (ColorEffectHandler.CalculateEquippedColorEffects(player).GemRewardMultiplier or 1))
+		local upgrades = player:FindFirstChild("Upgrades")
+		local gemMultiplier = upgrades and upgrades:FindFirstChild("GemMultiplier")
+		if gemMultiplier then
+			reward = math.floor(reward * math.max(tonumber(gemMultiplier.Value) or 1, 0))
+		end
+		local gemValue = upgrades and upgrades:FindFirstChild("GemValue")
+		if gemValue then
+			reward = math.floor(reward * math.max(tonumber(gemValue.Value) or 1, 0))
+		end
 	end
 	if gems then
 		gems.Value += reward
@@ -552,6 +561,15 @@ local function damageDeposit(player, core, amount, shouldMarkPriority)
 	amount = math.max(0, tonumber(amount) or 0)
 	amount *= BuffService.GetMultiplier(player, "GemDamageMultiplier")
 	amount *= ColorEffectHandler.CalculateEquippedColorEffects(player).GemDamageMultiplier or 1
+	local upgrades = player:FindFirstChild("Upgrades")
+	local playerPower = upgrades and upgrades:FindFirstChild("PlayerPower")
+	if playerPower then
+		amount *= math.max(tonumber(playerPower.Value) or 1, 0)
+	end
+	local brushPower = upgrades and upgrades:FindFirstChild("BrushPower")
+	if brushPower then
+		amount *= math.max(tonumber(brushPower.Value) or 1, 0)
+	end
 	if amount <= 0 then
 		return false
 	end
