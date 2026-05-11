@@ -60,7 +60,7 @@ local function formatNumber(value)
 end
 
 local FALLBACK_INFINITE_PACK = {
-	displayName = "THE INFINITE PACK!",
+	displayName = "THE FOREVER PACK!",
 	tiers = {
 		{
 			id = "InfinitePackTier01",
@@ -911,6 +911,7 @@ local function applyShopIcon(iconCircle, item)
 
 	local iconText = iconCircle:FindFirstChild("IconText")
 	if iconText and iconText:IsA("TextLabel") then
+		iconText.Text = tostring(item and item.icon or iconText.Text or "?")
 		iconText.Visible = image == ""
 	end
 
@@ -928,13 +929,17 @@ local function applyGamepassIconsToWindow(shopWindow)
 		if descendant:IsA("GuiObject") then
 			local shopItemId = descendant:GetAttribute("ShopItemId")
 			local shopItemKind = descendant:GetAttribute("ShopItemKind")
-			local pass = shopItemKind == "Gamepass"
+			local pass = shopItemKind == "Gamepass" and shopItemId and RobuxShopConfig.getGamepass(tostring(shopItemId))
+			local tier = shopItemKind == "InfinitePackTier"
 				and shopItemId
-				and RobuxShopConfig.getGamepass(tostring(shopItemId))
-			if pass then
+				and RobuxShopConfig.getInfinitePackTier
+				and RobuxShopConfig.getInfinitePackTier(tostring(shopItemId))
+			local item = pass or tier
+			if item then
 				local iconCircle = descendant:FindFirstChild("IconCircle", true)
+					or descendant:FindFirstChild("RewardBox", true)
 				if iconCircle and iconCircle:IsA("GuiObject") then
-					applyShopIcon(iconCircle, pass)
+					applyShopIcon(iconCircle, item)
 					applied += 1
 				end
 			end
@@ -958,6 +963,7 @@ local function scrollingFrame(parent, name, position, size)
 	scroller.BorderSizePixel = 0
 	scroller.ScrollBarThickness = 6
 	scroller.ScrollingDirection = Enum.ScrollingDirection.X
+	scroller.ScrollingEnabled = true
 	scroller.CanvasPosition = Vector2.new(0, 0)
 	scroller.Parent = parent
 	applyCorner(scroller, 14)
@@ -976,16 +982,28 @@ local function makeInfinitePackTierCard(parent, tier, layoutOrder)
 	applyCorner(card, 12)
 	applyStroke(card, OUTLINE, 2)
 
-	local rewardBox = frame(card, "RewardBox", UDim2.fromOffset(9, 8), UDim2.fromOffset(78, 62), tier.color or CYAN)
+	local rewardBox = frame(card, "IconCircle", UDim2.fromOffset(9, 8), UDim2.fromOffset(78, 62), tier.color or CYAN)
 	rewardBox.ZIndex = 1006
 	applyCorner(rewardBox, 10)
 	applyStroke(rewardBox, OUTLINE, 2)
+	local iconImage = Instance.new("ImageLabel")
+	iconImage.Name = "IconImage"
+	iconImage.BackgroundTransparency = 1
+	iconImage.BorderSizePixel = 0
+	iconImage.Position = UDim2.fromOffset(2, 2)
+	iconImage.Size = UDim2.new(1, -4, 1, -4)
+	iconImage.ScaleType = Enum.ScaleType.Fit
+	iconImage.ZIndex = 1008
+	iconImage.Image = ""
+	iconImage.Visible = false
+	iconImage.Parent = rewardBox
 	local icon = makeShopText(rewardBox, "IconText", tostring(tier.icon or "?"), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 22, Color3.fromRGB(255, 255, 255), 1007)
 	icon.Font = Enum.Font.GothamBlack
 	icon.TextXAlignment = Enum.TextXAlignment.Center
 	icon.TextScaled = true
 	icon.TextStrokeTransparency = 0
 	icon.TextStrokeColor3 = OUTLINE
+	applyShopIcon(rewardBox, tier)
 
 	local reward = makeShopText(card, "RewardLabel", tostring(tier.rewardText or tier.displayName or ""), UDim2.fromOffset(7, 72), UDim2.fromOffset(82, 18), 10, TEXT_DARK, 1007)
 	reward.Font = Enum.Font.GothamBold
@@ -1039,6 +1057,8 @@ local function makeInfinitePackPanel(featuredPage)
 	local track = scrollingFrame(panel, "TierTrack", UDim2.fromOffset(14, 62), UDim2.new(1, -28, 0, 138))
 	track:SetAttribute("StudioShopGenerated", true)
 	track.ZIndex = 1005
+	track.ScrollingEnabled = false
+	track.ScrollBarThickness = 0
 	track.CanvasSize = UDim2.fromOffset((#tiers * 134) + 60, 0)
 
 	local list = track:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")

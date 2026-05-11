@@ -43,8 +43,10 @@ for _, product in ipairs(RobuxShopConfig.DevProducts or {}) do
 end
 
 local infinitePackTiersById = {}
+local infinitePackTiers = {}
 if RobuxShopConfig.getInfinitePackTiers then
 	for _, tier in ipairs(RobuxShopConfig.getInfinitePackTiers()) do
+		table.insert(infinitePackTiers, tier)
 		infinitePackTiersById[tier.id] = tier
 	end
 end
@@ -102,7 +104,7 @@ local function applyShopIcon(card, item)
 		return
 	end
 
-	local iconCircle = card:FindFirstChild("IconCircle", true)
+	local iconCircle = card:FindFirstChild("IconCircle", true) or card:FindFirstChild("RewardBox", true)
 	if not iconCircle or not iconCircle:IsA("GuiObject") then
 		return
 	end
@@ -132,6 +134,7 @@ local function applyShopIcon(card, item)
 
 	local iconText = iconCircle:FindFirstChild("IconText")
 	if iconText and iconText:IsA("TextLabel") then
+		iconText.Text = tostring(item.icon or iconText.Text or "?")
 		iconText.Visible = image == ""
 	end
 
@@ -199,6 +202,15 @@ local function isInfinitePackTierClaimed(tier)
 	local claimedTiers = folder and folder:FindFirstChild("ClaimedTiers")
 	local claim = claimedTiers and claimedTiers:FindFirstChild(tostring(tier.id))
 	return claim and claim:IsA("BoolValue") and claim.Value == true
+end
+
+local function getCurrentInfinitePackTier()
+	for _, tier in ipairs(infinitePackTiers) do
+		if not isInfinitePackTierClaimed(tier) then
+			return tier
+		end
+	end
+	return nil
 end
 
 local function ownsPass(pass)
@@ -294,11 +306,23 @@ end
 local function updateInfinitePackTierCard(card, tier)
 	local button = getButton(card)
 	local priceLabel = getTextLabel(card, "PriceLabel")
+	local rewardLabel = getTextLabel(card, "RewardLabel")
+	local iconCircle = card:FindFirstChild("IconCircle", true) or card:FindFirstChild("RewardBox", true)
+	local currentTier = getCurrentInfinitePackTier()
+	local isCurrent = currentTier and currentTier.id == tier.id
 	local productId = tonumber(tier.productId)
 	local isFree = tier.free == true or tonumber(tier.price) == 0
 	local hasRealId = productId and productId > 0
 	local claimed = isInfinitePackTierClaimed(tier)
 	local claimableFreeReward = hasClaimableFreeReward(tier)
+
+	if rewardLabel then
+		rewardLabel.Text = tostring(tier.rewardText or tier.displayName or "")
+	end
+	if iconCircle and iconCircle:IsA("GuiObject") then
+		iconCircle.BackgroundColor3 = tier.color or iconCircle.BackgroundColor3
+	end
+	applyShopIcon(card, tier)
 
 	if priceLabel then
 		priceLabel.Text = isFree and "FREE" or (tostring(tier.price or 0) .. " R$")
@@ -315,6 +339,10 @@ local function updateInfinitePackTierCard(card, tier)
 		setButtonEnabled(button, false)
 	elseif claimingInfinitePackTier[tier.id] then
 		setButtonText(button, "CLAIMING")
+		button.BackgroundColor3 = DISABLED
+		setButtonEnabled(button, false)
+	elseif not isCurrent then
+		setButtonText(button, "LOCKED")
 		button.BackgroundColor3 = DISABLED
 		setButtonEnabled(button, false)
 	elseif isFree and claimableFreeReward then
@@ -334,6 +362,33 @@ local function updateInfinitePackTierCard(card, tier)
 		button.BackgroundColor3 = DISABLED
 		setButtonEnabled(button, false)
 	end
+end
+
+local function focusInfinitePackTrack(shopWindow)
+	local currentTier = getCurrentInfinitePackTier()
+	if not currentTier then
+		return
+	end
+
+	local track = shopWindow:FindFirstChild("TierTrack", true)
+	if not track or not track:IsA("ScrollingFrame") then
+		return
+	end
+	track.ScrollingEnabled = false
+	track.ScrollBarThickness = 0
+
+	local card = track:FindFirstChild(tostring(currentTier.id) .. "Card")
+	if not card or not card:IsA("GuiObject") then
+		return
+	end
+
+	task.defer(function()
+		if not card.Parent or not track.Parent then
+			return
+		end
+		local targetX = card.AbsolutePosition.X - track.AbsolutePosition.X + track.CanvasPosition.X - 8
+		track.CanvasPosition = Vector2.new(math.max(0, targetX), 0)
+	end)
 end
 
 local function updateCardState(card)
@@ -494,6 +549,7 @@ local function updateAllCards(shopWindow)
 			startIconPulse(descendant)
 		end
 	end
+	focusInfinitePackTrack(shopWindow)
 end
 
 local function watchInfinitePackClaims(shopWindow)

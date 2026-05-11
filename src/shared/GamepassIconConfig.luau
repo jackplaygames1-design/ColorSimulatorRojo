@@ -23,6 +23,38 @@ local GamepassIconConfig = {
 			Image = "",
 			SourceFile = "assets/ui/gamepass/autosell.png",
 		},
+		coin_potion = {
+			Image = "",
+			SourceFile = "assets/ui/itemsui/sliced/coin_potion.png",
+		},
+		coins = {
+			Image = "",
+			SourceFile = "assets/ui/itemsui/sliced/coins.png",
+		},
+		gem = {
+			Image = "",
+			SourceFile = "assets/ui/itemsui/sliced/gem.png",
+		},
+		gem_potion = {
+			Image = "",
+			SourceFile = "assets/ui/itemsui/sliced/gem_potion.png",
+		},
+		luck_potion = {
+			Image = "",
+			SourceFile = "assets/ui/itemsui/sliced/luck_potion.png",
+		},
+		mystery_potion = {
+			Image = "",
+			SourceFile = "assets/ui/itemsui/sliced/mystery_potion.png",
+		},
+		rainbow_paint_potion = {
+			Image = "",
+			SourceFile = "assets/ui/itemsui/sliced/rainbow_paint_potion.png",
+		},
+		speed_potion = {
+			Image = "",
+			SourceFile = "assets/ui/itemsui/sliced/speed_potion.png",
+		},
 	},
 
 	ByShopItemId = {

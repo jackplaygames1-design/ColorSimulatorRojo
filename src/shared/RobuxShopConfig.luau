@@ -116,121 +116,247 @@ RobuxShopConfig.Gamepasses = {
 	},
 }
 
-RobuxShopConfig.InfinitePack = {
-	id = "InfinitePack",
-	displayName = "THE INFINITE PACK!",
-	description = "Claim free rewards and unlock better Robux tiers as the pack advances.",
-	resetSeconds = 24 * 60 * 60,
-	accentColor = Color3.fromRGB(105, 80, 255),
-	tierProductCategory = "InfinitePack",
-	tiers = {
+local INFINITE_PACK_ITEM_ICONS = {
+	coin_potion = "assets/ui/itemsui/sliced/coin_potion.png",
+	coins = "assets/ui/itemsui/sliced/coins.png",
+	gem = "assets/ui/itemsui/sliced/gem.png",
+	gem_potion = "assets/ui/itemsui/sliced/gem_potion.png",
+	luck_potion = "assets/ui/itemsui/sliced/luck_potion.png",
+	mystery_potion = "assets/ui/itemsui/sliced/mystery_potion.png",
+	rainbow_paint_potion = "assets/ui/itemsui/sliced/rainbow_paint_potion.png",
+	speed_potion = "assets/ui/itemsui/sliced/speed_potion.png",
+}
+
+local INFINITE_PACK_REWARD_POOLS = {
+	SmallFree = {
 		{
-			id = "InfinitePackTier01",
-			tier = 1,
 			displayName = "Gem Starter",
+			rewardText = "75 Gems",
+			icon = "GEM",
+			iconKey = "gem",
+			color = Color3.fromRGB(92, 240, 150),
+			rewardKind = "Gem",
+			amount = 75,
+			gemReward = 75,
+		},
+		{
+			displayName = "Coin Starter",
+			rewardText = "2,500 Coins",
+			icon = "$",
+			iconKey = "coins",
+			color = Color3.fromRGB(255, 199, 87),
+			rewardKind = "Coin",
+			amount = 2500,
+			coinReward = 2500,
+		},
+		{
+			displayName = "Gem Pouch",
+			rewardText = "125 Gems",
+			icon = "GEM",
+			iconKey = "gem",
+			color = Color3.fromRGB(92, 240, 150),
+			rewardKind = "Gem",
+			amount = 125,
+			gemReward = 125,
+		},
+	},
+	SmallPaid = {
+		{
+			displayName = "Coin Potion",
+			rewardText = "Small Coin Potion",
+			icon = "2x",
+			iconKey = "coin_potion",
+			color = Color3.fromRGB(255, 221, 84),
+			boostType = "coins",
+			boostAmount = 1,
+		},
+		{
+			displayName = "Luck Potion",
+			rewardText = "Small Luck Potion",
+			icon = "LU",
+			iconKey = "luck_potion",
+			color = Color3.fromRGB(128, 239, 150),
+			boostType = "luck",
+			boostAmount = 1,
+		},
+		{
+			displayName = "Speed Potion",
+			rewardText = "Small Speed Potion",
+			icon = "SP",
+			iconKey = "speed_potion",
+			color = Color3.fromRGB(72, 210, 255),
+			boostType = "speed",
+			boostAmount = 1,
+		},
+	},
+	MediumFree = {
+		{
+			displayName = "Gem Stack",
 			rewardText = "250 Gems",
 			icon = "GEM",
-			price = 0,
-			productId = 0,
-			free = true,
+			iconKey = "gem",
 			color = Color3.fromRGB(92, 240, 150),
 			rewardKind = "Gem",
 			amount = 250,
-			iconKey = "Gems",
 			gemReward = 250,
 		},
 		{
-			id = "InfinitePackTier02",
-			tier = 2,
-			displayName = "Coin Potion",
-			rewardText = "3x Coin Potion",
-			icon = "2x",
-			price = 50,
-			productId = 0,
-			color = Color3.fromRGB(255, 221, 84),
-			boostType = "coins",
-			boostAmount = 3,
+			displayName = "Coin Stack",
+			rewardText = "10,000 Coins",
+			icon = "$",
+			iconKey = "coins",
+			color = Color3.fromRGB(255, 199, 87),
+			rewardKind = "Coin",
+			amount = 10000,
+			coinReward = 10000,
+		},
+	},
+	MediumPaid = {
+		{
+			displayName = "Gem Potion",
+			rewardText = "Gem Boost Potion",
+			icon = "GEM",
+			iconKey = "gem_potion",
+			color = Color3.fromRGB(92, 240, 150),
+			boostType = "gems",
+			boostAmount = 1,
 		},
 		{
-			id = "InfinitePackTier03",
-			tier = 3,
-			displayName = "Lucky Potion",
-			rewardText = "2x Luck Potion",
-			icon = "LU",
-			price = 0,
-			productId = 0,
-			free = true,
-			color = Color3.fromRGB(128, 239, 150),
-			boostType = "luck",
-			boostAmount = 2,
+			displayName = "Rainbow Paint",
+			rewardText = "Rainbow Paint Potion",
+			icon = "PAINT",
+			iconKey = "rainbow_paint_potion",
+			color = Color3.fromRGB(255, 162, 196),
+			boostType = "paint",
+			boostAmount = 1,
 		},
 		{
-			id = "InfinitePackTier04",
-			tier = 4,
+			displayName = "Mystery Potion",
+			rewardText = "Mystery Potion",
+			icon = "???",
+			iconKey = "mystery_potion",
+			color = Color3.fromRGB(177, 141, 255),
+			boostType = "mystery",
+			boostAmount = 1,
+		},
+	},
+	LatePaid = {
+		{
+			displayName = "Big Gems",
+			rewardText = "2,500 Gems",
+			icon = "GEM",
+			iconKey = "gem",
+			color = Color3.fromRGB(72, 210, 255),
+			rewardKind = "Gem",
+			amount = 2500,
+			gemReward = 2500,
+			badge = "BIG",
+		},
+		{
+			displayName = "Coin Vault",
+			rewardText = "75,000 Coins",
+			icon = "$",
+			iconKey = "coins",
+			color = Color3.fromRGB(255, 199, 87),
+			rewardKind = "Coin",
+			amount = 75000,
+			coinReward = 75000,
+			badge = "BIG",
+		},
+		{
 			displayName = "Exclusive Color",
 			rewardText = "Exclusive Color",
 			icon = "???",
-			price = 100,
-			productId = 0,
+			iconKey = "mystery_potion",
 			color = Color3.fromRGB(255, 162, 196),
 			colorReward = "ExclusiveRainbowColor",
 			badge = "RARE",
 		},
+	},
+	JackpotPaid = {
 		{
-			id = "InfinitePackTier05",
-			tier = 5,
-			displayName = "Coin Vault",
-			rewardText = "25,000 Coins",
-			icon = "$",
-			price = 0,
-			productId = 0,
-			free = true,
-			color = Color3.fromRGB(255, 199, 87),
-			rewardKind = "Coin",
-			amount = 25000,
-			iconKey = "Coins",
-			coinReward = 25000,
+			displayName = "Huge Gems",
+			rewardText = "10,000 Gems",
+			icon = "GEM",
+			iconKey = "gem",
+			color = Color3.fromRGB(72, 210, 255),
+			rewardKind = "Gem",
+			amount = 10000,
+			gemReward = 10000,
+			badge = "HUGE",
 		},
 		{
-			id = "InfinitePackTier06",
-			tier = 6,
 			displayName = "Exclusive Pet",
 			rewardText = "Exclusive Pet",
 			icon = "PET",
-			price = 250,
-			productId = 0,
+			iconKey = "mystery_potion",
 			color = Color3.fromRGB(177, 141, 255),
 			petReward = "ExclusiveInfinitePet",
 			badge = "EXCLUSIVE",
 		},
 		{
-			id = "InfinitePackTier07",
-			tier = 7,
-			displayName = "Huge Gems",
-			rewardText = "5,000 Gems",
-			icon = "GEM",
-			price = 400,
-			productId = 0,
-			color = Color3.fromRGB(72, 210, 255),
-			rewardKind = "Gem",
-			amount = 5000,
-			iconKey = "Gems",
-			gemReward = 5000,
-			badge = "BIG",
-		},
-		{
-			id = "InfinitePackTier08",
-			tier = 8,
 			displayName = "Rainbow Pet",
 			rewardText = "Rainbow Exclusive",
 			icon = "RB",
-			price = 800,
-			productId = 0,
+			iconKey = "rainbow_paint_potion",
 			color = Color3.fromRGB(255, 110, 210),
 			petReward = "RainbowInfinitePet",
 			badge = "TOP",
 		},
 	},
+}
+
+local INFINITE_PACK_SLOTS = {
+	{ tier = 1, price = 0, pool = "SmallFree" },
+	{ tier = 2, price = 25, pool = "SmallPaid" },
+	{ tier = 3, price = 0, pool = "SmallFree" },
+	{ tier = 4, price = 49, pool = "MediumPaid" },
+	{ tier = 5, price = 0, pool = "MediumFree" },
+	{ tier = 6, price = 149, pool = "MediumPaid" },
+	{ tier = 7, price = 299, pool = "LatePaid" },
+	{ tier = 8, price = 799, pool = "JackpotPaid" },
+}
+
+local function copyReward(source)
+	local reward = {}
+	for key, value in pairs(source) do
+		reward[key] = value
+	end
+	return reward
+end
+
+local function infinitePackSeed()
+	return tonumber(os.date("!%Y%j")) or 20260511
+end
+
+local function makeInfinitePackTiers()
+	local rng = Random.new(infinitePackSeed())
+	local tiers = {}
+	for _, slot in ipairs(INFINITE_PACK_SLOTS) do
+		local pool = INFINITE_PACK_REWARD_POOLS[slot.pool] or INFINITE_PACK_REWARD_POOLS.SmallFree
+		local reward = copyReward(pool[rng:NextInteger(1, #pool)])
+		reward.id = string.format("InfinitePackTier%02d", slot.tier)
+		reward.tier = slot.tier
+		reward.price = slot.price
+		reward.productId = slot.productId or 0
+		reward.free = slot.price == 0
+		reward.iconImage = reward.iconImage or ""
+		reward.iconSourceFile = reward.iconSourceFile or INFINITE_PACK_ITEM_ICONS[reward.iconKey]
+		reward.productCategory = "InfinitePack"
+		table.insert(tiers, reward)
+	end
+	return tiers
+end
+
+RobuxShopConfig.InfinitePack = {
+	id = "InfinitePack",
+	displayName = "THE FOREVER PACK!",
+	description = "Claim free rewards and unlock better Robux tiers as the pack advances.",
+	resetSeconds = 24 * 60 * 60,
+	accentColor = Color3.fromRGB(105, 80, 255),
+	tierProductCategory = "InfinitePack",
+	randomSeed = infinitePackSeed(),
+	tiers = makeInfinitePackTiers(),
 }
 
 RobuxShopConfig.DevProducts = {
@@ -440,7 +566,7 @@ function RobuxShopConfig.getInfinitePackTiers()
 end
 
 function RobuxShopConfig.getInfinitePackTier(tierId)
-	for _, tier in ipairs((RobuxShopConfig.InfinitePack and RobuxShopConfig.InfinitePack.tiers) or {}) do
+	for _, tier in ipairs(RobuxShopConfig.getInfinitePackTiers()) do
 		if tier.id == tierId then
 			return tier
 		end
@@ -450,7 +576,7 @@ end
 
 function RobuxShopConfig.getInfinitePackTierByProductId(productId)
 	productId = tonumber(productId)
-	for _, tier in ipairs((RobuxShopConfig.InfinitePack and RobuxShopConfig.InfinitePack.tiers) or {}) do
+	for _, tier in ipairs(RobuxShopConfig.getInfinitePackTiers()) do
 		if tonumber(tier.productId) == productId then
 			return tier
 		end

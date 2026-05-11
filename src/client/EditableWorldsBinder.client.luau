@@ -30,28 +30,33 @@ local TELEPORTS = {
 		requiredColor = nil,
 		requiresTeleportUnlock = false,
 		alwaysUnlocked = true,
+		worldColor = "Red",
 	},
 	RedWastelands = {
 		statusWhenReady = "READY",
 		requiredColor = nil,
 		requiresTeleportUnlock = false,
 		alwaysUnlocked = true,
+		worldColor = "Red",
 	},
 	ZorkShop = {
 		statusWhenReady = "READY",
 		requiredColor = nil,
 		requiresTeleportUnlock = false,
 		alwaysUnlocked = true,
+		worldColor = "Red",
 	},
 	OrangeSector = {
 		statusWhenReady = "READY",
 		requiredColor = "Orange",
 		requiresTeleportUnlock = false,
+		worldColor = "Orange",
 	},
 	InsidePipes = {
 		statusWhenReady = "READY",
 		requiredColor = "Orange",
 		requiresTeleportUnlock = true,
+		worldColor = "Orange",
 	},
 }
 
@@ -138,6 +143,18 @@ local function getCurrentWorld()
 	return ColorData.getWorldByColor(colorType) and colorType or "Red"
 end
 
+local function getHighestVisibleWorldIndex(unlocked)
+	local highestUnlocked = 1
+	for _, world in ipairs(ColorData.Worlds or {}) do
+		local colorType = world.primaryColor or world.id
+		if unlocked[colorType] == true then
+			local index = tonumber(world.WorldIndex or ColorData.getWorldIndex(colorType)) or 1
+			highestUnlocked = math.max(highestUnlocked, index)
+		end
+	end
+	return math.min(highestUnlocked + 1, maxPlayableIndex())
+end
+
 local function focusCurrentSector()
 	local carousel = content:FindFirstChild("SectorCarousel", true)
 	if not carousel or not carousel:IsA("ScrollingFrame") then
@@ -149,6 +166,32 @@ local function focusCurrentSector()
 	local worldIndex = tonumber(world and (world.WorldIndex or ColorData.getWorldIndex(currentColor))) or 1
 	local cardStep = tonumber(carousel:GetAttribute("CardStep")) or 768
 	carousel.CanvasPosition = Vector2.new(math.max(0, (worldIndex - 1) * cardStep), 0)
+end
+
+local function updateSectorCarouselWindow(unlocked)
+	local carousel = content:FindFirstChild("SectorCarousel", true)
+	if not carousel or not carousel:IsA("ScrollingFrame") then
+		return
+	end
+
+	local visibleLimit = getHighestVisibleWorldIndex(unlocked)
+	local visibleCount = 0
+	for _, world in ipairs(ColorData.Worlds or {}) do
+		local colorType = world.primaryColor or world.id
+		local worldIndex = tonumber(world.WorldIndex or ColorData.getWorldIndex(colorType)) or 1
+		local card = carousel:FindFirstChild(tostring(colorType) .. "SectorCard")
+		if card and card:IsA("GuiObject") then
+			local visible = worldIndex <= visibleLimit
+			card.Visible = visible
+			card.Size = visible and UDim2.fromOffset(744, 206) or UDim2.fromOffset(0, 206)
+			if visible then
+				visibleCount += 1
+			end
+		end
+	end
+
+	local cardStep = tonumber(carousel:GetAttribute("CardStep")) or 768
+	carousel.CanvasSize = UDim2.fromOffset(math.max(cardStep, (visibleCount * cardStep) + 36), 0)
 end
 
 local function getCoins()
@@ -257,6 +300,15 @@ local function updateWorldCard(world)
 
 	local unlocked = getUnlockedColorSet()
 	local current = getCurrentWorld()
+	local worldIndex = tonumber(world.WorldIndex or ColorData.getWorldIndex(colorType)) or 1
+	if worldIndex > getHighestVisibleWorldIndex(unlocked) then
+		card.Visible = false
+		card.Size = UDim2.fromOffset(0, 206)
+		return
+	end
+	card.Visible = true
+	card.Size = UDim2.fromOffset(744, 206)
+
 	local isUnlocked = unlocked[colorType] == true
 	local isCurrent = current == colorType
 	local playable = isWorldPlayable(world)
@@ -350,6 +402,13 @@ local function updateTeleportCard(locationId, config)
 		return
 	end
 
+	local currentWorld = getCurrentWorld()
+	if config.worldColor and config.worldColor ~= currentWorld then
+		card.Visible = false
+		card.Size = UDim2.fromOffset(0, 0)
+		return false
+	end
+
 	local unlockedColors = getUnlockedColorSet()
 	local unlockedTeleports = getUnlockedTeleportSet()
 	local requiredColorReady = not config.requiredColor or unlockedColors[config.requiredColor] == true
@@ -358,34 +417,42 @@ local function updateTeleportCard(locationId, config)
 	local button = findButton(card, "TeleportButton")
 	local status = findText(card, "Status")
 
-	if ready then
-		setStatus(status, config.statusWhenReady or "READY", GREEN)
-		setStroke(card, GREEN, 3)
+	if not ready then
+		card.Visible = false
+		card.Size = UDim2.fromOffset(0, 0)
 		if button then
-			button.Text = "GO"
-			button.BackgroundColor3 = GREEN
-			button:SetAttribute("LocationId", locationId)
-			setGuiEnabled(button, true)
-			bindTeleportButton(button)
-		end
-	elseif not requiredColorReady then
-		setStatus(status, "LOCKED", LOCKED_RED)
-		setStroke(card, OUTLINE, 2)
-		if button then
-			button.Text = "LOCKED"
-			button.BackgroundColor3 = DISABLED
 			setGuiEnabled(button, false)
-			bindTeleportButton(button)
 		end
-	else
-		setStatus(status, "VISIT FIRST", GOLD, TEXT_DARK)
-		setStroke(card, GOLD, 3)
-		if button then
-			button.Text = "VISIT"
-			button.BackgroundColor3 = DISABLED
-			setGuiEnabled(button, false)
-			bindTeleportButton(button)
+		return false
+	end
+
+	card.Visible = true
+	card.Size = UDim2.fromOffset(358, 118)
+	setStatus(status, config.statusWhenReady or "READY", GREEN)
+	setStroke(card, GREEN, 3)
+	if button then
+		button.Text = "GO"
+		button.BackgroundColor3 = GREEN
+		button:SetAttribute("LocationId", locationId)
+		setGuiEnabled(button, true)
+		bindTeleportButton(button)
+	end
+
+	return true
+end
+
+local function updateTeleportCards()
+	local visibleCount = 0
+	for locationId, config in pairs(TELEPORTS) do
+		if updateTeleportCard(locationId, config) then
+			visibleCount += 1
 		end
+	end
+
+	local grid = content:FindFirstChild("TeleportGrid", true)
+	if grid and grid:IsA("ScrollingFrame") then
+		local rows = math.max(1, math.ceil(visibleCount / 2))
+		grid.CanvasSize = UDim2.fromOffset(0, (rows * 130) + 24)
 	end
 end
 
@@ -443,13 +510,13 @@ local function renderTabs()
 end
 
 local function render()
+	local unlocked = getUnlockedColorSet()
+	updateSectorCarouselWindow(unlocked)
 	updateHeader()
 	for _, world in ipairs(ColorData.Worlds or {}) do
 		updateWorldCard(world)
 	end
-	for locationId, config in pairs(TELEPORTS) do
-		updateTeleportCard(locationId, config)
-	end
+	updateTeleportCards()
 	setPageVisible("SectorsPage", activePage == "Sectors")
 	setPageVisible("TeleportsPage", activePage == "Teleports")
 	renderTabs()

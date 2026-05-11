@@ -31,7 +31,9 @@ for _, product in ipairs(RobuxShopConfig.DevProducts or {}) do
 		productsById[productId] = product
 	end
 end
-for _, tier in ipairs((RobuxShopConfig.InfinitePack and RobuxShopConfig.InfinitePack.tiers) or {}) do
+local infinitePackTiers = RobuxShopConfig.getInfinitePackTiers and RobuxShopConfig.getInfinitePackTiers()
+	or ((RobuxShopConfig.InfinitePack and RobuxShopConfig.InfinitePack.tiers) or {})
+for _, tier in ipairs(infinitePackTiers) do
 	infinitePackTiersById[tostring(tier.id)] = tier
 	local productId = tonumber(tier.productId)
 	if productId and productId > 0 then
@@ -143,6 +145,16 @@ local function isTierClaimed(player, tierId)
 	return claim and claim:IsA("BoolValue") and claim.Value == true
 end
 
+local function getCurrentTierId(player)
+	for _, tier in ipairs(infinitePackTiers) do
+		local tierId = tostring(tier.id)
+		if not isTierClaimed(player, tierId) then
+			return tierId
+		end
+	end
+	return nil
+end
+
 local function markTierClaimed(player, tierId)
 	local claimedTiers = getClaimState(player)
 	local claim = claimedTiers:FindFirstChild(tierId)
@@ -198,6 +210,10 @@ claimInfinitePackTierEvent.OnServerEvent:Connect(function(player, tierId)
 		fireClaimResult(player, "Rejected", tierId, { message = "Already claimed." })
 		return
 	end
+	if getCurrentTierId(player) ~= tierId then
+		fireClaimResult(player, "Rejected", tierId, { message = "Claim the current Forever Pack tier first." })
+		return
+	end
 
 	local ok, message = grantCurrencyRewards(player, tier, "infinite-pack-claim")
 	if not ok then
@@ -231,6 +247,10 @@ MarketplaceService.ProcessReceipt = function(receiptInfo)
 	local ok = grantCurrencyRewards(player, product, "developer-product-" .. tostring(product.id))
 	if not ok then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	if product.productCategory == "InfinitePack" then
+		markTierClaimed(player, tostring(product.id))
 	end
 
 	print("RobuxProductReceiptHandler: granted " .. tostring(product.id) .. " to " .. player.Name)

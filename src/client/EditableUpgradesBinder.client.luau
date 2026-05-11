@@ -71,6 +71,13 @@ local connectedTabs = setmetatable({}, { __mode = "k" })
 local activeCategory = "Player"
 local upgradesWindow = nil
 
+local CARD_COLUMNS = 3
+local CARD_PADDING_X = 14
+local CARD_PADDING_Y = 14
+local CARD_GAP_X = 14
+local CARD_GAP_Y = 12
+local DEFAULT_CARD_SIZE = UDim2.fromOffset(222, 118)
+
 local function findMainHUD()
 	local root = playerGui:WaitForChild("ClientUIRoot", 30)
 	return root and root:WaitForChild("MainHUD", 30)
@@ -156,7 +163,27 @@ local function findBuyButton(card)
 	return nil
 end
 
-local function findUpgradeForCard(card)
+local findUpgradeForCard
+
+local function findCardTemplate(content, category)
+	for _, descendant in ipairs(content:GetDescendants()) do
+		if descendant:IsA("GuiObject") and descendant.Name:match("Card$") then
+			local upgrade = findUpgradeForCard(descendant)
+			if upgrade and (not category or upgrade.category == category) then
+				return descendant
+			end
+		end
+	end
+
+	for _, descendant in ipairs(content:GetDescendants()) do
+		if descendant:IsA("GuiObject") and descendant.Name:match("Card$") then
+			return descendant
+		end
+	end
+	return nil
+end
+
+function findUpgradeForCard(card)
 	local attributeId = card:GetAttribute("UpgradeId")
 	local upgrade = attributeId and UpgradeData.getUpgrade(tostring(attributeId))
 	if upgrade then
@@ -202,20 +229,66 @@ local function applyIcon(card, upgrade)
 	end
 
 	local iconImage = findNamedDescendant(card, "IconImage")
+	if not iconImage and iconRoot and iconRoot:IsA("GuiObject") then
+		iconImage = Instance.new("ImageLabel")
+		iconImage.Name = "IconImage"
+		iconImage.BackgroundTransparency = 1
+		iconImage.Size = UDim2.fromScale(1, 1)
+		iconImage.ZIndex = iconRoot.ZIndex + 1
+		iconImage.Parent = iconRoot
+	end
 	if iconImage and (iconImage:IsA("ImageLabel") or iconImage:IsA("ImageButton")) then
 		local image = iconData and iconData.Image or ""
+		if iconData then
+			iconImage:SetAttribute("ExpectedUpgradeIconFile", iconData.SourceFile or "")
+		end
 		iconImage.Image = image
 		iconImage.Visible = image ~= ""
 		iconImage.BackgroundTransparency = 1
 	end
 
 	local iconText = findNamedDescendant(card, "IconText")
+	if not iconText and iconRoot and iconRoot:IsA("GuiObject") then
+		iconText = Instance.new("TextLabel")
+		iconText.Name = "IconText"
+		iconText.BackgroundTransparency = 1
+		iconText.Size = UDim2.fromScale(1, 1)
+		iconText.Font = Enum.Font.GothamBlack
+		iconText.TextColor3 = COLORS.Text
+		iconText.TextScaled = true
+		iconText.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+		iconText.TextStrokeTransparency = 0.35
+		iconText.ZIndex = iconRoot.ZIndex + 2
+		iconText.Parent = iconRoot
+	end
 	if iconText and iconText:IsA("TextLabel") then
 		iconText.Text = tostring(upgrade.icon or "")
 		if iconImage and iconImage.Visible then
 			iconText.Visible = false
 		else
 			iconText.Visible = true
+		end
+	end
+end
+
+local function layoutVisibleCards()
+	local categoryUpgrades = UpgradeData.getCategoryUpgrades(activeCategory)
+	for index, upgrade in ipairs(categoryUpgrades) do
+		local card = cardsByUpgradeId[upgrade.id]
+		if card then
+			local cardSize = card.Size
+			if cardSize == UDim2.fromScale(0, 0) then
+				cardSize = DEFAULT_CARD_SIZE
+				card.Size = cardSize
+			end
+
+			local column = (index - 1) % CARD_COLUMNS
+			local row = math.floor((index - 1) / CARD_COLUMNS)
+			card.Position = UDim2.fromOffset(
+				CARD_PADDING_X + column * ((cardSize.X.Offset > 0 and cardSize.X.Offset or 222) + CARD_GAP_X),
+				CARD_PADDING_Y + row * ((cardSize.Y.Offset > 0 and cardSize.Y.Offset or 118) + CARD_GAP_Y)
+			)
+			card.LayoutOrder = index
 		end
 	end
 end
@@ -288,6 +361,7 @@ local function updateAllCards()
 	for upgradeId in pairs(cardsByUpgradeId) do
 		updateCard(upgradeId)
 	end
+	layoutVisibleCards()
 	updateTabs()
 end
 
@@ -341,6 +415,19 @@ local function bindExistingCards(window)
 			local upgrade = findUpgradeForCard(descendant)
 			if upgrade then
 				bindCard(descendant, upgrade)
+			end
+		end
+	end
+
+	for _, upgrade in ipairs(UpgradeData.Upgrades or {}) do
+		local canonicalId = UpgradeData.getCanonicalId(upgrade.id) or upgrade.id
+		if not cardsByUpgradeId[canonicalId] then
+			local template = findCardTemplate(content, upgrade.category)
+			if template then
+				local card = template:Clone()
+				card.Name = canonicalId .. "Card"
+				card.Parent = template.Parent
+				bindCard(card, upgrade)
 			end
 		end
 	end

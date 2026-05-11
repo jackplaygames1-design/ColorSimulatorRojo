@@ -3,6 +3,7 @@
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -103,6 +104,61 @@ local function playUI(soundName)
 	end
 end
 
+local function getOrCreateScale(guiObject)
+	local scale = guiObject:FindFirstChild("ButtonReactScale")
+	if not scale or not scale:IsA("UIScale") then
+		scale = Instance.new("UIScale")
+		scale.Name = "ButtonReactScale"
+		scale.Scale = 1
+		scale.Parent = guiObject
+	end
+	return scale
+end
+
+local function tweenButtonScale(guiObject, scaleValue, duration, easingStyle)
+	if not guiObject then
+		return
+	end
+
+	local scale = getOrCreateScale(guiObject)
+	TweenService:Create(scale, TweenInfo.new(duration or 0.1, easingStyle or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Scale = scaleValue,
+	}):Play()
+end
+
+local function bindButtonReaction(guiObject)
+	if not guiObject or guiObject:GetAttribute("WindowButtonReactionBound") == true then
+		return
+	end
+	guiObject:SetAttribute("WindowButtonReactionBound", true)
+	getOrCreateScale(guiObject)
+
+	guiObject.MouseEnter:Connect(function()
+		tweenButtonScale(guiObject, 1.06, 0.1)
+	end)
+
+	guiObject.MouseLeave:Connect(function()
+		tweenButtonScale(guiObject, 1, 0.12)
+	end)
+
+	guiObject.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			tweenButtonScale(guiObject, 0.92, 0.06)
+		end
+	end)
+
+	guiObject.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			tweenButtonScale(guiObject, 1.06, 0.1, Enum.EasingStyle.Back)
+			task.delay(0.1, function()
+				if guiObject.Parent then
+					tweenButtonScale(guiObject, 1, 0.14)
+				end
+			end)
+		end
+	end)
+end
+
 local function findExactButton(scope, name)
 	if not scope then
 		return nil
@@ -155,7 +211,7 @@ local function connectButtonContainer(guiObject, callback, key)
 
 	for _, descendant in ipairs(guiObject:GetDescendants()) do
 		if descendant:IsA("GuiButton") then
-			connectPress(descendant, callback, key .. "." .. descendant.Name)
+			connectPress(descendant, callback, key)
 			connected = true
 		end
 	end
@@ -282,6 +338,15 @@ local function openWindow(key)
 	end
 end
 
+local function toggleWindow(key)
+	local window = windows[key]
+	if window and activeKey == key and window.Visible then
+		closeAllWindows()
+	else
+		openWindow(key)
+	end
+end
+
 local function openWindowByName(windowName)
 	for key, mappedName in pairs(WINDOW_NAMES) do
 		if mappedName == windowName or key == windowName then
@@ -332,9 +397,10 @@ for key, buttonName in pairs(BOTTOM_BUTTONS) do
 	if button then
 		buttons[key] = button
 		applyGuiZIndexFloor(button, HUD_BUTTON_ZINDEX_FLOOR)
+		bindButtonReaction(button)
 		connectButtonContainer(button, function()
 			playUI("Click")
-			openWindow(key)
+			toggleWindow(key)
 		end, buttonName)
 	else
 		warnOnce("missing-bottom-" .. buttonName, "WindowButtonController: missing BottomHUD." .. buttonName)
@@ -347,9 +413,10 @@ for key, buttonName in pairs(LEFT_BUTTONS) do
 		button.Visible = true
 		button.Active = true
 		applyGuiZIndexFloor(button, HUD_BUTTON_ZINDEX_FLOOR)
+		bindButtonReaction(button)
 		connectButtonContainer(button, function()
 			playUI("Click")
-			openWindow(key)
+			toggleWindow(key)
 		end, buttonName)
 	else
 		warnOnce("missing-left-" .. buttonName, "WindowButtonController: missing LeftHUD." .. buttonName)

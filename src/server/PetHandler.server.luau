@@ -169,6 +169,14 @@ local function reportDailyQuestProgress(player, questId, amount)
 	end
 end
 
+local function reportColorSpillCleaned(player, _part, colorType)
+	reportDailyQuestProgress(player, "ColorSpillsCleaned", 1)
+
+	if colorType == "Red" then
+		reportDailyQuestProgress(player, "RedWastelandsSpillsCleaned", 1)
+	end
+end
+
 local function getCharacterRoot(player)
 	local character = player and player.Character
 	return character and character:FindFirstChild("HumanoidRootPart")
@@ -1583,12 +1591,8 @@ RunService.Heartbeat:Connect(function()
 					ColorType = colorType,
 					Position = nearest.Position,
 				})
-				if awardCoins(player, reward) then
-					reportDailyQuestProgress(player, "ColorSpillsCleaned", 1)
-					if colorType == "Red" then
-						reportDailyQuestProgress(player, "RedWastelandsSpillsCleaned", 1)
-					end
-				else
+				reportColorSpillCleaned(player, nearest, colorType)
+				if not awardCoins(player, reward) then
 					warn("PetHandler: failed to award pet break coins for " .. tostring(player.Name))
 				end
 
