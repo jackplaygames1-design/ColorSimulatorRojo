@@ -94,6 +94,9 @@
       "StudioZorkWindowsUpdater": {
         "$path": "src/shared/StudioZorkWindowsUpdater.luau"
       },
+      "StudioEggPromptBuilder": {
+        "$path": "src/shared/StudioEggPromptBuilder.luau"
+      },
       "UIManager": {
         "$path": "src/shared/UIManager.luau"
       },

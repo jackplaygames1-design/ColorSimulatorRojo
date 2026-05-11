@@ -476,34 +476,135 @@ local function applyUpgradeIconsToWindow(upgradesWindow)
 	return applied
 end
 
-local function makeCardGrid(content, names)
-	for index, item in ipairs(names) do
-		local x = ((index - 1) % 3) * 238 + 14
-		local y = math.floor((index - 1) / 3) * 132 + 14
-		local card = frame(
-			content,
-			item:gsub("%s+", "") .. "Card",
-			UDim2.fromOffset(x, y),
-			UDim2.fromOffset(222, 118),
-			Color3.fromRGB(255, 255, 255)
-		)
-		local icon =
-			frame(card, "Icon", UDim2.fromOffset(10, 10), UDim2.fromOffset(58, 58), Color3.fromRGB(225, 244, 255))
-		text(icon, "IconText", item:sub(1, 2):upper(), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment =
-			Enum.TextXAlignment.Center
-		applyUpgradeIconToCard(card, item)
-		text(card, "Name", item, UDim2.fromOffset(78, 8), UDim2.new(1, -88, 0, 28), 17)
-		text(card, "Description", "Editable item card.", UDim2.fromOffset(78, 38), UDim2.new(1, -88, 0, 34), 12)
-		text(card, "Price", "Price", UDim2.fromOffset(10, 76), UDim2.fromOffset(90, 28), 13)
-		button(
-			card,
-			"BuyButton",
-			"BUY",
-			UDim2.new(1, -110, 1, -42),
-			UDim2.fromOffset(96, 32),
-			Color3.fromRGB(84, 225, 112)
-		)
+local DAILY_QUEST_PREVIEWS = {
+	{
+		iconText = "BRUSH",
+		title = "CLEAN COLOR SPILLS",
+		description = "Clean 40 color spills.",
+		progress = "0 / 40",
+		reward = "REWARD\n+20 Gems",
+	},
+	{
+		iconText = "COINS",
+		title = "EARN COINS",
+		description = "Earn 1,000 coins.",
+		progress = "0 / 1000",
+		reward = "REWARD\n+25 Gems",
+	},
+	{
+		iconText = "EGG",
+		title = "HATCH COLORS",
+		description = "Hatch 3 colors from eggs.",
+		progress = "0 / 3",
+		reward = "REWARD\n+30 Gems",
+	},
+}
+
+local function clearContent(content)
+	for _, child in ipairs(content:GetChildren()) do
+		if
+			child:IsA("GuiObject")
+			or child:IsA("UIGridLayout")
+			or child:IsA("UIListLayout")
+			or child:IsA("UIPadding")
+		then
+			child:Destroy()
+		end
 	end
+end
+
+local function makeDailyQuestRows(content)
+	clearContent(content)
+	content.ClipsDescendants = false
+
+	local list = frame(content, "QuestList", UDim2.fromOffset(14, 14), UDim2.new(1, -28, 1, -28), PANEL)
+	list.ClipsDescendants = false
+	list.BackgroundColor3 = Color3.fromRGB(246, 249, 255)
+	applyCorner(list, 20)
+	applyStroke(list, OUTLINE, 3)
+
+	for index, quest in ipairs(DAILY_QUEST_PREVIEWS) do
+		local y = 16 + ((index - 1) * 88)
+		local row = frame(
+			list,
+			"QuestRow" .. tostring(index),
+			UDim2.fromOffset(18, y),
+			UDim2.new(1, -36, 0, 74),
+			Color3.fromRGB(250, 252, 255)
+		)
+		row.ClipsDescendants = false
+		applyCorner(row, 16)
+		applyStroke(row, Color3.fromRGB(239, 244, 251), 2)
+
+		local icon =
+			frame(row, "Icon", UDim2.fromOffset(16, 11), UDim2.fromOffset(126, 52), Color3.fromRGB(235, 242, 250))
+		icon.ClipsDescendants = true
+		applyCorner(icon, 14)
+		local iconStroke = icon:FindFirstChildOfClass("UIStroke")
+		if iconStroke then
+			iconStroke:Destroy()
+		end
+		local iconText = text(icon, "IconText", quest.iconText, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 34)
+		iconText.TextScaled = true
+		iconText.TextXAlignment = Enum.TextXAlignment.Center
+		iconText.TextStrokeTransparency = 1
+
+		local title = text(row, "QuestTitle", quest.title, UDim2.fromOffset(156, 8), UDim2.new(0.48, -16, 0, 22), 17)
+		title.TextScaled = true
+		title.TextStrokeTransparency = 1
+
+		local desc =
+			text(row, "QuestDesc", quest.description, UDim2.fromOffset(156, 29), UDim2.new(0.48, -16, 0, 18), 13)
+		desc.Font = Enum.Font.GothamMedium
+		desc.TextColor3 = MUTED
+		desc.TextStrokeTransparency = 1
+		desc.TextTruncate = Enum.TextTruncate.AtEnd
+
+		local bar = frame(
+			row,
+			"ProgressBarBg",
+			UDim2.fromOffset(156, 51),
+			UDim2.new(0.48, -16, 0, 14),
+			Color3.fromRGB(231, 235, 241)
+		)
+		bar.ClipsDescendants = true
+		applyCorner(bar, 10)
+		applyStroke(bar, Color3.fromRGB(190, 196, 208), 2)
+		local fill = frame(bar, "ProgressFill", UDim2.fromScale(0, 0), UDim2.fromScale(0, 1), CYAN)
+		fill.ClipsDescendants = true
+		applyCorner(fill, 10)
+		local fillStroke = fill:FindFirstChildOfClass("UIStroke")
+		if fillStroke then
+			fillStroke:Destroy()
+		end
+		local progressText = text(bar, "ProgressText", quest.progress, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 12)
+		progressText.TextXAlignment = Enum.TextXAlignment.Center
+		progressText.TextStrokeTransparency = 1
+
+		local reward = text(row, "RewardText", quest.reward, UDim2.new(0.66, 0, 0, 16), UDim2.new(0.14, 0, 0, 42), 11)
+		reward.BackgroundTransparency = 0
+		reward.BackgroundColor3 = Color3.fromRGB(236, 240, 246)
+		reward.TextScaled = true
+		reward.TextWrapped = true
+		reward.TextXAlignment = Enum.TextXAlignment.Center
+		reward.TextStrokeTransparency = 1
+		applyCorner(reward, 14)
+
+		local claim =
+			button(row, "ClaimButton", "IN PROGRESS", UDim2.new(0.82, 0, 0, 20), UDim2.new(0.16, 0, 0, 34), DISABLED)
+		claim.TextScaled = true
+		claim.AutoButtonColor = false
+	end
+
+	local timer =
+		text(list, "TimerText", "NEW QUESTS IN 24h 00m", UDim2.new(0, 18, 1, -56), UDim2.new(1, -36, 0, 40), 26)
+	timer.BackgroundTransparency = 0
+	timer.BackgroundColor3 = Color3.fromRGB(232, 238, 247)
+	timer.TextColor3 = Color3.fromRGB(112, 118, 132)
+	timer.TextScaled = true
+	timer.TextXAlignment = Enum.TextXAlignment.Center
+	timer.TextStrokeTransparency = 1
+	applyCorner(timer, 16)
 end
 
 local function makeUpgradeCardGrid(content)
@@ -2739,8 +2840,10 @@ function Builder.UpdateZorkWindows()
 
 	makeZorkDialogueWindow(windowsFolder)
 	makeBrushShopWindow(windowsFolder)
+	local _, questsContent = makeWindow(windowsFolder, "DailyQuestsWindow", "DAILY QUESTS", {})
+	makeDailyQuestRows(questsContent)
 	makeTutorialWindow(windowsFolder)
-	print("StudioMenuWindowsBuilder: updated editable Zork, BrushShop, and Tutorial windows.")
+	print("StudioMenuWindowsBuilder: updated editable Zork, BrushShop, Daily Quests, and Tutorial windows.")
 end
 
 function Builder.Build()
@@ -2789,7 +2892,7 @@ function Builder.Build()
 		Enum.TextXAlignment.Center
 	makeWorldsWindow(windowsFolder)
 	local _, questsContent = makeWindow(windowsFolder, "DailyQuestsWindow", "DAILY QUESTS", {})
-	makeCardGrid(questsContent, { "Clean Color Spills", "Earn Coins", "Hatch Colors" })
+	makeDailyQuestRows(questsContent)
 	makeTutorialWindow(windowsFolder)
 
 	print("StudioMenuWindowsBuilder: editable UI created at StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows")

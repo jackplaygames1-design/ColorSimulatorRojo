@@ -1,18 +1,18 @@
 -- Focused Sector egg shop: one usable egg per Sector.
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
-local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
-local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
-local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
-local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
 local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
+local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
+local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
+local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local PetModelUtil = require(Modules:WaitForChild("PetModelUtil"))
 
@@ -87,6 +87,7 @@ local hiddenWorldGuis = {}
 local eggOptionGuis = {}
 local eggPrompts = {}
 local eggParts = {}
+local missingEggPromptWarnings = {}
 local currentNearbyEgg = nil
 local autoHatchEnabled = false
 local autoHatchRunning = false
@@ -132,7 +133,10 @@ end
 
 local function isEggUnlocked(egg)
 	return not egg.areaColor
-		or (isWorldPlayable(egg.areaColor) and (egg.areaColor == "Red" or ColorData.isColorUnlocked(unlockedColors.Value, egg.areaColor)))
+		or (
+			isWorldPlayable(egg.areaColor)
+			and (egg.areaColor == "Red" or ColorData.isColorUnlocked(unlockedColors.Value, egg.areaColor))
+		)
 end
 
 local function canAffordEgg(egg)
@@ -196,153 +200,66 @@ local function configureEggPrompt(prompt)
 	prompt:SetAttribute("EggShopPrompt", true)
 end
 
-local function createEggOptionsGui(eggPart)
-	eggParts[eggPart] = true
-	if eggOptionGuis[eggPart] then
-		return eggOptionGuis[eggPart]
+local function setPromptText(parent, name, value)
+	local label = parent and parent:FindFirstChild(name, true)
+	if label and (label:IsA("TextLabel") or label:IsA("TextButton") or label:IsA("TextBox")) then
+		label.Text = tostring(value or "")
+	end
+end
+
+local function findEggOptionsGui(eggPart)
+	if not eggPart then
+		return nil
 	end
 
-	local eggId = getEggIdFromPart(eggPart)
+	local direct = eggPart:FindFirstChild("EggOptions")
+	if direct and direct:IsA("BillboardGui") then
+		return direct
+	end
+
+	local ancestor = eggPart:FindFirstAncestorWhichIsA("Model")
+	local nested = ancestor and ancestor:FindFirstChild("EggOptions", true)
+	if nested and nested:IsA("BillboardGui") then
+		return nested
+	end
+
+	return nil
+end
+
+local function bindEggOptionsGui(eggPart)
+	if not eggPart or not eggPart:IsA("BasePart") then
+		return nil
+	end
+
+	local gui = findEggOptionsGui(eggPart)
+	if not gui then
+		local eggId = getEggIdFromPart(eggPart)
+		if eggId and not missingEggPromptWarnings[eggId] then
+			missingEggPromptWarnings[eggId] = true
+			warn(
+				"EggShopUI: missing editable EggOptions for "
+					.. tostring(eggId)
+					.. ". Run StudioEggPromptBuilder.Update() in Studio edit mode."
+			)
+		end
+		return nil
+	end
+
+	local holder = gui.Parent
+	if not holder or not holder:IsA("BasePart") then
+		holder = eggPart
+	end
+
+	eggParts[holder] = true
+	eggOptionGuis[holder] = gui
+
+	local eggId = getEggIdFromPart(holder)
 	local egg = eggId and PetData.Eggs[eggId]
-	local title = egg and egg.displayName or "Egg"
-
-	local gui = Instance.new("BillboardGui")
-	gui.Name = "EggOptions"
-	gui.AlwaysOnTop = true
+	setPromptText(gui, "Title", string.upper(egg and egg.displayName or "Egg"))
+	setPromptText(gui, "MainTitle", "EGG")
+	setPromptText(gui, "Cost", getEggCostText(eggId))
 	gui.Enabled = false
-	gui.LightInfluence = 0
-	gui.MaxDistance = 60
-	gui.Size = UDim2.fromOffset(320, 170)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, math.max(11.5, eggPart.Size.Y * 0.5 + 8), 0)
 	gui:SetAttribute("EggOptionGui", true)
-	gui.Parent = eggPart
-
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.Size = UDim2.fromScale(1, 1)
-	panel.BackgroundColor3 = Color3.fromRGB(255, 248, 236)
-	panel.BackgroundTransparency = 0.05
-	panel.BorderSizePixel = 0
-	panel.ClipsDescendants = true
-	panel.Parent = gui
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 18)
-	corner.Parent = panel
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(44, 47, 58)
-	stroke.Thickness = 4
-	stroke.Parent = panel
-
-	local titleLabel = Instance.new("TextLabel")
-	titleLabel.Name = "Title"
-	titleLabel.Size = UDim2.new(1, -24, 0, 30)
-	titleLabel.Position = UDim2.new(0, 12, 0, 10)
-	titleLabel.BackgroundTransparency = 1
-	titleLabel.Font = Enum.Font.LuckiestGuy
-	titleLabel.Text = string.upper(title)
-	titleLabel.TextScaled = true
-	titleLabel.TextColor3 = Color3.fromRGB(78, 58, 130)
-	titleLabel.TextStrokeTransparency = 0.55
-	titleLabel.TextStrokeColor3 = WHITE
-	titleLabel.TextXAlignment = Enum.TextXAlignment.Center
-	titleLabel.Parent = panel
-	local titleSize = Instance.new("UITextSizeConstraint")
-	titleSize.MinTextSize = 14
-	titleSize.MaxTextSize = 22
-	titleSize.Parent = titleLabel
-
-	local mainLabel = Instance.new("TextLabel")
-	mainLabel.Name = "MainTitle"
-	mainLabel.Size = UDim2.new(1, -24, 0, 42)
-	mainLabel.Position = UDim2.new(0, 12, 0, 42)
-	mainLabel.BackgroundTransparency = 1
-	mainLabel.Font = Enum.Font.LuckiestGuy
-	mainLabel.Text = "EGG"
-	mainLabel.TextScaled = true
-	mainLabel.TextColor3 = Color3.fromRGB(255, 218, 74)
-	mainLabel.TextStrokeTransparency = 0
-	mainLabel.TextStrokeColor3 = Color3.fromRGB(44, 47, 58)
-	mainLabel.TextXAlignment = Enum.TextXAlignment.Center
-	mainLabel.Parent = panel
-	local mainSize = Instance.new("UITextSizeConstraint")
-	mainSize.MinTextSize = 22
-	mainSize.MaxTextSize = 42
-	mainSize.Parent = mainLabel
-
-	local costLabel = Instance.new("TextLabel")
-	costLabel.Name = "Cost"
-	costLabel.Size = UDim2.new(1, -24, 0, 20)
-	costLabel.Position = UDim2.new(0, 12, 0, 84)
-	costLabel.BackgroundTransparency = 1
-	costLabel.Font = Enum.Font.GothamBold
-	costLabel.Text = getEggCostText(eggId)
-	costLabel.TextSize = 14
-	costLabel.TextColor3 = Color3.fromRGB(88, 92, 112)
-	costLabel.TextXAlignment = Enum.TextXAlignment.Center
-	costLabel.Parent = panel
-
-	local function makeOption(name, x, width, keyText, actionText, color)
-		local option = Instance.new("Frame")
-		option.Name = name
-		option.Size = UDim2.new(0, width, 0, 42)
-		option.Position = UDim2.new(0, x, 0, 113)
-		option.BackgroundColor3 = color
-		option.BorderSizePixel = 0
-		option.Parent = panel
-
-		local optionCorner = Instance.new("UICorner")
-		optionCorner.CornerRadius = UDim.new(0, 12)
-		optionCorner.Parent = option
-
-		local optionStroke = Instance.new("UIStroke")
-		optionStroke.Color = Color3.fromRGB(44, 47, 58)
-		optionStroke.Thickness = 2
-		optionStroke.Parent = option
-
-		local key = Instance.new("TextLabel")
-		key.Name = "Key"
-		key.Size = UDim2.new(0, 30, 0, 30)
-		key.Position = UDim2.new(0, 7, 0.5, -15)
-		key.BackgroundColor3 = WHITE
-		key.BackgroundTransparency = 0.1
-		key.Font = Enum.Font.LuckiestGuy
-		key.Text = keyText
-		key.TextSize = 18
-		key.TextColor3 = Color3.fromRGB(36, 39, 50)
-		key.Parent = option
-
-		local keyCorner = Instance.new("UICorner")
-		keyCorner.CornerRadius = UDim.new(1, 0)
-		keyCorner.Parent = key
-
-		local label = Instance.new("TextLabel")
-		label.Name = "Label"
-		label.Size = UDim2.new(1, -43, 1, 0)
-		label.Position = UDim2.new(0, 39, 0, 0)
-		label.BackgroundTransparency = 1
-		label.Font = Enum.Font.LuckiestGuy
-		label.Text = actionText
-		label.TextScaled = true
-		label.TextColor3 = WHITE
-		label.TextStrokeTransparency = 0.35
-		label.TextStrokeColor3 = Color3.fromRGB(36, 39, 50)
-		label.TextXAlignment = Enum.TextXAlignment.Left
-		label.Parent = option
-		local labelSize = Instance.new("UITextSizeConstraint")
-		labelSize.MinTextSize = 12
-		labelSize.MaxTextSize = 18
-		labelSize.Parent = label
-
-		return label
-	end
-
-	makeOption("OpenOption", 21, 136, "E", "HATCH", Color3.fromRGB(116, 218, 230))
-	local autoLabel = makeOption("AutoOption", 169, 120, "R", "AUTO", Color3.fromRGB(176, 134, 244))
-	gui:SetAttribute("AutoLabelPath", autoLabel:GetFullName())
-
-	eggOptionGuis[eggPart] = gui
 	return gui
 end
 
@@ -387,8 +304,8 @@ local function setEggOptionsVisible(eggPart)
 		end
 	end
 
-	if eggPart then
-		createEggOptionsGui(eggPart).Enabled = shouldShowPrompt
+	if eggPart and eggOptionGuis[eggPart] then
+		eggOptionGuis[eggPart].Enabled = shouldShowPrompt
 	end
 end
 
@@ -988,8 +905,9 @@ local function refreshWorldRows()
 		local selected = eggId == selectedEggId
 
 		row.BackgroundColor3 = selected and Color3.fromRGB(255, 245, 255) or (unlocked and WHITE or LOCKED)
-		row.UIStroke.Color = selected and (egg and egg.color or TITLE_TEXT) or (unlocked and Color3.fromRGB(210, 205, 230) or Color3.fromRGB(150, 155, 175))
-		row.Status.Text = unlocked and "READY" or ("LOCKED")
+		row.UIStroke.Color = selected and (egg and egg.color or TITLE_TEXT)
+			or (unlocked and Color3.fromRGB(210, 205, 230) or Color3.fromRGB(150, 155, 175))
+		row.Status.Text = unlocked and "READY" or "LOCKED"
 		row.Status.TextColor3 = unlocked and Color3.fromRGB(35, 130, 55) or Color3.fromRGB(100, 105, 125)
 	end
 end
@@ -1010,7 +928,8 @@ local function selectEgg(eggId)
 	eggIcon.BackgroundColor3 = unlocked and egg.color or LOCKED
 	eggName.Text = egg.displayName
 	worldName.Text = world and world.name or "Sector Egg"
-	costLabel.Text = unlocked and (formatNum(egg.cost) .. " Coins") or ("Unlock " .. tostring(egg.areaColor) .. " first")
+	costLabel.Text = unlocked and (formatNum(egg.cost) .. " Coins")
+		or ("Unlock " .. tostring(egg.areaColor) .. " first")
 	costLabel.TextColor3 = unlocked and Color3.fromRGB(220, 140, 30) or Color3.fromRGB(100, 105, 125)
 	setHatchButtonState(unlocked)
 	updatePetGrid(egg)
@@ -1139,15 +1058,59 @@ local function createEggViewportModel(egg)
 	model.Parent = hatchWorld
 
 	local shellColor = softColor((egg and egg.color) or Color3.fromRGB(180, 100, 255))
-	local shell = makeViewportPart(model, "Shell", Enum.PartType.Ball, Vector3.new(2.35, 3.15, 2.35), shellColor, CFrame.new(0, 0, 0), Enum.Material.SmoothPlastic)
+	local shell = makeViewportPart(
+		model,
+		"Shell",
+		Enum.PartType.Ball,
+		Vector3.new(2.35, 3.15, 2.35),
+		shellColor,
+		CFrame.new(0, 0, 0),
+		Enum.Material.SmoothPlastic
+	)
 	model.PrimaryPart = shell
 
-	makeViewportPart(model, "Glow", Enum.PartType.Ball, Vector3.new(2.65, 3.45, 2.65), shellColor, CFrame.new(0, 0, 0), Enum.Material.ForceField, 0.78)
-	makeViewportPart(model, "Highlight", Enum.PartType.Ball, Vector3.new(0.42, 0.72, 0.12), WHITE, CFrame.new(-0.55, 0.82, 1.08) * CFrame.Angles(0, 0, math.rad(-18)), Enum.Material.SmoothPlastic, 0.25)
+	makeViewportPart(
+		model,
+		"Glow",
+		Enum.PartType.Ball,
+		Vector3.new(2.65, 3.45, 2.65),
+		shellColor,
+		CFrame.new(0, 0, 0),
+		Enum.Material.ForceField,
+		0.78
+	)
+	makeViewportPart(
+		model,
+		"Highlight",
+		Enum.PartType.Ball,
+		Vector3.new(0.42, 0.72, 0.12),
+		WHITE,
+		CFrame.new(-0.55, 0.82, 1.08) * CFrame.Angles(0, 0, math.rad(-18)),
+		Enum.Material.SmoothPlastic,
+		0.25
+	)
 
 	local spotColor = shellColor:Lerp(Color3.fromRGB(255, 255, 255), 0.22)
-	makeViewportPart(model, "Spot1", Enum.PartType.Ball, Vector3.new(0.38, 0.25, 0.08), spotColor, CFrame.new(0.42, 0.48, 1.15), Enum.Material.SmoothPlastic, 0.08)
-	makeViewportPart(model, "Spot2", Enum.PartType.Ball, Vector3.new(0.28, 0.2, 0.08), spotColor, CFrame.new(-0.34, -0.25, 1.16), Enum.Material.SmoothPlastic, 0.08)
+	makeViewportPart(
+		model,
+		"Spot1",
+		Enum.PartType.Ball,
+		Vector3.new(0.38, 0.25, 0.08),
+		spotColor,
+		CFrame.new(0.42, 0.48, 1.15),
+		Enum.Material.SmoothPlastic,
+		0.08
+	)
+	makeViewportPart(
+		model,
+		"Spot2",
+		Enum.PartType.Ball,
+		Vector3.new(0.28, 0.2, 0.08),
+		spotColor,
+		CFrame.new(-0.34, -0.25, 1.16),
+		Enum.Material.SmoothPlastic,
+		0.08
+	)
 
 	local crackColor = Color3.fromRGB(48, 38, 58)
 	for i, data in ipairs({
@@ -1155,7 +1118,16 @@ local function createEggViewportModel(egg)
 		{ pos = Vector3.new(0.16, 0.04, 1.23), size = Vector3.new(0.07, 0.54, 0.06), rot = 34 },
 		{ pos = Vector3.new(-0.16, -0.22, 1.24), size = Vector3.new(0.07, 0.42, 0.06), rot = -45 },
 	}) do
-		local crack = makeViewportPart(model, "Crack" .. i, Enum.PartType.Block, data.size, crackColor, CFrame.new(data.pos) * CFrame.Angles(0, 0, math.rad(data.rot)), Enum.Material.SmoothPlastic, 1)
+		local crack = makeViewportPart(
+			model,
+			"Crack" .. i,
+			Enum.PartType.Block,
+			data.size,
+			crackColor,
+			CFrame.new(data.pos) * CFrame.Angles(0, 0, math.rad(data.rot)),
+			Enum.Material.SmoothPlastic,
+			1
+		)
 		crack:SetAttribute("Crack", true)
 	end
 
@@ -1163,7 +1135,15 @@ local function createEggViewportModel(egg)
 end
 
 local function makeEye(parent, x, y, z)
-	return makeViewportPart(parent, "Eye", Enum.PartType.Ball, Vector3.new(0.12, 0.12, 0.06), Color3.fromRGB(25, 28, 35), CFrame.new(x, y, z), Enum.Material.SmoothPlastic)
+	return makeViewportPart(
+		parent,
+		"Eye",
+		Enum.PartType.Ball,
+		Vector3.new(0.12, 0.12, 0.06),
+		Color3.fromRGB(25, 28, 35),
+		CFrame.new(x, y, z),
+		Enum.Material.SmoothPlastic
+	)
 end
 
 local function createFallbackPetModel(entry)
@@ -1181,35 +1161,193 @@ local function createFallbackPetModel(entry)
 	local accent = mainColor:Lerp(WHITE, 0.35)
 	local dark = mainColor:Lerp(Color3.fromRGB(20, 24, 32), 0.35)
 
-	local bodyShape = (string.find(name, "cubey") or string.find(name, "golem") or string.find(name, "titan")) and Enum.PartType.Block or Enum.PartType.Ball
-	local body = makeViewportPart(model, "Body", bodyShape, Vector3.new(1.45, 1.35, 1.25), mainColor, CFrame.new(0, -0.1, 0), Enum.Material.SmoothPlastic)
+	local bodyShape = (string.find(name, "cubey") or string.find(name, "golem") or string.find(name, "titan"))
+			and Enum.PartType.Block
+		or Enum.PartType.Ball
+	local body = makeViewportPart(
+		model,
+		"Body",
+		bodyShape,
+		Vector3.new(1.45, 1.35, 1.25),
+		mainColor,
+		CFrame.new(0, -0.1, 0),
+		Enum.Material.SmoothPlastic
+	)
 	model.PrimaryPart = body
 
-	local head = makeViewportPart(model, "Head", Enum.PartType.Ball, Vector3.new(1.0, 0.88, 0.9), accent, CFrame.new(0, 0.76, 0.03), Enum.Material.SmoothPlastic)
+	local head = makeViewportPart(
+		model,
+		"Head",
+		Enum.PartType.Ball,
+		Vector3.new(1.0, 0.88, 0.9),
+		accent,
+		CFrame.new(0, 0.76, 0.03),
+		Enum.Material.SmoothPlastic
+	)
 	makeEye(model, -0.22, 0.85, 0.48)
 	makeEye(model, 0.22, 0.85, 0.48)
 
 	if string.find(name, "bee") then
-		makeViewportPart(model, "StripeA", Enum.PartType.Block, Vector3.new(1.52, 0.12, 0.08), dark, CFrame.new(0, -0.18, 0.64), Enum.Material.SmoothPlastic)
-		makeViewportPart(model, "StripeB", Enum.PartType.Block, Vector3.new(1.2, 0.1, 0.08), dark, CFrame.new(0, 0.1, 0.65), Enum.Material.SmoothPlastic)
-		makeViewportPart(model, "LeftWing", Enum.PartType.Ball, Vector3.new(0.8, 0.18, 0.62), Color3.fromRGB(225, 248, 255), CFrame.new(-0.72, 0.35, -0.08) * CFrame.Angles(0, 0, math.rad(-25)), Enum.Material.Glass, 0.28)
-		makeViewportPart(model, "RightWing", Enum.PartType.Ball, Vector3.new(0.8, 0.18, 0.62), Color3.fromRGB(225, 248, 255), CFrame.new(0.72, 0.35, -0.08) * CFrame.Angles(0, 0, math.rad(25)), Enum.Material.Glass, 0.28)
-	elseif string.find(name, "bunny") or string.find(name, "mouse") or string.find(name, "cat") or string.find(name, "fox") or string.find(name, "wolf") or string.find(name, "pup") or string.find(name, "panda") or string.find(name, "bear") or string.find(name, "lion") then
-		makeViewportPart(model, "LeftEar", Enum.PartType.Ball, Vector3.new(0.28, 0.82, 0.24), accent, CFrame.new(-0.36, 1.36, 0) * CFrame.Angles(0, 0, math.rad(-13)), Enum.Material.SmoothPlastic)
-		makeViewportPart(model, "RightEar", Enum.PartType.Ball, Vector3.new(0.28, 0.82, 0.24), accent, CFrame.new(0.36, 1.36, 0) * CFrame.Angles(0, 0, math.rad(13)), Enum.Material.SmoothPlastic)
-		makeViewportPart(model, "Tail", Enum.PartType.Ball, Vector3.new(0.46, 0.46, 0.46), accent, CFrame.new(0.78, -0.24, -0.42), Enum.Material.SmoothPlastic)
-	elseif string.find(name, "dragon") or string.find(name, "bat") or string.find(name, "moth") or string.find(name, "wyvern") or string.find(name, "phoenix") or string.find(name, "finch") or string.find(name, "hydra") then
-		makeViewportPart(model, "LeftWing", Enum.PartType.Block, Vector3.new(0.12, 1.15, 1.25), mainColor:Lerp(WHITE, 0.18), CFrame.new(-0.95, 0.18, -0.05) * CFrame.Angles(0, 0, math.rad(-28)), Enum.Material.SmoothPlastic)
-		makeViewportPart(model, "RightWing", Enum.PartType.Block, Vector3.new(0.12, 1.15, 1.25), mainColor:Lerp(WHITE, 0.18), CFrame.new(0.95, 0.18, -0.05) * CFrame.Angles(0, 0, math.rad(28)), Enum.Material.SmoothPlastic)
-		makeViewportPart(model, "Crest", Enum.PartType.Ball, Vector3.new(0.26, 0.42, 0.2), dark, CFrame.new(0, 1.28, 0.04), Enum.Material.SmoothPlastic)
+		makeViewportPart(
+			model,
+			"StripeA",
+			Enum.PartType.Block,
+			Vector3.new(1.52, 0.12, 0.08),
+			dark,
+			CFrame.new(0, -0.18, 0.64),
+			Enum.Material.SmoothPlastic
+		)
+		makeViewportPart(
+			model,
+			"StripeB",
+			Enum.PartType.Block,
+			Vector3.new(1.2, 0.1, 0.08),
+			dark,
+			CFrame.new(0, 0.1, 0.65),
+			Enum.Material.SmoothPlastic
+		)
+		makeViewportPart(
+			model,
+			"LeftWing",
+			Enum.PartType.Ball,
+			Vector3.new(0.8, 0.18, 0.62),
+			Color3.fromRGB(225, 248, 255),
+			CFrame.new(-0.72, 0.35, -0.08) * CFrame.Angles(0, 0, math.rad(-25)),
+			Enum.Material.Glass,
+			0.28
+		)
+		makeViewportPart(
+			model,
+			"RightWing",
+			Enum.PartType.Ball,
+			Vector3.new(0.8, 0.18, 0.62),
+			Color3.fromRGB(225, 248, 255),
+			CFrame.new(0.72, 0.35, -0.08) * CFrame.Angles(0, 0, math.rad(25)),
+			Enum.Material.Glass,
+			0.28
+		)
+	elseif
+		string.find(name, "bunny")
+		or string.find(name, "mouse")
+		or string.find(name, "cat")
+		or string.find(name, "fox")
+		or string.find(name, "wolf")
+		or string.find(name, "pup")
+		or string.find(name, "panda")
+		or string.find(name, "bear")
+		or string.find(name, "lion")
+	then
+		makeViewportPart(
+			model,
+			"LeftEar",
+			Enum.PartType.Ball,
+			Vector3.new(0.28, 0.82, 0.24),
+			accent,
+			CFrame.new(-0.36, 1.36, 0) * CFrame.Angles(0, 0, math.rad(-13)),
+			Enum.Material.SmoothPlastic
+		)
+		makeViewportPart(
+			model,
+			"RightEar",
+			Enum.PartType.Ball,
+			Vector3.new(0.28, 0.82, 0.24),
+			accent,
+			CFrame.new(0.36, 1.36, 0) * CFrame.Angles(0, 0, math.rad(13)),
+			Enum.Material.SmoothPlastic
+		)
+		makeViewportPart(
+			model,
+			"Tail",
+			Enum.PartType.Ball,
+			Vector3.new(0.46, 0.46, 0.46),
+			accent,
+			CFrame.new(0.78, -0.24, -0.42),
+			Enum.Material.SmoothPlastic
+		)
+	elseif
+		string.find(name, "dragon")
+		or string.find(name, "bat")
+		or string.find(name, "moth")
+		or string.find(name, "wyvern")
+		or string.find(name, "phoenix")
+		or string.find(name, "finch")
+		or string.find(name, "hydra")
+	then
+		makeViewportPart(
+			model,
+			"LeftWing",
+			Enum.PartType.Block,
+			Vector3.new(0.12, 1.15, 1.25),
+			mainColor:Lerp(WHITE, 0.18),
+			CFrame.new(-0.95, 0.18, -0.05) * CFrame.Angles(0, 0, math.rad(-28)),
+			Enum.Material.SmoothPlastic
+		)
+		makeViewportPart(
+			model,
+			"RightWing",
+			Enum.PartType.Block,
+			Vector3.new(0.12, 1.15, 1.25),
+			mainColor:Lerp(WHITE, 0.18),
+			CFrame.new(0.95, 0.18, -0.05) * CFrame.Angles(0, 0, math.rad(28)),
+			Enum.Material.SmoothPlastic
+		)
+		makeViewportPart(
+			model,
+			"Crest",
+			Enum.PartType.Ball,
+			Vector3.new(0.26, 0.42, 0.2),
+			dark,
+			CFrame.new(0, 1.28, 0.04),
+			Enum.Material.SmoothPlastic
+		)
 	elseif string.find(name, "sprout") then
-		makeViewportPart(model, "Stem", Enum.PartType.Block, Vector3.new(0.12, 0.5, 0.12), dark, CFrame.new(0, 1.25, 0), Enum.Material.SmoothPlastic)
-		makeViewportPart(model, "LeafL", Enum.PartType.Ball, Vector3.new(0.55, 0.2, 0.28), Color3.fromRGB(110, 230, 120), CFrame.new(-0.24, 1.48, 0) * CFrame.Angles(0, 0, math.rad(-24)), Enum.Material.SmoothPlastic)
-		makeViewportPart(model, "LeafR", Enum.PartType.Ball, Vector3.new(0.55, 0.2, 0.28), Color3.fromRGB(110, 230, 120), CFrame.new(0.24, 1.48, 0) * CFrame.Angles(0, 0, math.rad(24)), Enum.Material.SmoothPlastic)
+		makeViewportPart(
+			model,
+			"Stem",
+			Enum.PartType.Block,
+			Vector3.new(0.12, 0.5, 0.12),
+			dark,
+			CFrame.new(0, 1.25, 0),
+			Enum.Material.SmoothPlastic
+		)
+		makeViewportPart(
+			model,
+			"LeafL",
+			Enum.PartType.Ball,
+			Vector3.new(0.55, 0.2, 0.28),
+			Color3.fromRGB(110, 230, 120),
+			CFrame.new(-0.24, 1.48, 0) * CFrame.Angles(0, 0, math.rad(-24)),
+			Enum.Material.SmoothPlastic
+		)
+		makeViewportPart(
+			model,
+			"LeafR",
+			Enum.PartType.Ball,
+			Vector3.new(0.55, 0.2, 0.28),
+			Color3.fromRGB(110, 230, 120),
+			CFrame.new(0.24, 1.48, 0) * CFrame.Angles(0, 0, math.rad(24)),
+			Enum.Material.SmoothPlastic
+		)
 	elseif string.find(name, "turtle") then
-		makeViewportPart(model, "Shell", Enum.PartType.Ball, Vector3.new(1.55, 0.78, 1.15), dark, CFrame.new(0, 0.1, -0.08), Enum.Material.SmoothPlastic)
+		makeViewportPart(
+			model,
+			"Shell",
+			Enum.PartType.Ball,
+			Vector3.new(1.55, 0.78, 1.15),
+			dark,
+			CFrame.new(0, 0.1, -0.08),
+			Enum.Material.SmoothPlastic
+		)
 	elseif string.find(name, "unicorn") then
-		makeViewportPart(model, "Horn", Enum.PartType.Block, Vector3.new(0.16, 0.62, 0.16), Color3.fromRGB(255, 245, 160), CFrame.new(0, 1.36, 0.2) * CFrame.Angles(0, 0, math.rad(45)), Enum.Material.SmoothPlastic)
+		makeViewportPart(
+			model,
+			"Horn",
+			Enum.PartType.Block,
+			Vector3.new(0.16, 0.62, 0.16),
+			Color3.fromRGB(255, 245, 160),
+			CFrame.new(0, 1.36, 0.2) * CFrame.Angles(0, 0, math.rad(45)),
+			Enum.Material.SmoothPlastic
+		)
 	end
 
 	local light = Instance.new("PointLight")
@@ -1250,7 +1388,8 @@ local function createPetViewportModel(entry)
 			highlight.Name = "RevealMutationHighlight"
 			highlight.Adornee = model
 			highlight.FillColor = mutationColor
-			highlight.OutlineColor = entry.mutationType == "Corrupted" and Color3.fromRGB(80, 240, 255) or Color3.fromRGB(255, 255, 255)
+			highlight.OutlineColor = entry.mutationType == "Corrupted" and Color3.fromRGB(80, 240, 255)
+				or Color3.fromRGB(255, 255, 255)
 			highlight.FillTransparency = entry.mutationType == "Corrupted" and 0.5 or 0.65
 			highlight.OutlineTransparency = 0.08
 			highlight.Parent = model
@@ -1273,27 +1412,81 @@ local function createPetViewportModel(entry)
 	if entry.hasMutation and entry.auraColor then
 		orbColor = entry.auraColor
 	end
-	local orb = makeViewportPart(model, "PetOrb", Enum.PartType.Ball, Vector3.new(1.95, 1.95, 1.95), orbColor, CFrame.new(0, 0, 0), Enum.Material.SmoothPlastic)
+	local orb = makeViewportPart(
+		model,
+		"PetOrb",
+		Enum.PartType.Ball,
+		Vector3.new(1.95, 1.95, 1.95),
+		orbColor,
+		CFrame.new(0, 0, 0),
+		Enum.Material.SmoothPlastic
+	)
 	model.PrimaryPart = orb
 
-	makeViewportPart(model, "OrbHighlight", Enum.PartType.Ball, Vector3.new(0.42, 0.42, 0.12), WHITE, CFrame.new(-0.46, 0.48, 0.86), Enum.Material.SmoothPlastic, 0.18)
-	makeViewportPart(model, "OrbGlow", Enum.PartType.Ball, Vector3.new(2.32, 2.32, 2.32), entry.auraColor or orbColor, CFrame.new(0, 0, 0), Enum.Material.ForceField, (entry.isShiny or entry.hasMutation) and 0.38 or 0.72)
+	makeViewportPart(
+		model,
+		"OrbHighlight",
+		Enum.PartType.Ball,
+		Vector3.new(0.42, 0.42, 0.12),
+		WHITE,
+		CFrame.new(-0.46, 0.48, 0.86),
+		Enum.Material.SmoothPlastic,
+		0.18
+	)
+	makeViewportPart(
+		model,
+		"OrbGlow",
+		Enum.PartType.Ball,
+		Vector3.new(2.32, 2.32, 2.32),
+		entry.auraColor or orbColor,
+		CFrame.new(0, 0, 0),
+		Enum.Material.ForceField,
+		(entry.isShiny or entry.hasMutation) and 0.38 or 0.72
+	)
 
 	if entry.isShiny then
-		makeViewportPart(model, "ShinyRing", Enum.PartType.Ball, Vector3.new(2.62, 2.62, 2.62), Color3.fromRGB(255, 250, 190), CFrame.new(0, 0, 0), Enum.Material.ForceField, 0.68)
+		makeViewportPart(
+			model,
+			"ShinyRing",
+			Enum.PartType.Ball,
+			Vector3.new(2.62, 2.62, 2.62),
+			Color3.fromRGB(255, 250, 190),
+			CFrame.new(0, 0, 0),
+			Enum.Material.ForceField,
+			0.68
+		)
 	end
 
 	if entry.hasMutation then
-		makeViewportPart(model, "MutationRing", Enum.PartType.Ball, Vector3.new(2.82, 2.82, 2.82), entry.auraColor or orbColor, CFrame.new(0, 0, 0), Enum.Material.ForceField, 0.62)
+		makeViewportPart(
+			model,
+			"MutationRing",
+			Enum.PartType.Ball,
+			Vector3.new(2.82, 2.82, 2.82),
+			entry.auraColor or orbColor,
+			CFrame.new(0, 0, 0),
+			Enum.Material.ForceField,
+			0.62
+		)
 	end
 
 	if entry.trait then
 		local traitColor = entry.trait.color or WHITE
-		makeViewportPart(model, "TraitAura", Enum.PartType.Ball, Vector3.new(2.82, 2.82, 2.82), traitColor, CFrame.new(0, 0, 0), Enum.Material.ForceField, 0.78)
+		makeViewportPart(
+			model,
+			"TraitAura",
+			Enum.PartType.Ball,
+			Vector3.new(2.82, 2.82, 2.82),
+			traitColor,
+			CFrame.new(0, 0, 0),
+			Enum.Material.ForceField,
+			0.78
+		)
 	end
 
 	local light = Instance.new("PointLight")
-	light.Color = (entry.isShiny or entry.hasMutation) and (entry.auraColor or Color3.fromRGB(255, 245, 185)) or orbColor
+	light.Color = (entry.isShiny or entry.hasMutation) and (entry.auraColor or Color3.fromRGB(255, 245, 185))
+		or orbColor
 	light.Range = 9
 	light.Brightness = entry.hasMutation and 1.9 or entry.isShiny and 1.6 or 0.9
 	light.Parent = orb
@@ -1396,10 +1589,7 @@ local function revealHatch(entry)
 	local rarityColor = RARITY_COLOR[entry.rarity] or WHITE
 	local hasMutation = entry.hasMutation == true
 	local mutationColor = entry.mutationTypeColor or entry.auraColor or rarityColor
-	local specialMutation = hasMutation and (
-		entry.mutationRarity == "Legendary"
-		or entry.mutationType == "Corrupted"
-	)
+	local specialMutation = hasMutation and (entry.mutationRarity == "Legendary" or entry.mutationType == "Corrupted")
 	prepareHatchResult(entry, pet, rarityColor, hasMutation)
 
 	hatchText.Text = "CRACK!"
@@ -1551,7 +1741,11 @@ local function requestHatch(eggId, fromAutoHatch)
 	if not egg then
 		return false
 	end
-	if not fromAutoHatch and lastHatchRequestEggId == targetEggId and now - lastHatchRequestAt < CLIENT_HATCH_REQUEST_COOLDOWN then
+	if
+		not fromAutoHatch
+		and lastHatchRequestEggId == targetEggId
+		and now - lastHatchRequestAt < CLIENT_HATCH_REQUEST_COOLDOWN
+	then
 		return false
 	end
 	if not isEggUnlocked(egg) then
@@ -1574,8 +1768,14 @@ hatchBtn.MouseButton1Click:Connect(function()
 end)
 
 local function hookProximityPrompt(obj)
-	if obj:IsA("ProximityPrompt")
-		and (obj:GetAttribute("EggShopPrompt") or obj.Name == "EggShopPrompt" or obj.ObjectText == "Egg Shop" or obj.ObjectText == "Starter Egg")
+	if
+		obj:IsA("ProximityPrompt")
+		and (
+			obj:GetAttribute("EggShopPrompt")
+			or obj.Name == "EggShopPrompt"
+			or obj.ObjectText == "Egg Shop"
+			or obj.ObjectText == "Starter Egg"
+		)
 	then
 		if obj:GetAttribute("EggShopClientHooked") == true then
 			return
@@ -1602,13 +1802,17 @@ end
 for _, obj in ipairs(workspace:GetDescendants()) do
 	hookProximityPrompt(obj)
 	if obj:IsA("BasePart") and obj:GetAttribute("EggId") then
-		createEggOptionsGui(obj)
+		bindEggOptionsGui(obj)
+	elseif obj:IsA("BillboardGui") and obj.Name == "EggOptions" and obj.Parent and obj.Parent:IsA("BasePart") then
+		bindEggOptionsGui(obj.Parent)
 	end
 end
 workspace.DescendantAdded:Connect(function(obj)
 	hookProximityPrompt(obj)
 	if obj:IsA("BasePart") and obj:GetAttribute("EggId") then
-		createEggOptionsGui(obj)
+		bindEggOptionsGui(obj)
+	elseif obj:IsA("BillboardGui") and obj.Name == "EggOptions" and obj.Parent and obj.Parent:IsA("BasePart") then
+		bindEggOptionsGui(obj.Parent)
 	end
 	if isOpen and (obj:IsA("BillboardGui") or obj:IsA("SurfaceGui")) and obj.Enabled then
 		hiddenWorldGuis[obj] = true
@@ -1750,19 +1954,15 @@ end
 
 selectEgg(selectedEggId or chooseBestUnlockedEgg())
 
-UIManager.register("Eggs",
-	function()
-		if currentNearbyEgg then
-			requestHatch(getEggIdFromPart(currentNearbyEgg) or chooseBestUnlockedEgg())
-		end
-	end,
-	function()
-		toggleShop(false)
-	end,
-	function()
-		return isOpen
+UIManager.register("Eggs", function()
+	if currentNearbyEgg then
+		requestHatch(getEggIdFromPart(currentNearbyEgg) or chooseBestUnlockedEgg())
 	end
-)
+end, function()
+	toggleShop(false)
+end, function()
+	return isOpen
+end)
 
 openEggShopEvent.Event:Connect(function(eggId)
 	requestHatch(eggId or chooseBestUnlockedEgg())

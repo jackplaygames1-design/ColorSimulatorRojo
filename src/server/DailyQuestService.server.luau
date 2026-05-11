@@ -1,7 +1,7 @@
 -- ServerScriptService/Server/DailyQuestService
 -- Server-owned daily quests. Other server systems report progress through ServerStorage.DailyQuestProgress.
-local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -103,6 +103,7 @@ local DAILY_QUEST_POOL = {
 }
 
 local profiles = {}
+local pendingProgressByPlayer = {}
 
 local QUEST_BY_ID = {}
 local DEFAULT_QUEST_IDS = {
@@ -205,9 +206,7 @@ local function getExactlyThreeQuests(profile)
 end
 
 local function hasCurrentZorkIntro(data)
-	return data
-		and data.zorkIntroduced == true
-		and tonumber(data.zorkIntroVersion) == ZORK_INTRO_VERSION
+	return data and data.zorkIntroduced == true and tonumber(data.zorkIntroVersion) == ZORK_INTRO_VERSION
 end
 
 local function normalizeProfile(player, data)
@@ -415,6 +414,39 @@ local function refreshDailyQuests(player)
 	return profile
 end
 
+local function normalizeProgressAmount(amount)
+	return math.max(1, math.floor(tonumber(amount) or 1))
+end
+
+local function queuePendingProgress(player, progressType, amount)
+	local pending = pendingProgressByPlayer[player]
+	if not pending then
+		pending = {}
+		pendingProgressByPlayer[player] = pending
+	end
+
+	progressType = tostring(progressType)
+	pending[progressType] = (pending[progressType] or 0) + normalizeProgressAmount(amount)
+end
+
+local function applyQuestProgress(profile, progressType, amount)
+	progressType = tostring(progressType)
+	amount = normalizeProgressAmount(amount)
+
+	local changed = false
+	for _, quest in ipairs(profile.quests) do
+		if (quest.progressType == progressType or quest.id == progressType) and not quest.claimed then
+			local oldProgress = quest.progress
+			quest.progress = math.min(quest.target, quest.progress + amount)
+			if quest.progress ~= oldProgress then
+				changed = true
+			end
+		end
+	end
+
+	return changed
+end
+
 local function loadProfile(player)
 	local data
 	local success, result = pcall(function()
@@ -429,6 +461,17 @@ local function loadProfile(player)
 
 	local profile = normalizeProfile(player, data)
 	profiles[player] = profile
+
+	local pending = pendingProgressByPlayer[player]
+	if pending then
+		pendingProgressByPlayer[player] = nil
+		for progressType, pendingAmount in pairs(pending) do
+			if applyQuestProgress(profile, progressType, pendingAmount) then
+				profile.dirty = true
+			end
+		end
+	end
+
 	player:SetAttribute("DailyQuestsHudUnlocked", profile.zorkIntroduced == true)
 	DailyQuestRemote:FireClient(player, "Update", makeClientData(profile))
 end
@@ -440,6 +483,7 @@ local function addQuestProgress(player, progressType, amount)
 
 	local profile = profiles[player]
 	if not profile then
+		queuePendingProgress(player, progressType, amount)
 		return
 	end
 
@@ -448,21 +492,7 @@ local function addQuestProgress(player, progressType, amount)
 		return
 	end
 
-	progressType = tostring(progressType)
-	amount = math.max(1, math.floor(tonumber(amount) or 1))
-
-	local changed = false
-	for _, quest in ipairs(profile.quests) do
-		if (quest.progressType == progressType or quest.id == progressType) and not quest.claimed then
-			local oldProgress = quest.progress
-			quest.progress = math.min(quest.target, quest.progress + amount)
-			if quest.progress ~= oldProgress then
-				changed = true
-			end
-		end
-	end
-
-	if changed then
+	if applyQuestProgress(profile, progressType, amount) then
 		profile.dirty = true
 		DailyQuestRemote:FireClient(player, "Update", makeClientData(profile))
 	end
@@ -541,17 +571,6 @@ local function findZork()
 	return nil
 end
 
-local function findPromptPart(zork)
-	if zork:IsA("Model") then
-		return zork.PrimaryPart
-			or zork:FindFirstChild("ShopPromptCore", true)
-			or zork:FindFirstChild("HumanoidRootPart", true)
-			or zork:FindFirstChild("Head", true)
-			or zork:FindFirstChildWhichIsA("BasePart", true)
-	end
-	return zork:IsA("BasePart") and zork or zork:FindFirstChildWhichIsA("BasePart", true)
-end
-
 local function removeLegacyZorkQuestPrompt()
 	local zork = findZork()
 	if not zork then
@@ -570,6 +589,7 @@ Players.PlayerAdded:Connect(loadProfile)
 Players.PlayerRemoving:Connect(function(player)
 	saveProfile(player, true)
 	profiles[player] = nil
+	pendingProgressByPlayer[player] = nil
 end)
 
 for _, player in ipairs(Players:GetPlayers()) do

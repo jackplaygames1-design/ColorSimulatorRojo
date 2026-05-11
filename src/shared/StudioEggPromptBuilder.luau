@@ -1,0 +1,527 @@
+-- Studio-only helper for authoring editable egg hatch prompts in Workspace.
+-- Run from Studio edit mode:
+-- require(game.ReplicatedStorage.StudioEggPromptBuilder).Update()
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+
+local Builder = {}
+
+local DARK = Color3.fromRGB(44, 47, 58)
+local WHITE = Color3.fromRGB(255, 255, 255)
+local SPAWN_EGG_NAME = "SpawnEgg"
+local SPAWN_EGG_ID = "ColorEgg"
+local SPAWN_EGG_COLOR = "Red"
+local SPAWN_TEMPLATE_EGG_ID = "OrangeEgg"
+
+local function formatNumber(value)
+	value = tonumber(value) or 0
+	if value >= 1000000 then
+		return string.format("%.1fM", value / 1000000):gsub("%.0M", "M")
+	elseif value >= 1000 then
+		return string.format("%.1fK", value / 1000):gsub("%.0K", "K")
+	end
+	return tostring(math.floor(value))
+end
+
+local function findOrCreate(parent, className, name)
+	local existing = parent:FindFirstChild(name)
+	if existing then
+		return existing
+	end
+	local instance = Instance.new(className)
+	instance.Name = name
+	instance.Parent = parent
+	return instance
+end
+
+local function applyCorner(instance, radius)
+	local corner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, radius)
+	corner.Parent = instance
+	return corner
+end
+
+local function applyStroke(instance, color, thickness)
+	local stroke = instance:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	stroke.Color = color
+	stroke.Thickness = thickness
+	stroke.Parent = instance
+	return stroke
+end
+
+local function text(parent, name, value, position, size, font, textColor)
+	local label = findOrCreate(parent, "TextLabel", name)
+	label.BackgroundTransparency = 1
+	label.Position = position
+	label.Size = size
+	label.Font = font
+	label.Text = value
+	label.TextColor3 = textColor
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.Parent = parent
+	return label
+end
+
+local function findEggId(instance)
+	local current = instance
+	while current and current ~= Workspace do
+		local eggId = current:GetAttribute("EggId")
+		if eggId and PetData.Eggs[eggId] then
+			return eggId
+		end
+		current = current.Parent
+	end
+	return nil
+end
+
+local function isDebugAppearanceObject(obj)
+	return obj and obj:FindFirstAncestor("PetAppearanceStudio") ~= nil
+end
+
+local function getBestPart(root)
+	if root:IsA("BasePart") then
+		return root
+	end
+	if root:IsA("Model") then
+		local promptPart = root:FindFirstChild("EggPromptPart", true)
+		return root.PrimaryPart
+			or (promptPart and promptPart:IsA("BasePart") and promptPart or nil)
+			or root:FindFirstChildWhichIsA("BasePart", true)
+	end
+	return nil
+end
+
+local function getObjectPivot(object)
+	if object:IsA("Model") then
+		return object:GetPivot()
+	elseif object:IsA("BasePart") then
+		return object.CFrame
+	end
+	return CFrame.new()
+end
+
+local function clearGeneratedOrPreviewGui(object)
+	for _, descendant in ipairs(object:GetDescendants()) do
+		if
+			descendant:GetAttribute("PreviewOnly") == true
+			or descendant.Name == "PreviewLabel"
+			or descendant.Name == "EggOptions"
+		then
+			descendant:Destroy()
+		end
+	end
+end
+
+local function applyEggAttributes(object, eggId, colorType, tutorialEgg)
+	if object:IsA("Model") then
+		object:SetAttribute("EggId", eggId)
+		object:SetAttribute("ColorType", colorType)
+		object:SetAttribute("AreaColor", colorType)
+		object:SetAttribute("EggStation", true)
+		if tutorialEgg then
+			object:SetAttribute("TutorialEgg", true)
+			object:SetAttribute("BakedTutorialEgg", true)
+		end
+	end
+
+	for _, descendant in ipairs(object:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant:SetAttribute("EggId", eggId)
+			descendant:SetAttribute("ColorType", colorType)
+			descendant:SetAttribute("AreaColor", colorType)
+			descendant:SetAttribute("EggStation", true)
+			descendant:SetAttribute("ColorZone", false)
+			descendant:SetAttribute("ColorBlobSpawn", false)
+			descendant.CanCollide = true
+			descendant.CanTouch = false
+			descendant.CanQuery = true
+			if tutorialEgg then
+				descendant:SetAttribute("TutorialEgg", true)
+				descendant:SetAttribute("BakedTutorialEgg", true)
+			end
+		end
+	end
+
+	if object:IsA("BasePart") then
+		object:SetAttribute("EggId", eggId)
+		object:SetAttribute("ColorType", colorType)
+		object:SetAttribute("AreaColor", colorType)
+		object:SetAttribute("EggStation", true)
+		object:SetAttribute("ColorZone", false)
+		object:SetAttribute("ColorBlobSpawn", false)
+		object.CanCollide = true
+		object.CanTouch = false
+		object.CanQuery = true
+		if tutorialEgg then
+			object:SetAttribute("TutorialEgg", true)
+			object:SetAttribute("BakedTutorialEgg", true)
+		end
+	end
+end
+
+local function ensureEggPrompt(holder)
+	local prompt = holder:FindFirstChild("EggShopPrompt")
+	if not prompt then
+		prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "EggShopPrompt"
+		prompt.Parent = holder
+	end
+	prompt.ActionText = "Hatch"
+	prompt.ObjectText = "Egg"
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance, 18)
+	prompt.RequiresLineOfSight = false
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
+	prompt.Style = Enum.ProximityPromptStyle.Custom
+	prompt:SetAttribute("EggShopPrompt", true)
+	return prompt
+end
+
+local function getPetAppearanceEggTemplate(eggId)
+	local source = Workspace:FindFirstChild("PetAppearanceStudio")
+	local eggFolder = source and source:FindFirstChild(eggId)
+	local eggModel = eggFolder and eggFolder:FindFirstChild("EggModel")
+	if eggModel and (eggModel:IsA("Model") or eggModel:IsA("BasePart")) then
+		return eggModel
+	end
+
+	local petModels = ReplicatedStorage:FindFirstChild("PetModels")
+	local eggModels = petModels and petModels:FindFirstChild("EggModels")
+	local published = eggModels and eggModels:FindFirstChild(eggId)
+	if published and (published:IsA("Model") or published:IsA("BasePart")) then
+		return published
+	end
+
+	return nil
+end
+
+local function getSpawnEggTemplate()
+	return getPetAppearanceEggTemplate(SPAWN_TEMPLATE_EGG_ID) or getPetAppearanceEggTemplate(SPAWN_EGG_ID)
+end
+
+local function cloneAsModel(template)
+	local clone = template:Clone()
+	if clone:IsA("Model") then
+		return clone
+	end
+
+	local model = Instance.new("Model")
+	model.Name = template.Name
+	clone.Parent = model
+	model.PrimaryPart = clone
+	return model
+end
+
+local function findSpawnEggObject()
+	local direct = Workspace:FindFirstChild(SPAWN_EGG_NAME, true)
+	if direct and (direct:IsA("Model") or direct:IsA("BasePart")) and not isDebugAppearanceObject(direct) then
+		return direct
+	end
+
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if
+			(obj:IsA("Model") or obj:IsA("BasePart"))
+			and not isDebugAppearanceObject(obj)
+			and (obj:GetAttribute("TutorialEgg") == true or obj:GetAttribute("BakedTutorialEgg") == true)
+		then
+			return obj
+		end
+	end
+
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if
+			(obj:IsA("Model") or obj:IsA("BasePart"))
+			and not isDebugAppearanceObject(obj)
+			and obj:GetAttribute("EggId") == SPAWN_EGG_ID
+		then
+			return obj
+		end
+	end
+
+	return nil
+end
+
+local function replaceSpawnEggModel()
+	local existing = findSpawnEggObject()
+	local template = getSpawnEggTemplate()
+	if not existing or not template then
+		return nil, false
+	end
+
+	local parent = existing.Parent
+	local pivot = getObjectPivot(existing)
+	local replacement = cloneAsModel(template)
+	replacement.Name = SPAWN_EGG_NAME
+	clearGeneratedOrPreviewGui(replacement)
+	applyEggAttributes(replacement, SPAWN_EGG_ID, SPAWN_EGG_COLOR, true)
+	replacement.Parent = parent
+
+	local primary = getBestPart(replacement)
+	if primary then
+		replacement.PrimaryPart = primary
+		replacement:PivotTo(pivot)
+		ensureEggPrompt(primary)
+	end
+
+	existing:Destroy()
+	return primary, true
+end
+
+local function isEggRoot(obj)
+	if not (obj:IsA("Model") or obj:IsA("BasePart")) then
+		return false
+	end
+	if obj.Name == "PetAppearanceStudio" or obj:FindFirstAncestor("PetAppearanceStudio") then
+		return false
+	end
+	if obj:IsA("BasePart") then
+		local modelAncestor = obj:FindFirstAncestorWhichIsA("Model")
+		if modelAncestor and findEggId(modelAncestor) then
+			return false
+		end
+	end
+	if obj:GetAttribute("EggPromptAuthored") == true then
+		return true
+	end
+	return findEggId(obj) ~= nil and (obj:GetAttribute("EggStation") == true or obj:GetAttribute("EggId") ~= nil)
+end
+
+local function setPromptText(parent, name, value)
+	local label = parent and parent:FindFirstChild(name, true)
+	if label and (label:IsA("TextLabel") or label:IsA("TextButton") or label:IsA("TextBox")) then
+		label.Text = tostring(value or "")
+	end
+end
+
+local function updatePromptTexts(gui, eggId)
+	local egg = PetData.Eggs[eggId]
+	local displayName = egg and egg.displayName or tostring(eggId or "Egg")
+	local costText = egg and (formatNumber(egg.cost or 0) .. " Coins") or ""
+
+	setPromptText(gui, "Title", string.upper(displayName))
+	setPromptText(gui, "MainTitle", "EGG")
+	setPromptText(gui, "Cost", costText)
+	setPromptText(gui, "Key", "E")
+
+	local openOption = gui and gui:FindFirstChild("OpenOption", true)
+	setPromptText(openOption, "Label", "HATCH")
+end
+
+local function configureOption(parent, name, x, width, keyText, actionText, color)
+	local option = findOrCreate(parent, "Frame", name)
+	option.Position = UDim2.fromOffset(x, 113)
+	option.Size = UDim2.fromOffset(width, 42)
+	option.BackgroundColor3 = color
+	option.BorderSizePixel = 0
+	option.Parent = parent
+	applyCorner(option, 12)
+	applyStroke(option, DARK, 2)
+
+	local key =
+		text(option, "Key", keyText, UDim2.new(0, 7, 0.5, -15), UDim2.fromOffset(30, 30), Enum.Font.LuckiestGuy, DARK)
+	key.BackgroundTransparency = 0.1
+	key.BackgroundColor3 = WHITE
+	key.TextSize = 18
+	applyCorner(key, 99)
+
+	local label = text(
+		option,
+		"Label",
+		actionText,
+		UDim2.fromOffset(39, 0),
+		UDim2.new(1, -43, 1, 0),
+		Enum.Font.LuckiestGuy,
+		WHITE
+	)
+	label.TextScaled = true
+	label.TextStrokeTransparency = 0.35
+	label.TextStrokeColor3 = DARK
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	local labelSize = label:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	labelSize.MinTextSize = 12
+	labelSize.MaxTextSize = 18
+	labelSize.Parent = label
+end
+
+local function configurePrompt(holder, eggId, sourceGui)
+	local egg = PetData.Eggs[eggId]
+	local displayName = egg and egg.displayName or "Egg"
+	local costText = egg and (formatNumber(egg.cost or 0) .. " Coins") or ""
+
+	local existing = holder:FindFirstChild("EggOptions")
+	local gui
+	if sourceGui and sourceGui.Parent ~= holder then
+		if existing then
+			existing:Destroy()
+		end
+		gui = sourceGui:Clone()
+		gui.Name = "EggOptions"
+		gui.Parent = holder
+	else
+		gui = findOrCreate(holder, "BillboardGui", "EggOptions")
+	end
+	gui.AlwaysOnTop = true
+	gui.Enabled = false
+	gui.LightInfluence = 0
+	gui.MaxDistance = 60
+	gui.Size = UDim2.fromOffset(320, 170)
+	if not sourceGui then
+		gui.StudsOffsetWorldSpace = Vector3.new(0, math.max(8, holder.Size.Y * 0.5 + 4.5), 0)
+	end
+	gui:SetAttribute("EggOptionGui", true)
+	gui:SetAttribute("EggPromptAuthored", true)
+
+	if sourceGui then
+		updatePromptTexts(gui, eggId)
+		holder:SetAttribute("EggPromptAuthored", true)
+		ensureEggPrompt(holder)
+		return true, gui
+	end
+
+	local panel = findOrCreate(gui, "Frame", "Panel")
+	panel.Size = UDim2.fromScale(1, 1)
+	panel.Position = UDim2.fromScale(0, 0)
+	panel.BackgroundColor3 = Color3.fromRGB(255, 248, 236)
+	panel.BackgroundTransparency = 0.05
+	panel.BorderSizePixel = 0
+	panel.ClipsDescendants = true
+	applyCorner(panel, 18)
+	applyStroke(panel, DARK, 4)
+
+	local titleLabel = text(
+		panel,
+		"Title",
+		string.upper(displayName),
+		UDim2.fromOffset(12, 10),
+		UDim2.new(1, -24, 0, 30),
+		Enum.Font.LuckiestGuy,
+		Color3.fromRGB(78, 58, 130)
+	)
+	titleLabel.TextScaled = true
+	titleLabel.TextStrokeTransparency = 0.55
+	titleLabel.TextStrokeColor3 = WHITE
+	local titleSize = titleLabel:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	titleSize.MinTextSize = 14
+	titleSize.MaxTextSize = 22
+	titleSize.Parent = titleLabel
+
+	local mainLabel = text(
+		panel,
+		"MainTitle",
+		"EGG",
+		UDim2.fromOffset(12, 42),
+		UDim2.new(1, -24, 0, 42),
+		Enum.Font.LuckiestGuy,
+		Color3.fromRGB(255, 218, 74)
+	)
+	mainLabel.TextScaled = true
+	mainLabel.TextStrokeTransparency = 0
+	mainLabel.TextStrokeColor3 = DARK
+	local mainSize = mainLabel:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	mainSize.MinTextSize = 22
+	mainSize.MaxTextSize = 42
+	mainSize.Parent = mainLabel
+
+	local costLabel = text(
+		panel,
+		"Cost",
+		costText,
+		UDim2.fromOffset(12, 84),
+		UDim2.new(1, -24, 0, 20),
+		Enum.Font.GothamBold,
+		Color3.fromRGB(88, 92, 112)
+	)
+	costLabel.TextSize = 14
+
+	configureOption(panel, "OpenOption", 21, 136, "E", "HATCH", Color3.fromRGB(116, 218, 230))
+	configureOption(panel, "AutoOption", 169, 120, "R", "AUTO", Color3.fromRGB(176, 134, 244))
+
+	holder:SetAttribute("EggPromptAuthored", true)
+	ensureEggPrompt(holder)
+	return true, gui
+end
+
+local function getEggHolders()
+	local holders = {}
+	local seen = {}
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if isEggRoot(obj) then
+			local holder = getBestPart(obj)
+			local eggId = holder and findEggId(holder)
+			if holder and eggId and not seen[holder] then
+				seen[holder] = true
+				table.insert(holders, {
+					holder = holder,
+					eggId = eggId,
+				})
+			end
+		end
+	end
+	return holders
+end
+
+local function findRedPromptTemplate(holders)
+	for _, entry in ipairs(holders) do
+		if entry.eggId == SPAWN_EGG_ID or entry.holder:GetAttribute("AreaColor") == SPAWN_EGG_COLOR then
+			local _, gui = configurePrompt(entry.holder, entry.eggId)
+			if gui then
+				return gui
+			end
+		end
+	end
+	return nil
+end
+
+function Builder.Update()
+	if not RunService:IsStudio() then
+		warn("StudioEggPromptBuilder.Update can only run in Roblox Studio.")
+		return
+	end
+	if RunService:IsRunning() then
+		warn("StudioEggPromptBuilder.Update should be run in edit mode, not during Play.")
+		return
+	end
+
+	local _, replacedSpawn = replaceSpawnEggModel()
+	local holders = getEggHolders()
+	local redPromptTemplate = findRedPromptTemplate(holders)
+
+	local updated = 0
+	for _, entry in ipairs(holders) do
+		local sourceGui = redPromptTemplate and entry.holder ~= redPromptTemplate.Parent and redPromptTemplate or nil
+		if configurePrompt(entry.holder, entry.eggId, sourceGui) then
+			updated += 1
+		end
+	end
+
+	print(
+		"StudioEggPromptBuilder: "
+			.. (replacedSpawn and "replaced spawn egg; " or "")
+			.. "synced editable EggOptions prompts on "
+			.. tostring(updated)
+			.. " eggs."
+	)
+end
+
+Builder.UpdateEggPrompts = Builder.Update
+Builder.SyncEggPrompts = Builder.Update
+Builder.ReplaceSpawnEgg = function()
+	if not RunService:IsStudio() then
+		warn("StudioEggPromptBuilder.ReplaceSpawnEgg can only run in Roblox Studio.")
+		return
+	end
+	if RunService:IsRunning() then
+		warn("StudioEggPromptBuilder.ReplaceSpawnEgg should be run in edit mode, not during Play.")
+		return
+	end
+	local _, replaced = replaceSpawnEggModel()
+	print("StudioEggPromptBuilder: " .. (replaced and "replaced SpawnEgg." or "could not find SpawnEgg/template."))
+end
+
+return Builder

@@ -16,6 +16,14 @@ AdminConfig.EarlyTesters = {
 	DontTryMeBoy = true,
 }
 
+AdminConfig.FullGamepassGrantUserIds = {
+	[337640365] = true, -- TrevorMaxCoolness
+}
+
+AdminConfig.FullGamepassGrantNames = {
+	TrevorMaxCoolness = true,
+}
+
 function AdminConfig.normalizeName(name)
 	return string.lower(tostring(name or ""))
 end
@@ -44,6 +52,23 @@ function AdminConfig.isEarlyTesterName(name)
 	local normalized = AdminConfig.normalizeName(name)
 	for testerName in pairs(AdminConfig.EarlyTesters) do
 		if AdminConfig.normalizeName(testerName) == normalized then
+			return true
+		end
+	end
+	return false
+end
+
+function AdminConfig.shouldGrantAllGamepasses(player)
+	if not player then
+		return false
+	end
+	if AdminConfig.FullGamepassGrantUserIds[tonumber(player.UserId) or 0] == true then
+		return true
+	end
+
+	local normalized = AdminConfig.normalizeName(player.Name)
+	for grantName in pairs(AdminConfig.FullGamepassGrantNames) do
+		if AdminConfig.normalizeName(grantName) == normalized then
 			return true
 		end
 	end

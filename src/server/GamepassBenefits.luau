@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local AdminConfig = require(ReplicatedStorage:WaitForChild("AdminConfig"))
 local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
 
 local GamepassBenefits = {}
@@ -106,7 +107,10 @@ function GamepassBenefits.refreshPlayer(player)
 	player:SetAttribute("IsVIP", GamepassBenefits.owns(player, "VIP"))
 	player:SetAttribute("HasInfinitePass", GamepassBenefits.owns(player, "InfinitePass"))
 	local infinitePass = RobuxShopConfig.getGamepass("InfinitePass")
-	player:SetAttribute("InfiniteStorage", GamepassBenefits.owns(player, "InfinitePass") and infinitePass and infinitePass.infiniteStorage == true)
+	player:SetAttribute(
+		"InfiniteStorage",
+		GamepassBenefits.owns(player, "InfinitePass") and infinitePass and infinitePass.infiniteStorage == true
+	)
 	if GamepassBenefits.owns(player, "SupportDev") then
 		player:SetAttribute("EarlySupporter", true)
 	end
@@ -206,11 +210,11 @@ function GamepassBenefits.getDailyGemBonus(player)
 	return total
 end
 
-function GamepassBenefits.hasAutoSell(player)
+function GamepassBenefits.hasAutoSell(_player)
 	return false
 end
 
-Players.PlayerAdded:Connect(function(player)
+local function initializePlayerPasses(player)
 	for _, pass in ipairs(RobuxShopConfig.Gamepasses or {}) do
 		player:SetAttribute("Pass_" .. pass.id, false)
 	end
@@ -220,9 +224,29 @@ Players.PlayerAdded:Connect(function(player)
 	player:SetAttribute("InfiniteTag", false)
 	player:SetAttribute("EarlySupporter", false)
 	task.defer(function()
+		if AdminConfig.shouldGrantAllGamepasses(player) then
+			local ok, granted = GamepassBenefits.grantAll(player)
+			if ok then
+				print(
+					"GamepassBenefits: auto-granted all gamepasses to "
+						.. player.Name
+						.. ": "
+						.. table.concat(granted, ", ")
+				)
+			end
+			return
+		end
 		GamepassBenefits.refreshPlayer(player)
 	end)
+end
+
+Players.PlayerAdded:Connect(function(player)
+	initializePlayerPasses(player)
 end)
+
+for _, player in ipairs(Players:GetPlayers()) do
+	task.defer(initializePlayerPasses, player)
+end
 
 Players.PlayerRemoving:Connect(function(player)
 	ownershipCache[player] = nil

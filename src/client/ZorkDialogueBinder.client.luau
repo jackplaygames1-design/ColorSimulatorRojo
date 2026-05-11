@@ -7,7 +7,8 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local Events = ReplicatedStorage:WaitForChild("Events")
-local dailyQuestRemote = Events:FindFirstChild("DailyQuestRemote")
+local dailyQuestRemote = ReplicatedStorage:WaitForChild("DailyQuestRemote", 10)
+	or Events:FindFirstChild("DailyQuestRemote")
 
 local root = playerGui:WaitForChild("ClientUIRoot", 15)
 if not root then

@@ -3,8 +3,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local travelEvent = Events:FindFirstChild("TravelToWorldSpot")
@@ -19,8 +19,10 @@ local cooldowns = {}
 local COOLDOWN = 2
 local MAP_NAME = "ColorSimulatorMap"
 local SPAWN_TUTORIAL_EGG_NAME = "SpawnEgg"
-local RUNTIME_WORLD_BUILDING_ENABLED = GameBalance.FeatureFlags and GameBalance.FeatureFlags.RuntimeWorldBuildingEnabled == true
-local RUNTIME_WORLD_LABELS_ENABLED = GameBalance.FeatureFlags and GameBalance.FeatureFlags.RuntimeWorldLabelsEnabled == true
+local RUNTIME_WORLD_BUILDING_ENABLED = GameBalance.FeatureFlags
+	and GameBalance.FeatureFlags.RuntimeWorldBuildingEnabled == true
+local RUNTIME_WORLD_LABELS_ENABLED = GameBalance.FeatureFlags
+	and GameBalance.FeatureFlags.RuntimeWorldLabelsEnabled == true
 local PROGRESSION_CONFIG = GameBalance.Progression or {}
 local MAX_PLAYABLE_SECTOR_INDEX = tonumber(PROGRESSION_CONFIG.MaxPlayableSectorIndex) or math.huge
 local zonePartsCache = nil
@@ -87,9 +89,7 @@ end
 local function isPointInside(part, worldPosition, margin)
 	local localPoint = part.CFrame:PointToObjectSpace(worldPosition)
 	local half = part.Size * 0.5 + Vector3.new(margin, margin, margin)
-	return math.abs(localPoint.X) <= half.X
-		and math.abs(localPoint.Y) <= half.Y
-		and math.abs(localPoint.Z) <= half.Z
+	return math.abs(localPoint.X) <= half.X and math.abs(localPoint.Y) <= half.Y and math.abs(localPoint.Z) <= half.Z
 end
 
 local function getZoneParts()
@@ -137,7 +137,11 @@ end
 
 local function isBakedEditableMap(map)
 	return map
-		and (map:GetAttribute("BakedEditableMap") == true or map:FindFirstChild("Lobby") or map:FindFirstChild("RedZone"))
+		and (
+			map:GetAttribute("BakedEditableMap") == true
+			or map:FindFirstChild("Lobby")
+			or map:FindFirstChild("RedZone")
+		)
 end
 
 local function shouldAvoidRuntimeStationCreation()
@@ -349,20 +353,53 @@ local function addEggPrompt(part)
 end
 
 local function configureSpawnTutorialEgg(obj)
-	if not obj or not obj:IsA("BasePart") or obj.Name ~= SPAWN_TUTORIAL_EGG_NAME then
+	if not obj or not (obj:IsA("BasePart") or obj:IsA("Model")) or obj.Name ~= SPAWN_TUTORIAL_EGG_NAME then
 		return nil
 	end
 
-	obj:SetAttribute("EggId", "ColorEgg")
-	obj:SetAttribute("ColorType", "Red")
-	obj:SetAttribute("AreaColor", "Red")
-	obj:SetAttribute("EggStation", true)
-	obj:SetAttribute("TutorialEgg", true)
-	obj:SetAttribute("BakedTutorialEgg", true)
-	obj.CanQuery = true
-	addEggPrompt(obj)
-	destinationCache["egg:Red"] = obj
-	return obj
+	local holder = obj:IsA("BasePart") and obj
+		or obj.PrimaryPart
+		or obj:FindFirstChild("Core", true)
+		or obj:FindFirstChildWhichIsA("BasePart", true)
+	if not holder or not holder:IsA("BasePart") then
+		return nil
+	end
+
+	if obj:IsA("Model") then
+		obj:SetAttribute("EggId", "ColorEgg")
+		obj:SetAttribute("ColorType", "Red")
+		obj:SetAttribute("AreaColor", "Red")
+		obj:SetAttribute("EggStation", true)
+		obj:SetAttribute("TutorialEgg", true)
+		obj:SetAttribute("BakedTutorialEgg", true)
+		if not obj.PrimaryPart then
+			obj.PrimaryPart = holder
+		end
+	end
+
+	for _, descendant in ipairs(obj:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant:SetAttribute("EggId", "ColorEgg")
+			descendant:SetAttribute("ColorType", "Red")
+			descendant:SetAttribute("AreaColor", "Red")
+			descendant:SetAttribute("EggStation", true)
+			descendant:SetAttribute("TutorialEgg", true)
+			descendant:SetAttribute("BakedTutorialEgg", true)
+			descendant.CanQuery = true
+			descendant.CanTouch = false
+		end
+	end
+
+	holder:SetAttribute("EggId", "ColorEgg")
+	holder:SetAttribute("ColorType", "Red")
+	holder:SetAttribute("AreaColor", "Red")
+	holder:SetAttribute("EggStation", true)
+	holder:SetAttribute("TutorialEgg", true)
+	holder:SetAttribute("BakedTutorialEgg", true)
+	holder.CanQuery = true
+	addEggPrompt(holder)
+	destinationCache["egg:Red"] = holder
+	return holder
 end
 
 local function findSpawnTutorialEgg()
@@ -516,7 +553,11 @@ local function findEggPart(colorType)
 				obj:SetAttribute("ColorType", colorType)
 				obj:SetAttribute("AreaColor", colorType)
 				addEggPrompt(obj)
-				addEggBillboard(obj, ColorData.getWorldByColor(colorType), PetData.Eggs[eggId or obj:GetAttribute("EggId")])
+				addEggBillboard(
+					obj,
+					ColorData.getWorldByColor(colorType),
+					PetData.Eggs[eggId or obj:GetAttribute("EggId")]
+				)
 				destinationCache[cacheKey] = obj
 				return obj
 			end
@@ -547,9 +588,19 @@ local function findEggPart(colorType)
 
 	local world = ColorData.getWorldByColor(colorType)
 	local eggData = PetData.Eggs[eggId]
-	local accent = eggData and eggData.color or (ColorData.Colors[colorType] and ColorData.Colors[colorType].color) or COLORS.pink
-	local basePos = zone.Position + Vector3.new(math.min(zone.Size.X * 0.24, 78), zone.Size.Y * 0.5 + 7.2, math.max(zone.Size.Z * 0.24, 72))
-	local egg = createPart(eggsFolder, tostring(colorType) .. "Egg", Vector3.new(12, 15, 12), CFrame.new(basePos), accent, Enum.Material.SmoothPlastic)
+	local accent = eggData and eggData.color
+		or (ColorData.Colors[colorType] and ColorData.Colors[colorType].color)
+		or COLORS.pink
+	local basePos = zone.Position
+		+ Vector3.new(math.min(zone.Size.X * 0.24, 78), zone.Size.Y * 0.5 + 7.2, math.max(zone.Size.Z * 0.24, 72))
+	local egg = createPart(
+		eggsFolder,
+		tostring(colorType) .. "Egg",
+		Vector3.new(12, 15, 12),
+		CFrame.new(basePos),
+		accent,
+		Enum.Material.SmoothPlastic
+	)
 	egg.Shape = Enum.PartType.Ball
 	egg:SetAttribute("EggId", eggId)
 	egg:SetAttribute("ColorType", colorType)
@@ -557,11 +608,25 @@ local function findEggPart(colorType)
 	addEggPrompt(egg)
 	addEggBillboard(egg, world, eggData)
 
-	local pedestal = createPart(eggsFolder, tostring(colorType) .. "EggPedestal", Vector3.new(28, 2.4, 28), CFrame.new(basePos - Vector3.new(0, 7, 0)), COLORS.dark, Enum.Material.SmoothPlastic)
+	local pedestal = createPart(
+		eggsFolder,
+		tostring(colorType) .. "EggPedestal",
+		Vector3.new(28, 2.4, 28),
+		CFrame.new(basePos - Vector3.new(0, 7, 0)),
+		COLORS.dark,
+		Enum.Material.SmoothPlastic
+	)
 	pedestal:SetAttribute("EggStationDecor", true)
 	pedestal:SetAttribute("ColorType", colorType)
 
-	local glow = createPart(eggsFolder, tostring(colorType) .. "EggGlow", Vector3.new(23, 0.35, 23), CFrame.new(basePos - Vector3.new(0, 5.65, 0)), accent, Enum.Material.Neon)
+	local glow = createPart(
+		eggsFolder,
+		tostring(colorType) .. "EggGlow",
+		Vector3.new(23, 0.35, 23),
+		CFrame.new(basePos - Vector3.new(0, 5.65, 0)),
+		accent,
+		Enum.Material.Neon
+	)
 	glow.Transparency = 0.18
 	glow.CanCollide = false
 	glow:SetAttribute("EggStationDecor", true)
@@ -623,8 +688,10 @@ local function findSellPart(colorType)
 
 	local fallback = nil
 	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("BasePart")
-			and (obj:GetAttribute("SellZone")
+		if
+			obj:IsA("BasePart")
+			and (
+				obj:GetAttribute("SellZone")
 				or obj:GetAttribute("SellLocation")
 				or obj.Name == "SellZone"
 				or obj.Name == "Sell"
@@ -634,10 +701,13 @@ local function findSellPart(colorType)
 				or obj.Name == "SellPart"
 				or string.match(obj.Name, "^World%d+_Sell$")
 				or string.match(obj.Name, "^World%d+Sell$")
-				or string.match(obj.Name, "SellStation$"))
+				or string.match(obj.Name, "SellStation$")
+			)
 		then
 			fallback = fallback or obj
-			local sellColor = obj:GetAttribute("ColorType") or obj:GetAttribute("AreaColor") or obj:GetAttribute("SellColor")
+			local sellColor = obj:GetAttribute("ColorType")
+				or obj:GetAttribute("AreaColor")
+				or obj:GetAttribute("SellColor")
 			if sellColor == colorType then
 				destinationCache[cacheKey] = obj
 				return obj
@@ -669,8 +739,16 @@ local function findSellPart(colorType)
 
 	local worldIndex = ColorData.getWorldIndex(colorType) or 1
 	local accent = ColorData.Colors[colorType] and ColorData.Colors[colorType].color or COLORS.green
-	local basePos = zone.Position + Vector3.new(-math.max(34, zone.Size.X * 0.22), zone.Size.Y * 0.5 + 0.8, math.max(32, zone.Size.Z * 0.24))
-	local sell = createPart(stationsFolder, "World" .. tostring(worldIndex) .. "_Sell", Vector3.new(42, 1.2, 30), CFrame.new(basePos), accent:Lerp(COLORS.green, 0.45), Enum.Material.Neon)
+	local basePos = zone.Position
+		+ Vector3.new(-math.max(34, zone.Size.X * 0.22), zone.Size.Y * 0.5 + 0.8, math.max(32, zone.Size.Z * 0.24))
+	local sell = createPart(
+		stationsFolder,
+		"World" .. tostring(worldIndex) .. "_Sell",
+		Vector3.new(42, 1.2, 30),
+		CFrame.new(basePos),
+		accent:Lerp(COLORS.green, 0.45),
+		Enum.Material.Neon
+	)
 	sell.Transparency = 0.08
 	sell.CanCollide = false
 	sell.CanTouch = true
@@ -688,7 +766,8 @@ end
 local function findShopPart(colorType)
 	local cacheKey = "shop:" .. tostring(colorType)
 	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("BasePart")
+		if
+			obj:IsA("BasePart")
 			and obj:GetAttribute("BrushNpc") == true
 			and obj:GetAttribute("BrushShop") == true
 			and (obj:GetAttribute("ColorType") or obj:GetAttribute("ShopColor")) == colorType
@@ -718,8 +797,10 @@ local function findShopPart(colorType)
 	end
 
 	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("BasePart")
-			and (obj:GetAttribute("BrushShop")
+		if
+			obj:IsA("BasePart")
+			and (
+				obj:GetAttribute("BrushShop")
 				or obj:GetAttribute("CombinedShop")
 				or obj:GetAttribute("ShopStation")
 				or obj.Name == "BrushShop"
@@ -731,7 +812,8 @@ local function findShopPart(colorType)
 				or obj.Name == colorType .. "Shop"
 				or obj.Name == colorType .. "BrushShop"
 				or obj.Name == colorType .. "CombinedShop"
-				or string.match(obj.Name, "^World%d+_Shop$"))
+				or string.match(obj.Name, "^World%d+_Shop$")
+			)
 		then
 			local shopColor = obj:GetAttribute("ColorType") or obj:GetAttribute("AreaColor")
 			local worldIndex = ColorData.getWorldIndex(colorType)
@@ -776,8 +858,16 @@ local function findShopPart(colorType)
 
 	local colorInfo = ColorData.Colors[colorType]
 	local accent = colorInfo and colorInfo.color or COLORS.yellow
-	local basePos = zone.Position + Vector3.new(math.max(-zone.Size.X * 0.28, -90), zone.Size.Y * 0.5 + 0.8, -zone.Size.Z * 0.28)
-	local pad = createPart(shopsFolder, colorType .. "BrushShop", Vector3.new(28, 1.6, 20), CFrame.new(basePos), accent:Lerp(Color3.new(1, 1, 1), 0.25), Enum.Material.Neon)
+	local basePos = zone.Position
+		+ Vector3.new(math.max(-zone.Size.X * 0.28, -90), zone.Size.Y * 0.5 + 0.8, -zone.Size.Z * 0.28)
+	local pad = createPart(
+		shopsFolder,
+		colorType .. "BrushShop",
+		Vector3.new(28, 1.6, 20),
+		CFrame.new(basePos),
+		accent:Lerp(Color3.new(1, 1, 1), 0.25),
+		Enum.Material.Neon
+	)
 	pad:SetAttribute("BrushShop", true)
 	pad:SetAttribute("CombinedShop", true)
 	pad:SetAttribute("ShopStation", true)
@@ -786,11 +876,23 @@ local function findShopPart(colorType)
 	addShopBillboard(pad)
 	addShopPrompt(pad)
 
-	local back = createPart(shopsFolder, colorType .. "BrushShopSign", Vector3.new(24, 9, 1.2), CFrame.new(basePos + Vector3.new(0, 5, 8.8)), COLORS.dark)
+	local back = createPart(
+		shopsFolder,
+		colorType .. "BrushShopSign",
+		Vector3.new(24, 9, 1.2),
+		CFrame.new(basePos + Vector3.new(0, 5, 8.8)),
+		COLORS.dark
+	)
 	back:SetAttribute("BrushShopDecor", true)
 	back:SetAttribute("ColorType", colorType)
 
-	local counter = createPart(shopsFolder, colorType .. "BrushShopCounter", Vector3.new(20, 4, 3), CFrame.new(basePos + Vector3.new(0, 2.3, 5.6)), COLORS.yellow)
+	local counter = createPart(
+		shopsFolder,
+		colorType .. "BrushShopCounter",
+		Vector3.new(20, 4, 3),
+		CFrame.new(basePos + Vector3.new(0, 2.3, 5.6)),
+		COLORS.yellow
+	)
 	counter:SetAttribute("BrushShopDecor", true)
 	counter:SetAttribute("ColorType", colorType)
 
@@ -815,7 +917,11 @@ local function findUpgradePart(colorType)
 	local stationsFolder = map and map:FindFirstChild("UpgradeStations")
 	if stationsFolder then
 		for _, obj in ipairs(stationsFolder:GetChildren()) do
-			if obj:IsA("BasePart") and obj:GetAttribute("UpgradeStation") and obj:GetAttribute("ColorType") == colorType then
+			if
+				obj:IsA("BasePart")
+				and obj:GetAttribute("UpgradeStation")
+				and obj:GetAttribute("ColorType") == colorType
+			then
 				addUpgradeBillboard(obj)
 				addUpgradePrompt(obj)
 				destinationCache[cacheKey] = obj
@@ -825,13 +931,16 @@ local function findUpgradePart(colorType)
 	end
 
 	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("BasePart")
-			and (obj:GetAttribute("UpgradeStation")
+		if
+			obj:IsA("BasePart")
+			and (
+				obj:GetAttribute("UpgradeStation")
 				or obj.Name == "UpgradeStation"
 				or obj.Name == "UpgradePad"
 				or obj.Name == "Upgrade"
 				or obj.Name == colorType .. "UpgradeStation"
-				or string.match(obj.Name, "^World%d+_Upgrade$"))
+				or string.match(obj.Name, "^World%d+_Upgrade$")
+			)
 		then
 			local upgradeColor = obj:GetAttribute("ColorType") or obj:GetAttribute("AreaColor")
 			local worldIndex = ColorData.getWorldIndex(colorType)
@@ -871,8 +980,16 @@ local function findUpgradePart(colorType)
 
 	local colorInfo = ColorData.Colors[colorType]
 	local accent = colorInfo and colorInfo.color or COLORS.purple
-	local basePos = zone.Position + Vector3.new(math.min(zone.Size.X * 0.24, 80), zone.Size.Y * 0.5 + 0.8, -zone.Size.Z * 0.08)
-	local pad = createPart(stationsFolder, colorType .. "UpgradeStation", Vector3.new(30, 1.4, 22), CFrame.new(basePos), accent:Lerp(COLORS.purple, 0.35), Enum.Material.SmoothPlastic)
+	local basePos = zone.Position
+		+ Vector3.new(math.min(zone.Size.X * 0.24, 80), zone.Size.Y * 0.5 + 0.8, -zone.Size.Z * 0.08)
+	local pad = createPart(
+		stationsFolder,
+		colorType .. "UpgradeStation",
+		Vector3.new(30, 1.4, 22),
+		CFrame.new(basePos),
+		accent:Lerp(COLORS.purple, 0.35),
+		Enum.Material.SmoothPlastic
+	)
 	pad:SetAttribute("UpgradeStation", true)
 	pad:SetAttribute("ColorType", colorType)
 	pad.CanCollide = false
@@ -907,12 +1024,22 @@ end
 
 travelEvent.OnServerEvent:Connect(function(player, destinationType)
 	local startedAt = os.clock()
-	if destinationType ~= "sell" and destinationType ~= "egg" and destinationType ~= "shop" and destinationType ~= "upgrade" then
+	if
+		destinationType ~= "sell"
+		and destinationType ~= "egg"
+		and destinationType ~= "shop"
+		and destinationType ~= "upgrade"
+	then
 		travelEvent:FireClient(player, false, destinationType, "Sector travel failed. Try again.")
 		return
 	end
 	if destinationType == "sell" then
-		travelEvent:FireClient(player, false, destinationType, "Selling is disabled. Break Color to earn Coins instantly.")
+		travelEvent:FireClient(
+			player,
+			false,
+			destinationType,
+			"Selling is disabled. Break Color to earn Coins instantly."
+		)
 		return
 	end
 	if not useCooldown(player) then
@@ -958,10 +1085,22 @@ travelEvent.OnServerEvent:Connect(function(player, destinationType)
 		print(player.Name .. " quick traveled to " .. label .. " in " .. tostring(worldColor))
 		travelEvent:FireClient(player, true, destinationType, "Traveling to " .. label)
 		local elapsed = os.clock() - startedAt
-		print("SectorTravel: " .. player.Name .. " -> " .. tostring(destinationType) .. " in " .. string.format("%.2f", elapsed) .. "s")
-		print("Quick travel completed: " .. tostring(destinationType) .. " in " .. string.format("%.3f", elapsed) .. "s")
+		print(
+			"SectorTravel: "
+				.. player.Name
+				.. " -> "
+				.. tostring(destinationType)
+				.. " in "
+				.. string.format("%.2f", elapsed)
+				.. "s"
+		)
+		print(
+			"Quick travel completed: " .. tostring(destinationType) .. " in " .. string.format("%.3f", elapsed) .. "s"
+		)
 		if elapsed > 0.5 then
-			warn("SectorTravel slow: " .. tostring(destinationType) .. " took " .. string.format("%.2f", elapsed) .. "s")
+			warn(
+				"SectorTravel slow: " .. tostring(destinationType) .. " took " .. string.format("%.2f", elapsed) .. "s"
+			)
 		end
 	else
 		travelEvent:FireClient(player, false, destinationType, "Sector travel failed. Try again.")
