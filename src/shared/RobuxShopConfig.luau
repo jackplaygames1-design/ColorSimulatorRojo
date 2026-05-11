@@ -4,8 +4,9 @@ local RobuxShopConfig = {}
 -- Replace any 0 gamepassId/productId values with the real IDs from creator.roblox.com.
 -- The in-game UI is safe: passes without a real ID show as "Set ID" instead of prompting.
 RobuxShopConfig.Gamepasses = {
+	-- Hidden legacy placeholder; the real Infinite Pack lives in RobuxShopConfig.InfinitePack.
 	{
-		id = "InfinitePass",
+		id = "LegacyInfinitePass",
 		displayName = "INFINITE PASS",
 		description = "Infinite storage, +5 equipped Colors, VIP aura, daily gems, and an exclusive Infinite tag.",
 		icon = "∞",
@@ -20,7 +21,7 @@ RobuxShopConfig.Gamepasses = {
 		luckMultiplier = 1.2,
 		dailyGemBonus = 50,
 		infiniteTag = true,
-		showInShop = true,
+		showInShop = false,
 	},
 	{
 		id = "AutoSell",
@@ -102,6 +103,114 @@ RobuxShopConfig.Gamepasses = {
 		sortOrder = 60,
 		badge = "THANK YOU",
 		earlySupporterTag = true,
+	},
+}
+
+RobuxShopConfig.InfinitePack = {
+	id = "InfinitePack",
+	displayName = "THE INFINITE PACK!",
+	description = "Claim free rewards and unlock better Robux tiers as the pack advances.",
+	resetSeconds = 24 * 60 * 60,
+	accentColor = Color3.fromRGB(105, 80, 255),
+	tierProductCategory = "InfinitePack",
+	tiers = {
+		{
+			id = "InfinitePackTier01",
+			tier = 1,
+			displayName = "Gem Starter",
+			rewardText = "250 Gems",
+			icon = "GEM",
+			price = 0,
+			productId = 0,
+			free = true,
+			color = Color3.fromRGB(92, 240, 150),
+			gemReward = 250,
+		},
+		{
+			id = "InfinitePackTier02",
+			tier = 2,
+			displayName = "Coin Potion",
+			rewardText = "3x Coin Potion",
+			icon = "2x",
+			price = 50,
+			productId = 0,
+			color = Color3.fromRGB(255, 221, 84),
+			boostType = "coins",
+			boostAmount = 3,
+		},
+		{
+			id = "InfinitePackTier03",
+			tier = 3,
+			displayName = "Lucky Potion",
+			rewardText = "2x Luck Potion",
+			icon = "LU",
+			price = 0,
+			productId = 0,
+			free = true,
+			color = Color3.fromRGB(128, 239, 150),
+			boostType = "luck",
+			boostAmount = 2,
+		},
+		{
+			id = "InfinitePackTier04",
+			tier = 4,
+			displayName = "Exclusive Color",
+			rewardText = "Exclusive Color",
+			icon = "???",
+			price = 100,
+			productId = 0,
+			color = Color3.fromRGB(255, 162, 196),
+			colorReward = "ExclusiveRainbowColor",
+			badge = "RARE",
+		},
+		{
+			id = "InfinitePackTier05",
+			tier = 5,
+			displayName = "Coin Vault",
+			rewardText = "25,000 Coins",
+			icon = "$",
+			price = 0,
+			productId = 0,
+			free = true,
+			color = Color3.fromRGB(255, 199, 87),
+			coinReward = 25000,
+		},
+		{
+			id = "InfinitePackTier06",
+			tier = 6,
+			displayName = "Exclusive Pet",
+			rewardText = "Exclusive Pet",
+			icon = "PET",
+			price = 250,
+			productId = 0,
+			color = Color3.fromRGB(177, 141, 255),
+			petReward = "ExclusiveInfinitePet",
+			badge = "EXCLUSIVE",
+		},
+		{
+			id = "InfinitePackTier07",
+			tier = 7,
+			displayName = "Huge Gems",
+			rewardText = "5,000 Gems",
+			icon = "GEM",
+			price = 400,
+			productId = 0,
+			color = Color3.fromRGB(72, 210, 255),
+			gemReward = 5000,
+			badge = "BIG",
+		},
+		{
+			id = "InfinitePackTier08",
+			tier = 8,
+			displayName = "Rainbow Pet",
+			rewardText = "Rainbow Exclusive",
+			icon = "RB",
+			price = 800,
+			productId = 0,
+			color = Color3.fromRGB(255, 110, 210),
+			petReward = "RainbowInfinitePet",
+			badge = "TOP",
+		},
 	},
 }
 
@@ -298,6 +407,36 @@ function RobuxShopConfig.getSortedDevProducts()
 		return (a.sortOrder or 999) < (b.sortOrder or 999)
 	end)
 	return products
+end
+
+function RobuxShopConfig.getInfinitePackTiers()
+	local tiers = {}
+	for _, tier in ipairs((RobuxShopConfig.InfinitePack and RobuxShopConfig.InfinitePack.tiers) or {}) do
+		table.insert(tiers, tier)
+	end
+	table.sort(tiers, function(a, b)
+		return (a.tier or 999) < (b.tier or 999)
+	end)
+	return tiers
+end
+
+function RobuxShopConfig.getInfinitePackTier(tierId)
+	for _, tier in ipairs((RobuxShopConfig.InfinitePack and RobuxShopConfig.InfinitePack.tiers) or {}) do
+		if tier.id == tierId then
+			return tier
+		end
+	end
+	return nil
+end
+
+function RobuxShopConfig.getInfinitePackTierByProductId(productId)
+	productId = tonumber(productId)
+	for _, tier in ipairs((RobuxShopConfig.InfinitePack and RobuxShopConfig.InfinitePack.tiers) or {}) do
+		if tonumber(tier.productId) == productId then
+			return tier
+		end
+	end
+	return nil
 end
 
 return RobuxShopConfig

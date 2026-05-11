@@ -15,6 +15,12 @@ for _, product in ipairs(RobuxShopConfig.DevProducts or {}) do
 		productsById[productId] = product
 	end
 end
+for _, tier in ipairs((RobuxShopConfig.InfinitePack and RobuxShopConfig.InfinitePack.tiers) or {}) do
+	local productId = tonumber(tier.productId)
+	if productId and productId > 0 then
+		productsById[productId] = tier
+	end
+end
 
 local function markDirty(player, reason)
 	if dataDirtyEvent and dataDirtyEvent:IsA("BindableEvent") then

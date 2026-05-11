@@ -24,7 +24,6 @@ local PAGE_NAMES = {
 }
 
 local PREMIUM_PULSE_IDS = {
-	InfinitePass = true,
 	VIP = true,
 	LuckyHatch = true,
 }
@@ -37,6 +36,13 @@ end
 local productsById = {}
 for _, product in ipairs(RobuxShopConfig.DevProducts or {}) do
 	productsById[product.id] = product
+end
+
+local infinitePackTiersById = {}
+if RobuxShopConfig.getInfinitePackTiers then
+	for _, tier in ipairs(RobuxShopConfig.getInfinitePackTiers()) do
+		infinitePackTiersById[tier.id] = tier
+	end
 end
 
 local warned = {}
@@ -198,6 +204,37 @@ local function updateProductCard(card, product)
 	end
 end
 
+local function updateInfinitePackTierCard(card, tier)
+	local button = getButton(card)
+	local priceLabel = getTextLabel(card, "PriceLabel")
+	local productId = tonumber(tier.productId)
+	local isFree = tier.free == true or tonumber(tier.price) == 0
+	local hasRealId = productId and productId > 0
+
+	if priceLabel then
+		priceLabel.Text = isFree and "FREE" or (tostring(tier.price or 0) .. " R$")
+	end
+
+	setOwnedVisual(card, false)
+	if not button then
+		return
+	end
+
+	if isFree then
+		setButtonText(button, "FREE")
+		button.BackgroundColor3 = GREEN
+		setButtonEnabled(button, true)
+	elseif hasRealId then
+		setButtonText(button, tostring(tier.price or 0) .. " R$")
+		button.BackgroundColor3 = GREEN
+		setButtonEnabled(button, true)
+	else
+		setButtonText(button, "SET ID")
+		button.BackgroundColor3 = DISABLED
+		setButtonEnabled(button, false)
+	end
+end
+
 local function updateCardState(card)
 	local itemId = card:GetAttribute("ShopItemId")
 	local kind = card:GetAttribute("ShopItemKind")
@@ -210,6 +247,11 @@ local function updateCardState(card)
 		local product = productsById[itemId]
 		if product then
 			updateProductCard(card, product)
+		end
+	elseif kind == "InfinitePackTier" then
+		local tier = infinitePackTiersById[itemId]
+		if tier then
+			updateInfinitePackTierCard(card, tier)
 		end
 	end
 end
@@ -225,9 +267,13 @@ local function bindButton(card)
 		local stroke = getStroke(card)
 		local itemId = card:GetAttribute("ShopItemId")
 		local pass = gamepassesById[itemId]
+		local tier = infinitePackTiersById[itemId]
 		tweenScale(cardScale, 1.025, 0.12)
 		if stroke and pass and not ownsPass(pass) then
 			stroke.Color = pass.color or TAB_ACTIVE
+			stroke.Thickness = 3
+		elseif stroke and tier then
+			stroke.Color = tier.color or TAB_ACTIVE
 			stroke.Thickness = 3
 		end
 	end)
@@ -267,6 +313,15 @@ local function bindButton(card)
 			local product = productsById[itemId]
 			local productId = product and tonumber(product.productId)
 			if product and productId and productId > 0 then
+				MarketplaceService:PromptProductPurchase(player, productId)
+			end
+		elseif kind == "InfinitePackTier" then
+			local tier = infinitePackTiersById[itemId]
+			local productId = tier and tonumber(tier.productId)
+			local isFree = tier and (tier.free == true or tonumber(tier.price) == 0)
+			if tier and isFree then
+				warnOnce("infinite-pack-free", "EditableShopBinder: free Infinite Pack tier claiming needs a server grant remote.")
+			elseif tier and productId and productId > 0 then
 				MarketplaceService:PromptProductPurchase(player, productId)
 			end
 		end

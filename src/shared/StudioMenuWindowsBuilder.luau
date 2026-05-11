@@ -432,14 +432,6 @@ local function makeCodesContent(content)
 end
 
 local SHOP_TABS = { "Featured", "Gamepasses", "Boosts", "Currency" }
-local FEATURED_GAMEPASS_IDS = {
-	"InfinitePass",
-	"VIP",
-	"DoubleCoins",
-	"LuckyHatch",
-	"Plus3Colors",
-	"SupportDev",
-}
 
 local function getGamepass(passId)
 	return RobuxShopConfig.getGamepass(passId)
@@ -486,7 +478,9 @@ end
 local function makeShopButton(parent, name, value, position, size, color, zIndex)
 	local shopButton = button(parent, name, value, position, size, color or GREEN)
 	shopButton.AutoButtonColor = false
-	shopButton.TextScaled = true
+	shopButton.TextScaled = false
+	shopButton.TextSize = 15
+	shopButton.TextWrapped = true
 	shopButton.ZIndex = zIndex or 1006
 	makeScale(shopButton, "ButtonScale")
 	return shopButton
@@ -507,6 +501,33 @@ end
 local function clearGeneratedChildren(parent)
 	for _, child in ipairs(parent:GetChildren()) do
 		if child:GetAttribute("StudioShopGenerated") == true then
+			child:Destroy()
+		end
+	end
+end
+
+local function clearShopPage(parent)
+	for _, child in ipairs(parent:GetChildren()) do
+		if child:IsA("GuiObject") or child:IsA("UIGridLayout") or child:IsA("UIListLayout") then
+			child:Destroy()
+		end
+	end
+end
+
+local function clearLegacyContentChildren(content)
+	local keep = {
+		FeaturedPage = true,
+		GamepassesPage = true,
+		BoostsPage = true,
+		CurrencyPage = true,
+	}
+	for _, child in ipairs(content:GetChildren()) do
+		if
+			(child:IsA("GuiObject") and not keep[child.Name])
+			or child:IsA("UIGridLayout")
+			or child:IsA("UIListLayout")
+			or child:IsA("UIPadding")
+		then
 			child:Destroy()
 		end
 	end
@@ -582,7 +603,8 @@ local function makeShopTabs(shopWindow)
 		local tab = button(tabs, tabName .. "Tab", tabName, UDim2.fromOffset(0, 0), UDim2.fromOffset(150, 38), index == 1 and CYAN or TAB_INACTIVE)
 		tab.LayoutOrder = index
 		tab.AutoButtonColor = false
-		tab.TextScaled = true
+		tab.TextScaled = false
+		tab.TextSize = 20
 		tab.Font = Enum.Font.GothamBlack
 		tab.TextColor3 = index == 1 and Color3.fromRGB(255, 255, 255) or TEXT_DARK
 		tab.ZIndex = 1003
@@ -600,13 +622,14 @@ local function makeShopPages(shopWindow)
 	content.ZIndex = 1001
 	applyCorner(content, 18)
 	applyStroke(content, OUTLINE, 3)
+	clearLegacyContentChildren(content)
 
 	for index, pageName in ipairs({ "FeaturedPage", "GamepassesPage", "BoostsPage", "CurrencyPage" }) do
 		local page = frame(content, pageName, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Color3.fromRGB(244, 248, 252))
 		page.BackgroundTransparency = 1
 		page.ZIndex = 1002
 		page.Visible = index == 1
-		clearGeneratedChildren(page)
+		clearShopPage(page)
 	end
 
 	return content
@@ -628,13 +651,130 @@ local function makeIconCircle(parent, name, iconTextValue, color, position, size
 	return circle
 end
 
+local function scrollingFrame(parent, name, position, size)
+	local existing = parent:FindFirstChild(name)
+	if existing and not existing:IsA("ScrollingFrame") then
+		existing:Destroy()
+		existing = nil
+	end
+
+	local scroller = existing or Instance.new("ScrollingFrame")
+	scroller.Name = name
+	scroller.Position = position
+	scroller.Size = size
+	scroller.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	scroller.BorderSizePixel = 0
+	scroller.ScrollBarThickness = 6
+	scroller.ScrollingDirection = Enum.ScrollingDirection.X
+	scroller.CanvasPosition = Vector2.new(0, 0)
+	scroller.Parent = parent
+	applyCorner(scroller, 14)
+	applyStroke(scroller, OUTLINE, 2)
+	return scroller
+end
+
+local function makeInfinitePackTierCard(parent, tier, layoutOrder)
+	local card = frame(parent, tier.id .. "Card", UDim2.fromScale(0, 0), UDim2.fromOffset(96, 118), Color3.fromRGB(255, 255, 255))
+	card:SetAttribute("StudioShopGenerated", true)
+	card:SetAttribute("ShopItemId", tier.id)
+	card:SetAttribute("ShopItemKind", "InfinitePackTier")
+	card.LayoutOrder = layoutOrder
+	card.ZIndex = 1005
+	makeScale(card, "CardScale")
+	applyCorner(card, 12)
+	applyStroke(card, OUTLINE, 2)
+
+	local rewardBox = frame(card, "RewardBox", UDim2.fromOffset(9, 8), UDim2.fromOffset(78, 62), tier.color or CYAN)
+	rewardBox.ZIndex = 1006
+	applyCorner(rewardBox, 10)
+	applyStroke(rewardBox, OUTLINE, 2)
+	local icon = makeShopText(rewardBox, "IconText", tostring(tier.icon or "?"), UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 22, Color3.fromRGB(255, 255, 255), 1007)
+	icon.Font = Enum.Font.GothamBlack
+	icon.TextXAlignment = Enum.TextXAlignment.Center
+	icon.TextScaled = true
+	icon.TextStrokeTransparency = 0
+	icon.TextStrokeColor3 = OUTLINE
+
+	local reward = makeShopText(card, "RewardLabel", tostring(tier.rewardText or tier.displayName or ""), UDim2.fromOffset(7, 72), UDim2.fromOffset(82, 18), 10, TEXT_DARK, 1007)
+	reward.Font = Enum.Font.GothamBold
+	reward.TextXAlignment = Enum.TextXAlignment.Center
+	reward.TextWrapped = true
+
+	local buttonText = tier.free and "FREE" or tostring(tier.price or 0) .. " R$"
+	local buy = makeShopButton(card, "BuyButton", buttonText, UDim2.fromOffset(9, 90), UDim2.fromOffset(78, 24), tier.free and GREEN or Color3.fromRGB(118, 235, 80), 1007)
+	buy.TextSize = tier.free and 18 or 15
+end
+
+local function makeInfinitePackPanel(featuredPage)
+	local pack = RobuxShopConfig.InfinitePack
+	local tiers = RobuxShopConfig.getInfinitePackTiers and RobuxShopConfig.getInfinitePackTiers() or {}
+	if not pack or #tiers == 0 then
+		return
+	end
+
+	local panel = frame(featuredPage, "InfinitePackPanel", UDim2.fromOffset(16, 12), UDim2.new(1, -32, 0, 214), Color3.fromRGB(184, 246, 255))
+	panel:SetAttribute("StudioShopGenerated", true)
+	panel.BorderSizePixel = 0
+	panel.ClipsDescendants = true
+	panel.ZIndex = 1003
+	applyCorner(panel, 18)
+	applyStroke(panel, OUTLINE, 3)
+
+	local rainbow = frame(panel, "RainbowBand", UDim2.new(-0.05, 0, 0, 54), UDim2.new(1.1, 0, 0, 64), Color3.fromRGB(255, 122, 188))
+	rainbow:SetAttribute("StudioShopGenerated", true)
+	rainbow.BackgroundTransparency = 0.38
+	rainbow.Rotation = -7
+	rainbow.ZIndex = 1004
+	local rainbowStroke = rainbow:FindFirstChildOfClass("UIStroke")
+	if rainbowStroke then
+		rainbowStroke:Destroy()
+	end
+
+	local title = makeShopText(panel, "Title", tostring(pack.displayName or "THE INFINITE PACK!"), UDim2.new(0, 210, 0, 12), UDim2.new(1, -230, 0, 40), 32, TEXT_DARK, 1006)
+	title.Font = Enum.Font.GothamBlack
+	title.TextXAlignment = Enum.TextXAlignment.Center
+	title.TextScaled = true
+	title.TextStrokeTransparency = 0
+	title.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+
+	local reset = makeShopText(panel, "ResetLabel", "Resets in 23:59:59", UDim2.fromOffset(18, 14), UDim2.fromOffset(190, 34), 22, TEXT_DARK, 1006)
+	reset.Font = Enum.Font.GothamBlack
+	reset.TextScaled = true
+	reset.TextStrokeTransparency = 0
+	reset.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+
+	local track = scrollingFrame(panel, "TierTrack", UDim2.fromOffset(14, 62), UDim2.new(1, -28, 0, 138))
+	track:SetAttribute("StudioShopGenerated", true)
+	track.ZIndex = 1005
+	track.CanvasSize = UDim2.fromOffset((#tiers * 134) + 60, 0)
+
+	local list = track:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")
+	list.FillDirection = Enum.FillDirection.Horizontal
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	list.VerticalAlignment = Enum.VerticalAlignment.Center
+	list.Padding = UDim.new(0, 10)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = track
+
+	for index, tier in ipairs(tiers) do
+		makeInfinitePackTierCard(track, tier, index * 2)
+		if index < #tiers then
+			local arrow = makeShopText(track, "Arrow" .. tostring(index), "->", UDim2.fromScale(0, 0), UDim2.fromOffset(18, 118), 26, OUTLINE, 1007)
+			arrow:SetAttribute("StudioShopGenerated", true)
+			arrow.LayoutOrder = (index * 2) + 1
+			arrow.TextXAlignment = Enum.TextXAlignment.Center
+			arrow.TextScaled = true
+		end
+	end
+end
+
 local function makeInfiniteHero(featuredPage)
 	local pass = getGamepass("InfinitePass")
 	if not pass then
 		return
 	end
 
-	local card = frame(featuredPage, "InfinitePassHeroCard", UDim2.fromOffset(16, 14), UDim2.new(1, -32, 0, 150), pass.color)
+	local card = frame(featuredPage, "InfinitePassHeroCard", UDim2.fromOffset(16, 12), UDim2.new(1, -32, 0, 126), pass.color)
 	card:SetAttribute("StudioShopGenerated", true)
 	card:SetAttribute("ShopItemId", pass.id)
 	card:SetAttribute("ShopItemKind", "Gamepass")
@@ -662,29 +802,43 @@ local function makeInfiniteHero(featuredPage)
 		applyCorner(glowCircle, 99)
 	end
 
-	local shimmer = frame(card, "ShimmerBar", UDim2.new(-0.2, 0, -0.3, 0), UDim2.new(0, 70, 1.8, 0), Color3.fromRGB(255, 255, 255))
+	local shimmer = frame(card, "ShimmerBar", UDim2.new(-0.18, 0, -0.35, 0), UDim2.new(0, 48, 1.75, 0), Color3.fromRGB(255, 255, 255))
 	shimmer.Rotation = -18
-	shimmer.BackgroundTransparency = 0.55
-	shimmer.ZIndex = 1010
+	shimmer.BackgroundTransparency = 0.7
+	shimmer.ZIndex = 1004
+	local shimmerStroke = shimmer:FindFirstChildOfClass("UIStroke")
+	if shimmerStroke then
+		shimmerStroke:Destroy()
+	end
 
 	makeIconCircle(card, "IconCircle", pass.icon or "∞", Color3.fromRGB(30, 35, 70), UDim2.new(0, 18, 0.5, -42), UDim2.fromOffset(84, 84), 1005)
-	local title = makeShopText(card, "Title", "INFINITE PASS", UDim2.fromOffset(112, 18), UDim2.new(0.48, 0, 0, 36), 28, Color3.fromRGB(255, 255, 255), 1006)
+	local heroIcon = card:FindFirstChild("IconCircle")
+	if heroIcon and heroIcon:IsA("GuiObject") then
+		heroIcon.Position = UDim2.new(0, 18, 0.5, -36)
+		heroIcon.Size = UDim2.fromOffset(72, 72)
+	end
+	local title = makeShopText(card, "Title", "INFINITE PASS", UDim2.fromOffset(104, 14), UDim2.new(0.48, 0, 0, 30), 24, Color3.fromRGB(255, 255, 255), 1006)
 	title.TextScaled = true
-	local description = makeShopText(card, "Description", "The ultimate permanent upgrade.", UDim2.fromOffset(112, 56), UDim2.new(0.48, 0, 0, 26), 18, Color3.fromRGB(230, 245, 255), 1006)
+	local description = makeShopText(card, "Description", "The ultimate permanent upgrade.", UDim2.fromOffset(104, 46), UDim2.new(0.48, 0, 0, 22), 16, Color3.fromRGB(230, 245, 255), 1006)
 	description.Font = Enum.Font.GothamBold
 	description.TextScaled = true
 	local perks = makeShopText(card, "Perks", "∞ Infinite color capacity\n+5 equipped Colors\nDaily gems\nExclusive aura", UDim2.fromOffset(112, 84), UDim2.new(0.48, 0, 0, 60), 14, Color3.fromRGB(255, 255, 255), 1006)
 	perks.TextYAlignment = Enum.TextYAlignment.Top
+	perks.Position = UDim2.fromOffset(104, 70)
+	perks.Size = UDim2.new(0.5, 0, 0, 48)
+	perks.TextSize = 12
 
-	makeBadge(card, pass.badge or "BEST VALUE", UDim2.new(1, -150, 0, 16), UDim2.fromOffset(130, 30), 1006)
-	local price = makeShopText(card, "PriceLabel", tostring(pass.price or 999) .. " R$", UDim2.new(1, -190, 0, 62), UDim2.fromOffset(170, 34), 24, Color3.fromRGB(255, 255, 255), 1006)
+	makeBadge(card, pass.badge or "BEST VALUE", UDim2.new(1, -150, 0, 14), UDim2.fromOffset(130, 28), 1006)
+	local price = makeShopText(card, "PriceLabel", tostring(pass.price or 999) .. " R$", UDim2.new(1, -190, 0, 50), UDim2.fromOffset(170, 30), 22, Color3.fromRGB(255, 255, 255), 1006)
 	price.TextScaled = true
 	price.TextXAlignment = Enum.TextXAlignment.Center
-	makeShopButton(card, "BuyButton", "BUY " .. tostring(pass.price or 999) .. " R$", UDim2.new(1, -190, 1, -54), UDim2.fromOffset(170, 40), GREEN, 1007)
+	local buy = makeShopButton(card, "BuyButton", "BUY " .. tostring(pass.price or 999) .. " R$", UDim2.new(1, -190, 1, -42), UDim2.fromOffset(170, 32), GREEN, 1007)
+	buy.TextSize = 20
 end
 
-local function makeNormalGamepassCard(parent, pass, layoutOrder)
-	local card = frame(parent, pass.id .. "Card", UDim2.fromScale(0, 0), UDim2.fromOffset(225, 112), Color3.fromRGB(255, 255, 255))
+local function makeNormalGamepassCard(parent, pass, layoutOrder, compact)
+	local cardSize = compact and UDim2.fromOffset(138, 64) or UDim2.fromOffset(225, 80)
+	local card = frame(parent, pass.id .. "Card", UDim2.fromScale(0, 0), cardSize, Color3.fromRGB(255, 255, 255))
 	card:SetAttribute("StudioShopGenerated", true)
 	card:SetAttribute("ShopItemId", pass.id)
 	card:SetAttribute("ShopItemKind", "Gamepass")
@@ -695,34 +849,67 @@ local function makeNormalGamepassCard(parent, pass, layoutOrder)
 	applyStroke(card, OUTLINE, 2)
 
 	local iconColor = (pass.color or CYAN):Lerp(Color3.fromRGB(255, 255, 255), 0.35)
-	makeIconCircle(card, "IconCircle", tostring(pass.icon or "?"), iconColor, UDim2.fromOffset(12, 14), UDim2.fromOffset(58, 58), 1004)
+	makeIconCircle(
+		card,
+		"IconCircle",
+		tostring(pass.icon or "?"),
+		iconColor,
+		compact and UDim2.fromOffset(7, 8) or UDim2.fromOffset(10, 10),
+		compact and UDim2.fromOffset(42, 42) or UDim2.fromOffset(50, 50),
+		1004
+	)
 
-	local title = makeShopText(card, "Title", tostring(pass.displayName or pass.id), UDim2.fromOffset(80, 12), UDim2.new(1, -90, 0, 26), 18, TEXT_DARK, 1005)
-	title.TextScaled = true
-	local description = makeShopText(card, "Description", tostring(pass.description or ""), UDim2.fromOffset(80, 42), UDim2.new(1, -90, 0, 32), 12, TEXT_DARK, 1005)
+	local title = makeShopText(
+		card,
+		"Title",
+		tostring(pass.displayName or pass.id),
+		compact and UDim2.fromOffset(54, 7) or UDim2.fromOffset(72, 8),
+		compact and UDim2.new(1, -60, 0, 20) or UDim2.new(1, -82, 0, 22),
+		compact and 12 or 16,
+		TEXT_DARK,
+		1005
+	)
+	title.TextScaled = false
+	local description = makeShopText(card, "Description", tostring(pass.description or ""), UDim2.fromOffset(72, 30), UDim2.new(1, -82, 0, 22), 10, TEXT_DARK, 1005)
 	description.Font = Enum.Font.GothamBold
 	description.TextWrapped = true
+	description.Visible = not compact
 	local price = makeShopText(card, "PriceLabel", tostring(pass.price or 0) .. " R$", UDim2.new(0, 12, 1, -34), UDim2.fromOffset(82, 24), 16, TEXT_DARK, 1005)
-	price.TextScaled = true
+	price.Visible = false
 	price.TextXAlignment = Enum.TextXAlignment.Center
-	local buy = makeShopButton(card, "BuyButton", "BUY", UDim2.new(1, -100, 1, -40), UDim2.fromOffset(88, 30), GREEN, 1005)
+	local buy = makeShopButton(
+		card,
+		"BuyButton",
+		"BUY",
+		compact and UDim2.new(1, -78, 1, -24) or UDim2.new(1, -112, 1, -28),
+		compact and UDim2.fromOffset(68, 18) or UDim2.fromOffset(102, 22),
+		GREEN,
+		1005
+	)
+	buy.TextSize = compact and 10 or 12
 	buy:SetAttribute("DefaultText", "BUY R$ " .. tostring(pass.price or 0))
 	if pass.badge and pass.badge ~= "" then
-		local badge = makeBadge(card, tostring(pass.badge), UDim2.new(0, 12, 0, 78), UDim2.fromOffset(108, 22), 1006)
+		local badge = makeBadge(
+			card,
+			tostring(pass.badge),
+			compact and UDim2.new(0, 8, 1, -22) or UDim2.new(0, 10, 1, -28),
+			compact and UDim2.fromOffset(58, 18) or UDim2.fromOffset(92, 22),
+			1006
+		)
 		badge.BackgroundTransparency = 0.05
 	end
 end
 
 local function makeSmallCards(featuredPage)
-	local holder = frame(featuredPage, "SmallCards", UDim2.fromOffset(16, 178), UDim2.new(1, -32, 1, -190), Color3.fromRGB(244, 248, 252))
+	local holder = frame(featuredPage, "SmallCards", UDim2.fromOffset(16, 238), UDim2.new(1, -32, 1, -250), Color3.fromRGB(244, 248, 252))
 	holder:SetAttribute("StudioShopGenerated", true)
 	holder.BackgroundTransparency = 1
 	holder.ZIndex = 1002
 
 	local grid = holder:FindFirstChildOfClass("UIGridLayout") or Instance.new("UIGridLayout")
-	grid.CellSize = UDim2.fromOffset(225, 112)
-	grid.CellPadding = UDim2.fromOffset(12, 12)
-	grid.FillDirectionMaxCells = 3
+	grid.CellSize = UDim2.fromOffset(138, 64)
+	grid.CellPadding = UDim2.fromOffset(8, 8)
+	grid.FillDirectionMaxCells = 5
 	grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	grid.VerticalAlignment = Enum.VerticalAlignment.Top
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
@@ -733,7 +920,7 @@ local function makeSmallCards(featuredPage)
 		local pass = getGamepass(passId)
 		if pass then
 			layoutOrder += 1
-			makeNormalGamepassCard(holder, pass, layoutOrder)
+			makeNormalGamepassCard(holder, pass, layoutOrder, true)
 		end
 	end
 end
@@ -785,7 +972,7 @@ local function makeFeaturedShopContent(content)
 		return
 	end
 	clearGeneratedChildren(featuredPage)
-	makeInfiniteHero(featuredPage)
+	makeInfinitePackPanel(featuredPage)
 	makeSmallCards(featuredPage)
 
 	local gamepassesPage = content:FindFirstChild("GamepassesPage")
