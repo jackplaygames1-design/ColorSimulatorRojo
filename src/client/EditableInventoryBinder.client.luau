@@ -59,6 +59,21 @@ local function setText(object, value)
 		object.Text = tostring(value or "")
 		object.Visible = true
 		object.TextTransparency = 0
+		if object.Parent and object.Parent:IsA("GuiObject") then
+			object.ZIndex = math.max(object.ZIndex, object.Parent.ZIndex + 1)
+		end
+	end
+end
+
+local function setDetailText(object, value)
+	setText(object, value)
+	if object and (object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox")) then
+		object.TextColor3 = Color3.fromRGB(38, 36, 52)
+		object.TextStrokeTransparency = math.min(object.TextStrokeTransparency, 0.65)
+		object.TextWrapped = true
+		if object:IsA("TextLabel") or object:IsA("TextButton") then
+			object.TextScaled = true
+		end
 	end
 end
 
@@ -83,6 +98,33 @@ local function findDescendantByNames(parent, names)
 		end
 	end
 	return nil
+end
+
+local function findChildByNames(parent, names)
+	if not parent then
+		return nil
+	end
+	for _, name in ipairs(names) do
+		local found = parent:FindFirstChild(name)
+		if found then
+			return found
+		end
+	end
+	return findDescendantByNames(parent, names)
+end
+
+local function raiseGuiObject(object, zIndex)
+	if not object or not object:IsA("GuiObject") then
+		return
+	end
+	object.Visible = true
+	object.ZIndex = math.max(object.ZIndex, zIndex or 1)
+	for _, descendant in ipairs(object:GetDescendants()) do
+		if descendant:IsA("GuiObject") then
+			descendant.Visible = true
+			descendant.ZIndex = math.max(descendant.ZIndex, object.ZIndex + 1)
+		end
+	end
 end
 
 local function connectGuiClick(guiObject, callback)
@@ -317,15 +359,22 @@ local function prepareStructure()
 		return false
 	end
 
-	ui.bigPreview = findDescendantByNames(ui.detailPanel, { "BigPreview", "PreviewIcon", "PreviewImage", "Preview", "Icon", "ItemPreview" })
-	ui.selectedName = findDescendantByNames(ui.detailPanel, { "SelectedName", "Name", "ItemName", "Title", "SelectLabel" })
-	ui.selectedRarity = findDescendantByNames(ui.detailPanel, { "SelectedRarity", "RarityLabel", "Rarity", "Meta", "ItemMeta" })
-	ui.selectedDescription = findDescendantByNames(ui.detailPanel, { "SelectedDescription", "Description", "ItemDescription" })
-	ui.statsBox = findDescendantByNames(ui.detailPanel, { "StatsBox" })
-	ui.statsText = findDescendantByNames(ui.detailPanel, { "StatsText", "StatsLabel", "Stats" })
-	ui.equipButton = findDescendantByNames(ui.detailPanel, { "EquipButton", "UseButton", "PrimaryButton" })
-	ui.lockButton = findDescendantByNames(ui.detailPanel, { "LockButton" })
-	ui.deleteButton = findDescendantByNames(ui.detailPanel, { "DeleteButton" })
+	ui.bigPreview = findChildByNames(ui.detailPanel, { "PreviewIcon", "BigPreview", "PreviewImage", "Preview", "Icon", "ItemPreview" })
+	ui.selectedName = findChildByNames(ui.detailPanel, { "ItemName", "SelectedName", "NameLabel", "Name", "Title", "SelectLabel" })
+	ui.selectedRarity = findChildByNames(ui.detailPanel, { "RarityLabel", "SelectedRarity", "Rarity", "Meta", "ItemMeta" })
+	ui.selectedDescription = findChildByNames(ui.detailPanel, { "SelectedDescription", "Description", "ItemDescription" })
+	ui.statsBox = findChildByNames(ui.detailPanel, { "StatsBox" })
+	ui.statsText = findChildByNames(ui.detailPanel, { "StatsLabel", "StatsText", "Stats" })
+	ui.equipButton = findChildByNames(ui.detailPanel, { "EquipButton", "UseButton", "PrimaryButton" })
+	ui.lockButton = findChildByNames(ui.detailPanel, { "LockButton" })
+	ui.deleteButton = findChildByNames(ui.detailPanel, { "DeleteButton" })
+	print(
+		"[EditableInventoryBinder] details targets",
+		ui.bigPreview and ui.bigPreview:GetFullName() or "missing-preview",
+		ui.selectedName and ui.selectedName:GetFullName() or "missing-name",
+		ui.selectedRarity and ui.selectedRarity:GetFullName() or "missing-rarity",
+		ui.statsText and ui.statsText:GetFullName() or "missing-stats"
+	)
 	return true
 end
 
@@ -345,6 +394,9 @@ local function paintPreview(preview, item)
 		return
 	end
 	preview.Visible = true
+	if preview.Parent and preview.Parent:IsA("GuiObject") then
+		preview.ZIndex = math.max(preview.ZIndex, preview.Parent.ZIndex + 1)
+	end
 	clearPreview(preview)
 	if item.IconImage and item.IconImage ~= "" then
 		local image = Instance.new("ImageLabel")
@@ -352,6 +404,7 @@ local function paintPreview(preview, item)
 		image.BackgroundTransparency = 1
 		image.Image = item.IconImage
 		image.Size = UDim2.fromScale(1, 1)
+		image.ZIndex = preview.ZIndex + 1
 		image.Parent = preview
 		return
 	end
@@ -361,6 +414,7 @@ local function paintPreview(preview, item)
 		viewport.Name = "PreviewViewport"
 		viewport.BackgroundTransparency = 1
 		viewport.Size = UDim2.fromScale(1, 1)
+		viewport.ZIndex = preview.ZIndex + 1
 		viewport.Parent = preview
 		local ok = pcall(function()
 			PetModelUtil.MountViewport(viewport, item.PetId, { spin = false })
@@ -382,6 +436,7 @@ local function paintPreview(preview, item)
 	label.TextStrokeColor3 = Color3.fromRGB(35, 38, 45)
 	label.TextStrokeTransparency = 0
 	label.Text = item.IconText or string.upper(string.sub(item.Name or item.Id or "IT", 1, 2))
+	label.ZIndex = preview.ZIndex + 1
 	label.Parent = preview
 	Instance.new("UICorner", label).CornerRadius = UDim.new(0, 10)
 end
@@ -430,12 +485,15 @@ end
 
 renderDetails = function()
 	local item = selectedItem
+	if ui.detailPanel and ui.detailPanel:IsA("GuiObject") then
+		ui.detailPanel.Visible = true
+	end
 	if not item then
 		clearPreview(ui.bigPreview)
-		setText(ui.selectedName, "Select an Item")
-		setText(ui.selectedRarity, "")
-		setText(ui.selectedDescription, "Choose a card to see details.")
-		setText(ui.statsText, "")
+		setDetailText(ui.selectedName, "Select an Item")
+		setDetailText(ui.selectedRarity, "")
+		setDetailText(ui.selectedDescription, "Choose a card to see details.")
+		setDetailText(ui.statsText, "")
 		setText(ui.equipButton, "SELECT")
 		setButtonEnabled(ui.equipButton, false)
 		setText(ui.lockButton, "LOCK")
@@ -445,11 +503,25 @@ renderDetails = function()
 		return
 	end
 
+	raiseGuiObject(ui.bigPreview, ui.detailPanel.ZIndex + 2)
+	raiseGuiObject(ui.selectedName, ui.detailPanel.ZIndex + 2)
+	raiseGuiObject(ui.selectedRarity, ui.detailPanel.ZIndex + 2)
+	raiseGuiObject(ui.selectedDescription, ui.detailPanel.ZIndex + 2)
+	raiseGuiObject(ui.statsText, ui.detailPanel.ZIndex + 2)
+	raiseGuiObject(ui.equipButton, ui.detailPanel.ZIndex + 2)
+	raiseGuiObject(ui.lockButton, ui.detailPanel.ZIndex + 2)
+	raiseGuiObject(ui.deleteButton, ui.detailPanel.ZIndex + 2)
 	paintPreview(ui.bigPreview, item)
-	setText(ui.selectedName, item.Name)
-	setText(ui.selectedRarity, item.Rarity or item.Mutation or item.Kind)
-	setText(ui.selectedDescription, item.Description or item.Bonus or "")
-	setText(ui.statsText, table.concat(item.Stats or {}, "\n"))
+	setDetailText(ui.selectedName, item.Name)
+	setDetailText(ui.selectedRarity, item.Rarity or item.Mutation or item.Kind)
+	setDetailText(ui.selectedDescription, item.Description or item.Bonus or "")
+	setDetailText(ui.statsText, table.concat(item.Stats or {}, "\n"))
+	print(
+		"[EditableInventoryBinder] details filled",
+		tostring(item.Name),
+		ui.selectedName and tostring(ui.selectedName.Text) or "missing-name",
+		ui.statsText and tostring(ui.statsText.Text) or "missing-stats"
+	)
 
 	if item.Kind == "Color" then
 		setText(ui.equipButton, item.Equipped and "UNEQUIP" or "EQUIP")
