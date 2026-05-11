@@ -19,6 +19,15 @@
       "HUDAssetConfig": {
         "$path": "src/shared/HUDAssetConfig.luau"
       },
+      "InventoryIconConfig": {
+        "$path": "src/shared/InventoryIconConfig.luau"
+      },
+      "LightingConfig": {
+        "$path": "src/shared/LightingConfig.luau"
+      },
+      "LightingPresets": {
+        "$path": "src/shared/LightingPresets.luau"
+      },
       "PhysicalMenuUIBuilder": {
         "$path": "src/shared/PhysicalMenuUIBuilder.luau"
       },
@@ -54,6 +63,12 @@
       },
       "AdminConfig": {
         "$path": "src/shared/AdminConfig.luau"
+      },
+      "AudioIds": {
+        "$path": "src/shared/AudioIds.luau"
+      },
+      "VFXConfig": {
+        "$path": "src/shared/VFXConfig.luau"
       },
       "UpdateLogData": {
         "$path": "src/shared/UpdateLogData.luau"

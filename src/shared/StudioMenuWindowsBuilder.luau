@@ -122,18 +122,44 @@ end
 
 local function makeInventory(windowsFolder)
 	local window, content = makeWindow(windowsFolder, "InventoryWindow", "INVENTORY", { "Colors", "Brushes", "Potions", "Items" })
-	local grid = frame(content, "ItemGrid", UDim2.fromOffset(12, 12), UDim2.new(0.62, -20, 1, -24), Color3.fromRGB(246, 249, 255))
-	local details = frame(content, "DetailsPanel", UDim2.new(0.64, 0, 0, 12), UDim2.new(0.36, -12, 1, -24), Color3.fromRGB(239, 246, 255))
-	text(details, "SelectLabel", "Select an Item", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 36), 22).TextXAlignment = Enum.TextXAlignment.Center
-	for i = 1, 8 do
-		local x = ((i - 1) % 4) * 104 + 14
-		local y = math.floor((i - 1) / 4) * 104 + 14
-		local slot = frame(grid, "Slot" .. i, UDim2.fromOffset(x, y), UDim2.fromOffset(92, 92), Color3.fromRGB(235, 239, 246))
-		text(slot, "Icon", "IMG", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment = Enum.TextXAlignment.Center
+	window.Size = UDim2.fromOffset(860, 560)
+	window.Position = UDim2.fromScale(0.5, 0.46)
+	content.Size = UDim2.new(1, -44, 1, -148)
+	local tabs = window:FindFirstChild("Tabs")
+	if tabs then
+		local layout = tabs:FindFirstChildOfClass("UIListLayout")
+		if layout then
+			layout.Padding = UDim.new(0, 8)
+		end
+		for index, tabName in ipairs({ "Colors", "Brushes", "Potions", "Items" }) do
+			local tab = tabs:FindFirstChild(tabName .. "Tab")
+			if tab and tab:IsA("GuiObject") then
+				tab.LayoutOrder = index
+				tab.Size = UDim2.new(0.25, -8, 1, -4)
+			end
+		end
 	end
-	button(details, "EquipButton", "EQUIP", UDim2.new(0, 14, 1, -132), UDim2.new(1, -28, 0, 34), Color3.fromRGB(84, 225, 112))
-	button(details, "LockButton", "LOCK", UDim2.new(0, 14, 1, -90), UDim2.new(1, -28, 0, 34), Color3.fromRGB(88, 174, 255))
-	button(details, "DeleteButton", "DELETE", UDim2.new(0, 14, 1, -48), UDim2.new(1, -28, 0, 34), Color3.fromRGB(220, 46, 58))
+
+	local grid = frame(content, "ItemGrid", UDim2.fromOffset(12, 12), UDim2.new(0.66, -20, 1, -24), Color3.fromRGB(246, 249, 255))
+	local details = frame(content, "DetailsPanel", UDim2.new(0.68, 0, 0, 12), UDim2.new(0.32, -12, 1, -24), Color3.fromRGB(239, 246, 255))
+	frame(details, "BigPreview", UDim2.fromOffset(16, 16), UDim2.new(1, -32, 0, 90), Color3.fromRGB(255, 255, 255))
+	text(details, "SelectedName", "Select an Item", UDim2.fromOffset(16, 118), UDim2.new(1, -32, 0, 30), 20).TextXAlignment = Enum.TextXAlignment.Center
+	text(details, "SelectedRarity", "", UDim2.fromOffset(16, 150), UDim2.new(1, -32, 0, 22), 14).TextXAlignment = Enum.TextXAlignment.Center
+	text(details, "SelectedDescription", "Choose a card to see details.", UDim2.fromOffset(16, 178), UDim2.new(1, -32, 0, 46), 13).TextXAlignment = Enum.TextXAlignment.Left
+	local stats = frame(details, "StatsBox", UDim2.fromOffset(16, 230), UDim2.new(1, -32, 0, 34), Color3.fromRGB(255, 255, 255))
+	text(stats, "StatsText", "", UDim2.fromOffset(10, 6), UDim2.new(1, -20, 1, -12), 12)
+	for i = 1, 12 do
+		local x = ((i - 1) % 4) * 124 + 14
+		local y = math.floor((i - 1) / 4) * 114 + 14
+		local slot = frame(grid, "Slot" .. i, UDim2.fromOffset(x, y), UDim2.fromOffset(112, 102), Color3.fromRGB(235, 239, 246))
+		local icon = frame(slot, "Icon", UDim2.fromOffset(8, 8), UDim2.new(1, -16, 0, 54), Color3.fromRGB(225, 235, 248))
+		text(icon, "IconText", "IMG", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment = Enum.TextXAlignment.Center
+		text(slot, "ItemName", "Item", UDim2.new(0, 6, 1, -36), UDim2.new(1, -12, 0, 18), 12).TextXAlignment = Enum.TextXAlignment.Center
+		text(slot, "ItemMeta", "", UDim2.new(0, 6, 1, -18), UDim2.new(1, -12, 0, 14), 10).TextXAlignment = Enum.TextXAlignment.Center
+	end
+	button(details, "EquipButton", "EQUIP", UDim2.new(0, 16, 1, -116), UDim2.new(1, -32, 0, 32), Color3.fromRGB(84, 225, 112))
+	button(details, "LockButton", "LOCK", UDim2.new(0, 16, 1, -76), UDim2.new(1, -32, 0, 32), Color3.fromRGB(88, 174, 255))
+	button(details, "DeleteButton", "DELETE", UDim2.new(0, 16, 1, -36), UDim2.new(1, -32, 0, 32), Color3.fromRGB(220, 46, 58))
 	return window
 end
 

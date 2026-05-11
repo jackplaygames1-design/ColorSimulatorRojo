@@ -2,6 +2,7 @@
 -- PlayerGui.ClientUIRoot.MainHUD.ModalWindows.Windows
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -93,6 +94,13 @@ local function debounce(key)
 	end
 	lastPressAt[key] = now
 	return true
+end
+
+local function playUI(soundName)
+	local soundEvent = ReplicatedStorage:FindFirstChild("ColorSimulatorPlaySound")
+	if soundEvent and soundEvent:IsA("BindableEvent") then
+		soundEvent:Fire("UI", soundName)
+	end
 end
 
 local function findExactButton(scope, name)
@@ -256,6 +264,9 @@ local function updateDim()
 end
 
 local function closeAllWindows()
+	if activeKey then
+		playUI("Close")
+	end
 	for _, window in pairs(windows) do
 		window.Visible = false
 	end
@@ -278,6 +289,7 @@ local function openWindow(key)
 	end
 	window.Visible = true
 	activeKey = key
+	playUI("Open")
 	updateDim()
 	hideLegacyGeneratedLayers()
 
@@ -337,6 +349,7 @@ for key, buttonName in pairs(BOTTOM_BUTTONS) do
 		buttons[key] = button
 		applyGuiZIndexFloor(button, HUD_BUTTON_ZINDEX_FLOOR)
 		connectButtonContainer(button, function()
+			playUI("Click")
 			openWindow(key)
 		end, buttonName)
 	else
@@ -351,6 +364,7 @@ for key, buttonName in pairs(LEFT_BUTTONS) do
 		button.Active = true
 		applyGuiZIndexFloor(button, HUD_BUTTON_ZINDEX_FLOOR)
 		connectButtonContainer(button, function()
+			playUI("Click")
 			openWindow(key)
 		end, buttonName)
 	else
