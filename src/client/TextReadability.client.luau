@@ -1,3 +1,6 @@
+-- Disabled: no PlayerGui UI should be created or restyled at runtime.
+return
+
 -- Light readability pass for player-facing UI text.
 -- Keeps the simulator style, but stops small outlined labels from turning into blobs.
 local Players = game:GetService("Players")

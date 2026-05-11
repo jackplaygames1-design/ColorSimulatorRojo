@@ -1,3 +1,6 @@
+-- Disabled: no PlayerGui UI should be created at runtime.
+return
+
 -- Guided tutorial UI. Server-owned values decide progress; this client only presents
 -- the guide, highlights targets, and requests safe tutorial actions.
 local Players = game:GetService("Players")

@@ -1,3 +1,6 @@
+-- Disabled: no PlayerGui UI should be created at runtime.
+return
+
 -- Client-only feedback layer for the core loop: break Color, hatch, merge, unlock.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

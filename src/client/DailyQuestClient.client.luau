@@ -1,3 +1,6 @@
+-- Disabled: no PlayerGui UI should be created at runtime.
+return
+
 -- StarterPlayerScripts/Client/DailyQuestClient
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
