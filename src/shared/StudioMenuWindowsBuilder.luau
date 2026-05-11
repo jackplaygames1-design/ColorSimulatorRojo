@@ -12,13 +12,83 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 
 local Builder = {}
-local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
+
+local function requireFresh(module)
+	local clone = module:Clone()
+	clone.Parent = module.Parent
+	local ok, result = pcall(require, clone)
+	clone:Destroy()
+	if ok then
+		return result
+	end
+	warn("StudioMenuWindowsBuilder: fresh require failed for " .. module.Name .. ": " .. tostring(result))
+	return require(module)
+end
+
+local RobuxShopConfig = requireFresh(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
 
 local OUTLINE = Color3.fromRGB(35, 38, 45)
 local TEXT_DARK = Color3.fromRGB(38, 36, 52)
 local TAB_INACTIVE = Color3.fromRGB(232, 238, 248)
 local CYAN = Color3.fromRGB(76, 214, 224)
 local GREEN = Color3.fromRGB(84, 225, 112)
+
+local FALLBACK_INFINITE_PACK = {
+	displayName = "THE INFINITE PACK!",
+	tiers = {
+		{
+			id = "InfinitePackTier01",
+			tier = 1,
+			rewardText = "250 Gems",
+			icon = "GEM",
+			price = 0,
+			free = true,
+			color = Color3.fromRGB(92, 240, 150),
+		},
+		{
+			id = "InfinitePackTier02",
+			tier = 2,
+			rewardText = "3x Coin Potion",
+			icon = "2x",
+			price = 50,
+			color = Color3.fromRGB(255, 221, 84),
+		},
+		{
+			id = "InfinitePackTier03",
+			tier = 3,
+			rewardText = "2x Luck Potion",
+			icon = "LU",
+			price = 0,
+			free = true,
+			color = Color3.fromRGB(128, 239, 150),
+		},
+		{
+			id = "InfinitePackTier04",
+			tier = 4,
+			rewardText = "Exclusive Color",
+			icon = "???",
+			price = 100,
+			color = Color3.fromRGB(255, 162, 196),
+		},
+		{
+			id = "InfinitePackTier05",
+			tier = 5,
+			rewardText = "25,000 Coins",
+			icon = "$",
+			price = 0,
+			free = true,
+			color = Color3.fromRGB(255, 199, 87),
+		},
+		{
+			id = "InfinitePackTier06",
+			tier = 6,
+			rewardText = "Exclusive Pet",
+			icon = "PET",
+			price = 250,
+			color = Color3.fromRGB(177, 141, 255),
+		},
+	},
+}
 
 local function findOrCreate(parent, className, name)
 	local existing = parent:FindFirstChild(name)
@@ -447,6 +517,32 @@ local function getProductsForCategory(categoryName)
 	return products
 end
 
+local function getInfinitePack()
+	local pack = RobuxShopConfig.InfinitePack
+	if pack and type(pack.tiers) == "table" and #pack.tiers > 0 then
+		return pack
+	end
+	return FALLBACK_INFINITE_PACK
+end
+
+local function getInfinitePackTiers()
+	if RobuxShopConfig.getInfinitePackTiers then
+		local tiers = RobuxShopConfig.getInfinitePackTiers()
+		if #tiers > 0 then
+			return tiers
+		end
+	end
+
+	local tiers = {}
+	for _, tier in ipairs(getInfinitePack().tiers or {}) do
+		table.insert(tiers, tier)
+	end
+	table.sort(tiers, function(a, b)
+		return (a.tier or 999) < (b.tier or 999)
+	end)
+	return tiers
+end
+
 local function setGuiBase(guiObject, zIndex)
 	guiObject.BorderSizePixel = 0
 	guiObject.ZIndex = zIndex
@@ -706,9 +802,10 @@ local function makeInfinitePackTierCard(parent, tier, layoutOrder)
 end
 
 local function makeInfinitePackPanel(featuredPage)
-	local pack = RobuxShopConfig.InfinitePack
-	local tiers = RobuxShopConfig.getInfinitePackTiers and RobuxShopConfig.getInfinitePackTiers() or {}
+	local pack = getInfinitePack()
+	local tiers = getInfinitePackTiers()
 	if not pack or #tiers == 0 then
+		warn("StudioMenuWindowsBuilder: InfinitePack has no tiers; Featured pack panel skipped.")
 		return
 	end
 
