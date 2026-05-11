@@ -1,42 +1,43 @@
--- Hooks the handmade Studio HUD into the existing client UI system.
--- Expected hierarchy in PlayerGui:
--- ColorSimulatorUI/MainHUD/LeftButtons/{InventoryButton,ShopButton,WorldButton,CodesButton}
+-- Hooks the handmade Studio HUD buttons directly to the editable Studio window Frames.
+-- This intentionally does NOT create a new ScreenGui or clone legacy runtime UI.
+-- Expected editable path at play time:
+-- PlayerGui > ScreenGui/ColorSimulatorUI > MainHUD > ModalWindows > Windows
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
-local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
-local HUDAssetConfig = require(ReplicatedStorage:WaitForChild("HUDAssetConfig"))
 
-local UI_ROOT_NAME = "ColorSimulatorUI"
 local WARNED = {}
-local BUTTON_TO_WINDOW = {
-	InventoryButton = "Inventory",
-	ShopButton = "Gamepass",
-	WorldButton = "World",
-	CodesButton = "Codes",
-}
-local BUTTON_TO_BINDABLE = {
-	InventoryButton = "HudButton_INVENTORY",
-	ShopButton = "HudButton_GAMEPASS",
-	WorldButton = "HudButton_WORLD",
-	CodesButton = "HudButton_CODES",
-}
-local BUTTON_SOURCE_FILES = {
-	InventoryButton = "assets/ui/sliced_clean_hud/icons_may9_transparent_128/inventory_backpack.png",
-	ShopButton = "assets/ui/sliced_clean_hud/icons_may9_transparent_128/shop_bag.png",
-	WorldButton = "assets/ui/sliced_clean_hud/icons_may9_transparent_128/world_globe.png",
-	CodesButton = "assets/ui/sliced_clean_hud/icons_may9_transparent_128/codes_ticket.png",
-}
 local connectedButtons = setmetatable({}, { __mode = "k" })
 local buttonScales = setmetatable({}, { __mode = "k" })
 local lastActivatedAt = setmetatable({}, { __mode = "k" })
-local openWindow
+local populatedWindows = setmetatable({}, { __mode = "k" })
+
+local BUTTON_TO_WINDOW = {
+	InventoryButton = "InventoryWindow",
+	ItemsButton = "InventoryWindow",
+	ShopButton = "ShopWindow",
+	GamepassButton = "ShopWindow",
+	WorldButton = "WorldsWindow",
+	WorldsButton = "WorldsWindow",
+	UpgradeButton = "UpgradesWindow",
+	UpgradesButton = "UpgradesWindow",
+	RankButton = "RanksWindow",
+	RanksButton = "RanksWindow",
+	TradeButton = "TradesWindow",
+	TradesButton = "TradesWindow",
+	CodesButton = "CodesWindow",
+}
+
+local OPTIONAL_ALIASES = {
+	TradesWindow = { "TradeWindow" },
+	RanksWindow = { "RankWindow" },
+	WorldsWindow = { "WorldWindow" },
+}
 
 local function warnOnce(key, message)
 	if WARNED[key] then
@@ -46,241 +47,391 @@ local function warnOnce(key, message)
 	warn(message)
 end
 
-local function getActiveRoot()
-	return ClientUIRoot.GetRoot(playerGui) or playerGui:FindFirstChild(UI_ROOT_NAME)
-end
-
-local function hasLeftButtons(mainHud)
-	local leftButtons = mainHud and mainHud:FindFirstChild("LeftButtons")
-	return leftButtons and leftButtons:IsA("GuiObject")
-end
-
-local function hasImageAsset(guiObject)
-	if guiObject:IsA("ImageButton") or guiObject:IsA("ImageLabel") then
-		return type(guiObject.Image) == "string" and guiObject.Image ~= ""
-	end
-	return false
-end
-
-local function countButtonImageAssets(leftButtons)
-	local count = 0
-	for buttonName in pairs(BUTTON_TO_WINDOW) do
-		local button = leftButtons:FindFirstChild(buttonName)
-		if button then
-			if hasImageAsset(button) then
-				count += 1
-			end
-			for _, descendant in ipairs(button:GetDescendants()) do
-				if hasImageAsset(descendant) then
-					count += 1
-				end
-			end
-		end
-	end
-	return count
-end
-
-local function getHudSourcePriority(mainHud)
-	local screenGui = mainHud and mainHud:FindFirstAncestorOfClass("ScreenGui")
-	if not screenGui then
-		return 0
-	end
-	if screenGui.Name == "ScreenGui" then
-		return 3
-	end
-	if screenGui.Name == UI_ROOT_NAME then
-		return 2
-	end
-	return 1
-end
-
-local function getCandidateScore(mainHud)
-	local leftButtons = mainHud and mainHud:FindFirstChild("LeftButtons")
-	if not leftButtons or not leftButtons:IsA("GuiObject") then
-		return -1
-	end
-
-	local imageScore = countButtonImageAssets(leftButtons) * 100
-	local visibleScore = (mainHud.Visible and 10 or 0) + (leftButtons.Visible and 10 or 0)
-	return imageScore + visibleScore + getHudSourcePriority(mainHud)
-end
-
-local function collectPlayerGuiMainHuds()
-	local candidates = {}
+local function getMainHuds()
+	local huds = {}
 	local seen = {}
-
-	local function add(mainHud)
-		if mainHud and mainHud:IsA("GuiObject") and hasLeftButtons(mainHud) and not seen[mainHud] then
-			seen[mainHud] = true
-			table.insert(candidates, mainHud)
-		end
-	end
-
-	local screen = playerGui:FindFirstChild("ScreenGui")
-	add(screen and screen:FindFirstChild("MainHUD"))
-
-	local activeRoot = playerGui:FindFirstChild(UI_ROOT_NAME)
-	add(activeRoot and activeRoot:FindFirstChild("MainHUD"))
-
 	for _, descendant in ipairs(playerGui:GetDescendants()) do
-		if descendant.Name == "MainHUD" and descendant:IsA("GuiObject") then
-			add(descendant)
+		if descendant.Name == "MainHUD" and descendant:IsA("GuiObject") and not seen[descendant] then
+			seen[descendant] = true
+			table.insert(huds, descendant)
 		end
 	end
-
-	return candidates
+	return huds
 end
 
-local function getBestPlayerGuiMainHud()
-	local best = nil
-	local bestScore = -1
-	for _, candidate in ipairs(collectPlayerGuiMainHuds()) do
-		local score = getCandidateScore(candidate)
-		if score > bestScore then
-			best = candidate
-			bestScore = score
-		end
+local function getBestMainHud()
+	local preferredScreen = playerGui:FindFirstChild("ScreenGui")
+	local preferredHud = preferredScreen and preferredScreen:FindFirstChild("MainHUD")
+	if preferredHud and preferredHud:IsA("GuiObject") then
+		return preferredHud
 	end
-	return best
+
+	local colorRoot = playerGui:FindFirstChild("ColorSimulatorUI")
+	local colorHud = colorRoot and colorRoot:FindFirstChild("MainHUD")
+	if colorHud and colorHud:IsA("GuiObject") then
+		return colorHud
+	end
+
+	return getMainHuds()[1]
 end
 
-local function hideOnlyGeneratedRootDuplicate(keepMainHud)
-	return keepMainHud
-end
-
-local function findPlayerGuiScreenMainHud()
-	local screen = playerGui:FindFirstChild("ScreenGui")
-	local mainHud = screen and screen:FindFirstChild("MainHUD")
-	if mainHud and mainHud:IsA("GuiObject") then
-		return mainHud, "PlayerGui.ScreenGui"
-	end
-	return nil, nil
-end
-
-local function findFallbackMainHud()
-	local fallbackHud = findPlayerGuiScreenMainHud()
-	if fallbackHud and fallbackHud:IsA("GuiObject") then
-		return fallbackHud, "PlayerGui.ScreenGui"
-	end
-
-	for _, descendant in ipairs(playerGui:GetDescendants()) do
-		if descendant.Name == "MainHUD" and descendant:IsA("GuiObject") then
-			return descendant, "PlayerGui"
-		end
-	end
-	return nil, nil
-end
-
-local function ensureMainHudInActiveRoot()
-	local root = getActiveRoot()
-	if not root then
-		return nil
-	end
-
-	for _, child in ipairs(root:GetChildren()) do
-		if child.Name == "MainHUD" and child:IsA("GuiObject") and hasLeftButtons(child) then
-			return child
-		end
-	end
-
-	local fallbackHud, sourceName = findFallbackMainHud()
-	if not fallbackHud or not hasLeftButtons(fallbackHud) then
-		return nil
-	end
-
-	if sourceName == "PlayerGui.ScreenGui" or fallbackHud:IsDescendantOf(playerGui) then
-		return fallbackHud
-	end
-	return nil
-end
-
-local function findMainHud()
-	local screenHud = findPlayerGuiScreenMainHud()
-	if hasLeftButtons(screenHud) then
-		hideOnlyGeneratedRootDuplicate(screenHud)
-		return screenHud
-	end
-
-	local activeRoot = getActiveRoot()
-	if activeRoot then
-		for _, child in ipairs(activeRoot:GetChildren()) do
-			if child.Name == "MainHUD" and child:IsA("GuiObject") and hasLeftButtons(child) then
-				return child
-			end
-		end
-	end
-
-	local adoptedHud = ensureMainHudInActiveRoot()
-	if adoptedHud then
-		return adoptedHud
-	end
-
-	local fallbackHud = findFallbackMainHud()
-	return fallbackHud
-end
-
-local function findMainHudWithLeftButtons()
-	local mainHud = findMainHud()
-	if hasLeftButtons(mainHud) then
-		return mainHud
-	end
-	return nil
-end
-
-local function getLeftButtons()
-	local mainHud = findMainHudWithLeftButtons()
+local function getWindowsFolder(mainHud)
 	if not mainHud then
 		return nil
 	end
+	local modalWindows = mainHud:FindFirstChild("ModalWindows")
+	local windows = modalWindows and modalWindows:FindFirstChild("Windows")
+	if windows then
+		return windows
+	end
+	return mainHud:FindFirstChild("Windows", true)
+end
 
-	local leftButtons = mainHud:FindFirstChild("LeftButtons")
-	if leftButtons and leftButtons:IsA("GuiObject") then
-		return leftButtons
+local function getDimBackground(mainHud)
+	if not mainHud then
+		return nil
+	end
+	local dim = mainHud:FindFirstChild("DimBackground")
+	if dim and dim:IsA("GuiObject") then
+		return dim
 	end
 	return nil
 end
 
-local function collectLeftButtons()
-	local leftButtonSets = {}
-	local seen = {}
+local function getWindow(mainHud, wantedName)
+	local windows = getWindowsFolder(mainHud)
+	if not windows then
+		return nil
+	end
 
-	local function add(leftButtons)
-		if leftButtons and leftButtons:IsA("GuiObject") and not seen[leftButtons] then
-			seen[leftButtons] = true
-			table.insert(leftButtonSets, leftButtons)
+	local direct = windows:FindFirstChild(wantedName)
+	if direct and direct:IsA("GuiObject") then
+		return direct
+	end
+
+	for _, alias in ipairs(OPTIONAL_ALIASES[wantedName] or {}) do
+		local found = windows:FindFirstChild(alias)
+		if found and found:IsA("GuiObject") then
+			return found
 		end
 	end
 
-	local primary = getLeftButtons()
-	add(primary)
-
-	for _, descendant in ipairs(playerGui:GetDescendants()) do
-		if descendant.Name == "LeftButtons" and descendant:IsA("GuiObject") then
-			local mainHud = descendant.Parent
-			if mainHud and mainHud.Name == "MainHUD" and mainHud:IsA("GuiObject") then
-				add(descendant)
-			end
-		end
-	end
-
-	return leftButtonSets
+	return nil
 end
 
-local function applyVisibilitySafety(leftButtons)
-	local mainHud = leftButtons.Parent
-	local screenGui = mainHud and mainHud:FindFirstAncestorOfClass("ScreenGui")
-	if not mainHud or not screenGui then
-		warnOnce("root-missing", "StudioHUDHookup: could not find ScreenGui/MainHUD ancestors for LeftButtons.")
-		return
+local function getAllWindows(mainHud)
+	local windowsFolder = getWindowsFolder(mainHud)
+	local windows = {}
+	if not windowsFolder then
+		return windows
+	end
+	for _, child in ipairs(windowsFolder:GetChildren()) do
+		if child:IsA("GuiObject") and child.Name:match("Window$") then
+			table.insert(windows, child)
+		end
+	end
+	return windows
+end
+
+local function findContent(window)
+	local content = window:FindFirstChild("Content")
+	if content and content:IsA("GuiObject") then
+		return content
+	end
+	return window
+end
+
+local function clearAutoContent(content)
+	local folder = content:FindFirstChild("AutoFunctionalContent")
+	if folder then
+		folder:Destroy()
+	end
+	folder = Instance.new("Folder")
+	folder.Name = "AutoFunctionalContent"
+	folder.Parent = content
+	return folder
+end
+
+local function makeCorner(parent, radius)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, radius or 12)
+	corner.Parent = parent
+	return corner
+end
+
+local function makeStroke(parent, thickness)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(35, 38, 45)
+	stroke.Thickness = thickness or 2
+	stroke.Parent = parent
+	return stroke
+end
+
+local function makeFrame(parent, name, pos, size, color)
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.Position = pos
+	frame.Size = size
+	frame.BackgroundColor3 = color or Color3.fromRGB(255, 255, 255)
+	frame.BorderSizePixel = 0
+	frame.Parent = parent
+	makeCorner(frame, 14)
+	makeStroke(frame, 2)
+	return frame
+end
+
+local function makeText(parent, name, text, pos, size, textSize)
+	local label = Instance.new("TextLabel")
+	label.Name = name
+	label.Position = pos
+	label.Size = size
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBlack
+	label.Text = text
+	label.TextColor3 = Color3.fromRGB(38, 36, 52)
+	label.TextWrapped = true
+	label.TextScaled = false
+	label.TextSize = textSize or 18
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.Parent = parent
+	return label
+end
+
+local function makeButton(parent, name, text, pos, size, color)
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.Position = pos
+	button.Size = size
+	button.BackgroundColor3 = color or Color3.fromRGB(84, 225, 112)
+	button.BorderSizePixel = 0
+	button.Font = Enum.Font.GothamBlack
+	button.Text = text
+	button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	button.TextScaled = true
+	button.AutoButtonColor = true
+	button.Parent = parent
+	makeCorner(button, 12)
+	makeStroke(button, 2)
+	return button
+end
+
+local function getRemote(name)
+	local events = ReplicatedStorage:FindFirstChild("Events")
+	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+	return (events and events:FindFirstChild(name)) or (remotes and remotes:FindFirstChild(name)) or ReplicatedStorage:FindFirstChild(name)
+end
+
+local function fireRemote(name, ...)
+	local remote = getRemote(name)
+	if remote and remote:IsA("RemoteEvent") then
+		remote:FireServer(...)
+		return true
+	end
+	warnOnce("missing-remote-" .. name, "StudioHUDHookup: remote '" .. name .. "' is not hooked yet.")
+	return false
+end
+
+local function populateInventory(window)
+	local content = findContent(window)
+	local folder = clearAutoContent(content)
+
+	local grid = makeFrame(folder, "InventoryGrid", UDim2.fromOffset(12, 12), UDim2.new(0.62, -20, 1, -24), Color3.fromRGB(246, 249, 255))
+	local details = makeFrame(folder, "DetailsPanel", UDim2.new(0.64, 0, 0, 12), UDim2.new(0.36, -12, 1, -24), Color3.fromRGB(239, 246, 255))
+
+	local nameLabel = makeText(details, "SelectedName", "Rainbow Color", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 34), 22)
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+	local stats = makeText(details, "Stats", "Power: 25\nRarity: Rare\nMutation: Rainbow\nEquipped: No", UDim2.fromOffset(18, 54), UDim2.new(1, -36, 0, 118), 16)
+	stats.TextYAlignment = Enum.TextYAlignment.Top
+
+	local items = {
+		{ name = "Rainbow Color", power = 25, rarity = "Rare", mutation = "Rainbow" },
+		{ name = "Red Color", power = 8, rarity = "Common", mutation = "None" },
+		{ name = "Orange Color", power = 14, rarity = "Uncommon", mutation = "Glow" },
+		{ name = "Pipe Color", power = 18, rarity = "Uncommon", mutation = "Drip" },
+		{ name = "Brush", power = 5, rarity = "Starter", mutation = "None" },
+		{ name = "Gem Color", power = 20, rarity = "Rare", mutation = "Sparkle" },
+	}
+
+	for index, item in ipairs(items) do
+		local x = ((index - 1) % 3) * 116 + 16
+		local y = math.floor((index - 1) / 3) * 116 + 16
+		local slot = makeButton(grid, "Slot" .. index, item.name, UDim2.fromOffset(x, y), UDim2.fromOffset(104, 104), Color3.fromRGB(225, 244, 255))
+		slot.TextColor3 = Color3.fromRGB(38, 36, 52)
+		slot.Activated:Connect(function()
+			nameLabel.Text = item.name
+			stats.Text = "Power: " .. item.power .. "\nRarity: " .. item.rarity .. "\nMutation: " .. item.mutation .. "\nEquipped: No"
+		end)
 	end
 
-	screenGui.Enabled = true
-	screenGui.ResetOnSpawn = false
-	screenGui.IgnoreGuiInset = false
-	screenGui.DisplayOrder = math.max(screenGui.DisplayOrder, 999)
-	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	mainHud.Visible = true
-	leftButtons.Visible = true
+	makeButton(details, "EquipButton", "EQUIP", UDim2.new(0, 14, 1, -132), UDim2.new(1, -28, 0, 34), Color3.fromRGB(84, 225, 112)).Activated:Connect(function()
+		fireRemote("EquipPet", nameLabel.Text)
+	end)
+	makeButton(details, "LockButton", "LOCK", UDim2.new(0, 14, 1, -90), UDim2.new(1, -28, 0, 34), Color3.fromRGB(88, 174, 255)).Activated:Connect(function()
+		fireRemote("LockPet", nameLabel.Text)
+	end)
+	makeButton(details, "DeleteButton", "DELETE", UDim2.new(0, 14, 1, -48), UDim2.new(1, -28, 0, 34), Color3.fromRGB(220, 46, 58)).Activated:Connect(function()
+		fireRemote("DeletePet", nameLabel.Text)
+	end)
+end
+
+local function populateCardWindow(window, cards, actionText, actionCallback)
+	local content = findContent(window)
+	local folder = clearAutoContent(content)
+	for index, cardData in ipairs(cards) do
+		local x = ((index - 1) % 3) * 238 + 14
+		local y = math.floor((index - 1) / 3) * 132 + 14
+		local card = makeFrame(folder, cardData.key .. "Card", UDim2.fromOffset(x, y), UDim2.fromOffset(222, 118), Color3.fromRGB(255, 255, 255))
+		makeText(card, "Name", cardData.name, UDim2.fromOffset(12, 8), UDim2.new(1, -24, 0, 28), 17)
+		makeText(card, "Description", cardData.description or "Placeholder card.", UDim2.fromOffset(12, 36), UDim2.new(1, -24, 0, 38), 12)
+		makeText(card, "Price", cardData.price or "", UDim2.fromOffset(12, 76), UDim2.fromOffset(90, 28), 13)
+		makeButton(card, "ActionButton", actionText or "USE", UDim2.new(1, -104, 1, -42), UDim2.fromOffset(90, 32), cardData.color or Color3.fromRGB(84, 225, 112)).Activated:Connect(function()
+			actionCallback(cardData)
+		end)
+	end
+end
+
+local function populateShop(window)
+	populateCardWindow(window, {
+		{ key = "VIP", name = "VIP Pass", description = "Better rewards placeholder.", price = "R$ ?" },
+		{ key = "Luck", name = "Luck Boost", description = "Boosts color hatch luck.", price = "R$ ?" },
+		{ key = "Coins", name = "Coin Pack", description = "Coins/Gems product slot.", price = "R$ ?" },
+	}, "BUY", function(card)
+		warn("Shop purchase not hooked yet: " .. card.name)
+	end)
+end
+
+local function populateWorlds(window)
+	populateCardWindow(window, {
+		{ key = "Spawn", name = "Spawn World", description = "Main color world.", price = "Unlocked" },
+		{ key = "Red", name = "Red Wastelands", description = "Tutorial red zone.", price = "Unlocked" },
+		{ key = "Pipes", name = "Inside the Pipes", description = "Mutation unlock zone.", price = "Locked" },
+		{ key = "Orange", name = "Orange Sector", description = "Current ready sector.", price = "Unlocked" },
+	}, "GO", function(card)
+		if card.price == "Locked" then
+			warn(card.name .. " is locked.")
+			return
+		end
+		fireRemote("RequestTravelToSector", card.key)
+	end)
+end
+
+local function populateUpgrades(window)
+	populateCardWindow(window, {
+		{ key = "BrushPower", name = "Brush Power", description = "Break colors faster.", price = "Gems" },
+		{ key = "WalkSpeed", name = "Walk Speed", description = "Move around quicker.", price = "Gems" },
+		{ key = "ColorLuck", name = "Color Luck", description = "Better hatch chances.", price = "Gems" },
+		{ key = "GemBoost", name = "Gem Boost", description = "More gem rewards.", price = "Gems" },
+	}, "UPGRADE", function(card)
+		fireRemote("PurchaseUpgrade", card.key)
+	end)
+end
+
+local function populateRanks(window)
+	populateCardWindow(window, {
+		{ key = "Beginner", name = "Beginner", description = "Starting rank.", price = "Free" },
+		{ key = "Painter", name = "Painter", description = "Requires early progress.", price = "Coins" },
+		{ key = "Collector", name = "Color Collector", description = "Requires more colors.", price = "Coins" },
+		{ key = "Master", name = "Master Artist", description = "Late-game placeholder.", price = "Coins" },
+	}, "RANK UP", function(card)
+		warn("Rank system not hooked yet: " .. card.name)
+	end)
+end
+
+local function populateTrades(window)
+	populateCardWindow(window, {
+		{ key = "PlayerList", name = "Player List", description = "Select nearby players here.", price = "Placeholder" },
+		{ key = "Selected", name = "Selected Player", description = "Trade details show here.", price = "None" },
+	}, "SEND", function()
+		warn("Trade system not hooked yet.")
+	end)
+end
+
+local function populateCodes(window)
+	local content = findContent(window)
+	local folder = clearAutoContent(content)
+	makeText(folder, "Info", "Enter a code below.", UDim2.fromOffset(24, 18), UDim2.new(1, -48, 0, 36), 22)
+
+	local box = Instance.new("TextBox")
+	box.Name = "CodeTextBox"
+	box.Position = UDim2.fromOffset(24, 72)
+	box.Size = UDim2.new(1, -48, 0, 54)
+	box.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	box.BorderSizePixel = 0
+	box.Font = Enum.Font.GothamBlack
+	box.PlaceholderText = "TYPE CODE HERE"
+	box.Text = ""
+	box.TextColor3 = Color3.fromRGB(38, 36, 52)
+	box.TextScaled = true
+	box.Parent = folder
+	makeCorner(box, 12)
+	makeStroke(box, 2)
+
+	local status = makeText(folder, "Status", "", UDim2.fromOffset(24, 188), UDim2.new(1, -48, 0, 36), 18)
+	status.TextXAlignment = Enum.TextXAlignment.Center
+	makeButton(folder, "RedeemButton", "REDEEM", UDim2.fromOffset(24, 138), UDim2.new(1, -48, 0, 42), Color3.fromRGB(84, 225, 112)).Activated:Connect(function()
+		if box.Text == "" then
+			status.Text = "Type a code first."
+			return
+		end
+		if fireRemote("RedeemCode", box.Text) then
+			status.Text = "Code sent!"
+		else
+			status.Text = "Codes are not ready yet."
+		end
+	end)
+end
+
+local POPULATORS = {
+	InventoryWindow = populateInventory,
+	ShopWindow = populateShop,
+	WorldsWindow = populateWorlds,
+	WorldWindow = populateWorlds,
+	UpgradesWindow = populateUpgrades,
+	RanksWindow = populateRanks,
+	RankWindow = populateRanks,
+	TradesWindow = populateTrades,
+	TradeWindow = populateTrades,
+	CodesWindow = populateCodes,
+}
+
+local function populateWindow(window)
+	if not window or populatedWindows[window] then
+		return
+	end
+	local populator = POPULATORS[window.Name]
+	if populator then
+		populator(window)
+		populatedWindows[window] = true
+	end
+end
+
+local function setWindowOpen(mainHud, targetWindow)
+	for _, window in ipairs(getAllWindows(mainHud)) do
+		populateWindow(window)
+		window.Visible = (window == targetWindow)
+	end
+
+	local dim = getDimBackground(mainHud)
+	if dim then
+		dim.Visible = targetWindow ~= nil
+	end
+end
+
+local function closeAll(mainHud)
+	setWindowOpen(mainHud, nil)
+end
+
+local function hookCloseButtons(mainHud)
+	for _, window in ipairs(getAllWindows(mainHud)) do
+		local closeButton = window:FindFirstChild("CloseButton", true)
+		if closeButton and closeButton:IsA("GuiButton") and not connectedButtons[closeButton] then
+			connectedButtons[closeButton] = true
+			closeButton.Activated:Connect(function()
+				closeAll(mainHud)
+			end)
+		end
+	end
 end
 
 local function getOrCreateScale(button)
@@ -288,7 +439,6 @@ local function getOrCreateScale(button)
 	if scale and scale.Parent == button then
 		return scale
 	end
-
 	scale = button:FindFirstChild("StudioHUDScale")
 	if not scale or not scale:IsA("UIScale") then
 		scale = Instance.new("UIScale")
@@ -300,59 +450,9 @@ local function getOrCreateScale(button)
 	return scale
 end
 
-local function getPhysicalButtonImage(buttonName)
-	local config = HUDAssetConfig.PhysicalButtonImages and HUDAssetConfig.PhysicalButtonImages[buttonName]
-	if type(config) == "table" and type(config.Image) == "string" and config.Image ~= "" then
-		return config.Image, config.SourceFile
-	end
-	return nil, type(config) == "table" and config.SourceFile or BUTTON_SOURCE_FILES[buttonName]
-end
-
-local function setGuiImageIfBlank(guiObject, imageId)
-	if not (guiObject:IsA("ImageButton") or guiObject:IsA("ImageLabel")) then
-		return false
-	end
-	if type(guiObject.Image) == "string" and guiObject.Image ~= "" then
-		return true
-	end
-
-	guiObject.Image = imageId
-	guiObject.ImageTransparency = 0
-	guiObject.ScaleType = Enum.ScaleType.Fit
-	return true
-end
-
-local function applyButtonIcon(button, buttonName)
-	local imageId, sourceFile = getPhysicalButtonImage(buttonName)
-	button:SetAttribute("ExpectedIconFile", sourceFile or "")
-
-	if not imageId then
-		if button:IsA("ImageButton") and (type(button.Image) ~= "string" or button.Image == "") then
-			warnOnce(
-				"missing-physical-icon-" .. buttonName,
-				"StudioHUDHookup: " .. buttonName .. " needs an uploaded Roblox image id for " .. tostring(sourceFile)
-			)
-		end
-		return
-	end
-
-	if setGuiImageIfBlank(button, imageId) then
-		return
-	end
-
-	local icon = button:FindFirstChild("Icon") or button:FindFirstChildWhichIsA("ImageLabel", true)
-	if icon and setGuiImageIfBlank(icon, imageId) then
-		return
-	end
-
-	warnOnce("icon-target-missing-" .. buttonName, "StudioHUDHookup: could not apply icon image to " .. buttonName)
-end
-
 local function tweenScale(button, value, duration)
 	local scale = getOrCreateScale(button)
-	TweenService:Create(scale, TweenInfo.new(duration or 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Scale = value,
-	}):Play()
+	TweenService:Create(scale, TweenInfo.new(duration or 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = value }):Play()
 end
 
 local function prepareButton(button)
@@ -360,15 +460,32 @@ local function prepareButton(button)
 	button.Active = true
 	button.Selectable = true
 	button.Visible = true
-
 	for _, descendant in ipairs(button:GetDescendants()) do
 		if descendant:IsA("GuiObject") and not descendant:IsA("GuiButton") then
 			descendant.Active = false
 			descendant.Selectable = false
 		end
 	end
-
 	getOrCreateScale(button)
+end
+
+local function openWindowForButton(buttonName)
+	local mainHud = getBestMainHud()
+	if not mainHud then
+		warnOnce("missing-mainhud", "StudioHUDHookup: MainHUD was not found.")
+		return
+	end
+
+	local wantedWindow = BUTTON_TO_WINDOW[buttonName]
+	local window = wantedWindow and getWindow(mainHud, wantedWindow)
+	if not window then
+		warnOnce("missing-window-" .. tostring(wantedWindow), "StudioHUDHookup: missing editable window " .. tostring(wantedWindow) .. ". Run StudioMenuWindowsBuilder.Build() in edit mode or create the Frame in Studio.")
+		return
+	end
+
+	populateWindow(window)
+	setWindowOpen(mainHud, window)
+	hookCloseButtons(mainHud)
 end
 
 local function activateButton(button, buttonName)
@@ -377,97 +494,21 @@ local function activateButton(button, buttonName)
 		return
 	end
 	lastActivatedAt[button] = now
-	print("StudioHUDHookup: clicked " .. buttonName)
-	openWindow(buttonName)
+	openWindowForButton(buttonName)
 end
 
-local function fireFallbackBindable(buttonName)
-	local bindableName = BUTTON_TO_BINDABLE[buttonName]
-	local bindable = bindableName and ReplicatedStorage:FindFirstChild(bindableName)
-	if bindable and bindable:IsA("BindableEvent") then
-		bindable:Fire({ from = "StudioHUD" })
-		return true
-	end
-	return false
-end
-
-function openWindow(buttonName)
-	local windowName = BUTTON_TO_WINDOW[buttonName]
-	if not windowName then
-		return
-	end
-
-	if UIManager.isRegistered(windowName) then
-		if windowName == "Inventory" then
-			local openInventoryBindable = ReplicatedStorage:FindFirstChild("HudOpenInventory")
-			if openInventoryBindable and openInventoryBindable:IsA("BindableEvent") then
-				openInventoryBindable:Fire({ from = "StudioHUD" })
-				return
-			end
-		end
-		local ok, err = pcall(function()
-			UIManager.open(windowName, { from = "StudioHUD" })
-		end)
-		if not ok then
-			warnOnce("window-open-" .. windowName, "StudioHUDHookup: failed to open '" .. windowName .. "': " .. tostring(err))
-		end
-		return
-	end
-
-	task.spawn(function()
-		local startedAt = os.clock()
-		while os.clock() - startedAt < 8 do
-			task.wait(0.1)
-			if UIManager.isRegistered(windowName) then
-				if windowName == "Inventory" then
-					local openInventoryBindable = ReplicatedStorage:FindFirstChild("HudOpenInventory")
-					if openInventoryBindable and openInventoryBindable:IsA("BindableEvent") then
-						openInventoryBindable:Fire({ from = "StudioHUD" })
-						return
-					end
-				end
-				local ok, err = pcall(function()
-					UIManager.open(windowName, { from = "StudioHUD" })
-				end)
-				if not ok then
-					warnOnce("window-open-" .. windowName, "StudioHUDHookup: failed to open '" .. windowName .. "': " .. tostring(err))
-				end
-				return
-			end
-		end
-
-		if fireFallbackBindable(buttonName) then
-			return
-		end
-
-		if windowName == "Codes" then
-			warnOnce("codes-missing", "StudioHUDHookup: Codes UI is not registered yet; CodesButton is connected to this placeholder.")
-		else
-			warnOnce("window-missing-" .. windowName, "StudioHUDHookup: missing UI window '" .. windowName .. "'.")
-		end
-	end)
-end
-
-local function hookButton(leftButtons, buttonName)
-	local button = leftButtons:FindFirstChild(buttonName)
-	if not button then
-		warnOnce("missing-" .. buttonName, "StudioHUDHookup: missing MainHUD.LeftButtons." .. buttonName)
-		return
-	end
-	if not button:IsA("GuiButton") then
-		warnOnce("not-button-" .. buttonName, "StudioHUDHookup: MainHUD.LeftButtons." .. buttonName .. " is not a GuiButton.")
+local function hookButton(button, buttonName)
+	if not button or not button:IsA("GuiButton") then
 		return
 	end
 	prepareButton(button)
-	applyButtonIcon(button, buttonName)
 	if connectedButtons[button] then
 		return
 	end
-
 	connectedButtons[button] = true
+
 	local isPressed = false
 	local isHovering = false
-
 	button.MouseEnter:Connect(function()
 		if UserInputService.MouseEnabled then
 			isHovering = true
@@ -476,28 +517,24 @@ local function hookButton(leftButtons, buttonName)
 			end
 		end
 	end)
-
 	button.MouseLeave:Connect(function()
 		isHovering = false
 		if not isPressed then
 			tweenScale(button, 1, 0.1)
 		end
 	end)
-
 	button.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			isPressed = true
 			tweenScale(button, 0.92, 0.06)
 		end
 	end)
-
 	button.InputEnded:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			isPressed = false
 			tweenScale(button, isHovering and 1.06 or 1, 0.12)
 		end
 	end)
-
 	button.Activated:Connect(function()
 		tweenScale(button, 0.96, 0.05)
 		task.delay(0.06, function()
@@ -507,29 +544,65 @@ local function hookButton(leftButtons, buttonName)
 		end)
 		activateButton(button, buttonName)
 	end)
+end
 
-	button.MouseButton1Click:Connect(function()
-		activateButton(button, buttonName)
+local function hookMenuButton(leftButtons)
+	local menuButton = leftButtons:FindFirstChild("MenuButton") or leftButtons:FindFirstChild("InventoryButton")
+	if not menuButton or not menuButton:IsA("GuiButton") then
+		return
+	end
+	if menuButton.Name ~= "MenuButton" then
+		return
+	end
+	if connectedButtons[menuButton] then
+		return
+	end
+
+	prepareButton(menuButton)
+	connectedButtons[menuButton] = true
+	local expanded = true
+	menuButton.Activated:Connect(function()
+		expanded = not expanded
+		for buttonName in pairs(BUTTON_TO_WINDOW) do
+			local button = leftButtons:FindFirstChild(buttonName)
+			if button and button:IsA("GuiObject") then
+				button.Visible = expanded
+			end
+		end
 	end)
 end
 
 local function hookHandmadeHud()
-	local leftButtonSets = collectLeftButtons()
-	if #leftButtonSets <= 0 then
-		warnOnce("missing-left-buttons", "StudioHUDHookup: missing handmade HUD path MainHUD.LeftButtons.")
+	local mainHud = getBestMainHud()
+	if not mainHud then
 		return false
 	end
 
-	for _, leftButtons in ipairs(leftButtonSets) do
-		applyVisibilitySafety(leftButtons)
+	local screenGui = mainHud:FindFirstAncestorOfClass("ScreenGui")
+	if screenGui then
+		screenGui.Enabled = true
+		screenGui.ResetOnSpawn = false
+		screenGui.DisplayOrder = math.max(screenGui.DisplayOrder, 999)
+	end
+	mainHud.Visible = true
 
+	local leftButtons = mainHud:FindFirstChild("LeftButtons") or mainHud:FindFirstChild("BottomRow")
+	if leftButtons and leftButtons:IsA("GuiObject") then
+		leftButtons.Visible = true
+		hookMenuButton(leftButtons)
 		for buttonName in pairs(BUTTON_TO_WINDOW) do
-			hookButton(leftButtons, buttonName)
+			hookButton(leftButtons:FindFirstChild(buttonName), buttonName)
 		end
+	else
+		warnOnce("missing-buttons", "StudioHUDHookup: could not find MainHUD.LeftButtons or MainHUD.BottomRow.")
 	end
 
+	for _, window in ipairs(getAllWindows(mainHud)) do
+		populateWindow(window)
+		window.Visible = false
+	end
+	hookCloseButtons(mainHud)
 	playerGui:SetAttribute("StudioMainHUDHooked", true)
-	playerGui:SetAttribute("StudioMainHUDVisualDebug", false)
 	return true
 end
 
@@ -545,7 +618,7 @@ task.defer(function()
 end)
 
 playerGui.DescendantAdded:Connect(function(descendant)
-	if descendant.Name == "MainHUD" or descendant.Name == "LeftButtons" or BUTTON_TO_WINDOW[descendant.Name] then
+	if descendant.Name == "MainHUD" or descendant.Name == "LeftButtons" or descendant.Name == "BottomRow" or descendant.Name:match("Window$") or BUTTON_TO_WINDOW[descendant.Name] then
 		task.defer(hookHandmadeHud)
 	end
 end)

@@ -3,6 +3,7 @@ local Workspace = game:GetService("Workspace")
 
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
+local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
 local PetModelUtil = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetModelUtil"))
 
 local StudioPetAppearanceBuilder = {}
@@ -11,6 +12,13 @@ local SOURCE_NAME = "PetAppearanceStudio"
 local ORIGIN = Vector3.new(50000, 5000, 50000)
 local ROW_SPACING = 35
 local PET_SPACING = 14
+local MUTATION_SPACING = 8
+
+local PREVIEW_MUTATIONS = {
+	"Shadowed",
+	"Glimmer",
+	"Glitched",
+}
 
 local function isVisualObject(object)
 	return object and (object:IsA("Model") or object:IsA("BasePart"))
@@ -216,6 +224,30 @@ local function addPreviewLabel(object, text)
 	label.Parent = billboard
 end
 
+local function ensureMutationVariants(petsFolder, entry)
+	local variantsFolder = getOrCreateFolder(petsFolder, entry.petId .. "_Mutations")
+	for _, mutationId in ipairs(PREVIEW_MUTATIONS) do
+		local existing = variantsFolder:FindFirstChild(mutationId)
+		if not existing then
+			local clone = PetModelUtil.ClonePetModel(entry.petId, {
+				anchored = true,
+				removeBillboards = true,
+				mutationId = mutationId,
+			})
+			if clone then
+				clone.Name = mutationId
+				clone.Parent = variantsFolder
+				clone:SetAttribute("MutationId", mutationId)
+			end
+		end
+		local variant = variantsFolder:FindFirstChild(mutationId)
+		if variant then
+			applyPetAttributes(variant, entry.eggId or "Unknown", entry)
+			variant:SetAttribute("MutationId", mutationId)
+		end
+	end
+end
+
 function StudioPetAppearanceBuilder.Build()
 	local source = getOrCreateSource()
 	local createdPets = 0
@@ -242,6 +274,7 @@ function StudioPetAppearanceBuilder.Build()
 			if not entry.petId then
 				continue
 			end
+			entry.eggId = eggId
 			local petObject = petsFolder:FindFirstChild(entry.petId)
 			if not isVisualObject(petObject) then
 				petObject = createPetTemplate(entry)
@@ -252,12 +285,13 @@ function StudioPetAppearanceBuilder.Build()
 			end
 			if petObject then
 				applyPetAttributes(petObject, eggId, entry)
+				ensureMutationVariants(petsFolder, entry)
 			end
 		end
 	end
 
 	StudioPetAppearanceBuilder.Arrange()
-	print("StudioPetAppearanceBuilder: ready at Workspace." .. SOURCE_NAME .. " with " .. tostring(createdEggs) .. " new egg models and " .. tostring(createdPets) .. " new Color models.")
+	print("StudioPetAppearanceBuilder: ready at Workspace." .. SOURCE_NAME .. " with mutation variants enabled.")
 	return source
 end
 
@@ -281,7 +315,17 @@ function StudioPetAppearanceBuilder.Arrange()
 		if petsFolder then
 			local column = 1
 			for _, pet in ipairs(getSortedChildren(petsFolder)) do
-				if isVisualObject(pet) then
+				if pet:IsA("Folder") then
+					local mutationColumn = column
+					for _, mutationModel in ipairs(getSortedChildren(pet)) do
+						if isVisualObject(mutationModel) then
+							local mutationPosition = rowOrigin + Vector3.new(mutationColumn * PET_SPACING, 0, MUTATION_SPACING)
+							placeOnGround(mutationModel, mutationPosition, 0)
+							addPreviewLabel(mutationModel, mutationModel:GetAttribute("MutationId") or mutationModel.Name)
+							mutationColumn += 1
+						end
+					end
+				elseif isVisualObject(pet) then
 					local petPosition = rowOrigin + Vector3.new(column * PET_SPACING, 0, 0)
 					placeOnGround(pet, petPosition, 0)
 
@@ -303,7 +347,7 @@ function StudioPetAppearanceBuilder.Arrange()
 		row += 1
 	end
 
-	print("StudioPetAppearanceBuilder: arranged PetAppearanceStudio at " .. tostring(ORIGIN) .. ". Select it in Explorer and press F to jump there.")
+	print("StudioPetAppearanceBuilder: arranged mutation previews at " .. tostring(ORIGIN) .. ".")
 	return source
 end
 

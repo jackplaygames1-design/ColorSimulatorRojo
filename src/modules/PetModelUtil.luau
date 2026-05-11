@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local PetDefinitions = require(script.Parent:WaitForChild("PetDefinitions"))
+local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
 
 local PetModelUtil = {}
 local warned = {}
@@ -13,6 +14,13 @@ local RAINBOW_COLORS = {
 	Color3.fromRGB(70, 210, 255),
 	Color3.fromRGB(90, 115, 255),
 	Color3.fromRGB(190, 100, 255),
+}
+
+local MUTATION_ACCENTS = {
+	Dark = Color3.fromRGB(65, 24, 115),
+	Light = Color3.fromRGB(255, 242, 145),
+	Corrupted = Color3.fromRGB(255, 45, 95),
+	None = Color3.fromRGB(210, 220, 235),
 }
 
 local function warnOnce(key, message)
@@ -90,6 +98,7 @@ end
 local function stripPreviewOnly(root)
 	for _, descendant in ipairs(root:GetDescendants()) do
 		if descendant:GetAttribute("PreviewOnly") == true
+			or descendant:GetAttribute("MutationVisual") == true
 			or (descendant:IsA("BillboardGui") and descendant.Name == "PreviewLabel")
 		then
 			descendant:Destroy()
@@ -206,6 +215,109 @@ function PetModelUtil.EnsureTemplate(petId)
 	return template, definition
 end
 
+local function getMutationData(mutationId)
+	local mutation = ColorMutationData.get(mutationId)
+	if not mutation or mutation.Id == ColorMutationData.NoneId then
+		return nil
+	end
+	return mutation
+end
+
+local function makeMutationPart(model, name, shape, size, cframe, color, material, transparency)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Shape = shape or Enum.PartType.Ball
+	part.Size = size
+	part.CFrame = cframe or CFrame.new()
+	part.Color = color
+	part.Material = material or Enum.Material.Neon
+	part.Transparency = transparency or 0
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part:SetAttribute("MutationVisual", true)
+	part:SetAttribute("PreviewOnly", true)
+	part.Parent = model
+	return part
+end
+
+local function tintModelForMutation(model, mutation)
+	local typeColor = mutation.TypeColor or ColorMutationData.getTypeColor(mutation.Type)
+	local auraColor = mutation.AuraColor or ColorMutationData.getTypeAura(mutation.Type)
+	local tintStrength = mutation.Type == "Dark" and 0.62 or mutation.Type == "Light" and 0.38 or 0.5
+
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BasePart") and descendant:GetAttribute("NoMutationTint") ~= true then
+			if descendant:GetAttribute("NoTint") == true and descendant.Name ~= "Core" and descendant.Name ~= "GlowShell" then
+				continue
+			end
+			descendant.Color = descendant.Color:Lerp(typeColor, tintStrength)
+			if mutation.Type == "Light" then
+				descendant.Material = Enum.Material.Neon
+			elseif mutation.Type == "Dark" then
+				descendant.Material = descendant.Name == "Core" and Enum.Material.SmoothPlastic or Enum.Material.ForceField
+			elseif mutation.Type == "Corrupted" then
+				descendant.Material = Enum.Material.Neon
+			end
+		end
+	end
+
+	local primary = findPrimary(model)
+	if primary then
+		local light = primary:FindFirstChild("MutationGlow") or Instance.new("PointLight")
+		light.Name = "MutationGlow"
+		light.Color = auraColor
+		light.Range = mutation.Type == "Light" and 13 or 10
+		light.Brightness = mutation.Type == "Corrupted" and 2.1 or mutation.Type == "Light" and 1.8 or 1.25
+		light.Shadows = false
+		light:SetAttribute("MutationVisual", true)
+		light.Parent = primary
+	end
+end
+
+function PetModelUtil.ApplyMutationVisuals(model, mutationId)
+	if not model or not model:IsA("Model") then
+		return model
+	end
+
+	local mutation = getMutationData(mutationId)
+	model:SetAttribute("MutationId", mutation and mutation.Id or ColorMutationData.NoneId)
+	model:SetAttribute("MutationName", mutation and mutation.DisplayName or "Normal")
+	if not mutation then
+		return model
+	end
+
+	stripPreviewOnly(model)
+	tintModelForMutation(model, mutation)
+
+	local primary = findPrimary(model)
+	if not primary then
+		return model
+	end
+
+	local baseCFrame = primary.CFrame
+	local auraColor = mutation.AuraColor or MUTATION_ACCENTS[mutation.Type] or Color3.fromRGB(255, 255, 255)
+	local typeColor = mutation.TypeColor or auraColor
+
+	makeMutationPart(model, "MutationAura", Enum.PartType.Ball, Vector3.new(2.75, 2.75, 2.75), baseCFrame, auraColor, Enum.Material.ForceField, mutation.Type == "Dark" and 0.45 or 0.62)
+
+	if mutation.Type == "Dark" then
+		makeMutationPart(model, "DarkMist", Enum.PartType.Ball, Vector3.new(3.15, 1.2, 3.15), baseCFrame * CFrame.new(0, -0.25, 0), Color3.fromRGB(25, 12, 45), Enum.Material.ForceField, 0.52)
+		makeMutationPart(model, "EclipseRing", Enum.PartType.Cylinder, Vector3.new(0.08, 3.45, 3.45), baseCFrame * CFrame.Angles(0, 0, math.rad(90)), typeColor, Enum.Material.Neon, 0.24)
+	elseif mutation.Type == "Light" then
+		makeMutationPart(model, "LightHalo", Enum.PartType.Cylinder, Vector3.new(0.08, 2.55, 2.55), baseCFrame * CFrame.new(0, 1.65, 0) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(255, 245, 155), Enum.Material.Neon, 0.08)
+		makeMutationPart(model, "RadiantShell", Enum.PartType.Ball, Vector3.new(3.15, 3.15, 3.15), baseCFrame, Color3.fromRGB(255, 255, 210), Enum.Material.ForceField, 0.72)
+	elseif mutation.Type == "Corrupted" then
+		makeMutationPart(model, "GlitchShardA", Enum.PartType.Block, Vector3.new(0.22, 0.8, 0.22), baseCFrame * CFrame.new(1.35, 0.45, 0) * CFrame.Angles(math.rad(18), math.rad(35), math.rad(10)), Color3.fromRGB(255, 42, 84), Enum.Material.Neon, 0.05)
+		makeMutationPart(model, "GlitchShardB", Enum.PartType.Block, Vector3.new(0.18, 0.7, 0.18), baseCFrame * CFrame.new(-1.25, -0.15, 0.45) * CFrame.Angles(math.rad(-14), math.rad(-25), math.rad(20)), Color3.fromRGB(70, 230, 255), Enum.Material.Neon, 0.05)
+		makeMutationPart(model, "ErrorRing", Enum.PartType.Cylinder, Vector3.new(0.08, 3.05, 3.05), baseCFrame * CFrame.Angles(math.rad(25), 0, math.rad(90)), Color3.fromRGB(255, 35, 105), Enum.Material.Neon, 0.18)
+	end
+
+	return model
+end
+
 function PetModelUtil.PrepareModel(model, options)
 	options = options or {}
 	if not model or not model:IsA("Model") then
@@ -224,6 +336,11 @@ function PetModelUtil.PrepareModel(model, options)
 	if not primary then
 		warnOnce("clone-missing-primary:" .. model.Name, "PetModelUtil: cloned pet model " .. model.Name .. " has no PrimaryPart/Core.")
 	end
+
+	if options.mutationId then
+		PetModelUtil.ApplyMutationVisuals(model, options.mutationId)
+	end
+
 	return model
 end
 
@@ -253,7 +370,7 @@ function PetModelUtil.MountViewport(viewport, petId, options)
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 
-	local model = PetModelUtil.ClonePetModel(petId, { anchored = true, removeBillboards = true })
+	local model = PetModelUtil.ClonePetModel(petId, { anchored = true, removeBillboards = true, mutationId = options.mutationId })
 	if not model then
 		return nil
 	end
