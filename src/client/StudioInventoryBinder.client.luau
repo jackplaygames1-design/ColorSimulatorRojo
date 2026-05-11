@@ -10,101 +10,21 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local connected = setmetatable({}, { __mode = "k" })
+local signalConnected = setmetatable({}, { __mode = "k" })
+local popConnected = setmetatable({}, { __mode = "k" })
 local selectedItem = nil
 local warned = {}
 
 local DEMO_ITEMS = {
-	{
-		id = "rainbow_color",
-		name = "Rainbow Color",
-		rarity = "Rare",
-		mutation = "Glitched",
-		power = 25,
-		equipped = false,
-		locked = false,
-		color = Color3.fromRGB(255, 65, 175),
-	},
-	{
-		id = "red_color",
-		name = "Red Color",
-		rarity = "Common",
-		mutation = "None",
-		power = 8,
-		equipped = false,
-		locked = false,
-		color = Color3.fromRGB(235, 60, 65),
-	},
-	{
-		id = "orange_color",
-		name = "Orange Color",
-		rarity = "Uncommon",
-		mutation = "Glimmer",
-		power = 14,
-		equipped = false,
-		locked = false,
-		color = Color3.fromRGB(255, 145, 45),
-	},
-	{
-		id = "pipe_color",
-		name = "Pipe Color",
-		rarity = "Uncommon",
-		mutation = "Shadowed",
-		power = 18,
-		equipped = false,
-		locked = false,
-		color = Color3.fromRGB(70, 210, 255),
-	},
-	{
-		id = "gem_color",
-		name = "Gem Color",
-		rarity = "Rare",
-		mutation = "Prism",
-		power = 20,
-		equipped = false,
-		locked = false,
-		color = Color3.fromRGB(55, 255, 185),
-	},
-	{
-		id = "void_color",
-		name = "Void Color",
-		rarity = "Legendary",
-		mutation = "Corrupted",
-		power = 40,
-		equipped = false,
-		locked = false,
-		color = Color3.fromRGB(145, 75, 255),
-	},
-	{
-		id = "sun_color",
-		name = "Sun Color",
-		rarity = "Rare",
-		mutation = "Solar",
-		power = 28,
-		equipped = false,
-		locked = false,
-		color = Color3.fromRGB(255, 220, 70),
-	},
-	{
-		id = "ink_color",
-		name = "Ink Color",
-		rarity = "Rare",
-		mutation = "Inkblot",
-		power = 31,
-		equipped = false,
-		locked = false,
-		color = Color3.fromRGB(70, 45, 125),
-	},
-	{
-		id = "error_color",
-		name = "Error Color",
-		rarity = "Legendary",
-		mutation = "Error 404",
-		power = 55,
-		equipped = false,
-		locked = false,
-		color = Color3.fromRGB(255, 35, 105),
-	},
+	{ id = "rainbow_color", name = "Rainbow Color", rarity = "Rare", mutation = "Glitched", power = 25, equipped = false, locked = false, color = Color3.fromRGB(255, 65, 175) },
+	{ id = "red_color", name = "Red Color", rarity = "Common", mutation = "None", power = 8, equipped = false, locked = false, color = Color3.fromRGB(235, 60, 65) },
+	{ id = "orange_color", name = "Orange Color", rarity = "Uncommon", mutation = "Glimmer", power = 14, equipped = false, locked = false, color = Color3.fromRGB(255, 145, 45) },
+	{ id = "pipe_color", name = "Pipe Color", rarity = "Uncommon", mutation = "Shadowed", power = 18, equipped = false, locked = false, color = Color3.fromRGB(70, 210, 255) },
+	{ id = "gem_color", name = "Gem Color", rarity = "Rare", mutation = "Prism", power = 20, equipped = false, locked = false, color = Color3.fromRGB(55, 255, 185) },
+	{ id = "void_color", name = "Void Color", rarity = "Legendary", mutation = "Corrupted", power = 40, equipped = false, locked = false, color = Color3.fromRGB(145, 75, 255) },
+	{ id = "sun_color", name = "Sun Color", rarity = "Rare", mutation = "Solar", power = 28, equipped = false, locked = false, color = Color3.fromRGB(255, 220, 70) },
+	{ id = "ink_color", name = "Ink Color", rarity = "Rare", mutation = "Inkblot", power = 31, equipped = false, locked = false, color = Color3.fromRGB(70, 45, 125) },
+	{ id = "error_color", name = "Error Color", rarity = "Legendary", mutation = "Error 404", power = 55, equipped = false, locked = false, color = Color3.fromRGB(255, 35, 105) },
 }
 
 local function warnOnce(key, message)
@@ -175,7 +95,7 @@ local function getManualParts(window)
 		return nil
 	end
 
-	local parts = {
+	return {
 		content = content,
 		gridPanel = gridPanel,
 		detailsPanel = detailsPanel,
@@ -187,7 +107,6 @@ local function getManualParts(window)
 		lockButton = findFirst(detailsPanel, { "LockButton" }),
 		deleteButton = findFirst(detailsPanel, { "DeleteButton" }),
 	}
-	return parts
 end
 
 local function setText(label, text)
@@ -198,7 +117,7 @@ local function setText(label, text)
 end
 
 local function setImageColor(gui, color)
-	if gui and gui:IsA("ImageLabel") or gui and gui:IsA("ImageButton") then
+	if gui and (gui:IsA("ImageLabel") or gui:IsA("ImageButton")) then
 		gui.ImageColor3 = color
 		gui.BackgroundTransparency = 1
 		gui.Visible = true
@@ -224,19 +143,22 @@ local function updateSlotVisual(slot, item, isSelected)
 	if not slot or not slot:IsA("GuiObject") then
 		return
 	end
+
 	local icon = slot:FindFirstChild("Icon", true) or slot:FindFirstChild("PreviewIcon", true)
 	local glow = slot:FindFirstChild("MutationGlow", true)
 	local equippedBadge = slot:FindFirstChild("EquippedBadge", true)
 	local lockBadge = slot:FindFirstChild("LockBadge", true)
 	local stroke = slot:FindFirstChildOfClass("UIStroke")
 
-	if slot:IsA("TextButton") or slot:IsA("ImageButton") then
-		if slot:IsA("TextButton") then
-			slot.Text = ""
-		end
-		slot.AutoButtonColor = false
-		pdateActive = true
+	if slot:IsA("TextButton") then
+		slot.Text = ""
 	end
+	if slot:IsA("GuiButton") then
+		slot.Active = true
+		slot.Selectable = true
+		slot.AutoButtonColor = false
+	end
+
 	if icon then
 		setImageColor(icon, item.color)
 		if icon:IsA("TextLabel") or icon:IsA("TextButton") then
@@ -275,10 +197,10 @@ local function updateDetails(parts, item)
 end
 
 local function addButtonPop(button)
-	if connected[button] then
+	if not button or not button:IsA("GuiButton") or popConnected[button] then
 		return
 	end
-	connected[button] = true
+	popConnected[button] = true
 	local scale = button:FindFirstChildOfClass("UIScale") or Instance.new("UIScale")
 	scale.Scale = 1
 	scale.Parent = button
@@ -336,29 +258,33 @@ local function hookInventory(window)
 
 	for index, slot in ipairs(slots) do
 		local item = DEMO_ITEMS[index]
-		if item and not connected[slot] then
-			connected[slot] = true
+		if item then
 			slot.Active = true
 			slot.Selectable = true
 			addButtonPop(slot)
-			slot.Activated:Connect(function()
-				updateDetails(parts, item)
-				refreshAll()
-			end)
+			if not signalConnected[slot] then
+				signalConnected[slot] = true
+				slot.Activated:Connect(function()
+					updateDetails(parts, item)
+					refreshAll()
+				end)
+			end
 		end
 	end
 
 	local function hookAction(button, callback)
-		if button and button:IsA("GuiButton") and not connected[button] then
-			connected[button] = true
+		if button and button:IsA("GuiButton") then
 			addButtonPop(button)
-			button.Activated:Connect(function()
-				if selectedItem then
-					callback(selectedItem)
-					updateDetails(parts, selectedItem)
-					refreshAll()
-				end
-			end)
+			if not signalConnected[button] then
+				signalConnected[button] = true
+				button.Activated:Connect(function()
+					if selectedItem then
+						callback(selectedItem)
+						updateDetails(parts, selectedItem)
+						refreshAll()
+					end
+				end)
+			end
 		end
 	end
 
