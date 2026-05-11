@@ -18,7 +18,6 @@ local useItemEvent = Events:WaitForChild("UseItem")
 local equipPaintToolEvent = Events:WaitForChild("EquipPaintTool")
 
 local InventoryIconConfig = require(ReplicatedStorage:WaitForChild("InventoryIconConfig"))
-local PetModelUtil = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetModelUtil"))
 
 local TAB_NAMES = { "Colors", "Brushes", "Potions", "Items" }
 local currentTab = "Colors"
@@ -229,7 +228,7 @@ local function getInventoryIconImage(iconName)
 	return nil, spec, false
 end
 
-local function getOrCreateButtonIcon(button, iconName, createIfMissing)
+local function getButtonIcon(button, iconName)
 	if not button or not button:IsA("GuiObject") then
 		return nil
 	end
@@ -247,24 +246,10 @@ local function getOrCreateButtonIcon(button, iconName, createIfMissing)
 	if icon and (icon:IsA("ImageLabel") or icon:IsA("ImageButton")) then
 		return icon
 	end
-	if not createIfMissing or not button:IsA("GuiButton") then
-		return nil
-	end
-
-	local image = Instance.new("ImageLabel")
-	image.Name = "ActionIcon"
-	image.BackgroundTransparency = 1
-	image.AnchorPoint = Vector2.new(0, 0.5)
-	image.Position = UDim2.new(0, 10, 0.5, 0)
-	image.Size = UDim2.fromOffset(24, 24)
-	image.ZIndex = button.ZIndex + 1
-	image.Active = false
-	image.Selectable = false
-	image.Parent = button
-	return image
+	return nil
 end
 
-local function applyInventoryIcon(button, iconName, createIfMissing)
+local function applyInventoryIcon(button, iconName)
 	local imageId, spec, usesSheet = getInventoryIconImage(iconName)
 	if button then
 		button:SetAttribute("InventoryIconName", iconName)
@@ -275,7 +260,7 @@ local function applyInventoryIcon(button, iconName, createIfMissing)
 		return
 	end
 
-	local icon = getOrCreateButtonIcon(button, iconName, createIfMissing)
+	local icon = getButtonIcon(button, iconName)
 	if not icon then
 		return
 	end
@@ -315,9 +300,9 @@ local function applyInventoryIcons()
 		end
 	end
 
-	applyInventoryIcon(ui.equipButton, "Equip", true)
-	applyInventoryIcon(ui.lockButton, "Lock", true)
-	applyInventoryIcon(ui.deleteButton, "Delete", true)
+	applyInventoryIcon(ui.equipButton, "Equip")
+	applyInventoryIcon(ui.lockButton, "Lock")
+	applyInventoryIcon(ui.deleteButton, "Delete")
 end
 
 local function prepareStructure()
@@ -368,13 +353,6 @@ local function prepareStructure()
 	ui.equipButton = findChildByNames(ui.detailPanel, { "EquipButton", "UseButton", "PrimaryButton" })
 	ui.lockButton = findChildByNames(ui.detailPanel, { "LockButton" })
 	ui.deleteButton = findChildByNames(ui.detailPanel, { "DeleteButton" })
-	print(
-		"[EditableInventoryBinder] details targets",
-		ui.bigPreview and ui.bigPreview:GetFullName() or "missing-preview",
-		ui.selectedName and ui.selectedName:GetFullName() or "missing-name",
-		ui.selectedRarity and ui.selectedRarity:GetFullName() or "missing-rarity",
-		ui.statsText and ui.statsText:GetFullName() or "missing-stats"
-	)
 	return true
 end
 
@@ -389,6 +367,48 @@ local function clearPreview(preview)
 	end
 end
 
+local function setExistingPreviewImage(preview, item)
+	if preview:IsA("ImageLabel") or preview:IsA("ImageButton") then
+		if item.IconImage and item.IconImage ~= "" then
+			preview.Image = item.IconImage
+			preview.ImageTransparency = 0
+		end
+		if item.IconColor then
+			preview.ImageColor3 = item.IconColor
+		end
+		return true
+	end
+
+	local image = findDescendantByNames(preview, { "PreviewImage", "IconImage", "Image", "Icon" })
+	if image and (image:IsA("ImageLabel") or image:IsA("ImageButton")) then
+		if item.IconImage and item.IconImage ~= "" then
+			image.Image = item.IconImage
+			image.ImageTransparency = 0
+		end
+		if item.IconColor then
+			image.ImageColor3 = item.IconColor
+		end
+		image.Visible = true
+		return true
+	end
+	return false
+end
+
+local function setExistingPreviewText(preview, item)
+	local iconText = item.IconText or string.upper(string.sub(item.Name or item.Id or "IT", 1, 2))
+	if preview:IsA("TextLabel") or preview:IsA("TextButton") then
+		setText(preview, iconText)
+		return true
+	end
+
+	local label = findDescendantByNames(preview, { "PreviewText", "IconText", "Label", "Text" })
+	if label and (label:IsA("TextLabel") or label:IsA("TextButton") or label:IsA("TextBox")) then
+		setText(label, iconText)
+		return true
+	end
+	return false
+end
+
 local function paintPreview(preview, item)
 	if not preview or not preview:IsA("GuiObject") then
 		return
@@ -398,47 +418,11 @@ local function paintPreview(preview, item)
 		preview.ZIndex = math.max(preview.ZIndex, preview.Parent.ZIndex + 1)
 	end
 	clearPreview(preview)
-	if item.IconImage and item.IconImage ~= "" then
-		local image = Instance.new("ImageLabel")
-		image.Name = "PreviewImage"
-		image.BackgroundTransparency = 1
-		image.Image = item.IconImage
-		image.Size = UDim2.fromScale(1, 1)
-		image.ZIndex = preview.ZIndex + 1
-		image.Parent = preview
-		return
+	setExistingPreviewImage(preview, item)
+	setExistingPreviewText(preview, item)
+	if item.IconColor then
+		preview.BackgroundColor3 = item.IconColor
 	end
-
-	if item.Kind == "Color" and item.PetId then
-		local viewport = Instance.new("ViewportFrame")
-		viewport.Name = "PreviewViewport"
-		viewport.BackgroundTransparency = 1
-		viewport.Size = UDim2.fromScale(1, 1)
-		viewport.ZIndex = preview.ZIndex + 1
-		viewport.Parent = preview
-		local ok = pcall(function()
-			PetModelUtil.MountViewport(viewport, item.PetId, { spin = false })
-		end)
-		if ok then
-			return
-		end
-		viewport:Destroy()
-	end
-
-	local label = Instance.new("TextLabel")
-	label.Name = "PreviewText"
-	label.BackgroundColor3 = item.IconColor or Color3.fromRGB(225, 235, 248)
-	label.BorderSizePixel = 0
-	label.Size = UDim2.fromScale(1, 1)
-	label.Font = Enum.Font.GothamBlack
-	label.TextScaled = true
-	label.TextColor3 = Color3.fromRGB(255, 255, 255)
-	label.TextStrokeColor3 = Color3.fromRGB(35, 38, 45)
-	label.TextStrokeTransparency = 0
-	label.Text = item.IconText or string.upper(string.sub(item.Name or item.Id or "IT", 1, 2))
-	label.ZIndex = preview.ZIndex + 1
-	label.Parent = preview
-	Instance.new("UICorner", label).CornerRadius = UDim.new(0, 10)
 end
 
 local function makeCard(item, index)
@@ -477,7 +461,6 @@ local function makeCard(item, index)
 
 	local function selectItem()
 		selectedItem = item
-		print("[EditableInventoryBinder] selected " .. tostring(item.Name or item.Id or "item"))
 		renderDetails()
 	end
 	connectCardSelection(card, selectItem)
@@ -516,12 +499,6 @@ renderDetails = function()
 	setDetailText(ui.selectedRarity, item.Rarity or item.Mutation or item.Kind)
 	setDetailText(ui.selectedDescription, item.Description or item.Bonus or "")
 	setDetailText(ui.statsText, table.concat(item.Stats or {}, "\n"))
-	print(
-		"[EditableInventoryBinder] details filled",
-		tostring(item.Name),
-		ui.selectedName and tostring(ui.selectedName.Text) or "missing-name",
-		ui.statsText and tostring(ui.statsText.Text) or "missing-stats"
-	)
 
 	if item.Kind == "Color" then
 		setText(ui.equipButton, item.Equipped and "UNEQUIP" or "EQUIP")
