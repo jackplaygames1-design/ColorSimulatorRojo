@@ -91,6 +91,9 @@
       "StudioMenuWindowsBuilder": {
         "$path": "src/shared/StudioMenuWindowsBuilder.luau"
       },
+      "StudioZorkWindowsUpdater": {
+        "$path": "src/shared/StudioZorkWindowsUpdater.luau"
+      },
       "UIManager": {
         "$path": "src/shared/UIManager.luau"
       },
