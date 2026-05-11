@@ -43,7 +43,6 @@ local RUNTIME_LAYER_NAMES = {
 	CodesUI = true,
 	CollectFeedbackUI = true,
 	CoreJuiceUI = true,
-	EggShopUI = true,
 	EquipmentShopUI = true,
 	GamepassUI = true,
 	GroupRewardsGui = true,
@@ -56,6 +55,10 @@ local RUNTIME_LAYER_NAMES = {
 	SocialPanelsUI = true,
 	WildBuffToastUI = true,
 	WorldUI = true,
+}
+
+local RUNTIME_LAYER_CREATION_ALLOWED = {
+	EggShopUI = true,
 }
 
 local function warnLegacyOnce(name)
@@ -188,6 +191,15 @@ function ClientUIRoot.GetLayer(playerGui, layerName)
 	end
 
 	if not layer then
+		if RUNTIME_LAYER_CREATION_ALLOWED[layerName] then
+			layer = Instance.new("Frame")
+			layer.Name = layerName
+			layer.BackgroundTransparency = 1
+			layer.BorderSizePixel = 0
+			layer.Size = UDim2.fromScale(1, 1)
+			layer.Parent = root
+			return layer
+		end
 		if not warnedRuntimeLayer[layerName] then
 			warnedRuntimeLayer[layerName] = true
 			warn("ClientUIRoot: runtime UI layer creation disabled for " .. tostring(layerName))

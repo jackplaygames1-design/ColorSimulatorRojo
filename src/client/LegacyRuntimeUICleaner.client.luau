@@ -45,7 +45,6 @@ local RUNTIME_LAYER_NAMES = {
 	CodesUI = true,
 	CollectFeedbackUI = true,
 	CoreJuiceUI = true,
-	EggShopUI = true,
 	EquipmentShopUI = true,
 	GamepassUI = true,
 	GroupRewardsGui = true,

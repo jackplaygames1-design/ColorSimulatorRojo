@@ -1,8 +1,3 @@
--- Disabled: no PlayerGui UI should be created at runtime.
-if true then
-	return
-end
-
 -- Focused Sector egg shop: one usable egg per Sector.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

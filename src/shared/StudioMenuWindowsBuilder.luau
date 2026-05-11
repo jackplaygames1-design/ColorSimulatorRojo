@@ -177,6 +177,91 @@ local function makeCardGrid(content, names)
 	end
 end
 
+local function makeSettingsGrid(content)
+	local cards = {
+		{
+			name = "MusicCard",
+			icon = "MU",
+			title = "Music",
+			description = "Background music.",
+			status = "ON",
+			buttonText = "TURN OFF",
+		},
+		{
+			name = "SFXCard",
+			icon = "SF",
+			title = "SFX",
+			description = "Sound effects.",
+			status = "ON",
+			buttonText = "TURN OFF",
+		},
+		{
+			name = "HidePetsCard",
+			icon = "HI",
+			title = "Hide Pets",
+			description = "Pet visibility option coming soon.",
+			status = "SOON",
+			buttonText = "SOON",
+		},
+		{
+			name = "LowDetailCard",
+			icon = "LO",
+			title = "Low Detail",
+			description = "Reduce visual effects.",
+			status = "OFF",
+			buttonText = "TURN ON",
+		},
+		{
+			name = "AutoDeleteCard",
+			icon = "AU",
+			title = "Auto Delete",
+			description = "Auto-delete rules coming soon.",
+			status = "SOON",
+			buttonText = "SOON",
+		},
+		{
+			name = "CodesCard",
+			icon = "CO",
+			title = "Codes",
+			description = "Open code redemption.",
+			status = "WINDOW",
+			buttonText = "OPEN",
+		},
+	}
+
+	for index, item in ipairs(cards) do
+		local x = ((index - 1) % 3) * 238 + 14
+		local y = math.floor((index - 1) / 3) * 132 + 14
+		local card = frame(
+			content,
+			item.name,
+			UDim2.fromOffset(x, y),
+			UDim2.fromOffset(222, 118),
+			Color3.fromRGB(255, 255, 255)
+		)
+		local icon = frame(
+			card,
+			"Icon",
+			UDim2.fromOffset(10, 10),
+			UDim2.fromOffset(58, 58),
+			Color3.fromRGB(225, 244, 255)
+		)
+		text(icon, "IconText", item.icon, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18).TextXAlignment =
+			Enum.TextXAlignment.Center
+		text(card, "Name", item.title, UDim2.fromOffset(78, 8), UDim2.new(1, -88, 0, 28), 17)
+		text(card, "Description", item.description, UDim2.fromOffset(78, 38), UDim2.new(1, -88, 0, 34), 12)
+		text(card, "Price", item.status, UDim2.fromOffset(10, 76), UDim2.fromOffset(90, 28), 13)
+		button(
+			card,
+			"BuyButton",
+			item.buttonText,
+			UDim2.new(1, -110, 1, -42),
+			UDim2.fromOffset(96, 32),
+			Color3.fromRGB(84, 225, 112)
+		)
+	end
+end
+
 local function makeShopTemplates(shopWindow)
 	local templates = findOrCreate(shopWindow, "Folder", "Templates")
 	local card, created = findOrCreate(templates, "Frame", "ShopCardTemplate")
@@ -249,7 +334,7 @@ function Builder.Build()
 	local _, upgradesContent = makeWindow(windowsFolder, "UpgradesWindow", "UPGRADES", { "Player", "Colors", "Rank" })
 	makeCardGrid(upgradesContent, { "Walk Speed", "Brush Power", "Coin Boost", "Gem Luck" })
 	local _, settingsContent = makeWindow(windowsFolder, "SettingsWindow", "SETTINGS", {})
-	makeCardGrid(settingsContent, { "Music", "SFX", "Hide Pets", "Low Detail", "Auto Delete" })
+	makeSettingsGrid(settingsContent)
 	local _, codesContent = makeWindow(windowsFolder, "CodesWindow", "CODES", {})
 	makeCardGrid(codesContent, { "CodeBox", "RedeemButton", "InfoText", "RecentRewards" })
 	local _, tradeContent = makeWindow(windowsFolder, "TradeWindow", "TRADE", {})
