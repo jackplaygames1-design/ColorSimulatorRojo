@@ -2955,6 +2955,25 @@ local function conceptPanel(parent, name, position, size, color, radius, strokeT
 	return panel
 end
 
+local function conceptScrollingPanel(parent, name, position, size, color, radius, strokeThickness)
+	local panel = ensureClass(parent, "ScrollingFrame", name)
+	panel.Position = position
+	panel.Size = size
+	panel.BackgroundColor3 = color or Color3.fromRGB(255, 255, 255)
+	panel.BackgroundTransparency = 0
+	panel.BorderSizePixel = 0
+	panel.ClipsDescendants = true
+	panel.ScrollBarThickness = 6
+	panel.ScrollBarImageColor3 = MUTED
+	panel.ScrollingDirection = Enum.ScrollingDirection.Y
+	panel.ScrollingEnabled = true
+	panel.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	panel.CanvasSize = UDim2.fromOffset(0, 0)
+	applyCorner(panel, radius or 18)
+	applyStroke(panel, OUTLINE, strokeThickness or 2)
+	return panel
+end
+
 local function conceptWindow(modalWindows, name, title)
 	local window = ensureClass(modalWindows, "Frame", name)
 	clearChildren(window)
@@ -3245,15 +3264,19 @@ local function buildInventoryWindow(modalWindows)
 		Enum.TextXAlignment.Center
 	)
 
-	local details = conceptPanel(
-		content,
-		"DetailsPanel",
-		UDim2.fromScale(0.8, 0.05),
-		UDim2.fromScale(0.18, 0.82),
-		Color3.fromRGB(246, 250, 255),
-		18,
-		2
-	)
+	local details = ensureClass(content, "ScrollingFrame", "DetailsPanel")
+	details.Position = UDim2.fromScale(0.8, 0.05)
+	details.Size = UDim2.fromScale(0.18, 0.82)
+	details.BackgroundColor3 = Color3.fromRGB(246, 250, 255)
+	details.BorderSizePixel = 0
+	details.ScrollBarThickness = 8
+	details.ScrollBarImageColor3 = MUTED
+	details.ScrollingDirection = Enum.ScrollingDirection.Y
+	details.ScrollingEnabled = true
+	details.CanvasSize = UDim2.fromScale(0, 1.15)
+	details.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	applyCorner(details, 18)
+	applyStroke(details, OUTLINE, 2)
 	conceptLabel(
 		details,
 		"DetailsTitle",
@@ -3556,6 +3579,7 @@ end
 
 local function makeTradeList(parent, name, title, position, size)
 	local panel = conceptPanel(parent, name, position, size, Color3.fromRGB(250, 252, 255), 16, 2)
+	panel.ClipsDescendants = true
 	conceptLabel(
 		panel,
 		"Title",
@@ -3565,7 +3589,7 @@ local function makeTradeList(parent, name, title, position, size)
 		18,
 		Enum.TextXAlignment.Center
 	)
-	local list = conceptPanel(
+	local list = conceptScrollingPanel(
 		panel,
 		name .. "List",
 		UDim2.fromScale(0.04, 0.12),
@@ -3600,12 +3624,13 @@ local function buildTradeWindow(modalWindows)
 		16,
 		2
 	)
+	playersPanel.ClipsDescendants = true
 	conceptLabel(playersPanel, "Title", "PLAYERS", UDim2.fromScale(0.07, 0.03), UDim2.fromScale(0.86, 0.08), 16)
-	local playersList = conceptPanel(
+	local playersList = conceptScrollingPanel(
 		playersPanel,
 		"PlayersList",
 		UDim2.fromScale(0.07, 0.13),
-		UDim2.fromScale(0.86, 0.36),
+		UDim2.fromScale(0.86, 0.34),
 		Color3.fromRGB(255, 255, 255),
 		12,
 		1
@@ -3637,11 +3662,11 @@ local function buildTradeWindow(modalWindows)
 			11
 	end
 
-	local colorsList = conceptPanel(
+	local colorsList = conceptScrollingPanel(
 		playersPanel,
 		"ColorsList",
-		UDim2.fromScale(0.07, 0.54),
-		UDim2.fromScale(0.86, 0.4),
+		UDim2.fromScale(0.07, 0.53),
+		UDim2.fromScale(0.86, 0.39),
 		Color3.fromRGB(255, 255, 255),
 		12,
 		1

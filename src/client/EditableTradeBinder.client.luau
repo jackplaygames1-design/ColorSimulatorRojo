@@ -10,6 +10,9 @@ local tradeRequest = remotes:WaitForChild("TradeRequest", 20)
 local tradeUpdate = remotes:WaitForChild("TradeUpdate", 20)
 
 local ROOT_PATH = "PlayerGui.MainHUD.ModalWindows.TradeWindow"
+local TRADE_PICK_ACTIVE_ATTRIBUTE = "TradePickColorActive"
+local TRADE_PICK_RETURN_ATTRIBUTE = "TradePickReturnWindow"
+local TRADE_PICK_REFRESH_ATTRIBUTE = "TradePickRefreshToken"
 local warned = {}
 local state = {
 	Message = "",
@@ -70,6 +73,7 @@ if not tradeWindow or not tradeWindow:IsA("GuiObject") then
 end
 
 local content = tradeWindow:FindFirstChild("Content") or tradeWindow
+local inventoryWindow = modalWindows:FindFirstChild("InventoryWindow")
 local ui = {
 	Status = findDescendant(content, "Status", "TextLabel", ROOT_PATH .. ".Content.Status"),
 	GemsLabel = findDescendant(content, "GemsLabel", "TextLabel", ROOT_PATH .. ".Content.GemsLabel"),
@@ -90,6 +94,7 @@ local ui = {
 findPath(tradeWindow, "Content")
 
 local slotConnections = {}
+local lastPickRefreshToken = mainHud:GetAttribute(TRADE_PICK_REFRESH_ATTRIBUTE)
 
 local function setText(object, value)
 	if object and (object:IsA("TextLabel") or object:IsA("TextButton")) then
@@ -185,14 +190,33 @@ local function updateSlot(slot, labelText, metaText, buttonText, enabled, callba
 
 	setText(nameLabel, labelText)
 	setText(metaLabel, metaText)
-	if button and button ~= slot then
-		setText(button, buttonText)
+	if button then
+		if button == slot then
+			setText(button, labelText == "" and buttonText or "")
+		else
+			setText(button, buttonText)
+		end
 	end
 	setButtonEnabled(button, enabled == true)
 	setGuiVisible(slot, true)
 
 	if button and callback and enabled == true then
 		table.insert(slotConnections, button.Activated:Connect(callback))
+	end
+end
+
+local function beginInventoryPick()
+	if not state.Session then
+		setText(ui.Status, "Choose a player before adding Colors.")
+		return
+	end
+	mainHud:SetAttribute(TRADE_PICK_ACTIVE_ATTRIBUTE, true)
+	mainHud:SetAttribute(TRADE_PICK_RETURN_ATTRIBUTE, "TradeWindow")
+	if inventoryWindow and inventoryWindow:IsA("GuiObject") then
+		tradeWindow.Visible = false
+		inventoryWindow.Visible = true
+	else
+		warnOnce("PlayerGui.MainHUD.ModalWindows.InventoryWindow")
 	end
 end
 
@@ -296,7 +320,9 @@ render = function()
 			end)
 		end
 	end
-	clearRemainingSlots(myColorSlots, #myColors + 1)
+	for index = #myColors + 1, #myColorSlots do
+		updateSlot(myColorSlots[index], "", "", "+", session ~= nil, beginInventoryPick)
+	end
 
 	local theirColorSlots = collectSlots(ui.TheirOfferList, "TheirOffer")
 	local theirColors = type(theirOffer.Colors) == "table" and theirOffer.Colors or {}
@@ -326,6 +352,15 @@ end)
 
 connectButton(ui.CancelButton, function()
 	applyResult(invoke("Cancel"))
+end)
+
+mainHud:GetAttributeChangedSignal(TRADE_PICK_REFRESH_ATTRIBUTE):Connect(function()
+	local token = mainHud:GetAttribute(TRADE_PICK_REFRESH_ATTRIBUTE)
+	if token == lastPickRefreshToken then
+		return
+	end
+	lastPickRefreshToken = token
+	applyResult(invoke("GetState"))
 end)
 
 if tradeUpdate then

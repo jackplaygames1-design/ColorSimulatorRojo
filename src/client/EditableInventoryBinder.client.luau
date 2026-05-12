@@ -11,6 +11,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local inventoryRequest = remotes:WaitForChild("InventoryRequest")
 local inventoryAction = remotes:WaitForChild("InventoryAction")
+local tradeRequest = remotes:FindFirstChild("TradeRequest")
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local hatchEvent = Events:WaitForChild("HatchEgg")
@@ -37,10 +38,14 @@ local MAX_DETAIL_WIDTH = 430
 local MIN_CARD_WIDTH = 108
 local MAX_CARD_WIDTH = 148
 local CARD_GAP = 10
+local TRADE_PICK_ACTIVE_ATTRIBUTE = "TradePickColorActive"
+local TRADE_PICK_RETURN_ATTRIBUTE = "TradePickReturnWindow"
+local TRADE_PICK_REFRESH_ATTRIBUTE = "TradePickRefreshToken"
+
+local mainHud = playerGui:WaitForChild("MainHUD", 30)
+local modalWindows = mainHud and mainHud:WaitForChild("ModalWindows", 30)
 
 local function waitForInventoryWindow()
-	local mainHud = playerGui:WaitForChild("MainHUD", 30)
-	local modalWindows = mainHud and mainHud:WaitForChild("ModalWindows", 30)
 	return modalWindows and modalWindows:WaitForChild("InventoryWindow", 30)
 end
 
@@ -56,6 +61,7 @@ local viewportConnections = {}
 local petAppearanceConnections = {}
 local watchedPetAppearanceSource = nil
 local petAppearanceRefreshQueued = false
+local detailScrollWarningShown = false
 local iconWarnings = {}
 local renderDetails
 
@@ -329,6 +335,53 @@ local function connectCardSelection(card, callback)
 			connect(descendant)
 		end
 	end
+end
+
+local function isTradePickActive()
+	return mainHud and mainHud:GetAttribute(TRADE_PICK_ACTIVE_ATTRIBUTE) == true
+end
+
+local function finishTradePick()
+	if not mainHud then
+		return
+	end
+	mainHud:SetAttribute(TRADE_PICK_ACTIVE_ATTRIBUTE, false)
+	local returnWindowName = tostring(mainHud:GetAttribute(TRADE_PICK_RETURN_ATTRIBUTE) or "TradeWindow")
+	local returnWindow = modalWindows and modalWindows:FindFirstChild(returnWindowName)
+	if inventoryWindow and inventoryWindow:IsA("GuiObject") then
+		inventoryWindow.Visible = false
+	end
+	if returnWindow and returnWindow:IsA("GuiObject") then
+		returnWindow.Visible = true
+	end
+	mainHud:SetAttribute(TRADE_PICK_REFRESH_ATTRIBUTE, os.clock())
+end
+
+local function tryAddPickedColorToTrade(item)
+	if not isTradePickActive() then
+		return false
+	end
+	if not item or item.Kind ~= "Color" then
+		warn("EditableInventoryBinder: trade picker only accepts Color inventory cards.")
+		return true
+	end
+	if not tradeRequest then
+		tradeRequest = remotes:FindFirstChild("TradeRequest")
+	end
+	if not tradeRequest then
+		warn("EditableInventoryBinder: missing ReplicatedStorage.Remotes.TradeRequest")
+		return true
+	end
+
+	local ok, result = pcall(function()
+		return tradeRequest:InvokeServer("AddColor", { ColorId = item.Id })
+	end)
+	if not ok then
+		warn("EditableInventoryBinder: trade add failed: " .. tostring(result))
+		return true
+	end
+	finishTradePick()
+	return true
 end
 
 local function warnIconOnce(key, message)
@@ -825,6 +878,20 @@ local function polishDetails(detailWidth)
 	end
 
 	ui.detailPanel.ClipsDescendants = true
+	local detailContentHeight = 480
+	if ui.detailPanel:IsA("ScrollingFrame") then
+		ui.detailPanel.AutomaticCanvasSize = Enum.AutomaticSize.None
+		ui.detailPanel.CanvasSize = UDim2.fromOffset(0, detailContentHeight)
+		ui.detailPanel.ScrollingDirection = Enum.ScrollingDirection.Y
+		ui.detailPanel.ScrollingEnabled = true
+		ui.detailPanel.ScrollBarThickness = 8
+		ui.detailPanel.ScrollBarImageColor3 = Color3.fromRGB(92, 98, 116)
+	else
+		if not detailScrollWarningShown then
+			detailScrollWarningShown = true
+			warn("EditableInventoryBinder: InventoryWindow.Content.DetailsPanel should be a ScrollingFrame for tall pet details.")
+		end
+	end
 
 	if ui.bigPreview and ui.bigPreview:IsA("GuiObject") then
 		ui.bigPreview.AnchorPoint = Vector2.new(0.5, 0)
@@ -860,17 +927,17 @@ local function polishDetails(detailWidth)
 	end
 
 	local buttonWidth = math.max(86, math.floor((detailWidth - 76) / 3))
-	local buttonY = -58
+	local buttonY = 404
 	if ui.equipButton and ui.equipButton:IsA("GuiObject") then
-		ui.equipButton.Position = UDim2.new(0, 22, 1, buttonY)
+		ui.equipButton.Position = UDim2.fromOffset(22, buttonY)
 		ui.equipButton.Size = UDim2.fromOffset(buttonWidth, 40)
 	end
 	if ui.lockButton and ui.lockButton:IsA("GuiObject") then
-		ui.lockButton.Position = UDim2.new(0.5, -buttonWidth * 0.5, 1, buttonY)
+		ui.lockButton.Position = UDim2.new(0.5, -buttonWidth * 0.5, 0, buttonY)
 		ui.lockButton.Size = UDim2.fromOffset(buttonWidth, 40)
 	end
 	if ui.deleteButton and ui.deleteButton:IsA("GuiObject") then
-		ui.deleteButton.Position = UDim2.new(1, -buttonWidth - 22, 1, buttonY)
+		ui.deleteButton.Position = UDim2.new(1, -buttonWidth - 22, 0, buttonY)
 		ui.deleteButton.Size = UDim2.fromOffset(buttonWidth, 40)
 	end
 end
@@ -1070,11 +1137,10 @@ local function makeCard(item, index)
 			return
 		end
 		lastSelectAt = now
-		if isSameInventoryItem(selectedItem, item) then
-			selectedItem = nil
-		else
-			selectedItem = item
+		if tryAddPickedColorToTrade(item) then
+			return
 		end
+		selectedItem = item
 		renderDetails()
 		refreshCardSelectionVisuals()
 	end
@@ -1392,6 +1458,10 @@ startPetAppearanceWatch()
 
 inventoryWindow:GetPropertyChangedSignal("Visible"):Connect(function()
 	if inventoryWindow.Visible then
+		if isTradePickActive() then
+			currentTab = "Colors"
+			selectedItem = nil
+		end
 		queueInventoryLayout()
 		requestInventory()
 	end
