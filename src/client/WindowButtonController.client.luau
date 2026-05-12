@@ -15,7 +15,6 @@ local BUTTONS_PATH = ROOT_PATH .. ".BottomButtons"
 local WINDOWS_PATH = ROOT_PATH .. ".ModalWindows"
 
 local BUTTON_TO_WINDOW = {
-	InventoryButton = "InventoryWindow",
 	ShopButton = "ShopWindow",
 	WorldsButton = "WorldsWindow",
 	TradeButton = "TradeWindow",
@@ -24,7 +23,6 @@ local BUTTON_TO_WINDOW = {
 }
 
 local SIDE_BUTTON_NAMES = {
-	"InventoryButton",
 	"ShopButton",
 	"WorldsButton",
 	"TradeButton",
@@ -154,6 +152,12 @@ buttons.MenuButton = menuButton
 menuButton.Visible = true
 menuButton.Active = true
 
+local legacyInventoryButton = bottomButtons:FindFirstChild("InventoryButton")
+if legacyInventoryButton and legacyInventoryButton:IsA("GuiObject") then
+	legacyInventoryButton.Visible = false
+	legacyInventoryButton.Active = false
+end
+
 for _, buttonName in ipairs(SIDE_BUTTON_NAMES) do
 	buttons[buttonName] = findButton(bottomButtons, buttonName, BUTTONS_PATH .. "." .. buttonName)
 end
@@ -172,6 +176,11 @@ for _, windowName in pairs(BUTTON_TO_WINDOW) do
 	else
 		missing(WINDOWS_PATH .. "." .. windowName)
 	end
+end
+if allModalWindows.InventoryWindow then
+	windows.InventoryWindow = allModalWindows.InventoryWindow
+else
+	missing(WINDOWS_PATH .. ".InventoryWindow")
 end
 
 local function setSideButtonsVisible(visible)
@@ -221,7 +230,7 @@ local function openWindow(windowName)
 end
 
 local function toggleWindow(windowName)
-	local window = windows[windowName]
+	local window = allModalWindows[windowName]
 	if window and window.Visible and activeWindowName == windowName then
 		closeAllWindows()
 	else
@@ -231,7 +240,7 @@ end
 
 connectPress(menuButton, function()
 	playUI("Click")
-	setMenuExpanded(not menuExpanded)
+	toggleWindow("InventoryWindow")
 end, "MenuButton")
 
 for buttonName, windowName in pairs(BUTTON_TO_WINDOW) do

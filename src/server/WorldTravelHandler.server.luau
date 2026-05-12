@@ -483,6 +483,21 @@ local function isDebugAppearanceObject(obj)
 	return obj:FindFirstAncestor("PetAppearanceStudio") ~= nil
 end
 
+local function getAncestorWorldColor(obj)
+	local current = obj.Parent
+	while current and current ~= workspace do
+		local name = string.lower(current.Name)
+		for _, world in ipairs(ColorData.Worlds) do
+			local color = world.primaryColor
+			if color and string.find(name, string.lower(color), 1, true) then
+				return color
+			end
+		end
+		current = current.Parent
+	end
+	return nil
+end
+
 local function configureEggObject(obj, colorType, eggId)
 	if isDebugAppearanceObject(obj) then
 		return nil
@@ -538,6 +553,21 @@ local function findEggPart(colorType)
 
 	for _, obj in ipairs(workspace:GetDescendants()) do
 		if obj.Name == tostring(colorType) .. "Egg" and not isDebugAppearanceObject(obj) then
+			local configured = configureEggObject(obj, colorType, eggId)
+			if configured then
+				destinationCache[cacheKey] = configured
+				return configured
+			end
+		end
+	end
+
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if
+			(obj:IsA("BasePart") or obj:IsA("Model"))
+			and string.find(string.lower(obj.Name), "egg", 1, true)
+			and getAncestorWorldColor(obj) == colorType
+			and not isDebugAppearanceObject(obj)
+		then
 			local configured = configureEggObject(obj, colorType, eggId)
 			if configured then
 				destinationCache[cacheKey] = configured

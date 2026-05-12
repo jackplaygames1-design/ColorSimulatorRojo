@@ -3014,8 +3014,8 @@ end
 local function buildCurrencyBar(mainHud)
 	local currencyBar = ensureClass(mainHud, "Frame", "CurrencyBar")
 	clearChildren(currencyBar)
-	currencyBar.AnchorPoint = Vector2.new(0, 1)
-	currencyBar.Position = UDim2.new(0, 20, 1, -88)
+	currencyBar.AnchorPoint = Vector2.new(0, 0)
+	currencyBar.Position = UDim2.new(0, 20, 0.5, 8)
 	currencyBar.Size = UDim2.fromOffset(160, 150)
 	currencyBar.BackgroundTransparency = 1
 	currencyBar.Visible = true
@@ -3023,7 +3023,7 @@ local function buildCurrencyBar(mainHud)
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Vertical
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	layout.VerticalAlignment = Enum.VerticalAlignment.Top
 	layout.Padding = UDim.new(0, 8)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = currencyBar
@@ -3045,7 +3045,7 @@ local function buildBottomButtons(mainHud)
 	clearChildren(bottomButtons)
 	bottomButtons.AnchorPoint = Vector2.new(0.5, 1)
 	bottomButtons.Position = UDim2.new(0.5, 0, 1, -24)
-	bottomButtons.Size = UDim2.fromOffset(620, 78)
+	bottomButtons.Size = UDim2.fromOffset(540, 78)
 	bottomButtons.BackgroundTransparency = 1
 	bottomButtons.Visible = true
 
@@ -3059,11 +3059,31 @@ local function buildBottomButtons(mainHud)
 
 	makeBottomButton(bottomButtons, "RankButton", "RANK", 1, Color3.fromRGB(45, 167, 255))
 	makeBottomButton(bottomButtons, "TradeButton", "TRADE", 2, Color3.fromRGB(45, 167, 255))
-	makeBottomButton(bottomButtons, "InventoryButton", "INV", 3, Color3.fromRGB(45, 167, 255))
-	makeBottomButton(bottomButtons, "MenuButton", "MENU", 4, Color3.fromRGB(24, 138, 232))
-	makeBottomButton(bottomButtons, "ShopButton", "SHOP", 5, Color3.fromRGB(45, 167, 255))
-	makeBottomButton(bottomButtons, "WorldsButton", "WORLD", 6, Color3.fromRGB(45, 167, 255))
-	makeBottomButton(bottomButtons, "SettingsButton", "SET", 7, Color3.fromRGB(45, 167, 255))
+	makeBottomButton(bottomButtons, "MenuButton", "MENU", 3, Color3.fromRGB(24, 138, 232))
+	makeBottomButton(bottomButtons, "ShopButton", "SHOP", 4, Color3.fromRGB(45, 167, 255))
+	makeBottomButton(bottomButtons, "WorldsButton", "WORLD", 5, Color3.fromRGB(45, 167, 255))
+	makeBottomButton(bottomButtons, "SettingsButton", "SET", 6, Color3.fromRGB(45, 167, 255))
+end
+
+local function buildShopTransitionOverlay(mainHud)
+	local overlay = ensureClass(mainHud, "Frame", "ShopTransitionOverlay")
+	overlay.Size = UDim2.fromScale(1, 1)
+	overlay.Position = UDim2.fromScale(0, 0)
+	overlay.BackgroundTransparency = 1
+	overlay.BorderSizePixel = 0
+	overlay.Visible = false
+	overlay.Active = false
+	overlay.ZIndex = 10000
+
+	local fade = ensureClass(overlay, "Frame", "ShopFade")
+	fade.Size = UDim2.fromScale(1, 1)
+	fade.Position = UDim2.fromScale(0, 0)
+	fade.BackgroundColor3 = Color3.fromRGB(5, 7, 12)
+	fade.BackgroundTransparency = 1
+	fade.BorderSizePixel = 0
+	fade.Visible = false
+	fade.Active = false
+	fade.ZIndex = 10000
 end
 
 local function makeInventoryTab(parent, name, label, order, selected)
@@ -3913,6 +3933,21 @@ local function buildPlaceholderWindow(modalWindows, name, title)
 	)
 end
 
+function Builder.UpdateShopTransitionOverlay()
+	if not canBuildConceptMenus("UpdateShopTransitionOverlay") then
+		return
+	end
+
+	local mainHud = StarterGui:FindFirstChild("MainHUD")
+	if not mainHud or not mainHud:IsA("ScreenGui") then
+		warn("StudioMenuWindowsBuilder: missing StarterGui.MainHUD for ShopTransitionOverlay.")
+		return
+	end
+
+	buildShopTransitionOverlay(mainHud)
+	print("StudioMenuWindowsBuilder: updated editable StarterGui.MainHUD.ShopTransitionOverlay.")
+end
+
 function Builder.BuildConceptMenus()
 	if not canBuildConceptMenus("BuildConceptMenus") then
 		return
@@ -3932,6 +3967,7 @@ function Builder.BuildConceptMenus()
 
 	buildCurrencyBar(mainHud)
 	buildBottomButtons(mainHud)
+	buildShopTransitionOverlay(mainHud)
 
 	local modalWindows = ensureClass(mainHud, "Folder", "ModalWindows")
 	buildInventoryWindow(modalWindows)

@@ -115,7 +115,7 @@ local function unlockTeleport(player, locationId, displayName)
 	set[locationId] = true
 
 	local ordered = {}
-	for _, id in ipairs({ "OriginSector", "RedWastelands", "ZorkShop", "OrangeSector", "InsidePipes" }) do
+	for _, id in ipairs({ "OriginSector", "RedWastelands", "ZorkShop", "OrangeSector", "InsidePipes", "GreenSector" }) do
 		if set[id] then
 			table.insert(ordered, id)
 		end

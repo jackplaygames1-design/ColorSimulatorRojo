@@ -162,7 +162,6 @@ local function findExteriorEntrances(shop, shopInside)
 			obj:IsA("BasePart")
 			and obj.Name ~= "ShopDoorTeleportTrigger"
 			and not isNpcPart(obj)
-			and not isShopInteriorDescendant(obj, shopInside)
 			and isNamedEntrancePart(obj)
 		then
 			table.insert(namedEntrances, obj)
@@ -182,7 +181,7 @@ local function findExteriorEntrances(shop, shopInside)
 			obj:IsA("BasePart")
 			and obj.Name ~= "ShopDoorTeleportTrigger"
 			and not isNpcPart(obj)
-			and not isShopInteriorDescendant(obj, shopInside)
+			and (isNamedEntrancePart(obj) or not isShopInteriorDescendant(obj, shopInside))
 		then
 			local score = getEntranceFallbackScore(obj)
 			if score > bestScore then

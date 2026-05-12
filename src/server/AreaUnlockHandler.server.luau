@@ -148,7 +148,7 @@ local function appendUnlockedTeleport(player, locationId)
 	set[locationId] = true
 
 	local ordered = {}
-	for _, id in ipairs({ "OriginSector", "RedWastelands", "ZorkShop", "OrangeSector", "InsidePipes" }) do
+	for _, id in ipairs({ "OriginSector", "RedWastelands", "ZorkShop", "OrangeSector", "InsidePipes", "GreenSector" }) do
 		if set[id] then
 			table.insert(ordered, id)
 		end
@@ -1195,17 +1195,20 @@ local function tryUnlockWorld(player, world)
 	coins.Value -= world.unlockCost
 	appendUnlockedColor(unlockedValue, world.primaryColor)
 	setCurrentWorld(player, world.primaryColor, "current-world")
-	local unlockedTeleport = world.primaryColor == "Orange" and appendUnlockedTeleport(player, "OrangeSector")
+	local teleportLocationId = world.primaryColor == "Orange" and "OrangeSector"
+		or world.primaryColor == "Green" and "GreenSector"
+		or nil
+	local unlockedTeleport = teleportLocationId and appendUnlockedTeleport(player, teleportLocationId)
 	markDataDirty(player, "unlocked-" .. world.primaryColor)
 	print("Unlocked " .. world.name .. " for " .. tostring(world.unlockCost) .. " Coins")
 	unlockEvent:FireClient(player, "unlocked", world.primaryColor, world)
 	if unlockedTeleport and travelResultEvent and travelResultEvent:IsA("RemoteEvent") then
 		travelResultEvent:FireClient(player, {
 			Success = true,
-			LocationId = "OrangeSector",
-			DisplayName = "Orange Sector",
+			LocationId = teleportLocationId,
+			DisplayName = world.name,
 			UnlockedTeleport = true,
-			Message = "Orange Sector teleport unlocked.",
+			Message = world.name .. " teleport unlocked.",
 		})
 	end
 	sendState(player)

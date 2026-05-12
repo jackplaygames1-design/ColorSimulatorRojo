@@ -1,39 +1,57 @@
--- Disabled: no PlayerGui UI should be created at runtime.
-if true then
-	return
-end
-
--- Small full-screen fade used by shop door teleports.
+-- Bind-only transition used by shop/interior teleports.
+-- The fade frame must be Studio-authored under PlayerGui.MainHUD.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
-local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
+local playerGui = player:WaitForChild("PlayerGui")
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local transitionEvent = Events:WaitForChild("ShopTransition")
 
-local layer = ClientUIRoot.GetLayer(player:WaitForChild("PlayerGui"), "ShopTransitionUI")
-layer.ZIndex = 10000
-layer.Visible = false
-layer.Active = false
+local warned = {}
+local function warnOnce(key, message)
+	if warned[key] then
+		return
+	end
+	warned[key] = true
+	warn(message)
+end
 
-local fade = Instance.new("Frame")
-fade.Name = "ShopFade"
-fade.Size = UDim2.fromScale(1, 1)
-fade.BackgroundColor3 = Color3.fromRGB(5, 7, 12)
-fade.BackgroundTransparency = 1
-fade.BorderSizePixel = 0
-fade.Active = false
-fade.Visible = false
-fade.ZIndex = 10000
-fade.Parent = layer
+local function getFade()
+	local mainHud = playerGui:FindFirstChild("MainHUD") or playerGui:WaitForChild("MainHUD", 20)
+	if not mainHud then
+		warnOnce("MainHUD", "ShopTransition: missing PlayerGui.MainHUD")
+		return nil, nil
+	end
+
+	local layer = mainHud:FindFirstChild("ShopTransitionOverlay")
+		or mainHud:FindFirstChild("TransitionOverlay")
+		or mainHud:FindFirstChild("ShopFade")
+	if not layer or not layer:IsA("GuiObject") then
+		warnOnce("Overlay", "ShopTransition: missing PlayerGui.MainHUD.ShopTransitionOverlay")
+		return nil, nil
+	end
+
+	local fade = layer.Name == "ShopFade" and layer or layer:FindFirstChild("ShopFade")
+	if not fade or not fade:IsA("GuiObject") then
+		warnOnce("Fade", "ShopTransition: missing PlayerGui.MainHUD.ShopTransitionOverlay.ShopFade")
+		return nil, nil
+	end
+
+	return layer, fade
+end
 
 local activeTween
 local token = 0
 
 local function tweenFade(targetTransparency, duration, hideWhenDone)
+	local layer, fade = getFade()
+	if not layer or not fade then
+		return
+	end
+
 	token += 1
 	local myToken = token
 	if activeTween then

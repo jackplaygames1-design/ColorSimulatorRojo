@@ -283,7 +283,7 @@ PetData.Eggs = {
 	},
 }
 
-PetData.EggOrder = { "ColorEgg", "OrangeEgg", "BlueEgg", "YellowEgg", "GreenEgg", "PurpleEgg", "NeonEgg", "RainbowEgg" }
+PetData.EggOrder = { "ColorEgg", "OrangeEgg", "GreenEgg", "BlueEgg", "YellowEgg", "PurpleEgg", "NeonEgg", "RainbowEgg" }
 
 PetData.StackTiers = {
 	{ name = "Normal", minStack = 1, prefix = "", powerMult = 1.0, coinMult = 1.0, auraColor = nil, auraEffect = "none" },
