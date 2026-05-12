@@ -408,12 +408,22 @@ local function teleportToExterior(player, entrance)
 	local shopCenter = getExteriorShopCenter(entrance)
 	local outward = shopCenter and (entrance.Position - shopCenter) or Vector3.zero
 	if outward.Magnitude < 0.01 then
+		local shopInside = getShopInside()
+		local interiorFloor = shopInside and findInteriorFloor(shopInside)
+		if interiorFloor then
+			outward = entrance.Position - interiorFloor.Position
+		end
+	else
+		outward = outward.Unit
+	end
+
+	if outward.Magnitude < 0.01 then
 		outward = -entrance.CFrame.LookVector
 	else
 		outward = outward.Unit
 	end
 
-	local offset = math.max(math.max(entrance.Size.X, entrance.Size.Z) * 0.5 + 14, 16)
+	local offset = math.max(math.max(entrance.Size.X, entrance.Size.Z) * 0.5 + 22, 24)
 	local destination = entrance.Position + outward * offset
 	destination = Vector3.new(destination.X, entrance.Position.Y + entrance.Size.Y * 0.5 + 3.2, destination.Z)
 	local lookAt = Vector3.new(entrance.Position.X, destination.Y, entrance.Position.Z)
