@@ -7,6 +7,11 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
+local CURRENCY_ROW_WIDTH = 170
+local CURRENCY_ROW_HEIGHT = 56
+local CURRENCY_ROW_PADDING = 16
+local CURRENCY_BOTTOM_OFFSET = 22
+
 local WARNED = {}
 
 local function warnOnce(key, message)
@@ -58,7 +63,10 @@ local function waitForMainHUD()
 
 	local mainHud = root:WaitForChild("MainHUD", 15)
 	if not mainHud then
-		warnOnce("missing-mainhud", "CurrencyHUD: missing PlayerGui.ClientUIRoot.MainHUD; handmade currency not hooked.")
+		warnOnce(
+			"missing-mainhud",
+			"CurrencyHUD: missing PlayerGui.ClientUIRoot.MainHUD; handmade currency not hooked."
+		)
 		printChildren(root, "[CurrencyHUD] ClientUIRoot child: ")
 		return nil
 	end
@@ -105,13 +113,12 @@ local function polishCurrencyBar(bar)
 	-- directly under MainHUD, place it cleanly in the lower-left safe zone.
 	if bar.Parent and bar.Parent.Name == "LeftHUD" then
 		bar.AnchorPoint = Vector2.new(0, 1)
-		bar.Position = UDim2.fromScale(0, 1)
-		bar.Size = UDim2.fromScale(1, 0.30)
+		bar.Position = UDim2.new(0, 0, 1, -CURRENCY_BOTTOM_OFFSET)
 	else
 		bar.AnchorPoint = Vector2.new(0, 1)
-		bar.Position = UDim2.new(0.035, 0, 0.96, 0)
-		bar.Size = UDim2.new(0.16, 0, 0.20, 0)
+		bar.Position = UDim2.fromScale(0.035, 0.96)
 	end
+	bar.AutomaticSize = Enum.AutomaticSize.None
 
 	local layout = bar:FindFirstChildOfClass("UIListLayout")
 	if not layout then
@@ -122,14 +129,17 @@ local function polishCurrencyBar(bar)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 10)
+	layout.Padding = UDim.new(0, CURRENCY_ROW_PADDING)
 
+	local currencyFrameCount = 0
 	for _, frame in ipairs(bar:GetChildren()) do
 		if frame:IsA("GuiObject") and not frame:IsA("UIListLayout") then
+			currencyFrameCount += 1
+			frame.AutomaticSize = Enum.AutomaticSize.None
 			frame.BackgroundTransparency = 1
 			frame.BorderSizePixel = 0
 			frame.ClipsDescendants = false
-			frame.Size = UDim2.new(0, 150, 0, 48)
+			frame.Size = UDim2.fromOffset(CURRENCY_ROW_WIDTH, CURRENCY_ROW_HEIGHT)
 			frame.ZIndex = bar.ZIndex + 1
 			if frame.Name:lower():find("gem") or frame.Name:lower():find("diamond") then
 				frame.LayoutOrder = 1
@@ -138,8 +148,17 @@ local function polishCurrencyBar(bar)
 			else
 				frame.LayoutOrder = 3
 			end
+
+			local amount = frame:FindFirstChild("Amount", true)
+			if amount and amount:IsA("GuiObject") then
+				amount.Position = UDim2.fromOffset(56, 0)
+				amount.Size = UDim2.new(1, -58, 1, 0)
+			end
 		end
 	end
+	local barHeight = currencyFrameCount * CURRENCY_ROW_HEIGHT
+		+ math.max(0, currencyFrameCount - 1) * CURRENCY_ROW_PADDING
+	bar.Size = UDim2.fromOffset(CURRENCY_ROW_WIDTH, math.max(CURRENCY_ROW_HEIGHT, barHeight))
 
 	setZRecursive(bar, bar.ZIndex)
 end
@@ -214,6 +233,9 @@ local function styleIcon(frame)
 	local icon = frame:FindFirstChild("Icon", true)
 	if icon and icon:IsA("GuiObject") then
 		icon.ZIndex = math.max(icon.ZIndex, 12)
+		icon.AnchorPoint = Vector2.new(0, 0.5)
+		icon.Position = UDim2.new(0, 2, 0.5, 0)
+		icon.Size = UDim2.fromOffset(48, 48)
 		if icon:IsA("ImageLabel") or icon:IsA("ImageButton") then
 			icon.BackgroundTransparency = 1
 			icon.ScaleType = Enum.ScaleType.Fit
@@ -233,10 +255,14 @@ local function playGainEffect(label, frame, delta, prefix)
 
 	local scale = frame:FindFirstChild("CurrencyPopScale")
 	if scale then
-		TweenService:Create(scale, TweenInfo.new(0.10, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.16 }):Play()
+		TweenService
+			:Create(scale, TweenInfo.new(0.10, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.16 })
+			:Play()
 		task.delay(0.10, function()
 			if scale.Parent then
-				TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+				TweenService
+					:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 })
+					:Play()
 			end
 		end)
 	end
@@ -293,7 +319,8 @@ end
 polishCurrencyBar(currencyBar)
 
 local coinsAmount, coinsFrame = findTextLabel(currencyBar, { "CoinsFrame", "CoinFrame", "Coins", "Coin" })
-local gemsAmount, gemsFrame = findTextLabel(currencyBar, { "GemsFrame", "GemFrame", "DiamondsFrame", "DiamondFrame", "Gems", "Diamonds" })
+local gemsAmount, gemsFrame =
+	findTextLabel(currencyBar, { "GemsFrame", "GemFrame", "DiamondsFrame", "DiamondFrame", "Gems", "Diamonds" })
 local colorAmount, colorFrame = findTextLabel(currencyBar, { "ColorFrame", "ColorsFrame", "PaintFrame", "Color" })
 
 styleAmountLabel(coinsAmount)
@@ -322,7 +349,9 @@ if not gems then
 	gems = leaderstats:WaitForChild("Gems", 10) or leaderstats:WaitForChild("Diamonds", 2)
 end
 
-local colorValue = leaderstats:FindFirstChild("Color") or leaderstats:FindFirstChild("Colors") or leaderstats:FindFirstChild("Paint")
+local colorValue = leaderstats:FindFirstChild("Color")
+	or leaderstats:FindFirstChild("Colors")
+	or leaderstats:FindFirstChild("Paint")
 
 connectValue(coins, coinsAmount, coinsFrame, "0", "+")
 connectValue(gems, gemsAmount, gemsFrame, "0", "+")

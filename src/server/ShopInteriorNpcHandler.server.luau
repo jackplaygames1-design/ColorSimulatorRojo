@@ -1,8 +1,8 @@
 -- Hooks the baked shop interior to the existing brush shop UI.
 -- The NPC is intentionally small and system-owned: the actual buying still uses ShopUI/PurchasePaintTool.
-local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local shopTransitionEvent = Events:FindFirstChild("ShopTransition")
@@ -35,31 +35,62 @@ local function getMap()
 	return Workspace:FindFirstChild(MAP_NAME)
 end
 
-local function findCaseInsensitiveChild(parent, childName)
-	if not parent then
+local function compactName(value)
+	return string.lower(tostring(value or "")):gsub("[%s_%-%p]", "")
+end
+
+local function isContainer(instance)
+	return instance and (instance:IsA("Folder") or instance:IsA("Model"))
+end
+
+local function findFirstContainerNamed(root, wantedName)
+	if not root then
 		return nil
 	end
-	local wanted = string.lower(childName)
-	for _, child in ipairs(parent:GetChildren()) do
-		if string.lower(child.Name) == wanted then
-			return child
+
+	local wanted = compactName(wantedName)
+	if isContainer(root) and compactName(root.Name) == wanted then
+		return root
+	end
+
+	for _, descendant in ipairs(root:GetDescendants()) do
+		if isContainer(descendant) and compactName(descendant.Name) == wanted then
+			return descendant
 		end
+	end
+	return nil
+end
+
+local function findAncestorContainerNamed(instance, wantedName)
+	local wanted = compactName(wantedName)
+	local current = instance and instance.Parent
+	while current and current ~= Workspace do
+		if isContainer(current) and compactName(current.Name) == wanted then
+			return current
+		end
+		current = current.Parent
 	end
 	return nil
 end
 
 local function getShopInside()
 	local map = getMap()
-	local shop = map and findCaseInsensitiveChild(map, SHOP_FOLDER_NAME)
-	if not shop then
-		shop = Workspace:FindFirstChild(SHOP_FOLDER_NAME)
-	end
-	return findCaseInsensitiveChild(shop, SHOP_INSIDE_NAME)
+	return findFirstContainerNamed(map, SHOP_INSIDE_NAME) or findFirstContainerNamed(Workspace, SHOP_INSIDE_NAME)
 end
 
 local function getShopFolder()
+	local shopInside = getShopInside()
+	local shop = findAncestorContainerNamed(shopInside, SHOP_FOLDER_NAME)
+	if shop then
+		return shop
+	end
+
 	local map = getMap()
-	return map and findCaseInsensitiveChild(map, SHOP_FOLDER_NAME) or Workspace:FindFirstChild(SHOP_FOLDER_NAME)
+	shop = findFirstContainerNamed(map, SHOP_FOLDER_NAME) or findFirstContainerNamed(Workspace, SHOP_FOLDER_NAME)
+	if shop then
+		return shop
+	end
+	return shopInside and shopInside.Parent or nil
 end
 
 local function isNpcPart(part)
@@ -98,31 +129,69 @@ local function findInteriorFloor(shopInside)
 	return best
 end
 
-local function findExteriorEntrance(shop)
+local function isShopInteriorDescendant(obj, shopInside)
+	return shopInside and obj:IsDescendantOf(shopInside)
+end
+
+local function isNamedEntrancePart(obj)
+	local name = compactName(obj.Name)
+	return obj:GetAttribute("ShopEntrance") == true
+		or obj:GetAttribute("ShopDoorTeleport") == true
+		or name == "shopentrance"
+		or name == "door"
+		or name == "entrance"
+		or name:find("zorkdoor", 1, true) ~= nil
+		or (name:find("shop", 1, true) ~= nil and name:find("door", 1, true) ~= nil)
+end
+
+local function getEntranceFallbackScore(obj)
+	local color = obj.Color
+	local blueScore = color.B - math.max(color.R, color.G) * 0.35
+	local verticalScore = obj.Size.Y - math.min(obj.Size.X, obj.Size.Z)
+	return blueScore * 10 + verticalScore
+end
+
+local function findExteriorEntrances(shop, shopInside)
 	if not shop then
-		return nil
+		return {}
 	end
+
+	local namedEntrances = {}
 	for _, obj in ipairs(shop:GetDescendants()) do
-		if obj:IsA("BasePart") and (obj.Name == "ShopEntrance" or obj.Name == "Door" or obj.Name == "Entrance") then
-			return obj
+		if
+			obj:IsA("BasePart")
+			and obj.Name ~= "ShopDoorTeleportTrigger"
+			and not isNpcPart(obj)
+			and not isShopInteriorDescendant(obj, shopInside)
+			and isNamedEntrancePart(obj)
+		then
+			table.insert(namedEntrances, obj)
 		end
+	end
+	if #namedEntrances > 0 then
+		table.sort(namedEntrances, function(a, b)
+			return a.Name < b.Name
+		end)
+		return namedEntrances
 	end
 
 	local best
 	local bestScore = -math.huge
-	for _, obj in ipairs(shop:GetChildren()) do
-		if obj:IsA("BasePart") then
-			local color = obj.Color
-			local blueScore = color.B - math.max(color.R, color.G) * 0.35
-			local verticalScore = obj.Size.Y - math.min(obj.Size.X, obj.Size.Z)
-			local score = blueScore * 10 + verticalScore
+	for _, obj in ipairs(shop:GetDescendants()) do
+		if
+			obj:IsA("BasePart")
+			and obj.Name ~= "ShopDoorTeleportTrigger"
+			and not isNpcPart(obj)
+			and not isShopInteriorDescendant(obj, shopInside)
+		then
+			local score = getEntranceFallbackScore(obj)
 			if score > bestScore then
 				best = obj
 				bestScore = score
 			end
 		end
 	end
-	return best
+	return best and { best } or {}
 end
 
 local function makePart(parent, name, size, cframe, color, material, shape)
@@ -219,7 +288,7 @@ local function ensureNpcLabel(core)
 		text.Parent = label
 	end
 	text.Size = UDim2.new(1, -20, 0, 28)
-	text.Position = UDim2.new(0, 10, 0, 6)
+	text.Position = UDim2.fromOffset(10, 6)
 	text.BackgroundTransparency = 1
 	text.Font = Enum.Font.GothamBlack
 	text.TextSize = 20
@@ -235,7 +304,7 @@ local function ensureNpcLabel(core)
 		role.Parent = label
 	end
 	role.Size = UDim2.new(1, -20, 0, 20)
-	role.Position = UDim2.new(0, 10, 0, 32)
+	role.Position = UDim2.fromOffset(10, 32)
 	role.BackgroundTransparency = 1
 	role.Font = Enum.Font.GothamBold
 	role.TextSize = 12
@@ -285,7 +354,8 @@ local function getExteriorShopCenter(entrance)
 	local total = Vector3.zero
 	local count = 0
 	for _, obj in ipairs(shop:GetDescendants()) do
-		if obj:IsA("BasePart")
+		if
+			obj:IsA("BasePart")
 			and obj ~= entrance
 			and (not shopInside or not obj:IsDescendantOf(shopInside))
 			and obj.Name ~= "ShopDoorTeleportTrigger"
@@ -302,14 +372,15 @@ local function getExteriorShopCenter(entrance)
 	return total / count
 end
 
-local function findExteriorExitAnchor(entrance)
+local function findExteriorExitAnchor()
 	local shop = getShopFolder()
 	if not shop then
 		return nil
 	end
 
 	for _, obj in ipairs(shop:GetDescendants()) do
-		if obj:IsA("BasePart")
+		if
+			obj:IsA("BasePart")
 			and (
 				obj:GetAttribute("ShopExitSpawn") == true
 				or obj.Name == "ShopExitSpawn"
@@ -328,7 +399,7 @@ local function teleportToExterior(player, entrance)
 		return false
 	end
 
-	local exitAnchor = findExteriorExitAnchor(entrance)
+	local exitAnchor = findExteriorExitAnchor()
 	if exitAnchor then
 		local destination = exitAnchor.Position + Vector3.new(0, exitAnchor.Size.Y * 0.5 + 3.2, 0)
 		local lookAt = Vector3.new(entrance.Position.X, destination.Y, entrance.Position.Z)
@@ -390,27 +461,11 @@ end
 
 local function ensureShopTeleportPrompts(shopInside, floor, npcCore)
 	local shop = getShopFolder()
-	local entrance = findExteriorEntrance(shop)
-	if not entrance or not floor then
+	local entrances = findExteriorEntrances(shop, shopInside)
+	local primaryEntrance = entrances[1]
+	if not primaryEntrance or not floor then
 		return
 	end
-
-	entrance:SetAttribute("ShopEntrance", true)
-	entrance:SetAttribute("ColorType", SHOP_COLOR)
-	local enterPrompt = entrance:FindFirstChild("EnterShopPrompt")
-	if not enterPrompt then
-		enterPrompt = Instance.new("ProximityPrompt")
-		enterPrompt.Name = "EnterShopPrompt"
-		enterPrompt.Parent = entrance
-	end
-	enterPrompt.ActionText = "Enter"
-	enterPrompt.ObjectText = "Brush Shop"
-	enterPrompt.KeyboardKeyCode = Enum.KeyCode.E
-	enterPrompt.GamepadKeyCode = Enum.KeyCode.ButtonX
-	enterPrompt.HoldDuration = 0
-	enterPrompt.MaxActivationDistance = 14
-	enterPrompt.RequiresLineOfSight = false
-	enterPrompt:SetAttribute("ShopEnterPrompt", true)
 
 	local function enterShop(player)
 		playShopTransition(player, function()
@@ -422,38 +477,57 @@ local function ensureShopTeleportPrompts(shopInside, floor, npcCore)
 		end)
 	end
 
-	if enterPrompt:GetAttribute("ShopTeleportHooked") ~= true then
-		enterPrompt:SetAttribute("ShopTeleportHooked", true)
-		enterPrompt.Triggered:Connect(enterShop)
-	end
+	for _, entrance in ipairs(entrances) do
+		entrance:SetAttribute("ShopEntrance", true)
+		entrance:SetAttribute("ColorType", SHOP_COLOR)
+		local enterPrompt = entrance:FindFirstChild("EnterShopPrompt")
+		if not enterPrompt then
+			enterPrompt = Instance.new("ProximityPrompt")
+			enterPrompt.Name = "EnterShopPrompt"
+			enterPrompt.Parent = entrance
+		end
+		enterPrompt.ActionText = "Enter"
+		enterPrompt.ObjectText = "Brush Shop"
+		enterPrompt.KeyboardKeyCode = Enum.KeyCode.E
+		enterPrompt.GamepadKeyCode = Enum.KeyCode.ButtonX
+		enterPrompt.HoldDuration = 0
+		enterPrompt.MaxActivationDistance = 14
+		enterPrompt.RequiresLineOfSight = false
+		enterPrompt:SetAttribute("ShopEnterPrompt", true)
 
-	local trigger = entrance:FindFirstChild("ShopDoorTeleportTrigger")
-	if not trigger then
-		trigger = Instance.new("Part")
-		trigger.Name = "ShopDoorTeleportTrigger"
-		trigger.Parent = entrance
-	end
-	trigger.Size = Vector3.new(
-		math.max(entrance.Size.X + 2, 6),
-		math.max(entrance.Size.Y + 2, 7),
-		math.max(entrance.Size.Z + 3, 5)
-	)
-	trigger.CFrame = entrance.CFrame
-	trigger.Anchored = true
-	trigger.CanCollide = false
-	trigger.CanTouch = true
-	trigger.CanQuery = false
-	trigger.Transparency = 1
-	trigger:SetAttribute("ShopDoorTeleport", true)
+		if enterPrompt:GetAttribute("ShopTeleportHooked") ~= true then
+			enterPrompt:SetAttribute("ShopTeleportHooked", true)
+			enterPrompt.Triggered:Connect(enterShop)
+		end
 
-	if trigger:GetAttribute("ShopTeleportHooked") ~= true then
-		trigger:SetAttribute("ShopTeleportHooked", true)
-		trigger.Touched:Connect(function(hit)
-			local player = getPlayerFromTouchedPart(hit)
-			if player then
-				enterShop(player)
-			end
-		end)
+		local trigger = entrance:FindFirstChild("ShopDoorTeleportTrigger")
+		if not trigger then
+			trigger = Instance.new("Part")
+			trigger.Name = "ShopDoorTeleportTrigger"
+			trigger.Parent = entrance
+		end
+		trigger.Size = Vector3.new(
+			math.max(entrance.Size.X + 2, 6),
+			math.max(entrance.Size.Y + 2, 7),
+			math.max(entrance.Size.Z + 3, 5)
+		)
+		trigger.CFrame = entrance.CFrame
+		trigger.Anchored = true
+		trigger.CanCollide = false
+		trigger.CanTouch = true
+		trigger.CanQuery = false
+		trigger.Transparency = 1
+		trigger:SetAttribute("ShopDoorTeleport", true)
+
+		if trigger:GetAttribute("ShopTeleportHooked") ~= true then
+			trigger:SetAttribute("ShopTeleportHooked", true)
+			trigger.Touched:Connect(function(hit)
+				local player = getPlayerFromTouchedPart(hit)
+				if player then
+					enterShop(player)
+				end
+			end)
+		end
 	end
 
 	local exitAnchor = shopInside:FindFirstChild("ShopExitPromptAnchor")
@@ -488,7 +562,7 @@ local function ensureShopTeleportPrompts(shopInside, floor, npcCore)
 		exitPrompt:SetAttribute("ShopTeleportHooked", true)
 		exitPrompt.Triggered:Connect(function(player)
 			playShopTransition(player, function()
-				return teleportToExterior(player, entrance)
+				return teleportToExterior(player, primaryEntrance)
 			end)
 		end)
 	end
@@ -516,20 +590,74 @@ local function ensureColorBrushNpc()
 	local basePosition = floor.Position + Vector3.new(0, floor.Size.Y * 0.5 + 3.2, 0)
 	local baseCFrame = CFrame.new(basePosition)
 
-	local root = makePart(npc, "HumanoidRootPart", Vector3.new(2, 5, 2), baseCFrame, Color3.fromRGB(80, 210, 255), Enum.Material.SmoothPlastic)
+	local root = makePart(
+		npc,
+		"HumanoidRootPart",
+		Vector3.new(2, 5, 2),
+		baseCFrame,
+		Color3.fromRGB(80, 210, 255),
+		Enum.Material.SmoothPlastic
+	)
 	root.Transparency = 1
 	root.CanQuery = false
 	npc.PrimaryPart = root
 
-	local body = makePart(npc, "ColorBody", Vector3.new(3.2, 3.2, 3.2), baseCFrame, Color3.fromRGB(55, 198, 255), Enum.Material.Neon, Enum.PartType.Ball)
-	local core = makePart(npc, "ShopPromptCore", Vector3.new(3.8, 4.6, 3.8), baseCFrame, Color3.fromRGB(55, 198, 255), Enum.Material.SmoothPlastic)
+	local body = makePart(
+		npc,
+		"ColorBody",
+		Vector3.new(3.2, 3.2, 3.2),
+		baseCFrame,
+		Color3.fromRGB(55, 198, 255),
+		Enum.Material.Neon,
+		Enum.PartType.Ball
+	)
+	local core = makePart(
+		npc,
+		"ShopPromptCore",
+		Vector3.new(3.8, 4.6, 3.8),
+		baseCFrame,
+		Color3.fromRGB(55, 198, 255),
+		Enum.Material.SmoothPlastic
+	)
 	core.Transparency = 1
-	local head = makePart(npc, "ColorHead", Vector3.new(1.7, 1.7, 1.7), baseCFrame * CFrame.new(0, 2.35, 0), Color3.fromRGB(148, 255, 119), Enum.Material.Neon, Enum.PartType.Ball)
-	local glow = makePart(npc, "ColorGlow", Vector3.new(4.3, 0.25, 4.3), baseCFrame * CFrame.new(0, -1.75, 0), Color3.fromRGB(92, 235, 255), Enum.Material.Neon, Enum.PartType.Cylinder)
+	local head = makePart(
+		npc,
+		"ColorHead",
+		Vector3.new(1.7, 1.7, 1.7),
+		baseCFrame * CFrame.new(0, 2.35, 0),
+		Color3.fromRGB(148, 255, 119),
+		Enum.Material.Neon,
+		Enum.PartType.Ball
+	)
+	local glow = makePart(
+		npc,
+		"ColorGlow",
+		Vector3.new(4.3, 0.25, 4.3),
+		baseCFrame * CFrame.new(0, -1.75, 0),
+		Color3.fromRGB(92, 235, 255),
+		Enum.Material.Neon,
+		Enum.PartType.Cylinder
+	)
 	glow.Transparency = 0.22
 
-	local handle = makePart(npc, "BrushHandle", Vector3.new(0.28, 3.1, 0.28), baseCFrame * CFrame.new(1.75, 0.2, 0) * CFrame.Angles(0, 0, math.rad(24)), Color3.fromRGB(255, 218, 112), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
-	local bristles = makePart(npc, "BrushBristles", Vector3.new(0.8, 0.65, 0.8), baseCFrame * CFrame.new(2.35, 1.55, 0) * CFrame.Angles(0, 0, math.rad(24)), Color3.fromRGB(255, 85, 130), Enum.Material.Neon, Enum.PartType.Ball)
+	local handle = makePart(
+		npc,
+		"BrushHandle",
+		Vector3.new(0.28, 3.1, 0.28),
+		baseCFrame * CFrame.new(1.75, 0.2, 0) * CFrame.Angles(0, 0, math.rad(24)),
+		Color3.fromRGB(255, 218, 112),
+		Enum.Material.SmoothPlastic,
+		Enum.PartType.Cylinder
+	)
+	local bristles = makePart(
+		npc,
+		"BrushBristles",
+		Vector3.new(0.8, 0.65, 0.8),
+		baseCFrame * CFrame.new(2.35, 1.55, 0) * CFrame.Angles(0, 0, math.rad(24)),
+		Color3.fromRGB(255, 85, 130),
+		Enum.Material.Neon,
+		Enum.PartType.Ball
+	)
 
 	for _, part in ipairs({ root, body, core, head, glow, handle, bristles }) do
 		applyShopAttributes(part)
@@ -550,7 +678,13 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 Workspace.DescendantAdded:Connect(function(obj)
-	if obj.Name == SHOP_FOLDER_NAME or string.lower(obj.Name) == SHOP_INSIDE_NAME then
+	local name = compactName(obj.Name)
+	if
+		name == compactName(SHOP_FOLDER_NAME)
+		or name == compactName(SHOP_INSIDE_NAME)
+		or name:find("zorkdoor", 1, true) ~= nil
+		or (name:find("shop", 1, true) ~= nil and name:find("door", 1, true) ~= nil)
+	then
 		task.defer(ensureColorBrushNpc)
 	end
 end)

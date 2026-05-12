@@ -29,6 +29,14 @@ local inventoryData = { Colors = {}, Brushes = {}, Potions = {}, Items = {}, Cou
 local selectedItem = nil
 local loading = false
 local PET_APPEARANCE_SOURCE_NAME = "PetAppearanceStudio"
+local CONTENT_MARGIN = 22
+local PANEL_PADDING = 14
+local PANEL_GAP = 18
+local MIN_DETAIL_WIDTH = 330
+local MAX_DETAIL_WIDTH = 430
+local MIN_CARD_WIDTH = 108
+local MAX_CARD_WIDTH = 148
+local CARD_GAP = 10
 
 local function waitForInventoryWindow()
 	local root = playerGui:WaitForChild("ClientUIRoot", 30)
@@ -142,6 +150,18 @@ local function setButtonEnabled(button, enabled)
 	end
 	button.Active = enabled == true
 	button.AutoButtonColor = enabled == true
+	button.BackgroundTransparency = enabled == true and 0 or 0.35
+	for _, descendant in ipairs(button:GetDescendants()) do
+		if descendant:IsA("GuiObject") then
+			descendant.Active = enabled == true
+		end
+	end
+end
+
+local function setButtonVisible(button, visible)
+	if button and button:IsA("GuiObject") then
+		button.Visible = visible == true
+	end
 end
 
 local function getPaintToolState()
@@ -184,6 +204,36 @@ local function isDisplayedEquipped(item)
 	return true
 end
 
+local function getItemKey(item)
+	if type(item) ~= "table" then
+		return ""
+	end
+
+	local id = item.Id
+		or item.id
+		or item.Key
+		or item.key
+		or item.VariantKey
+		or item.variantKey
+		or item.PetId
+		or item.petId
+		or item.Name
+		or item.name
+	local keyParts = {
+		tostring(item.Kind or item.kind or ""),
+		tostring(id or ""),
+		tostring(item.MutationId or item.Mutation or item.mutationId or ""),
+		tostring(item.TraitId or item.Trait or item.traitId or ""),
+		tostring(item.PersonalityId or item.Personality or item.personalityId or ""),
+	}
+	return table.concat(keyParts, "|")
+end
+
+local function isSameInventoryItem(left, right)
+	local leftKey = getItemKey(left)
+	return leftKey ~= "" and leftKey == getItemKey(right)
+end
+
 local function findDescendantByNames(parent, names)
 	if not parent then
 		return nil
@@ -223,7 +273,10 @@ local function connectGuiClick(guiObject, callback)
 
 	guiObject.Selectable = false
 	return guiObject.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if
+			input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
 			callback()
 		end
 	end)
@@ -414,7 +467,7 @@ local function applyInventoryIcons()
 		local tab = ui.tabs and ui.tabs:FindFirstChild(tabName .. "Tab", true)
 		local iconName = InventoryIconConfig.TabIcons and InventoryIconConfig.TabIcons[tabName]
 		if tab and iconName then
-			applyInventoryIcon(tab, iconName, false)
+			applyInventoryIcon(tab, iconName)
 		end
 	end
 
@@ -430,7 +483,8 @@ local function findViewportPreview(container)
 	if container:IsA("ViewportFrame") then
 		return container
 	end
-	local named = findDescendantByNames(container, { "PreviewViewport", "PetModelPreview", "Viewport", "ViewportFrame" })
+	local named =
+		findDescendantByNames(container, { "PreviewViewport", "PetModelPreview", "Viewport", "ViewportFrame" })
 	if named and named:IsA("ViewportFrame") then
 		return named
 	end
@@ -452,6 +506,60 @@ local function clearViewportPreview(viewport)
 	end
 end
 
+local STATIC_PREVIEW_NAMES = {
+	BigPreview = true,
+	IconText = true,
+	IconImage = true,
+	ItemPreview = true,
+	PreviewFrame = true,
+	PreviewIcon = true,
+	PreviewImage = true,
+	PreviewText = true,
+}
+
+local function clearGuiVisual(object)
+	if object:IsA("ImageLabel") or object:IsA("ImageButton") then
+		object.Image = ""
+		object.ImageRectOffset = Vector2.new(0, 0)
+		object.ImageRectSize = Vector2.new(0, 0)
+	elseif object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox") then
+		object.Text = ""
+	end
+end
+
+local function clearStaticPreviewContent(preview)
+	if not preview or not preview:IsA("GuiObject") then
+		return
+	end
+
+	clearGuiVisual(preview)
+	for _, descendant in ipairs(preview:GetDescendants()) do
+		if descendant:IsA("GuiObject") then
+			clearGuiVisual(descendant)
+		end
+	end
+
+	local scope = preview:IsA("ViewportFrame") and preview.Parent or nil
+	if not scope then
+		return
+	end
+	for _, descendant in ipairs(scope:GetDescendants()) do
+		if
+			descendant ~= preview
+			and not descendant:IsDescendantOf(preview)
+			and descendant:IsA("GuiObject")
+			and STATIC_PREVIEW_NAMES[descendant.Name] == true
+		then
+			clearGuiVisual(descendant)
+			for _, nested in ipairs(descendant:GetDescendants()) do
+				if nested:IsA("GuiObject") then
+					clearGuiVisual(nested)
+				end
+			end
+		end
+	end
+end
+
 local function setStaticPreviewVisible(preview, visible, includeLooseText)
 	if not preview or not preview:IsA("GuiObject") then
 		return
@@ -462,20 +570,12 @@ local function setStaticPreviewVisible(preview, visible, includeLooseText)
 		return
 	end
 
-	local previewNames = {
-		BigPreview = true,
-		IconText = true,
-		IconImage = true,
-		ItemPreview = true,
-		PreviewFrame = true,
-		PreviewIcon = true,
-		PreviewImage = true,
-		PreviewText = true,
-	}
-
 	for _, descendant in ipairs(scope:GetDescendants()) do
 		if descendant ~= preview and not descendant:IsDescendantOf(preview) and descendant:IsA("GuiObject") then
-			if previewNames[descendant.Name] == true or (includeLooseText == true and (descendant:IsA("TextLabel") or descendant:IsA("TextButton"))) then
+			if
+				STATIC_PREVIEW_NAMES[descendant.Name] == true
+				or (includeLooseText == true and (descendant:IsA("TextLabel") or descendant:IsA("TextButton")))
+			then
 				descendant.Visible = visible == true
 			end
 		end
@@ -550,7 +650,7 @@ local function prepareStructure()
 		return false
 	end
 
-	ui.gridPanel = ui.body:FindFirstChild("GridPanel")
+	ui.gridPanel = ui.body:FindFirstChild("GridPanel") or ui.body:FindFirstChild("ItemGrid")
 	if not ui.gridPanel then
 		warn("EditableInventoryBinder: missing InventoryWindow.Content.GridPanel")
 		return false
@@ -591,10 +691,22 @@ local function prepareStructure()
 		return false
 	end
 
-	ui.bigPreview = findChildByNames(ui.detailPanel, { "PreviewViewport", "PetModelPreview", "PreviewIcon", "BigPreview", "PreviewImage", "Preview", "Icon", "ItemPreview" })
-	ui.selectedName = findChildByNames(ui.detailPanel, { "ItemName", "SelectedName", "NameLabel", "Name", "Title", "SelectLabel" })
-	ui.selectedRarity = findChildByNames(ui.detailPanel, { "RarityLabel", "SelectedRarity", "Rarity", "Meta", "ItemMeta" })
-	ui.selectedDescription = findChildByNames(ui.detailPanel, { "SelectedDescription", "Description", "ItemDescription" })
+	ui.bigPreview = findChildByNames(ui.detailPanel, {
+		"PreviewViewport",
+		"PetModelPreview",
+		"PreviewIcon",
+		"BigPreview",
+		"PreviewImage",
+		"Preview",
+		"Icon",
+		"ItemPreview",
+	})
+	ui.selectedName =
+		findChildByNames(ui.detailPanel, { "ItemName", "SelectedName", "NameLabel", "Name", "Title", "SelectLabel" })
+	ui.selectedRarity =
+		findChildByNames(ui.detailPanel, { "RarityLabel", "SelectedRarity", "Rarity", "Meta", "ItemMeta" })
+	ui.selectedDescription =
+		findChildByNames(ui.detailPanel, { "SelectedDescription", "Description", "ItemDescription" })
 	ui.statsBox = findChildByNames(ui.detailPanel, { "StatsBox" })
 	ui.statsText = findChildByNames(ui.detailPanel, { "StatsLabel", "StatsText", "Stats" })
 	ui.equipButton = findChildByNames(ui.detailPanel, { "EquipButton", "UseButton", "PrimaryButton" })
@@ -603,14 +715,229 @@ local function prepareStructure()
 	return true
 end
 
-local function clearPreview(preview)
+local function styleTextToFit(label, maxTextSize)
+	if not label or not (label:IsA("TextLabel") or label:IsA("TextButton") or label:IsA("TextBox")) then
+		return
+	end
+	label.TextScaled = true
+	label.TextWrapped = label:IsA("TextLabel")
+	label.TextTruncate = Enum.TextTruncate.AtEnd
+	local constraint = label:FindFirstChildOfClass("UITextSizeConstraint")
+	if constraint then
+		constraint.MinTextSize = math.min(constraint.MinTextSize, 10)
+		constraint.MaxTextSize = math.min(constraint.MaxTextSize, maxTextSize or 22)
+	end
+end
+
+local function polishPreviewCard(card)
+	if not card or not card:IsA("GuiObject") then
+		return
+	end
+
+	card.ClipsDescendants = true
+	local preview = findDescendantByNames(card, {
+		"PreviewViewport",
+		"PetModelPreview",
+		"PreviewIcon",
+		"Preview",
+		"Icon",
+		"ItemPreview",
+		"PreviewFrame",
+	})
+	if preview and preview:IsA("GuiObject") then
+		preview.AnchorPoint = Vector2.new(0.5, 0)
+		preview.Position = UDim2.new(0.5, 0, 0, 8)
+		preview.Size = UDim2.new(1, -20, 0.56, -8)
+		preview.ClipsDescendants = true
+	end
+
+	local name = findDescendantByNames(card, { "Name", "ItemName", "Title", "ItemTitle" })
+	if name and (name:IsA("TextLabel") or name:IsA("TextButton") or name:IsA("TextBox")) then
+		name.Position = UDim2.new(0, 8, 0.62, 0)
+		name.Size = UDim2.new(1, -16, 0, 22)
+		name.TextXAlignment = Enum.TextXAlignment.Center
+		styleTextToFit(name, 16)
+	end
+
+	local meta = findDescendantByNames(card, { "Meta", "ItemMeta", "Rarity", "Amount", "Status" })
+	if meta and (meta:IsA("TextLabel") or meta:IsA("TextButton") or meta:IsA("TextBox")) then
+		meta.Position = UDim2.new(0, 8, 1, -28)
+		meta.Size = UDim2.new(1, -16, 0, 18)
+		meta.TextXAlignment = Enum.TextXAlignment.Center
+		styleTextToFit(meta, 13)
+	end
+end
+
+local function layoutCards()
+	if not ui.gridPanel or not ui.itemCards then
+		return
+	end
+
+	local gridSize = ui.gridPanel.AbsoluteSize
+	if gridSize.X <= 0 or gridSize.Y <= 0 then
+		return
+	end
+
+	local innerWidth = math.max(1, gridSize.X - PANEL_PADDING * 2)
+	local targetWidth = 126
+	local columns = math.max(2, math.floor((innerWidth + CARD_GAP) / (targetWidth + CARD_GAP)))
+	local cardWidth = math.floor((innerWidth - CARD_GAP * (columns - 1)) / columns)
+	cardWidth = math.clamp(cardWidth, MIN_CARD_WIDTH, MAX_CARD_WIDTH)
+	columns = math.max(2, math.floor((innerWidth + CARD_GAP) / (cardWidth + CARD_GAP)))
+
+	local totalWidth = columns * cardWidth + math.max(0, columns - 1) * CARD_GAP
+	local startX = PANEL_PADDING + math.max(0, math.floor((innerWidth - totalWidth) * 0.5))
+	local cardHeight = math.floor(cardWidth * 0.9)
+
+	for index, card in ipairs(ui.itemCards) do
+		if card:IsA("GuiObject") then
+			local col = (index - 1) % columns
+			local row = math.floor((index - 1) / columns)
+			card.Position =
+				UDim2.fromOffset(startX + col * (cardWidth + CARD_GAP), PANEL_PADDING + row * (cardHeight + CARD_GAP))
+			card.Size = UDim2.fromOffset(cardWidth, cardHeight)
+			card.LayoutOrder = index
+			polishPreviewCard(card)
+		end
+	end
+
+	local rows = math.ceil(#ui.itemCards / columns)
+	local contentHeight = PANEL_PADDING * 2 + rows * cardHeight + math.max(0, rows - 1) * CARD_GAP
+	if ui.gridPanel:IsA("ScrollingFrame") then
+		ui.gridPanel.AutomaticCanvasSize = Enum.AutomaticSize.None
+		ui.gridPanel.CanvasSize = UDim2.fromOffset(0, contentHeight)
+		ui.gridPanel.ScrollBarThickness = 8
+	end
+
+	if ui.emptyText and ui.emptyText:IsA("GuiObject") then
+		ui.emptyText.AnchorPoint = Vector2.new(0.5, 0.5)
+		ui.emptyText.Position = UDim2.fromScale(0.5, 0.5)
+		ui.emptyText.Size = UDim2.new(1, -40, 0, 40)
+	end
+	if ui.footer and ui.footer:IsA("GuiObject") then
+		ui.footer.AnchorPoint = Vector2.new(0, 1)
+		ui.footer.Position = UDim2.new(0, PANEL_PADDING, 1, -PANEL_PADDING)
+		ui.footer.Size = UDim2.new(1, -PANEL_PADDING * 2, 0, 28)
+	end
+end
+
+local function polishDetails(detailWidth)
+	if not ui.detailPanel or not ui.detailPanel:IsA("GuiObject") then
+		return
+	end
+
+	ui.detailPanel.ClipsDescendants = true
+
+	if ui.bigPreview and ui.bigPreview:IsA("GuiObject") then
+		ui.bigPreview.AnchorPoint = Vector2.new(0.5, 0)
+		ui.bigPreview.Position = UDim2.new(0.5, 0, 0, 18)
+		ui.bigPreview.Size = UDim2.fromOffset(math.min(170, detailWidth - 90), 118)
+		ui.bigPreview.ClipsDescendants = true
+	end
+
+	if ui.selectedName and ui.selectedName:IsA("GuiObject") then
+		ui.selectedName.Position = UDim2.fromOffset(24, 152)
+		ui.selectedName.Size = UDim2.new(1, -48, 0, 34)
+		styleTextToFit(ui.selectedName, 24)
+	end
+	if ui.selectedRarity and ui.selectedRarity:IsA("GuiObject") then
+		ui.selectedRarity.Position = UDim2.fromOffset(24, 188)
+		ui.selectedRarity.Size = UDim2.new(1, -48, 0, 24)
+		styleTextToFit(ui.selectedRarity, 16)
+	end
+	if ui.selectedDescription and ui.selectedDescription:IsA("GuiObject") then
+		ui.selectedDescription.Position = UDim2.fromOffset(28, 220)
+		ui.selectedDescription.Size = UDim2.new(1, -56, 0, 56)
+		styleTextToFit(ui.selectedDescription, 15)
+	end
+	if ui.statsBox and ui.statsBox:IsA("GuiObject") then
+		ui.statsBox.Position = UDim2.fromOffset(28, 286)
+		ui.statsBox.Size = UDim2.new(1, -56, 0, 88)
+		ui.statsBox.ClipsDescendants = true
+	end
+	if ui.statsText and ui.statsText:IsA("GuiObject") then
+		ui.statsText.Position = UDim2.fromOffset(10, 8)
+		ui.statsText.Size = UDim2.new(1, -20, 1, -16)
+		styleTextToFit(ui.statsText, 14)
+	end
+
+	local buttonWidth = math.max(86, math.floor((detailWidth - 76) / 3))
+	local buttonY = -58
+	if ui.equipButton and ui.equipButton:IsA("GuiObject") then
+		ui.equipButton.Position = UDim2.new(0, 22, 1, buttonY)
+		ui.equipButton.Size = UDim2.fromOffset(buttonWidth, 40)
+	end
+	if ui.lockButton and ui.lockButton:IsA("GuiObject") then
+		ui.lockButton.Position = UDim2.new(0.5, -buttonWidth * 0.5, 1, buttonY)
+		ui.lockButton.Size = UDim2.fromOffset(buttonWidth, 40)
+	end
+	if ui.deleteButton and ui.deleteButton:IsA("GuiObject") then
+		ui.deleteButton.Position = UDim2.new(1, -buttonWidth - 22, 1, buttonY)
+		ui.deleteButton.Size = UDim2.fromOffset(buttonWidth, 40)
+	end
+end
+
+local function polishInventoryLayout()
+	if not ui.body or not ui.gridPanel or not ui.detailPanel then
+		return
+	end
+
+	inventoryWindow.ClipsDescendants = false
+	if ui.tabs and ui.tabs:IsA("GuiObject") then
+		ui.tabs.Position = UDim2.fromOffset(CONTENT_MARGIN, 68)
+		ui.tabs.Size = UDim2.new(1, -CONTENT_MARGIN * 2, 0, 42)
+	end
+	ui.body.Position = UDim2.fromOffset(CONTENT_MARGIN, 122)
+	ui.body.Size = UDim2.new(1, -CONTENT_MARGIN * 2, 1, -148)
+	ui.body.ClipsDescendants = false
+
+	local bodyWidth = ui.body.AbsoluteSize.X
+	if bodyWidth <= 0 then
+		return
+	end
+
+	local detailWidth = math.clamp(math.floor(bodyWidth * 0.34), MIN_DETAIL_WIDTH, MAX_DETAIL_WIDTH)
+	if bodyWidth < 850 then
+		detailWidth = math.clamp(math.floor(bodyWidth * 0.38), 300, 360)
+	end
+
+	ui.gridPanel.Position = UDim2.fromOffset(PANEL_PADDING, PANEL_PADDING)
+	ui.gridPanel.Size = UDim2.new(1, -(detailWidth + PANEL_GAP + PANEL_PADDING * 2), 1, -PANEL_PADDING * 2)
+	ui.gridPanel.ClipsDescendants = true
+
+	ui.detailPanel.Position = UDim2.new(1, -(detailWidth + PANEL_PADDING), 0, PANEL_PADDING)
+	ui.detailPanel.Size = UDim2.new(0, detailWidth, 1, -PANEL_PADDING * 2)
+
+	layoutCards()
+	polishDetails(detailWidth)
+end
+
+local layoutQueued = false
+local function queueInventoryLayout()
+	if layoutQueued then
+		return
+	end
+	layoutQueued = true
+	task.defer(function()
+		layoutQueued = false
+		polishInventoryLayout()
+	end)
+end
+
+local function clearPreview(preview, keepStaticVisible)
 	if not preview or not preview:IsA("GuiObject") then
 		return preview
 	end
-	setStaticPreviewVisible(preview, true)
+	local showStatic = keepStaticVisible ~= false
+	preview.Visible = showStatic
+	setStaticPreviewVisible(preview, showStatic)
 	local viewport = findViewportPreview(preview)
 	if viewport then
 		clearViewportPreview(viewport)
+		viewport.Visible = false
+	end
+	if not showStatic then
+		clearStaticPreviewContent(preview)
 	end
 	return preview
 end
@@ -667,6 +994,38 @@ local function paintPreview(preview, item)
 	setExistingPreviewText(preview, item)
 end
 
+local function applyCardStroke(card, item)
+	local stroke = card and card:FindFirstChildOfClass("UIStroke")
+	if not stroke then
+		return
+	end
+
+	local itemKey = item and getItemKey(item) or tostring(card:GetAttribute("InventoryItemKey") or "")
+	local selectedKey = selectedItem and getItemKey(selectedItem) or ""
+	local selected = itemKey ~= "" and itemKey == selectedKey
+	local displayedEquipped = item and isDisplayedEquipped(item) or card:GetAttribute("InventoryItemEquipped") == true
+	local locked = (item and item.Locked == true) or card:GetAttribute("InventoryItemLocked") == true
+
+	if selected then
+		stroke.Color = Color3.fromRGB(75, 214, 232)
+		stroke.Thickness = 4
+	elseif displayedEquipped then
+		stroke.Color = Color3.fromRGB(84, 225, 112)
+		stroke.Thickness = 4
+	else
+		stroke.Color = locked and Color3.fromRGB(88, 174, 255) or Color3.fromRGB(35, 38, 45)
+		stroke.Thickness = 2
+	end
+end
+
+local function refreshCardSelectionVisuals()
+	for _, card in ipairs(ui.itemCards or {}) do
+		if card:IsA("GuiObject") then
+			applyCardStroke(card)
+		end
+	end
+end
+
 local function makeCard(item, index)
 	local card = ui.itemCards and ui.itemCards[index]
 	if not card then
@@ -675,6 +1034,7 @@ local function makeCard(item, index)
 	card.Visible = true
 	card:SetAttribute("InventoryItemId", item.Id or "")
 	card:SetAttribute("InventoryItemKind", item.Kind or "")
+	card:SetAttribute("InventoryItemKey", getItemKey(item))
 	if card:IsA("TextButton") then
 		card.Text = ""
 	end
@@ -682,7 +1042,10 @@ local function makeCard(item, index)
 		card.AutoButtonColor = true
 	end
 
-	local preview = findDescendantByNames(card, { "PreviewViewport", "PetModelPreview", "PreviewIcon", "Preview", "Icon", "ItemPreview", "PreviewFrame" })
+	local preview = findDescendantByNames(
+		card,
+		{ "PreviewViewport", "PetModelPreview", "PreviewIcon", "Preview", "Icon", "ItemPreview", "PreviewFrame" }
+	)
 	if preview and preview:IsA("GuiObject") then
 		paintPreview(preview, item)
 	end
@@ -692,17 +1055,30 @@ local function makeCard(item, index)
 
 	local meta = findDescendantByNames(card, { "Meta", "ItemMeta", "Rarity", "Amount", "Status" })
 	local displayedEquipped = isDisplayedEquipped(item)
-	setText(meta, displayedEquipped and "EQUIPPED" or (item.Amount and ("x" .. tostring(item.Amount)) or tostring(item.Rarity or "")))
+	card:SetAttribute("InventoryItemEquipped", displayedEquipped)
+	card:SetAttribute("InventoryItemLocked", item.Locked == true)
+	setText(
+		meta,
+		displayedEquipped and "EQUIPPED"
+			or (item.Amount and ("x" .. tostring(item.Amount)) or tostring(item.Rarity or ""))
+	)
 
-	local stroke = card:FindFirstChildOfClass("UIStroke")
-	if stroke then
-		stroke.Color = displayedEquipped and Color3.fromRGB(84, 225, 112) or (item.Locked and Color3.fromRGB(88, 174, 255) or Color3.fromRGB(35, 38, 45))
-		stroke.Thickness = displayedEquipped and 4 or 2
-	end
+	applyCardStroke(card, item)
 
+	local lastSelectAt = 0
 	local function selectItem()
-		selectedItem = item
+		local now = os.clock()
+		if now - lastSelectAt < 0.08 then
+			return
+		end
+		lastSelectAt = now
+		if isSameInventoryItem(selectedItem, item) then
+			selectedItem = nil
+		else
+			selectedItem = item
+		end
 		renderDetails()
+		refreshCardSelectionVisuals()
 	end
 	connectCardSelection(card, selectItem)
 end
@@ -710,7 +1086,7 @@ end
 renderDetails = function()
 	local item = selectedItem
 	if not item then
-		clearPreview(ui.bigPreview)
+		clearPreview(ui.bigPreview, false)
 		setDetailText(ui.selectedName, "Select an Item")
 		setDetailText(ui.selectedRarity, "")
 		setDetailText(ui.selectedDescription, "Choose a card to see details.")
@@ -721,9 +1097,15 @@ renderDetails = function()
 		setButtonEnabled(ui.lockButton, false)
 		setButtonText(ui.deleteButton, "DELETE")
 		setButtonEnabled(ui.deleteButton, false)
+		setButtonVisible(ui.equipButton, false)
+		setButtonVisible(ui.lockButton, false)
+		setButtonVisible(ui.deleteButton, false)
 		return
 	end
 
+	setButtonVisible(ui.equipButton, true)
+	setButtonVisible(ui.lockButton, true)
+	setButtonVisible(ui.deleteButton, true)
 	paintPreview(ui.bigPreview, item)
 	setDetailText(ui.selectedName, item.Name)
 	setDetailText(ui.selectedRarity, item.Rarity or item.Mutation or item.Kind)
@@ -762,6 +1144,7 @@ end
 local function renderInventory()
 	disconnectCards()
 	disconnectViewports()
+	polishInventoryLayout()
 	for _, child in ipairs(ui.grid:GetChildren()) do
 		if child:GetAttribute("EditableInventoryGeneratedCard") == true then
 			child:Destroy()
@@ -784,7 +1167,10 @@ local function renderInventory()
 		ui.emptyText.Text = "No " .. string.lower(currentTab) .. " yet."
 	end
 	if ui.capacityText then
-		ui.capacityText.Text = "Colors: " .. tostring(inventoryData.Count or 0) .. " / " .. tostring(inventoryData.Capacity or 75)
+		ui.capacityText.Text = "Colors: "
+			.. tostring(inventoryData.Count or 0)
+			.. " / "
+			.. tostring(inventoryData.Capacity or 75)
 	end
 
 	for index, item in ipairs(items) do
@@ -792,18 +1178,28 @@ local function renderInventory()
 	end
 	for index = #items + 1, #(ui.itemCards or {}) do
 		local card = ui.itemCards[index]
+		card.Visible = false
 		card:SetAttribute("InventoryItemId", "")
 		card:SetAttribute("InventoryItemKind", "")
-		local preview = findDescendantByNames(card, { "PreviewViewport", "PetModelPreview", "PreviewIcon", "Preview", "Icon", "ItemPreview", "PreviewFrame" })
+		card:SetAttribute("InventoryItemKey", "")
+		card:SetAttribute("InventoryItemEquipped", false)
+		card:SetAttribute("InventoryItemLocked", false)
+		local preview = findDescendantByNames(
+			card,
+			{ "PreviewViewport", "PetModelPreview", "PreviewIcon", "Preview", "Icon", "ItemPreview", "PreviewFrame" }
+		)
 		if preview and preview:IsA("GuiObject") then
-			clearPreview(preview)
+			clearPreview(preview, false)
 		end
+		setText(findDescendantByNames(card, { "Name", "ItemName", "Title", "ItemTitle" }), "")
+		setText(findDescendantByNames(card, { "Meta", "ItemMeta", "Rarity", "Amount", "Status" }), "")
+		applyCardStroke(card)
 	end
 
 	if selectedItem then
 		local stillExists = false
 		for _, item in ipairs(items) do
-			if item.Id == selectedItem.Id and item.Kind == selectedItem.Kind then
+			if isSameInventoryItem(item, selectedItem) then
 				selectedItem = item
 				stillExists = true
 				break
@@ -814,6 +1210,7 @@ local function renderInventory()
 		end
 	end
 	renderDetails()
+	polishInventoryLayout()
 end
 
 local function disconnectPetAppearanceWatch()
@@ -856,22 +1253,29 @@ local function watchPetAppearanceSource(source)
 		watchPetAppearanceObject(descendant)
 	end
 
-	table.insert(petAppearanceConnections, source.DescendantAdded:Connect(function(descendant)
-		watchPetAppearanceObject(descendant)
-		queuePetAppearanceRefresh()
-	end))
+	table.insert(
+		petAppearanceConnections,
+		source.DescendantAdded:Connect(function(descendant)
+			watchPetAppearanceObject(descendant)
+			queuePetAppearanceRefresh()
+		end)
+	)
 	table.insert(petAppearanceConnections, source.DescendantRemoving:Connect(queuePetAppearanceRefresh))
-	table.insert(petAppearanceConnections, source.AncestryChanged:Connect(function(_, parent)
-		if not parent then
-			disconnectPetAppearanceWatch()
-			return
-		end
-		queuePetAppearanceRefresh()
-	end))
+	table.insert(
+		petAppearanceConnections,
+		source.AncestryChanged:Connect(function(_, parent)
+			if not parent then
+				disconnectPetAppearanceWatch()
+				return
+			end
+			queuePetAppearanceRefresh()
+		end)
+	)
 end
 
 local function findPetAppearanceSource()
-	return ReplicatedStorage:FindFirstChild(PET_APPEARANCE_SOURCE_NAME) or workspace:FindFirstChild(PET_APPEARANCE_SOURCE_NAME)
+	return ReplicatedStorage:FindFirstChild(PET_APPEARANCE_SOURCE_NAME)
+		or workspace:FindFirstChild(PET_APPEARANCE_SOURCE_NAME)
 end
 
 local function startPetAppearanceWatch()
@@ -964,7 +1368,12 @@ local function wireControls()
 	end
 	if ui.deleteButton and ui.deleteButton:IsA("GuiButton") then
 		ui.deleteButton.Activated:Connect(function()
-			if selectedItem and selectedItem.Kind == "Color" and not selectedItem.Locked and not selectedItem.Equipped then
+			if
+				selectedItem
+				and selectedItem.Kind == "Color"
+				and not selectedItem.Locked
+				and not selectedItem.Equipped
+			then
 				sendAction("Delete", selectedItem)
 			end
 		end)
@@ -974,6 +1383,10 @@ end
 if not prepareStructure() then
 	return
 end
+polishInventoryLayout()
+inventoryWindow:GetPropertyChangedSignal("AbsoluteSize"):Connect(queueInventoryLayout)
+ui.body:GetPropertyChangedSignal("AbsoluteSize"):Connect(queueInventoryLayout)
+ui.gridPanel:GetPropertyChangedSignal("AbsoluteSize"):Connect(queueInventoryLayout)
 applyInventoryIcons()
 wireControls()
 renderDetails()
@@ -981,6 +1394,7 @@ startPetAppearanceWatch()
 
 inventoryWindow:GetPropertyChangedSignal("Visible"):Connect(function()
 	if inventoryWindow.Visible then
+		queueInventoryLayout()
 		requestInventory()
 	end
 end)

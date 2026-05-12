@@ -5,6 +5,8 @@
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateSettingsWindow()
 -- Codes-only refresh:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateCodesWindow()
+-- Trade-only refresh:
+-- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateTradeWindow()
 -- Shop-only refresh:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateShopWindow()
 -- Upgrades icon refresh:
@@ -2618,6 +2620,189 @@ local function makeTutorialWindow(windowsFolder)
 	return window
 end
 
+local function makeTradeList(parent, name, position, size, paddingAmount)
+	local list, created = findOrCreate(parent, "ScrollingFrame", name)
+	if created then
+		list.BackgroundTransparency = 1
+		list.BorderSizePixel = 0
+	end
+	list.Position = position
+	list.Size = size
+	list.ScrollBarThickness = 5
+	list.ScrollingDirection = Enum.ScrollingDirection.Y
+	list.CanvasSize = UDim2.fromOffset(0, 0)
+	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+	local layout = list:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.Padding = UDim.new(0, paddingAmount or 7)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = list
+
+	local padding = list:FindFirstChildOfClass("UIPadding") or Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 2)
+	padding.PaddingBottom = UDim.new(0, 4)
+	padding.PaddingLeft = UDim.new(0, 2)
+	padding.PaddingRight = UDim.new(0, 5)
+	padding.Parent = list
+	return list
+end
+
+local function makeTradeWindow(windowsFolder)
+	local window, content = makeWindow(windowsFolder, "TradeWindow", "TRADE", {})
+	window.Size = UDim2.fromOffset(820, 500)
+	window.Position = UDim2.fromScale(0.5, 0.46)
+	content.Size = UDim2.new(1, -44, 1, -108)
+
+	local oldComingSoon = content:FindFirstChild("ComingSoon")
+	if oldComingSoon and oldComingSoon:IsA("GuiObject") then
+		oldComingSoon.Visible = false
+	end
+
+	local root, rootCreated = findOrCreate(content, "Frame", "TradeRoot")
+	root.Position = UDim2.fromScale(0, 0)
+	root.Size = UDim2.fromScale(1, 1)
+	root.BackgroundTransparency = 1
+	root.BorderSizePixel = 0
+	root.ClipsDescendants = false
+	if rootCreated then
+		local rootStroke = root:FindFirstChildOfClass("UIStroke")
+		if rootStroke then
+			rootStroke:Destroy()
+		end
+		local rootCorner = root:FindFirstChildOfClass("UICorner")
+		if rootCorner then
+			rootCorner:Destroy()
+		end
+	end
+
+	local status = text(
+		root,
+		"Status",
+		"Choose a player to trade Colors and Gems.",
+		UDim2.fromOffset(18, 4),
+		UDim2.new(1, -36, 0, 30),
+		14
+	)
+	status.TextXAlignment = Enum.TextXAlignment.Center
+	status.BackgroundTransparency = 0
+	status.BackgroundColor3 = Color3.fromRGB(237, 244, 252)
+	status.TextStrokeTransparency = 1
+	applyCorner(status, 15)
+	applyStroke(status, Color3.fromRGB(206, 218, 235), 1)
+
+	local board =
+		frame(root, "Board", UDim2.fromOffset(12, 42), UDim2.new(1, -24, 1, -50), Color3.fromRGB(246, 249, 253))
+	applyCorner(board, 18)
+	applyStroke(board, OUTLINE, 2)
+
+	local playersPanel = frame(
+		board,
+		"PlayersPanel",
+		UDim2.fromOffset(12, 12),
+		UDim2.new(0.22, -14, 1, -24),
+		Color3.fromRGB(236, 243, 252)
+	)
+	local inventoryPanel = frame(
+		board,
+		"InventoryPanel",
+		UDim2.new(0.22, 4, 0, 12),
+		UDim2.new(0.28, -14, 1, -24),
+		Color3.fromRGB(236, 243, 252)
+	)
+	local offerPanel =
+		frame(board, "OfferPanel", UDim2.new(0.5, 4, 0, 12), UDim2.new(0.5, -16, 1, -24), Color3.fromRGB(236, 243, 252))
+
+	text(playersPanel, "Title", "PLAYERS", UDim2.fromOffset(12, 10), UDim2.new(1, -24, 0, 24), 14)
+	local playerHint =
+		text(playersPanel, "Hint", "Pick someone online.", UDim2.fromOffset(12, 34), UDim2.new(1, -24, 0, 18), 10)
+	playerHint.Font = Enum.Font.GothamBold
+	playerHint.TextColor3 = MUTED
+	playerHint.TextStrokeTransparency = 1
+	makeTradeList(playersPanel, "PlayersList", UDim2.fromOffset(10, 58), UDim2.new(1, -20, 1, -68))
+
+	text(inventoryPanel, "Title", "YOUR COLORS", UDim2.fromOffset(12, 10), UDim2.new(1, -24, 0, 24), 14)
+	local inventoryHint = text(
+		inventoryPanel,
+		"Hint",
+		"Add colors after a trade starts.",
+		UDim2.fromOffset(12, 34),
+		UDim2.new(1, -24, 0, 18),
+		10
+	)
+	inventoryHint.Font = Enum.Font.GothamBold
+	inventoryHint.TextColor3 = MUTED
+	inventoryHint.TextStrokeTransparency = 1
+	makeTradeList(inventoryPanel, "ColorsList", UDim2.fromOffset(10, 58), UDim2.new(1, -20, 1, -122))
+	local gemsOwned =
+		text(inventoryPanel, "GemsOwned", "Gems: 0", UDim2.new(0, 12, 1, -58), UDim2.new(1, -24, 0, 18), 11)
+	gemsOwned.Font = Enum.Font.GothamBlack
+	gemsOwned.TextColor3 = Color3.fromRGB(26, 124, 52)
+	gemsOwned.TextStrokeTransparency = 1
+	textBox(inventoryPanel, "GemBox", "Gems", UDim2.new(0, 12, 1, -36), UDim2.new(1, -82, 0, 30)).TextSize = 13
+	button(inventoryPanel, "SetGemsButton", "SET", UDim2.new(1, -62, 1, -36), UDim2.fromOffset(50, 30), CYAN)
+
+	text(offerPanel, "Title", "TRADE OFFER", UDim2.fromOffset(12, 10), UDim2.new(1, -24, 0, 24), 14)
+	local offerHint = text(
+		offerPanel,
+		"OfferHint",
+		"Ready when both sides look right.",
+		UDim2.fromOffset(12, 34),
+		UDim2.new(1, -24, 0, 18),
+		10
+	)
+	offerHint.Font = Enum.Font.GothamBold
+	offerHint.TextColor3 = MUTED
+	offerHint.TextStrokeTransparency = 1
+
+	local myOfferPanel = frame(
+		offerPanel,
+		"MyOfferPanel",
+		UDim2.fromOffset(12, 60),
+		UDim2.new(0.5, -18, 1, -116),
+		Color3.fromRGB(249, 252, 255)
+	)
+	applyStroke(myOfferPanel, Color3.fromRGB(206, 218, 235), 1)
+	local theirOfferPanel = frame(
+		offerPanel,
+		"TheirOfferPanel",
+		UDim2.new(0.5, 6, 0, 60),
+		UDim2.new(0.5, -18, 1, -116),
+		Color3.fromRGB(249, 252, 255)
+	)
+	applyStroke(theirOfferPanel, Color3.fromRGB(206, 218, 235), 1)
+
+	text(myOfferPanel, "MyName", "YOU", UDim2.fromOffset(10, 8), UDim2.new(1, -20, 0, 20), 12)
+	local myReady = text(myOfferPanel, "MyReady", "NOT READY", UDim2.fromOffset(10, 30), UDim2.new(1, -20, 0, 20), 11)
+	myReady.TextXAlignment = Enum.TextXAlignment.Center
+	myReady.TextColor3 = MUTED
+	myReady.BackgroundTransparency = 0
+	myReady.BackgroundColor3 = Color3.fromRGB(230, 236, 246)
+	applyCorner(myReady, 10)
+	makeTradeList(myOfferPanel, "MyOfferList", UDim2.fromOffset(8, 56), UDim2.new(1, -16, 1, -64), 6)
+
+	text(theirOfferPanel, "TheirName", "THEM", UDim2.fromOffset(10, 8), UDim2.new(1, -20, 0, 20), 12)
+	local theirReady =
+		text(theirOfferPanel, "TheirReady", "NOT READY", UDim2.fromOffset(10, 30), UDim2.new(1, -20, 0, 20), 11)
+	theirReady.TextXAlignment = Enum.TextXAlignment.Center
+	theirReady.TextColor3 = MUTED
+	theirReady.BackgroundTransparency = 0
+	theirReady.BackgroundColor3 = Color3.fromRGB(230, 236, 246)
+	applyCorner(theirReady, 10)
+	makeTradeList(theirOfferPanel, "TheirOfferList", UDim2.fromOffset(8, 56), UDim2.new(1, -16, 1, -64), 6)
+
+	button(offerPanel, "AcceptButton", "READY!", UDim2.new(0, 12, 1, -46), UDim2.new(0.5, -18, 0, 38), GREEN)
+	button(
+		offerPanel,
+		"CancelButton",
+		"CANCEL",
+		UDim2.new(0.5, 6, 1, -46),
+		UDim2.new(0.5, -18, 0, 38),
+		Color3.fromRGB(241, 83, 110)
+	)
+	return window
+end
+
 local function getSettingsContent()
 	local root = StarterGui:FindFirstChild("ClientUIRoot")
 	local mainHud = root and root:FindFirstChild("MainHUD")
@@ -2686,6 +2871,31 @@ function Builder.UpdateCodesWindow()
 
 	makeCodesContent(content)
 	print("StudioMenuWindowsBuilder: updated CodesWindow layout.")
+end
+
+function Builder.UpdateTradeWindow()
+	if not RunService:IsStudio() then
+		warn("StudioMenuWindowsBuilder.UpdateTradeWindow can only run in Roblox Studio.")
+		return
+	end
+	if RunService:IsRunning() then
+		warn("StudioMenuWindowsBuilder.UpdateTradeWindow should be run in edit mode, not during Play.")
+		return
+	end
+
+	local root = StarterGui:FindFirstChild("ClientUIRoot")
+	local mainHud = root and root:FindFirstChild("MainHUD")
+	local modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows")
+	local windowsFolder = modalWindows and modalWindows:FindFirstChild("Windows")
+	if not windowsFolder then
+		warn(
+			"StudioMenuWindowsBuilder.UpdateTradeWindow could not find StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows."
+		)
+		return
+	end
+
+	makeTradeWindow(windowsFolder)
+	print("StudioMenuWindowsBuilder: updated editable TradeWindow layout.")
 end
 
 function Builder.UpdateShopWindow()
@@ -2887,9 +3097,7 @@ function Builder.Build()
 	makeSettingsGrid(settingsContent)
 	local _, codesContent = makeWindow(windowsFolder, "CodesWindow", "CODES", {})
 	makeCodesContent(codesContent)
-	local _, tradeContent = makeWindow(windowsFolder, "TradeWindow", "TRADE", {})
-	text(tradeContent, "ComingSoon", "Trading is coming soon!", UDim2.fromScale(0, 0.35), UDim2.fromScale(1, 0.18), 28).TextXAlignment =
-		Enum.TextXAlignment.Center
+	makeTradeWindow(windowsFolder)
 	makeWorldsWindow(windowsFolder)
 	local _, questsContent = makeWindow(windowsFolder, "DailyQuestsWindow", "DAILY QUESTS", {})
 	makeDailyQuestRows(questsContent)

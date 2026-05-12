@@ -3,6 +3,7 @@ local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
@@ -479,6 +480,57 @@ local function countPetAmount(records)
 		end
 	end
 	return total
+end
+
+local function copyStringList(value)
+	local list = {}
+	if type(value) ~= "table" then
+		return list
+	end
+
+	for _, item in ipairs(value) do
+		if item ~= nil and tostring(item) ~= "" then
+			table.insert(list, tostring(item))
+		end
+	end
+	return list
+end
+
+local function parsePetInventoryValue(value)
+	local records = {}
+	if type(value) ~= "string" or value == "" then
+		return records
+	end
+
+	for _, encoded in ipairs(string.split(value, ",")) do
+		local record = decodePetRecord(encoded)
+		if record then
+			table.insert(records, record)
+		end
+	end
+	return records
+end
+
+local function tryGetPetInventorySnapshot(player)
+	local snapshotFunction = ServerStorage:FindFirstChild("PetInventorySnapshot")
+	if not snapshotFunction or not snapshotFunction:IsA("BindableFunction") then
+		return nil
+	end
+
+	local ok, records, equipped, locked = pcall(function()
+		return snapshotFunction:Invoke(player)
+	end)
+	if not ok then
+		warn(
+			"DataManager: failed to read PetHandler inventory snapshot for " .. player.Name .. ": " .. tostring(records)
+		)
+		return nil
+	end
+	if type(records) ~= "table" then
+		return nil
+	end
+
+	return records, copyStringList(equipped), copyStringList(locked)
 end
 
 local function countList(value)
@@ -1453,7 +1505,8 @@ end
 --   from player instances (to save)
 -- ========================
 local function collectData(player)
-	local data = deepCopy(DEFAULT_DATA)
+	local previousData = sessionData and sessionData[player]
+	local data = deepCopy(previousData or DEFAULT_DATA)
 
 	local stats = player:FindFirstChild("leaderstats")
 	if stats then
@@ -1491,30 +1544,48 @@ local function collectData(player)
 	end
 
 	local petFolder = player:FindFirstChild("PetData")
+	local previousPetInventory = type(data.PetInventory) == "table" and deepCopy(data.PetInventory) or {}
+	local snapshotInventory, snapshotEquipped, snapshotLocked = tryGetPetInventorySnapshot(player)
+	local selectedPetSource = "previous"
 	if petFolder then
 		local invVal = petFolder:FindFirstChild("Inventory")
-		if invVal and invVal.Value ~= "" then
-			for _, encoded in ipairs(string.split(invVal.Value, ",")) do
-				local record = decodePetRecord(encoded)
-				if record then
-					table.insert(data.PetInventory, record)
-				end
-			end
+		local folderInventory = invVal and parsePetInventoryValue(invVal.Value) or {}
+
+		if
+			snapshotInventory and (countPetAmount(snapshotInventory) > 0 or countPetAmount(previousPetInventory) == 0)
+		then
+			data.PetInventory = deepCopy(snapshotInventory)
+			selectedPetSource = "snapshot"
+		elseif countPetAmount(folderInventory) > 0 then
+			data.PetInventory = folderInventory
+			selectedPetSource = "folder"
+		else
+			data.PetInventory = previousPetInventory
 		end
-		data.PetInventory = ensureOwnerRainbowPetList(player, data.PetInventory)
 
 		local equippedVal = petFolder:FindFirstChild("Equipped")
-		if equippedVal and equippedVal.Value ~= "" then
+		if selectedPetSource == "snapshot" then
+			data.EquippedPets = snapshotEquipped or {}
+		elseif equippedVal and equippedVal.Value ~= "" then
 			data.EquippedPets = string.split(equippedVal.Value, ",")
 		end
 
 		local lockedVal = petFolder:FindFirstChild("Locked")
-		if lockedVal and lockedVal.Value ~= "" then
+		if selectedPetSource == "snapshot" then
+			data.LockedPets = snapshotLocked or {}
+		elseif lockedVal and lockedVal.Value ~= "" then
 			data.LockedPets = string.split(lockedVal.Value, ",")
-		else
-			data.LockedPets = {}
 		end
+	elseif
+		snapshotInventory and (countPetAmount(snapshotInventory) > 0 or countPetAmount(previousPetInventory) == 0)
+	then
+		data.PetInventory = deepCopy(snapshotInventory)
+		data.EquippedPets = snapshotEquipped or {}
+		data.LockedPets = snapshotLocked or {}
+	else
+		data.PetInventory = previousPetInventory
 	end
+	data.PetInventory = ensureOwnerRainbowPetList(player, data.PetInventory)
 
 	local toolsFolder = player:FindFirstChild("PaintTools")
 	if toolsFolder then
@@ -1539,7 +1610,6 @@ local function collectData(player)
 			data.Settings[key] = setting and setting:IsA("BoolValue") and setting.Value or defaultValue
 		end
 	else
-		local previousData = sessionData and sessionData[player]
 		data.Settings = normalizeSettings(previousData and previousData.Settings)
 	end
 
@@ -1619,6 +1689,10 @@ local CRITICAL_REASONS = {
 	["hatch-color"] = true,
 	["grant-color"] = true,
 	["merge-color"] = true,
+	["equip-color"] = true,
+	["lock-color"] = true,
+	["delete-color"] = true,
+	["player-removing"] = true,
 	["color-inventory"] = true,
 	["paint-tool-purchased"] = true,
 	["paint-tools-owned"] = true,

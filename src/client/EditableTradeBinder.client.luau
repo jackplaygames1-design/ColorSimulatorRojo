@@ -9,6 +9,23 @@ local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local tradeRequest = remotes:WaitForChild("TradeRequest", 20)
 local tradeUpdate = remotes:WaitForChild("TradeUpdate", 20)
 
+local THEME = {
+	Ink = Color3.fromRGB(38, 36, 52),
+	Muted = Color3.fromRGB(95, 103, 122),
+	Stroke = Color3.fromRGB(35, 38, 45),
+	Outer = Color3.fromRGB(246, 249, 253),
+	Panel = Color3.fromRGB(236, 243, 252),
+	PanelSoft = Color3.fromRGB(249, 252, 255),
+	White = Color3.fromRGB(255, 255, 255),
+	Cyan = Color3.fromRGB(82, 214, 224),
+	Green = Color3.fromRGB(77, 224, 111),
+	GreenDark = Color3.fromRGB(26, 124, 52),
+	Pink = Color3.fromRGB(241, 83, 110),
+	Yellow = Color3.fromRGB(255, 210, 64),
+	Purple = Color3.fromRGB(160, 118, 237),
+	Disabled = Color3.fromRGB(190, 198, 211),
+}
+
 local function waitForTradeWindow()
 	local root = playerGui:WaitForChild("ClientUIRoot", 30)
 	local mainHud = root and root:WaitForChild("MainHUD", 30)
@@ -51,6 +68,16 @@ local function setText(object, value)
 	end
 end
 
+local function getInitials(value, fallback)
+	local text = tostring(value or "")
+	text = string.gsub(text, "^%s+", "")
+	text = string.upper(string.sub(text, 1, 2))
+	if text == "" then
+		return fallback or "CO"
+	end
+	return text
+end
+
 local function corner(parent, radius)
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, radius or 10)
@@ -60,87 +87,82 @@ end
 
 local function stroke(parent, color, thickness)
 	local s = Instance.new("UIStroke")
-	s.Color = color or Color3.fromRGB(35, 38, 45)
+	s.Color = color or THEME.Stroke
 	s.Thickness = thickness or 2
 	s.Parent = parent
 	return s
 end
 
-local function makeFrame(parent, name, position, size, color)
-	local frame = Instance.new("Frame")
-	frame.Name = name
-	frame.Position = position
-	frame.Size = size
-	frame.BackgroundColor3 = color or Color3.fromRGB(244, 248, 252)
-	frame.BorderSizePixel = 0
-	frame.ZIndex = 1002
-	frame.Parent = parent
-	corner(frame, 14)
-	stroke(frame)
-	return frame
-end
-
-local function makeText(parent, name, value, position, size, textSize)
+local function makeText(parent, name, value, position, size, textSize, options)
+	options = options or {}
 	local label = Instance.new("TextLabel")
 	label.Name = name
 	label.Position = position
 	label.Size = size
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBlack
-	label.Text = value
-	label.TextColor3 = Color3.fromRGB(38, 36, 52)
-	label.TextScaled = false
+	label.BackgroundTransparency = options.backgroundTransparency or 1
+	label.BackgroundColor3 = options.backgroundColor or THEME.White
+	label.BorderSizePixel = 0
+	label.Font = options.font or Enum.Font.GothamBlack
+	label.Text = tostring(value or "")
+	label.TextColor3 = options.textColor or THEME.Ink
+	label.TextScaled = options.scaled == true
 	label.TextSize = textSize or 14
-	label.TextWrapped = true
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.ZIndex = 1003
+	label.TextWrapped = options.wrapped ~= false
+	label.TextTruncate = Enum.TextTruncate.AtEnd
+	label.TextXAlignment = options.xAlignment or Enum.TextXAlignment.Left
+	label.TextYAlignment = options.yAlignment or Enum.TextYAlignment.Center
+	label.TextStrokeColor3 = options.strokeColor or THEME.Stroke
+	label.TextStrokeTransparency = options.textStroke and 0.12 or 1
+	label.ZIndex = options.zIndex or 1003
 	label.Parent = parent
+	if options.radius then
+		corner(label, options.radius)
+	end
+	if options.outline then
+		stroke(label, options.outlineColor or THEME.Stroke, options.outlineThickness or 1)
+	end
+	if options.scaled then
+		local constraint = Instance.new("UITextSizeConstraint")
+		constraint.MinTextSize = options.minTextSize or 9
+		constraint.MaxTextSize = options.maxTextSize or textSize or 18
+		constraint.Parent = label
+	end
 	return label
 end
 
-local function makeButton(parent, name, value, position, size, color)
+local function makeButton(parent, name, value, position, size, color, options)
+	options = options or {}
 	local button = Instance.new("TextButton")
 	button.Name = name
 	button.Position = position
 	button.Size = size
-	button.BackgroundColor3 = color or Color3.fromRGB(82, 219, 225)
+	button.BackgroundColor3 = color or THEME.Cyan
 	button.BorderSizePixel = 0
-	button.Font = Enum.Font.GothamBlack
-	button.Text = value
-	button.TextColor3 = Color3.fromRGB(255, 255, 255)
-	button.TextSize = 13
+	button.Font = options.font or Enum.Font.GothamBlack
+	button.Text = tostring(value or "")
+	button.TextColor3 = options.textColor or THEME.White
 	button.TextScaled = true
+	button.TextSize = options.textSize or 18
+	button.TextStrokeColor3 = options.strokeColor or THEME.Stroke
+	button.TextStrokeTransparency = options.textStroke == false and 1 or 0.1
 	button.AutoButtonColor = true
-	button.ZIndex = 1004
+	button.ZIndex = options.zIndex or 1005
 	button.Parent = parent
-	corner(button, 10)
-	stroke(button)
+	button:SetAttribute("EnabledColor", button.BackgroundColor3)
+	corner(button, options.radius or 12)
+	stroke(button, options.outlineColor or THEME.Stroke, options.outlineThickness or 2)
+
+	local constraint = Instance.new("UITextSizeConstraint")
+	constraint.MinTextSize = options.minTextSize or 10
+	constraint.MaxTextSize = options.maxTextSize or options.textSize or 22
+	constraint.Parent = button
 	return button
 end
 
-local function makeList(parent, name, position, size)
-	local list = Instance.new("ScrollingFrame")
-	list.Name = name
-	list.Position = position
-	list.Size = size
-	list.BackgroundTransparency = 1
-	list.BorderSizePixel = 0
-	list.ScrollBarThickness = 6
-	list.CanvasSize = UDim2.fromOffset(0, 0)
-	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	list.ZIndex = 1003
-	list.Parent = parent
-
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.Padding = UDim.new(0, 6)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = list
-
-	return list
-end
-
 local function clearList(list)
+	if not list then
+		return
+	end
 	for _, child in ipairs(list:GetChildren()) do
 		if child:IsA("GuiObject") then
 			child:Destroy()
@@ -149,11 +171,39 @@ local function clearList(list)
 end
 
 local function setButtonEnabled(button, enabled)
+	if not button then
+		return
+	end
+	local enabledColor = button:GetAttribute("EnabledColor")
 	button.Active = enabled == true
 	button.AutoButtonColor = enabled == true
-	button.BackgroundTransparency = enabled and 0 or 0.35
+	button.BackgroundTransparency = enabled and 0 or 0.18
+	if typeof(enabledColor) == "Color3" then
+		button.BackgroundColor3 = enabled and enabledColor or THEME.Disabled
+	end
+	button.TextTransparency = enabled and 0 or 0.12
+	button.TextStrokeTransparency = enabled and 0.1 or 0.65
 	pcall(function()
 		button.Interactable = enabled == true
+	end)
+end
+
+local function setAvatar(image, userId)
+	if not image or not image:IsA("ImageLabel") then
+		return
+	end
+	image.Image = ""
+	userId = tonumber(userId) or 0
+	if userId <= 0 then
+		return
+	end
+	task.spawn(function()
+		local ok, thumbnail = pcall(function()
+			return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+		end)
+		if ok and image.Parent then
+			image.Image = thumbnail
+		end
 	end)
 end
 
@@ -178,104 +228,330 @@ local function invoke(action, payload)
 	end
 end
 
-local function makeRow(parent, textValue, buttonText, onClick, disabled)
+local function makeEmptyState(parent, textValue)
+	local empty = makeText(parent, "Empty", textValue, UDim2.fromOffset(0, 0), UDim2.new(1, -8, 0, 44), 12, {
+		font = Enum.Font.GothamBold,
+		textColor = THEME.Muted,
+		wrapped = true,
+	})
+	empty.LayoutOrder = 9999
+	return empty
+end
+
+local function makeIcon(parent, textValue, color)
+	local icon = Instance.new("Frame")
+	icon.Name = "Icon"
+	icon.Position = UDim2.fromOffset(8, 7)
+	icon.Size = UDim2.fromOffset(32, 32)
+	icon.BackgroundColor3 = color or THEME.Cyan
+	icon.BorderSizePixel = 0
+	icon.ZIndex = 1005
+	icon.Parent = parent
+	corner(icon, 10)
+	stroke(icon, THEME.Stroke, 2)
+
+	makeText(icon, "Letters", textValue, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 16, {
+		scaled = true,
+		maxTextSize = 16,
+		textColor = THEME.White,
+		textStroke = true,
+		xAlignment = Enum.TextXAlignment.Center,
+	})
+	return icon
+end
+
+local function makeRow(parent, textValue, buttonText, onClick, disabled, options)
+	options = options or {}
 	local row = Instance.new("Frame")
-	row.Name = "Row"
-	row.Size = UDim2.new(1, -4, 0, 38)
-	row.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	row.Name = options.name or "Row"
+	row.Size = UDim2.new(1, -4, 0, options.height or 48)
+	row.BackgroundColor3 = options.backgroundColor or THEME.White
+	row.BorderSizePixel = 0
+	row.LayoutOrder = options.layoutOrder or 0
+	row.ZIndex = 1004
+	row.Parent = parent
+	corner(row, options.radius or 12)
+	stroke(row, options.strokeColor or Color3.fromRGB(206, 218, 235), options.strokeThickness or 1)
+
+	local labelX = 10
+	if options.iconText then
+		makeIcon(row, options.iconText, options.iconColor)
+		labelX = 48
+	end
+
+	local buttonWidth = buttonText and (options.buttonWidth or 78) or 0
+	local label = makeText(
+		row,
+		"Label",
+		textValue,
+		UDim2.fromOffset(labelX, 4),
+		UDim2.new(1, -(labelX + buttonWidth + 16), 0, options.meta and 22 or row.Size.Y.Offset - 8),
+		options.textSize or 13,
+		{
+			font = Enum.Font.GothamBlack,
+			scaled = options.scaled == true,
+			maxTextSize = options.textSize or 14,
+			wrapped = false,
+		}
+	)
+
+	if options.meta then
+		makeText(
+			row,
+			"Meta",
+			options.meta,
+			UDim2.fromOffset(labelX, 25),
+			UDim2.new(1, -(labelX + buttonWidth + 16), 0, 18),
+			10,
+			{
+				font = Enum.Font.GothamBold,
+				textColor = options.metaColor or THEME.Muted,
+				wrapped = false,
+			}
+		)
+	end
+
+	local button = nil
+	if buttonText then
+		button = makeButton(
+			row,
+			"Action",
+			buttonText,
+			UDim2.new(1, -(buttonWidth + 8), 0.5, -15),
+			UDim2.fromOffset(buttonWidth, 30),
+			options.buttonColor or THEME.Green,
+			{
+				textSize = options.buttonTextSize or 17,
+				maxTextSize = options.buttonMaxTextSize or 17,
+				minTextSize = 8,
+			}
+		)
+		setButtonEnabled(button, disabled ~= true)
+		button.Activated:Connect(function()
+			if disabled ~= true and onClick then
+				onClick()
+			end
+		end)
+	end
+
+	return row, label, button
+end
+
+local function makePlayerRow(parent, other, session)
+	local row = Instance.new("Frame")
+	row.Name = "PlayerRow"
+	row.Size = UDim2.new(1, -4, 0, 54)
+	row.BackgroundColor3 = THEME.White
 	row.BorderSizePixel = 0
 	row.ZIndex = 1004
 	row.Parent = parent
-	corner(row, 10)
-	stroke(row, Color3.fromRGB(210, 220, 235), 1)
+	corner(row, 13)
+	stroke(row, Color3.fromRGB(206, 218, 235), 1)
 
-	local label = makeText(row, "Label", textValue, UDim2.fromOffset(10, 4), UDim2.new(1, -92, 1, -8), 12)
-	label.Font = Enum.Font.GothamBold
+	local avatar = Instance.new("ImageLabel")
+	avatar.Name = "Avatar"
+	avatar.Position = UDim2.fromOffset(8, 8)
+	avatar.Size = UDim2.fromOffset(38, 38)
+	avatar.BackgroundColor3 = Color3.fromRGB(218, 231, 246)
+	avatar.BorderSizePixel = 0
+	avatar.ZIndex = 1005
+	avatar.Parent = row
+	corner(avatar, 19)
+	stroke(avatar, THEME.Stroke, 1)
+	setAvatar(avatar, other.UserId)
 
-	local button = makeButton(row, "Action", buttonText, UDim2.new(1, -78, 0, 6), UDim2.fromOffset(68, 26), Color3.fromRGB(80, 220, 112))
-	button.TextSize = 12
-	setButtonEnabled(button, disabled ~= true)
+	makeText(
+		row,
+		"Name",
+		other.DisplayName or other.Name or "Player",
+		UDim2.fromOffset(54, 6),
+		UDim2.new(1, -132, 0, 22),
+		13,
+		{ wrapped = false }
+	)
+	makeText(
+		row,
+		"Handle",
+		"@" .. tostring(other.Name or "player"),
+		UDim2.fromOffset(54, 28),
+		UDim2.new(1, -132, 0, 18),
+		10,
+		{
+			font = Enum.Font.GothamBold,
+			textColor = THEME.Muted,
+			wrapped = false,
+		}
+	)
+
+	local button = makeButton(
+		row,
+		"TradeButton",
+		session and "BUSY" or "TRADE",
+		UDim2.new(1, -70, 0.5, -15),
+		UDim2.fromOffset(60, 30),
+		THEME.Cyan,
+		{
+			textSize = 14,
+			maxTextSize = 14,
+			minTextSize = 8,
+		}
+	)
+	setButtonEnabled(button, session == nil)
 	button.Activated:Connect(function()
-		if disabled ~= true and onClick then
-			onClick()
+		if session == nil then
+			invoke("Start", { TargetUserId = other.UserId })
 		end
 	end)
-	return row
 end
 
-local function makeOfferRow(parent, color, removable)
-	makeRow(parent, color.Name or color.Id or "Color", removable and "REMOVE" or "COLOR", function()
-		invoke("RemoveColor", { ColorId = color.Id })
-	end, removable ~= true)
+local function makeOfferColorRow(parent, color, removable)
+	local label = tostring(color.Name or color.Id or "Color")
+	makeRow(
+		parent,
+		label,
+		removable and "X" or nil,
+		function()
+			invoke("RemoveColor", { ColorId = color.Id })
+		end,
+		removable ~= true,
+		{
+			iconText = getInitials(label, "CO"),
+			iconColor = THEME.Purple,
+			meta = "Color",
+			buttonWidth = 34,
+			buttonColor = THEME.Pink,
+			buttonTextSize = 18,
+			height = 46,
+		}
+	)
 end
 
-local function buildUi()
-	local existing = content:FindFirstChild("TradeRuntimeRoot")
-	if existing then
-		existing:Destroy()
+local function makeGemOfferRow(parent, amount)
+	makeRow(parent, "Gems", nil, nil, true, {
+		iconText = "$",
+		iconColor = THEME.Yellow,
+		meta = tostring(amount or 0),
+		metaColor = THEME.GreenDark,
+		height = 46,
+	})
+end
+
+local function findBoundGui(parent, name, className)
+	local found = parent and parent:FindFirstChild(name, true)
+	if found and (not className or found:IsA(className)) then
+		return found
 	end
+	warn("EditableTradeBinder: missing editable TradeWindow element " .. name .. ".")
+	return nil
+end
+
+local function rememberButtonColor(button)
+	if button and button:IsA("TextButton") then
+		button:SetAttribute("EnabledColor", button.BackgroundColor3)
+	end
+end
+
+local function bindUi()
+	local oldRuntime = content:FindFirstChild("TradeRuntimeRoot")
+	if oldRuntime then
+		oldRuntime:Destroy()
+	end
+
+	content.ClipsDescendants = false
+	local root = content:FindFirstChild("TradeRoot")
+	if not root or not root:IsA("GuiObject") then
+		warn(
+			"EditableTradeBinder: TradeRoot is missing. Run require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateTradeWindow() in edit mode."
+		)
+		return false
+	end
+
 	for _, child in ipairs(content:GetChildren()) do
 		if child:IsA("GuiObject") then
-			child.Visible = false
+			child.Visible = child == root
 		end
 	end
 
-	local root = Instance.new("Frame")
-	root.Name = "TradeRuntimeRoot"
-	root.BackgroundTransparency = 1
-	root.Size = UDim2.fromScale(1, 1)
-	root.ZIndex = 1002
-	root.Parent = content
 	ui.root = root
+	ui.status = findBoundGui(root, "Status", "TextLabel")
+	ui.playersList = findBoundGui(root, "PlayersList", "ScrollingFrame")
+	ui.colorsList = findBoundGui(root, "ColorsList", "ScrollingFrame")
+	ui.gemsOwned = findBoundGui(root, "GemsOwned", "TextLabel")
+	ui.gemBox = findBoundGui(root, "GemBox", "TextBox")
+	ui.setGemsButton = findBoundGui(root, "SetGemsButton", "TextButton")
+	ui.offerHint = findBoundGui(root, "OfferHint", "TextLabel")
+	ui.myOfferPanel = findBoundGui(root, "MyOfferPanel", "Frame")
+	ui.theirOfferPanel = findBoundGui(root, "TheirOfferPanel", "Frame")
+	ui.myName = findBoundGui(root, "MyName", "TextLabel")
+	ui.theirName = findBoundGui(root, "TheirName", "TextLabel")
+	ui.myReady = findBoundGui(root, "MyReady", "TextLabel")
+	ui.theirReady = findBoundGui(root, "TheirReady", "TextLabel")
+	ui.myOfferList = findBoundGui(root, "MyOfferList", "ScrollingFrame")
+	ui.theirOfferList = findBoundGui(root, "TheirOfferList", "ScrollingFrame")
+	ui.acceptButton = findBoundGui(root, "AcceptButton", "TextButton")
+	ui.cancelButton = findBoundGui(root, "CancelButton", "TextButton")
 
-	ui.status = makeText(root, "Status", "Choose a player to start trading.", UDim2.fromOffset(14, 8), UDim2.new(1, -28, 0, 24), 14)
-	ui.status.TextXAlignment = Enum.TextXAlignment.Center
+	local required = {
+		ui.status,
+		ui.playersList,
+		ui.colorsList,
+		ui.gemsOwned,
+		ui.gemBox,
+		ui.setGemsButton,
+		ui.offerHint,
+		ui.myOfferPanel,
+		ui.theirOfferPanel,
+		ui.myName,
+		ui.theirName,
+		ui.myReady,
+		ui.theirReady,
+		ui.myOfferList,
+		ui.theirOfferList,
+		ui.acceptButton,
+		ui.cancelButton,
+	}
+	for _, object in ipairs(required) do
+		if not object then
+			return false
+		end
+	end
 
-	ui.playersPanel = makeFrame(root, "PlayersPanel", UDim2.fromOffset(14, 40), UDim2.new(0.25, -20, 1, -54))
-	ui.inventoryPanel = makeFrame(root, "InventoryPanel", UDim2.new(0.25, 4, 0, 40), UDim2.new(0.32, -18, 1, -54))
-	ui.offerPanel = makeFrame(root, "OfferPanel", UDim2.new(0.57, 4, 0, 40), UDim2.new(0.43, -18, 1, -54))
-
-	makeText(ui.playersPanel, "Title", "PLAYERS", UDim2.fromOffset(10, 8), UDim2.new(1, -20, 0, 24), 14)
-	makeText(ui.inventoryPanel, "Title", "YOUR COLORS", UDim2.fromOffset(10, 8), UDim2.new(1, -20, 0, 24), 14)
-	makeText(ui.offerPanel, "Title", "TRADE OFFER", UDim2.fromOffset(10, 8), UDim2.new(1, -20, 0, 24), 14)
-
-	ui.playersList = makeList(ui.playersPanel, "PlayersList", UDim2.fromOffset(10, 38), UDim2.new(1, -20, 1, -48))
-	ui.colorsList = makeList(ui.inventoryPanel, "ColorsList", UDim2.fromOffset(10, 38), UDim2.new(1, -20, 1, -112))
-	ui.gemBox = Instance.new("TextBox")
-	ui.gemBox.Name = "GemBox"
-	ui.gemBox.Position = UDim2.new(0, 10, 1, -66)
-	ui.gemBox.Size = UDim2.new(1, -106, 0, 30)
-	ui.gemBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	ui.gemBox.BorderSizePixel = 0
-	ui.gemBox.ClearTextOnFocus = false
-	ui.gemBox.Font = Enum.Font.GothamBold
-	ui.gemBox.PlaceholderText = "Gems"
-	ui.gemBox.Text = ""
-	ui.gemBox.TextColor3 = Color3.fromRGB(38, 36, 52)
-	ui.gemBox.TextSize = 14
-	ui.gemBox.ZIndex = 1004
-	ui.gemBox.Parent = ui.inventoryPanel
-	corner(ui.gemBox, 10)
-	stroke(ui.gemBox)
-	ui.setGemsButton = makeButton(ui.inventoryPanel, "SetGemsButton", "SET", UDim2.new(1, -88, 1, -66), UDim2.fromOffset(78, 30))
-	ui.setGemsButton.Activated:Connect(function()
-		invoke("SetGems", { Amount = tonumber(ui.gemBox.Text) or 0 })
-	end)
-	ui.gemsLabel = makeText(ui.inventoryPanel, "GemsLabel", "Gems: 0", UDim2.fromOffset(10, 1), UDim2.new(1, -20, 0, 20), 12)
-	ui.gemsLabel.Position = UDim2.new(0, 10, 1, -30)
-
-	ui.myOfferTitle = makeText(ui.offerPanel, "MyOfferTitle", "YOU", UDim2.fromOffset(10, 38), UDim2.new(0.5, -14, 0, 20), 12)
-	ui.theirOfferTitle = makeText(ui.offerPanel, "TheirOfferTitle", "THEM", UDim2.new(0.5, 4, 0, 38), UDim2.new(0.5, -14, 0, 20), 12)
-	ui.myOfferList = makeList(ui.offerPanel, "MyOfferList", UDim2.fromOffset(10, 62), UDim2.new(0.5, -14, 1, -124))
-	ui.theirOfferList = makeList(ui.offerPanel, "TheirOfferList", UDim2.new(0.5, 4, 0, 62), UDim2.new(0.5, -14, 1, -124))
-	ui.acceptButton = makeButton(ui.offerPanel, "AcceptButton", "ACCEPT", UDim2.new(0, 10, 1, -48), UDim2.new(0.5, -16, 0, 34), Color3.fromRGB(80, 220, 112))
-	ui.cancelButton = makeButton(ui.offerPanel, "CancelButton", "CANCEL", UDim2.new(0.5, 6, 1, -48), UDim2.new(0.5, -16, 0, 34), Color3.fromRGB(235, 74, 90))
+	rememberButtonColor(ui.setGemsButton)
+	rememberButtonColor(ui.acceptButton)
+	rememberButtonColor(ui.cancelButton)
 	ui.acceptButton.Activated:Connect(function()
 		invoke("Accept")
 	end)
 	ui.cancelButton.Activated:Connect(function()
 		invoke("Cancel")
 	end)
+	ui.setGemsButton.Activated:Connect(function()
+		invoke("SetGems", { Amount = tonumber(ui.gemBox.Text) or 0 })
+	end)
+	return true
+end
+
+local function setReadyBadge(label, accepted)
+	if not label then
+		return
+	end
+	if accepted then
+		label.Text = "READY"
+		label.TextColor3 = THEME.White
+		label.BackgroundColor3 = THEME.Green
+	else
+		label.Text = "NOT READY"
+		label.TextColor3 = THEME.Muted
+		label.BackgroundColor3 = Color3.fromRGB(230, 236, 246)
+	end
+end
+
+local function setOfferStroke(panel, accepted)
+	local panelStroke = panel and panel:FindFirstChildOfClass("UIStroke")
+	if panelStroke then
+		panelStroke.Color = accepted and THEME.Green or Color3.fromRGB(206, 218, 235)
+		panelStroke.Thickness = accepted and 3 or 1
+	end
 end
 
 render = function()
@@ -284,51 +560,98 @@ render = function()
 	end
 
 	local session = state.Session
-	setText(ui.status, state.Message ~= "" and state.Message or (session and ("Trading with " .. session.OtherName) or "Choose a player to trade Colors and Gems."))
-	setText(ui.gemsLabel, "Gems: " .. tostring(state.Gems or 0))
+	local message = tostring(state.Message or "")
+	if message ~= "" then
+		setText(ui.status, message)
+	elseif session then
+		setText(ui.status, "Trading with " .. tostring(session.OtherName or "Player"))
+	else
+		setText(ui.status, "Choose a player to trade Colors and Gems.")
+	end
+	setText(ui.gemsOwned, "Gems: " .. tostring(state.Gems or 0))
+	setText(ui.offerHint, session and "Add colors, set gems, then ready up." or "Start a trade to build an offer.")
 
 	clearList(ui.playersList)
 	for _, other in ipairs(state.Players or {}) do
-		makeRow(ui.playersList, other.DisplayName or other.Name or "Player", session and "BUSY" or "TRADE", function()
-			invoke("Start", { TargetUserId = other.UserId })
-		end, session ~= nil)
+		makePlayerRow(ui.playersList, other, session)
 	end
 	if #(state.Players or {}) == 0 then
-		makeText(ui.playersList, "Empty", "No other players online.", UDim2.fromOffset(4, 4), UDim2.new(1, -8, 0, 40), 12)
+		makeEmptyState(ui.playersList, "No other players online.")
 	end
 
 	clearList(ui.colorsList)
 	for _, color in ipairs(state.Colors or {}) do
-		local suffix = color.Locked and " (Locked)" or color.Equipped and " (Equipped)" or ""
-		makeRow(ui.colorsList, tostring(color.Name or color.Id) .. suffix, "ADD", function()
-			invoke("AddColor", { ColorId = color.Id })
-		end, not session or color.Tradeable ~= true)
+		local meta = "Tradeable"
+		local metaColor = THEME.GreenDark
+		if color.Locked then
+			meta = "Locked"
+			metaColor = THEME.Pink
+		elseif color.Equipped then
+			meta = "Equipped"
+			metaColor = THEME.Muted
+		end
+		local name = tostring(color.Name or color.Id or "Color")
+		makeRow(
+			ui.colorsList,
+			name,
+			"ADD",
+			function()
+				invoke("AddColor", { ColorId = color.Id })
+			end,
+			not session or color.Tradeable ~= true,
+			{
+				iconText = getInitials(name, "CO"),
+				iconColor = color.Tradeable == true and THEME.Cyan or THEME.Disabled,
+				meta = meta,
+				metaColor = metaColor,
+				buttonWidth = 60,
+				buttonColor = THEME.Green,
+				height = 48,
+			}
+		)
 	end
 	if #(state.Colors or {}) == 0 then
-		makeText(ui.colorsList, "Empty", "No Colors to trade.", UDim2.fromOffset(4, 4), UDim2.new(1, -8, 0, 40), 12)
+		makeEmptyState(ui.colorsList, "No Colors to trade.")
 	end
+
+	local myOffer = session and session.MyOffer or { Gems = 0, Colors = {} }
+	local theirOffer = session and session.TheirOffer or { Gems = 0, Colors = {} }
+	local myAccepted = session and session.MyAccepted == true
+	local theirAccepted = session and session.TheirAccepted == true
+
+	setText(ui.myName, "YOU")
+	setText(ui.theirName, session and tostring(session.OtherName or "THEM") or "THEM")
+	setReadyBadge(ui.myReady, myAccepted)
+	setReadyBadge(ui.theirReady, theirAccepted)
+	setOfferStroke(ui.myOfferPanel, myAccepted)
+	setOfferStroke(ui.theirOfferPanel, theirAccepted)
 
 	clearList(ui.myOfferList)
 	clearList(ui.theirOfferList)
-	local myOffer = session and session.MyOffer or { Gems = 0, Colors = {} }
-	local theirOffer = session and session.TheirOffer or { Gems = 0, Colors = {} }
-	makeRow(ui.myOfferList, "Gems: " .. tostring(myOffer.Gems or 0), "GEMS", nil, true)
-	makeRow(ui.theirOfferList, "Gems: " .. tostring(theirOffer.Gems or 0), "GEMS", nil, true)
+	makeGemOfferRow(ui.myOfferList, myOffer.Gems or 0)
+	makeGemOfferRow(ui.theirOfferList, theirOffer.Gems or 0)
 	for _, color in ipairs(myOffer.Colors or {}) do
-		makeOfferRow(ui.myOfferList, color, true)
+		makeOfferColorRow(ui.myOfferList, color, true)
 	end
 	for _, color in ipairs(theirOffer.Colors or {}) do
-		makeOfferRow(ui.theirOfferList, color, false)
+		makeOfferColorRow(ui.theirOfferList, color, false)
+	end
+	if #(myOffer.Colors or {}) == 0 then
+		makeEmptyState(ui.myOfferList, "No colors added.")
+	end
+	if #(theirOffer.Colors or {}) == 0 then
+		makeEmptyState(ui.theirOfferList, "No colors added.")
 	end
 
-	setText(ui.myOfferTitle, session and (session.MyAccepted and "YOU - ACCEPTED" or "YOU") or "YOU")
-	setText(ui.theirOfferTitle, session and (session.TheirAccepted and "THEM - ACCEPTED" or "THEM") or "THEM")
-	setButtonEnabled(ui.acceptButton, session ~= nil)
+	setText(ui.acceptButton, myAccepted and "READY" or "READY!")
+	setButtonEnabled(ui.acceptButton, session ~= nil and not myAccepted)
 	setButtonEnabled(ui.cancelButton, session ~= nil)
 	setButtonEnabled(ui.setGemsButton, session ~= nil)
 end
 
-buildUi()
+if not bindUi() then
+	return
+end
 render()
 
 local function refresh()

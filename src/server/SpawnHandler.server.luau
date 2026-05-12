@@ -15,13 +15,30 @@ local RESPAWN_PLACE_DELAY = 0.35
 local OUT_OF_BOUNDS_Y = -100
 local OUT_OF_BOUNDS_CHECK_SECONDS = 0.35
 local START_SECTOR_COLOR = (GameBalance.Progression and GameBalance.Progression.StartSectorColor) or "Red"
-local MAX_PLAYABLE_SECTOR_INDEX = tonumber(GameBalance.Progression and GameBalance.Progression.MaxPlayableSectorIndex) or math.huge
+local MAX_PLAYABLE_SECTOR_INDEX = tonumber(GameBalance.Progression and GameBalance.Progression.MaxPlayableSectorIndex)
+	or math.huge
 
 local spawnTokens = {}
 
 local function isSectorPlayable(colorType)
 	local index = ColorData.getWorldIndex(colorType)
 	return index ~= nil and index <= MAX_PLAYABLE_SECTOR_INDEX
+end
+
+local function compactName(value)
+	return string.lower(tostring(value or "")):gsub("[%s_%-%p]", "")
+end
+
+local function isStartSectorName(name)
+	local compact = compactName(name)
+	return compact == "originsector"
+		or compact == "origin"
+		or compact == "startsector"
+		or compact == "spawnworld"
+		or compact == "redwastelands"
+		or compact == "redwasteland"
+		or compact == "redsector"
+		or compact == "redzone"
 end
 
 local function getSpawnColor(part)
@@ -52,6 +69,9 @@ local function getObjectColor(instance)
 	end
 
 	local loweredName = string.lower(instance.Name or "")
+	if isStartSectorName(loweredName) then
+		return START_SECTOR_COLOR
+	end
 	for _, world in ipairs(ColorData.Worlds or {}) do
 		local color = world.primaryColor
 		if typeof(color) == "string" and string.find(loweredName, string.lower(color), 1, true) then
@@ -101,8 +121,11 @@ local function isStartSpawn(part)
 	return color == START_SECTOR_COLOR
 		or color == "Lobby"
 		or part:GetAttribute("LobbySpawn") == true
+		or getAncestorColor(part) == START_SECTOR_COLOR
 		or string.find(loweredName, "red", 1, true) ~= nil
+		or string.find(loweredName, "origin", 1, true) ~= nil
 		or string.find(parentName, "red", 1, true) ~= nil
+		or string.find(parentName, "origin", 1, true) ~= nil
 		or string.find(parentName, "colorsimspawn", 1, true) ~= nil
 end
 
@@ -139,7 +162,11 @@ local function scoreSpawn(part, colorType)
 	if loweredName == "spawnlocation" then
 		score += 12000
 	end
-	if part:GetAttribute("AreaSpawn") == true or part:GetAttribute("WorldSpawn") == true or part:GetAttribute("SectorSpawn") == true then
+	if
+		part:GetAttribute("AreaSpawn") == true
+		or part:GetAttribute("WorldSpawn") == true
+		or part:GetAttribute("SectorSpawn") == true
+	then
 		score += 9000
 	end
 	if loweredName == "sectorspawn" or loweredName == "arrivalspawn" or loweredName == "travelspawn" then
@@ -147,6 +174,14 @@ local function scoreSpawn(part, colorType)
 	end
 	if colorType == START_SECTOR_COLOR and isStartSpawn(part) then
 		score += 50000
+	end
+	local current = part.Parent
+	while current and current ~= Workspace do
+		if isStartSectorName(current.Name) then
+			score += 10000
+			break
+		end
+		current = current.Parent
 	end
 	score -= math.abs(part.Position.Y) * 0.001
 	return score
@@ -232,6 +267,34 @@ end
 
 local function findStartSectorDestination()
 	local map = Workspace:FindFirstChild(MAP_NAME)
+	local preferredStartRoots = {}
+	if map then
+		for _, obj in ipairs(map:GetDescendants()) do
+			if (obj:IsA("Folder") or obj:IsA("Model")) and isStartSectorName(obj.Name) then
+				table.insert(preferredStartRoots, obj)
+			end
+		end
+	end
+
+	table.sort(preferredStartRoots, function(a, b)
+		local aName = compactName(a.Name)
+		local bName = compactName(b.Name)
+		if aName == "originsector" and bName ~= "originsector" then
+			return true
+		end
+		if bName == "originsector" and aName ~= "originsector" then
+			return false
+		end
+		return a:GetFullName() < b:GetFullName()
+	end)
+
+	for _, root in ipairs(preferredStartRoots) do
+		local spawn = findBestSpawn(root, START_SECTOR_COLOR)
+		if spawn then
+			return spawn
+		end
+	end
+
 	local spawnFolder = map and map:FindFirstChild("ColorSimSpawn")
 	local spawnLocation = spawnFolder and spawnFolder:FindFirstChild("SpawnLocation")
 	if spawnLocation and spawnLocation:IsA("BasePart") then
@@ -335,25 +398,48 @@ end
 
 local function getValidatedSpawnColor(player)
 	local _, unlockedValue, currentWorld = waitForStorage(player)
-	local requestedColor = currentWorld and currentWorld.Value or player:GetAttribute("ActiveWorldColor") or START_SECTOR_COLOR
+	local requestedColor = currentWorld and currentWorld.Value
+		or player:GetAttribute("ActiveWorldColor")
+		or START_SECTOR_COLOR
 	local world = ColorData.getWorldByColor(requestedColor)
 	local unlockedCsv = unlockedValue and unlockedValue.Value or START_SECTOR_COLOR
 
 	if not world or not isSectorPlayable(world.primaryColor) then
-		warn("[SpawnHandler] Invalid saved sector for " .. player.Name .. ": " .. tostring(requestedColor) .. "; using " .. START_SECTOR_COLOR)
+		warn(
+			"[SpawnHandler] Invalid saved sector for "
+				.. player.Name
+				.. ": "
+				.. tostring(requestedColor)
+				.. "; using "
+				.. START_SECTOR_COLOR
+		)
 		setCurrentWorld(player, START_SECTOR_COLOR, "invalid-respawn-sector")
 		return START_SECTOR_COLOR
 	end
 
 	if not ColorData.isColorUnlocked(unlockedCsv, world.primaryColor) then
-		warn("[SpawnHandler] " .. player.Name .. " tried to spawn in locked sector " .. tostring(world.primaryColor) .. "; using " .. START_SECTOR_COLOR)
+		warn(
+			"[SpawnHandler] "
+				.. player.Name
+				.. " tried to spawn in locked sector "
+				.. tostring(world.primaryColor)
+				.. "; using "
+				.. START_SECTOR_COLOR
+		)
 		setCurrentWorld(player, START_SECTOR_COLOR, "locked-respawn-sector")
 		return START_SECTOR_COLOR
 	end
 
 	local destination = findSectorDestination(world.primaryColor)
 	if not destination then
-		warn("[SpawnHandler] Missing spawn part for sector " .. tostring(world.primaryColor) .. " for " .. player.Name .. "; using " .. START_SECTOR_COLOR)
+		warn(
+			"[SpawnHandler] Missing spawn part for sector "
+				.. tostring(world.primaryColor)
+				.. " for "
+				.. player.Name
+				.. "; using "
+				.. START_SECTOR_COLOR
+		)
 		setCurrentWorld(player, START_SECTOR_COLOR, "missing-respawn-sector-spawn")
 		return START_SECTOR_COLOR
 	end
@@ -365,7 +451,14 @@ local function placeAtValidatedSpawn(player, character, reason)
 	local colorType = getValidatedSpawnColor(player)
 	local destination = findSectorDestination(colorType)
 	if not destination and colorType ~= START_SECTOR_COLOR then
-		warn("[SpawnHandler] Missing validated spawn for " .. player.Name .. " in " .. tostring(colorType) .. "; falling back to " .. START_SECTOR_COLOR)
+		warn(
+			"[SpawnHandler] Missing validated spawn for "
+				.. player.Name
+				.. " in "
+				.. tostring(colorType)
+				.. "; falling back to "
+				.. START_SECTOR_COLOR
+		)
 		colorType = START_SECTOR_COLOR
 		setCurrentWorld(player, START_SECTOR_COLOR, "missing-respawn-sector-spawn")
 		destination = findSectorDestination(START_SECTOR_COLOR)

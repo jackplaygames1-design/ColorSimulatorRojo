@@ -48,6 +48,12 @@ if not inventoryPetActionFunction then
 	inventoryPetActionFunction.Name = "InventoryPetAction"
 	inventoryPetActionFunction.Parent = ServerStorage
 end
+local petInventorySnapshotFunction = ServerStorage:FindFirstChild("PetInventorySnapshot")
+if not petInventorySnapshotFunction then
+	petInventorySnapshotFunction = Instance.new("BindableFunction")
+	petInventorySnapshotFunction.Name = "PetInventorySnapshot"
+	petInventorySnapshotFunction.Parent = ServerStorage
+end
 local tutorialHatchSucceededEvent = Events:FindFirstChild("TutorialHatchSucceeded")
 if not tutorialHatchSucceededEvent then
 	tutorialHatchSucceededEvent = Instance.new("BindableEvent")
@@ -468,6 +474,45 @@ local function lockedToCsv(player)
 	return table.concat(keys, ",")
 end
 
+local function getLockedList(player)
+	local lockedCsv = lockedToCsv(player)
+	if lockedCsv == "" then
+		return {}
+	end
+	return string.split(lockedCsv, ",")
+end
+
+local sanitizeEquippedList
+
+local function getPetInventorySnapshot(player)
+	if not playerInventory[player] or not playerEquipped[player] then
+		return nil
+	end
+
+	repairOwnerRainbowPetInMemory(player)
+	sanitizeEquippedList(player)
+
+	local records = {}
+	for variantKey, data in pairs(playerInventory[player]) do
+		local normalizedKey, normalizedData = normalizeInventoryData(variantKey, {
+			petId = data.petId,
+			stackAmount = data.stackAmount,
+			traitId = data.traitId,
+			isShiny = data.isShiny == true,
+			personalityId = data.personalityId,
+			mutationId = data.mutationId,
+		})
+		if normalizedKey and normalizedData then
+			normalizedData.variantKey = normalizedKey
+			table.insert(records, normalizedData)
+		end
+	end
+
+	return records, table.clone(playerEquipped[player] or {}), getLockedList(player)
+end
+
+petInventorySnapshotFunction.OnInvoke = getPetInventorySnapshot
+
 local function isEquippedKey(equipped, key)
 	for _, equippedKey in ipairs(equipped or {}) do
 		if equippedKey == key then
@@ -557,7 +602,7 @@ local function resolveInventoryKey(inventory, key)
 	return nil
 end
 
-local function sanitizeEquippedList(player)
+function sanitizeEquippedList(player)
 	local equipped = playerEquipped[player]
 	local inventory = playerInventory[player]
 	if not equipped or not inventory then
@@ -631,7 +676,18 @@ local function syncPetFolder(player, dirtyReason)
 					.. (data.mutationId or "None")
 			)
 		end
-		invVal.Value = table.concat(parts, ",")
+		local serializedInventory = table.concat(parts, ",")
+		if serializedInventory == "" and invVal.Value ~= "" and dirtyReason ~= "delete-color" then
+			warn(
+				"PetHandler: blocked empty PetData inventory sync for "
+					.. player.Name
+					.. " ("
+					.. tostring(dirtyReason)
+					.. ")"
+			)
+		else
+			invVal.Value = serializedInventory
+		end
 	end
 
 	if equippedVal then
@@ -859,13 +915,19 @@ end)
 
 Players.PlayerRemoving:Connect(function(player)
 	syncPetFolder(player, "player-removing")
-	playerInventory[player] = nil
-	playerEquipped[player] = nil
-	playerLocked[player] = nil
-	lastMergeAt[player] = nil
-	hatchState[player] = nil
-	hatchLocks[player] = nil
-	activeHatches[player] = nil
+	task.delay(20, function()
+		if player.Parent ~= nil then
+			return
+		end
+
+		playerInventory[player] = nil
+		playerEquipped[player] = nil
+		playerLocked[player] = nil
+		lastMergeAt[player] = nil
+		hatchState[player] = nil
+		hatchLocks[player] = nil
+		activeHatches[player] = nil
+	end)
 end)
 
 task.spawn(function()
