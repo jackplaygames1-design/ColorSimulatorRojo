@@ -2948,6 +2948,57 @@ local function conceptButton(parent, name, value, position, size, color)
 	return btn
 end
 
+local function imageButton(parent, name, position, size, color)
+	local existing = parent:FindFirstChild(name)
+	local migratedChildren = {}
+	local migratedText = ""
+	if existing and not existing:IsA("ImageButton") then
+		if existing:IsA("TextButton") or existing:IsA("TextLabel") or existing:IsA("TextBox") then
+			migratedText = existing.Text
+		end
+		for _, child in ipairs(existing:GetChildren()) do
+			table.insert(migratedChildren, child)
+		end
+		if existing:IsA("GuiObject") then
+			existing.Visible = false
+		end
+		existing.Parent = nil
+		existing = nil
+	end
+
+	local btn = existing or Instance.new("ImageButton")
+	btn.Name = name
+	btn.AutoButtonColor = true
+	btn.Image = ""
+	btn.ScaleType = Enum.ScaleType.Fit
+	btn.BackgroundColor3 = color or Color3.fromRGB(45, 167, 255)
+	btn.BorderSizePixel = 0
+	btn.Position = position
+	btn.Size = size
+	btn.Parent = parent
+	for _, child in ipairs(migratedChildren) do
+		child.Parent = btn
+	end
+	if migratedText ~= "" and not btn:FindFirstChild("Label") then
+		local label = Instance.new("TextLabel")
+		label.Name = "Label"
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.GothamBlack
+		label.Text = migratedText
+		label.TextColor3 = Color3.fromRGB(255, 255, 255)
+		label.TextStrokeColor3 = OUTLINE
+		label.TextStrokeTransparency = 0
+		label.TextScaled = true
+		label.TextWrapped = true
+		label.Position = UDim2.fromOffset(4, 4)
+		label.Size = UDim2.new(1, -8, 1, -8)
+		label.Parent = btn
+	end
+	applyCorner(btn, 12)
+	applyStroke(btn, OUTLINE, 2)
+	return btn
+end
+
 local function conceptPanel(parent, name, position, size, color, radius, strokeThickness)
 	local panel = frame(parent, name, position, size, color or Color3.fromRGB(255, 255, 255))
 	applyCorner(panel, radius or 18)
@@ -3053,9 +3104,28 @@ local function buildCurrencyBar(mainHud)
 end
 
 local function makeBottomButton(parent, name, label, order, color)
-	local btn = conceptButton(parent, name, label, UDim2.fromOffset(0, 0), UDim2.fromOffset(68, 68), color)
+	local btn = imageButton(parent, name, UDim2.fromOffset(0, 0), UDim2.fromOffset(68, 68), color)
 	btn.LayoutOrder = order
-	btn.TextSize = 17
+	local textLabel = btn:FindFirstChild("Label")
+	if not textLabel or not textLabel:IsA("TextLabel") then
+		if textLabel then
+			textLabel:Destroy()
+		end
+		textLabel = Instance.new("TextLabel")
+		textLabel.Name = "Label"
+		textLabel.BackgroundTransparency = 1
+		textLabel.Font = Enum.Font.GothamBlack
+		textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		textLabel.TextStrokeColor3 = OUTLINE
+		textLabel.TextStrokeTransparency = 0
+		textLabel.Parent = btn
+	end
+	textLabel.Text = label
+	textLabel.TextSize = 17
+	textLabel.TextScaled = true
+	textLabel.TextWrapped = true
+	textLabel.Size = UDim2.new(1, -8, 1, -8)
+	textLabel.Position = UDim2.fromOffset(4, 4)
 	return btn
 end
 
@@ -3082,6 +3152,34 @@ local function buildBottomButtons(mainHud)
 	makeBottomButton(bottomButtons, "ShopButton", "SHOP", 4, Color3.fromRGB(45, 167, 255))
 	makeBottomButton(bottomButtons, "WorldsButton", "WORLD", 5, Color3.fromRGB(45, 167, 255))
 	makeBottomButton(bottomButtons, "SettingsButton", "SET", 6, Color3.fromRGB(45, 167, 255))
+end
+
+local function convertExistingBottomButtons(mainHud)
+	local bottomButtons = mainHud:FindFirstChild("BottomButtons")
+	if not bottomButtons or not bottomButtons:IsA("GuiObject") then
+		warn("StudioMenuWindowsBuilder: missing StarterGui.MainHUD.BottomButtons.")
+		return
+	end
+
+	for _, name in ipairs({
+		"InventoryButton",
+		"MenuButton",
+		"RankButton",
+		"SettingsButton",
+		"ShopButton",
+		"TradeButton",
+		"WorldsButton",
+	}) do
+		local existing = bottomButtons:FindFirstChild(name)
+		if existing and existing:IsA("GuiObject") then
+			local converted =
+				imageButton(bottomButtons, name, existing.Position, existing.Size, existing.BackgroundColor3)
+			converted.LayoutOrder = existing.LayoutOrder
+			converted.AnchorPoint = existing.AnchorPoint
+			converted.Visible = existing.Visible
+			converted.ZIndex = existing.ZIndex
+		end
+	end
 end
 
 local function buildShopTransitionOverlay(mainHud)
@@ -3384,99 +3482,49 @@ local function makeSettingsRow(parent, name, label, description, order, defaultT
 		parent,
 		name,
 		UDim2.fromOffset(0, 0),
-		UDim2.new(1, -12, 0, 56),
+		UDim2.new(1, -12, 0, 64),
 		Color3.fromRGB(255, 255, 255),
 		12,
 		1
 	)
 	row.LayoutOrder = order
-	conceptLabel(row, "Name", label, UDim2.fromScale(0.04, 0.1), UDim2.fromScale(0.48, 0.44), 18)
+	row.ClipsDescendants = true
+	conceptLabel(row, "Name", label, UDim2.fromScale(0.04, 0.12), UDim2.fromScale(0.58, 0.34), 18)
 	local desc =
-		conceptLabel(row, "Description", description, UDim2.fromScale(0.04, 0.52), UDim2.fromScale(0.5, 0.34), 12)
+		conceptLabel(row, "Description", description, UDim2.fromScale(0.04, 0.5), UDim2.fromScale(0.58, 0.34), 12)
 	desc.TextColor3 = MUTED
 	local status = conceptLabel(
 		row,
 		"Status",
 		defaultText or "ON",
-		UDim2.fromScale(0.66, 0.18),
-		UDim2.fromScale(0.1, 0.62),
+		UDim2.fromScale(0.66, 0.2),
+		UDim2.fromScale(0.08, 0.6),
 		18,
 		Enum.TextXAlignment.Center
 	)
-	status.TextColor3 = Color3.fromRGB(255, 255, 255)
-	status.TextStrokeColor3 = OUTLINE
-	status.TextStrokeTransparency = 0
-	conceptButton(
+	status.Visible = false
+	local toggle = conceptButton(
 		row,
 		"ToggleButton",
 		defaultText or "ON",
-		UDim2.fromScale(0.78, 0.16),
-		UDim2.fromScale(0.18, 0.68),
+		UDim2.fromScale(0.75, 0.18),
+		UDim2.fromScale(0.21, 0.64),
 		Color3.fromRGB(73, 218, 57)
 	)
+	toggle.TextSize = 16
 	return row
 end
 
 local function buildSettingsWindow(modalWindows)
-	local _, content = conceptWindow(modalWindows, "SettingsWindow", "SETTINGS")
+	local window, content = conceptWindow(modalWindows, "SettingsWindow", "SETTINGS")
+	window.Size = UDim2.fromScale(0.76, 0.68)
+	content.ClipsDescendants = true
 
-	local categories = conceptPanel(
-		content,
-		"CategoryList",
-		UDim2.fromScale(0.02, 0.06),
-		UDim2.fromScale(0.18, 0.78),
-		Color3.fromRGB(250, 252, 255),
-		16,
-		2
-	)
-	local catLayout = Instance.new("UIListLayout")
-	catLayout.FillDirection = Enum.FillDirection.Vertical
-	catLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	catLayout.Padding = UDim.new(0, 12)
-	catLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	catLayout.Parent = categories
-	conceptButton(
-		categories,
-		"GeneralCategory",
-		"General",
-		UDim2.fromOffset(0, 0),
-		UDim2.new(1, -20, 0, 68),
-		Color3.fromRGB(28, 134, 255)
-	).LayoutOrder =
-		1
-	conceptButton(
-		categories,
-		"AudioCategory",
-		"Audio",
-		UDim2.fromOffset(0, 0),
-		UDim2.new(1, -20, 0, 68),
-		Color3.fromRGB(255, 255, 255)
-	).LayoutOrder =
-		2
-	conceptButton(
-		categories,
-		"GameplayCategory",
-		"Gameplay",
-		UDim2.fromOffset(0, 0),
-		UDim2.new(1, -20, 0, 68),
-		Color3.fromRGB(255, 255, 255)
-	).LayoutOrder =
-		3
-	conceptButton(
-		categories,
-		"NotificationsCategory",
-		"Notices",
-		UDim2.fromOffset(0, 0),
-		UDim2.new(1, -20, 0, 68),
-		Color3.fromRGB(255, 255, 255)
-	).LayoutOrder =
-		4
-
-	local rows = conceptPanel(
+	local rows = conceptScrollingPanel(
 		content,
 		"SettingsRows",
-		UDim2.fromScale(0.23, 0.06),
-		UDim2.fromScale(0.5, 0.78),
+		UDim2.fromScale(0.05, 0.08),
+		UDim2.fromScale(0.9, 0.84),
 		Color3.fromRGB(250, 252, 255),
 		16,
 		0
@@ -3485,53 +3533,17 @@ local function buildSettingsWindow(modalWindows)
 	local rowLayout = Instance.new("UIListLayout")
 	rowLayout.FillDirection = Enum.FillDirection.Vertical
 	rowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	rowLayout.Padding = UDim.new(0, 8)
+	rowLayout.Padding = UDim.new(0, 10)
 	rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	rowLayout.Parent = rows
 	makeSettingsRow(rows, "MusicCard", "Music", "Background music.", 1, "ON")
 	makeSettingsRow(rows, "SFXCard", "Sound Effects", "Sound feedback.", 2, "ON")
-	makeSettingsRow(rows, "GraphicsQualityCard", "Graphics Quality", "Placeholder quality slider.", 3, "3")
-	makeSettingsRow(rows, "DamageNumbersCard", "Show Damage Numbers", "Popup feedback while collecting.", 4, "ON")
-	makeSettingsRow(rows, "TradeRequestsCard", "Trade Requests", "Allow incoming trade requests.", 5, "ON")
-	makeSettingsRow(rows, "HidePetsCard", "Pet Hide Mode", "Hide pet visuals locally.", 6, "OFF")
-	makeSettingsRow(rows, "AutoHatchCard", "Auto Hatch", "Auto hatch preference.", 7, "OFF")
-	makeSettingsRow(rows, "CameraShakeCard", "Camera Shake", "Camera feedback while playing.", 8, "ON")
-
-	conceptPanel(
-		content,
-		"PreviewPanel",
-		UDim2.fromScale(0.76, 0.06),
-		UDim2.fromScale(0.21, 0.78),
-		Color3.fromRGB(250, 252, 255),
-		16,
-		1
-	)
-	conceptButton(
-		content,
-		"ApplyButton",
-		"APPLY",
-		UDim2.fromScale(0.25, 0.86),
-		UDim2.fromScale(0.22, 0.08),
-		Color3.fromRGB(73, 218, 57)
-	)
-	conceptButton(
-		content,
-		"ResetButton",
-		"RESET",
-		UDim2.fromScale(0.5, 0.86),
-		UDim2.fromScale(0.22, 0.08),
-		Color3.fromRGB(236, 43, 38)
-	)
-	conceptLabel(
-		content,
-		"InfoText",
-		"Adjust your game experience here.",
-		UDim2.fromScale(0.04, 0.94),
-		UDim2.fromScale(0.92, 0.04),
-		16,
-		Enum.TextXAlignment.Center
-	).TextColor3 =
-		Color3.fromRGB(125, 141, 170)
+	makeSettingsRow(rows, "DamageNumbersCard", "Damage Numbers", "Popup feedback while collecting.", 3, "ON")
+	makeSettingsRow(rows, "TradeRequestsCard", "Trade Requests", "Allow incoming trade requests.", 4, "ON")
+	makeSettingsRow(rows, "HidePetsCard", "Hide Pets", "Hide pet visuals on your client.", 5, "OFF")
+	makeSettingsRow(rows, "AutoHatchCard", "Auto Hatch", "Auto hatch preference.", 6, "OFF")
+	makeSettingsRow(rows, "CameraShakeCard", "Camera Shake", "Camera feedback while playing.", 7, "ON")
+	makeSettingsRow(rows, "LowDetailCard", "Low Detail FX", "Reduce visual effects.", 8, "OFF")
 end
 
 local function makeTradeSlot(parent, name, order, role)
@@ -3540,7 +3552,7 @@ local function makeTradeSlot(parent, name, order, role)
 		name,
 		"",
 		UDim2.fromOffset(0, 0),
-		UDim2.fromOffset(132, 96),
+		UDim2.fromOffset(118, 86),
 		Color3.fromRGB(255, 255, 255)
 	)
 	slot.LayoutOrder = order
@@ -3550,8 +3562,8 @@ local function makeTradeSlot(parent, name, order, role)
 		slot,
 		"Name",
 		"",
-		UDim2.fromScale(0.08, 0.12),
-		UDim2.fromScale(0.84, 0.38),
+		UDim2.fromScale(0.08, 0.16),
+		UDim2.fromScale(0.84, 0.36),
 		14,
 		Enum.TextXAlignment.Center
 	)
@@ -3559,57 +3571,62 @@ local function makeTradeSlot(parent, name, order, role)
 		slot,
 		"Meta",
 		"",
-		UDim2.fromScale(0.08, 0.52),
-		UDim2.fromScale(0.84, 0.22),
+		UDim2.fromScale(0.08, 0.5),
+		UDim2.fromScale(0.84, 0.2),
 		11,
 		Enum.TextXAlignment.Center
 	).TextColor3 =
 		MUTED
-	conceptButton(
-		slot,
-		role == "MyOffer" and "RemoveButton" or "AddButton",
-		role == "TheirOffer" and "" or "ADD",
-		UDim2.fromScale(0.12, 0.72),
-		UDim2.fromScale(0.76, 0.22),
-		Color3.fromRGB(73, 218, 57)
-	).TextSize =
-		12
+	if role == "MyOffer" then
+		conceptButton(
+			slot,
+			"AddButton",
+			"ADD",
+			UDim2.fromScale(0.16, 0.72),
+			UDim2.fromScale(0.68, 0.22),
+			Color3.fromRGB(73, 218, 57)
+		).TextSize =
+			12
+	end
 	return slot
 end
 
-local function makeTradeList(parent, name, title, position, size)
+local function makeTradeList(parent, name, listName, title, position, size)
 	local panel = conceptPanel(parent, name, position, size, Color3.fromRGB(250, 252, 255), 16, 2)
 	panel.ClipsDescendants = true
 	conceptLabel(
 		panel,
 		"Title",
 		title,
-		UDim2.fromScale(0.04, 0.02),
-		UDim2.fromScale(0.92, 0.08),
+		UDim2.fromScale(0.04, 0.025),
+		UDim2.fromScale(0.92, 0.075),
 		18,
 		Enum.TextXAlignment.Center
 	)
 	local list = conceptScrollingPanel(
 		panel,
-		name .. "List",
-		UDim2.fromScale(0.04, 0.12),
-		UDim2.fromScale(0.92, 0.72),
+		listName,
+		UDim2.fromScale(0.05, 0.12),
+		UDim2.fromScale(0.9, 0.68),
 		Color3.fromRGB(255, 255, 255),
 		14,
 		1
 	)
-	list.BackgroundTransparency = 0.2
+	list.BackgroundTransparency = 0
 	return panel, list
 end
 
 local function buildTradeWindow(modalWindows)
-	local _, content = conceptWindow(modalWindows, "TradeWindow", "TRADING")
+	local window, content = conceptWindow(modalWindows, "TradeWindow", "TRADING")
+	window.Size = UDim2.fromScale(0.78, 0.64)
+	window.Position = UDim2.fromScale(0.5, 0.46)
+	content.ClipsDescendants = true
 	conceptLabel(
 		content,
 		"Status",
 		"Choose a player to trade.",
-		UDim2.fromScale(0.1, 0.02),
-		UDim2.fromScale(0.8, 0.06),
+		UDim2.fromScale(0.06, 0.025),
+		UDim2.fromScale(0.88, 0.06),
 		18,
 		Enum.TextXAlignment.Center
 	).TextColor3 =
@@ -3618,8 +3635,8 @@ local function buildTradeWindow(modalWindows)
 	local playersPanel = conceptPanel(
 		content,
 		"PlayersPanel",
-		UDim2.fromScale(0.03, 0.1),
-		UDim2.fromScale(0.16, 0.8),
+		UDim2.fromScale(0.04, 0.12),
+		UDim2.fromScale(0.22, 0.66),
 		Color3.fromRGB(250, 252, 255),
 		16,
 		2
@@ -3630,7 +3647,7 @@ local function buildTradeWindow(modalWindows)
 		playersPanel,
 		"PlayersList",
 		UDim2.fromScale(0.07, 0.13),
-		UDim2.fromScale(0.86, 0.34),
+		UDim2.fromScale(0.86, 0.78),
 		Color3.fromRGB(255, 255, 255),
 		12,
 		1
@@ -3663,14 +3680,15 @@ local function buildTradeWindow(modalWindows)
 	end
 
 	local colorsList = conceptScrollingPanel(
-		playersPanel,
+		content,
 		"ColorsList",
-		UDim2.fromScale(0.07, 0.53),
-		UDim2.fromScale(0.86, 0.39),
+		UDim2.fromScale(0, 1.1),
+		UDim2.fromOffset(1, 1),
 		Color3.fromRGB(255, 255, 255),
 		12,
 		1
 	)
+	colorsList.Visible = false
 	local colorLayout = Instance.new("UIListLayout")
 	colorLayout.Padding = UDim.new(0, 8)
 	colorLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -3699,10 +3717,16 @@ local function buildTradeWindow(modalWindows)
 			11
 	end
 
-	local yourPanel, myOfferList =
-		makeTradeList(content, "YourOfferPanel", "YOUR OFFER", UDim2.fromScale(0.22, 0.1), UDim2.fromScale(0.29, 0.66))
+	local yourPanel, myOfferList = makeTradeList(
+		content,
+		"YourOfferPanel",
+		"MyOfferList",
+		"YOUR OFFER",
+		UDim2.fromScale(0.3, 0.12),
+		UDim2.fromScale(0.28, 0.66)
+	)
 	local myGrid = Instance.new("UIGridLayout")
-	myGrid.CellSize = UDim2.fromScale(0.46, 0.31)
+	myGrid.CellSize = UDim2.fromScale(0.46, 0.29)
 	myGrid.CellPadding = UDim2.fromScale(0.04, 0.04)
 	myGrid.SortOrder = Enum.SortOrder.LayoutOrder
 	myGrid.Parent = myOfferList
@@ -3713,7 +3737,7 @@ local function buildTradeWindow(modalWindows)
 		yourPanel,
 		"MyOfferGems",
 		"Gems: 0",
-		UDim2.fromScale(0.08, 0.86),
+		UDim2.fromScale(0.08, 0.83),
 		UDim2.fromScale(0.84, 0.08),
 		18,
 		Enum.TextXAlignment.Center
@@ -3722,12 +3746,13 @@ local function buildTradeWindow(modalWindows)
 	local theirPanel, theirOfferList = makeTradeList(
 		content,
 		"TheirOfferPanel",
+		"TheirOfferList",
 		"THEIR OFFER",
-		UDim2.fromScale(0.59, 0.1),
-		UDim2.fromScale(0.29, 0.66)
+		UDim2.fromScale(0.68, 0.12),
+		UDim2.fromScale(0.28, 0.66)
 	)
 	local theirGrid = Instance.new("UIGridLayout")
-	theirGrid.CellSize = UDim2.fromScale(0.46, 0.31)
+	theirGrid.CellSize = UDim2.fromScale(0.46, 0.29)
 	theirGrid.CellPadding = UDim2.fromScale(0.04, 0.04)
 	theirGrid.SortOrder = Enum.SortOrder.LayoutOrder
 	theirGrid.Parent = theirOfferList
@@ -3738,7 +3763,7 @@ local function buildTradeWindow(modalWindows)
 		theirPanel,
 		"TheirOfferGems",
 		"Gems: 0",
-		UDim2.fromScale(0.08, 0.86),
+		UDim2.fromScale(0.08, 0.83),
 		UDim2.fromScale(0.84, 0.08),
 		18,
 		Enum.TextXAlignment.Center
@@ -3747,65 +3772,77 @@ local function buildTradeWindow(modalWindows)
 	conceptLabel(
 		content,
 		"SwapIcon",
-		"SWAP",
-		UDim2.fromScale(0.515, 0.31),
-		UDim2.fromScale(0.07, 0.08),
-		20,
+		"FOR",
+		UDim2.fromScale(0.59, 0.38),
+		UDim2.fromScale(0.08, 0.08),
+		18,
 		Enum.TextXAlignment.Center
 	).TextColor3 =
 		Color3.fromRGB(31, 122, 226)
-	local gemBox = textBox(content, "GemBox", "Gems", UDim2.fromScale(0.37, 0.79), UDim2.fromScale(0.13, 0.07))
-	gemBox.TextSize = 18
-	conceptButton(
+
+	local footer = conceptPanel(
 		content,
+		"TradeFooter",
+		UDim2.fromScale(0.04, 0.81),
+		UDim2.fromScale(0.92, 0.14),
+		Color3.fromRGB(255, 255, 255),
+		14,
+		1
+	)
+	footer.BackgroundTransparency = 0.1
+	conceptButton(
+		footer,
+		"AcceptButton",
+		"ACCEPT",
+		UDim2.fromScale(0.56, 0.18),
+		UDim2.fromScale(0.18, 0.64),
+		Color3.fromRGB(73, 218, 57)
+	)
+	conceptButton(
+		footer,
+		"CancelButton",
+		"CANCEL",
+		UDim2.fromScale(0.76, 0.18),
+		UDim2.fromScale(0.18, 0.64),
+		Color3.fromRGB(236, 43, 38)
+	)
+	local gemBox = textBox(footer, "GemBox", "Gems", UDim2.fromScale(0.19, 0.18), UDim2.fromScale(0.14, 0.64))
+	gemBox.TextSize = 16
+	conceptButton(
+		footer,
 		"SetGemsButton",
 		"SET",
-		UDim2.fromScale(0.51, 0.79),
-		UDim2.fromScale(0.08, 0.07),
+		UDim2.fromScale(0.34, 0.18),
+		UDim2.fromScale(0.08, 0.64),
 		Color3.fromRGB(80, 214, 224)
-	)
+	).TextSize =
+		12
 	conceptLabel(
-		content,
+		footer,
 		"GemsLabel",
 		"Gems: 0",
-		UDim2.fromScale(0.22, 0.8),
-		UDim2.fromScale(0.13, 0.05),
+		UDim2.fromScale(0.04, 0.2),
+		UDim2.fromScale(0.14, 0.6),
 		15,
 		Enum.TextXAlignment.Center
 	)
 	conceptLabel(
-		content,
+		footer,
 		"MyReady",
 		"NOT READY",
-		UDim2.fromScale(0.31, 0.9),
-		UDim2.fromScale(0.18, 0.05),
-		16,
+		UDim2.fromScale(0.44, 0.16),
+		UDim2.fromScale(0.1, 0.3),
+		13,
 		Enum.TextXAlignment.Center
 	)
 	conceptLabel(
-		content,
+		footer,
 		"TheirReady",
 		"NOT READY",
-		UDim2.fromScale(0.61, 0.9),
-		UDim2.fromScale(0.18, 0.05),
-		16,
+		UDim2.fromScale(0.44, 0.54),
+		UDim2.fromScale(0.1, 0.3),
+		13,
 		Enum.TextXAlignment.Center
-	)
-	conceptButton(
-		content,
-		"AcceptButton",
-		"ACCEPT",
-		UDim2.fromScale(0.32, 0.86),
-		UDim2.fromScale(0.18, 0.08),
-		Color3.fromRGB(73, 218, 57)
-	)
-	conceptButton(
-		content,
-		"CancelButton",
-		"CANCEL",
-		UDim2.fromScale(0.52, 0.86),
-		UDim2.fromScale(0.18, 0.08),
-		Color3.fromRGB(236, 43, 38)
 	)
 end
 
@@ -3972,6 +4009,57 @@ function Builder.UpdateShopTransitionOverlay()
 	buildShopTransitionOverlay(mainHud)
 	print("StudioMenuWindowsBuilder: updated editable StarterGui.MainHUD.ShopTransitionOverlay.")
 end
+
+function Builder.UpdateBottomButtons()
+	if not canBuildConceptMenus("UpdateBottomButtons") then
+		return
+	end
+
+	local mainHud = StarterGui:FindFirstChild("MainHUD")
+	if not mainHud or not mainHud:IsA("ScreenGui") then
+		warn("StudioMenuWindowsBuilder: missing StarterGui.MainHUD for BottomButtons.")
+		return
+	end
+
+	convertExistingBottomButtons(mainHud)
+	print("StudioMenuWindowsBuilder: updated editable StarterGui.MainHUD.BottomButtons as ImageButtons.")
+end
+
+function Builder.UpdateSettingsWindow()
+	if not canBuildConceptMenus("UpdateSettingsWindow") then
+		return
+	end
+
+	local mainHud = StarterGui:FindFirstChild("MainHUD")
+	if not mainHud or not mainHud:IsA("ScreenGui") then
+		warn("StudioMenuWindowsBuilder: missing StarterGui.MainHUD for SettingsWindow.")
+		return
+	end
+
+	local modalWindows = ensureClass(mainHud, "Folder", "ModalWindows")
+	buildSettingsWindow(modalWindows)
+	print("StudioMenuWindowsBuilder: updated editable StarterGui.MainHUD.ModalWindows.SettingsWindow.")
+end
+
+Builder.UpdateSettingsTab = Builder.UpdateSettingsWindow
+
+function Builder.UpdateTradeWindow()
+	if not canBuildConceptMenus("UpdateTradeWindow") then
+		return
+	end
+
+	local mainHud = StarterGui:FindFirstChild("MainHUD")
+	if not mainHud or not mainHud:IsA("ScreenGui") then
+		warn("StudioMenuWindowsBuilder: missing StarterGui.MainHUD for TradeWindow.")
+		return
+	end
+
+	local modalWindows = ensureClass(mainHud, "Folder", "ModalWindows")
+	buildTradeWindow(modalWindows)
+	print("StudioMenuWindowsBuilder: updated editable StarterGui.MainHUD.ModalWindows.TradeWindow.")
+end
+
+Builder.UpdateTradingWindow = Builder.UpdateTradeWindow
 
 function Builder.BuildConceptMenus()
 	if not canBuildConceptMenus("BuildConceptMenus") then

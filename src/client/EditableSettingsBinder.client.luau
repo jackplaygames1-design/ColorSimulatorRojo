@@ -71,12 +71,12 @@ local CARD_CONFIG = {
 local CARD_ORDER = {
 	"MusicCard",
 	"SFXCard",
-	"GraphicsQualityCard",
 	"DamageNumbersCard",
 	"TradeRequestsCard",
 	"HidePetsCard",
 	"AutoHatchCard",
 	"CameraShakeCard",
+	"LowDetailCard",
 }
 
 local mainHud = playerGui:WaitForChild("MainHUD", 15)

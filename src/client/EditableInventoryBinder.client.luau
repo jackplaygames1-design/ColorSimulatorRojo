@@ -41,6 +41,7 @@ local CARD_GAP = 10
 local TRADE_PICK_ACTIVE_ATTRIBUTE = "TradePickColorActive"
 local TRADE_PICK_RETURN_ATTRIBUTE = "TradePickReturnWindow"
 local TRADE_PICK_REFRESH_ATTRIBUTE = "TradePickRefreshToken"
+local RUNTIME_LAYOUT_ATTRIBUTE = "AllowRuntimeInventoryLayout"
 
 local mainHud = playerGui:WaitForChild("MainHUD", 30)
 local modalWindows = mainHud and mainHud:WaitForChild("ModalWindows", 30)
@@ -943,6 +944,10 @@ local function polishDetails(detailWidth)
 end
 
 local function polishInventoryLayout()
+	if not inventoryWindow:GetAttribute(RUNTIME_LAYOUT_ATTRIBUTE) then
+		return
+	end
+
 	if not ui.body or not ui.gridPanel or not ui.detailPanel then
 		return
 	end
