@@ -1,87 +1,44 @@
--- Single controller for the editable Studio UI:
--- PlayerGui.ClientUIRoot.MainHUD.ModalWindows.Windows
-local Lighting = game:GetService("Lighting")
+-- Bind-only controller for the Studio-authored MainHUD.
+-- Expected editable hierarchy:
+-- PlayerGui.MainHUD
+--   CurrencyBar
+--   BottomButtons
+--   ModalWindows
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local WINDOW_NAMES = {
-	Inventory = "InventoryWindow",
-	Shop = "ShopWindow",
-	Settings = "SettingsWindow",
-	Upgrades = "UpgradesWindow",
-	Trade = "TradeWindow",
-	Worlds = "WorldsWindow",
-	DailyQuests = "DailyQuestsWindow",
-	Codes = "CodesWindow",
-	BrushShop = "BrushShopWindow",
-	ZorkDialogue = "ZorkDialogueWindow",
-	Tutorial = "TutorialWindow",
+local ROOT_PATH = "PlayerGui.MainHUD"
+local BUTTONS_PATH = ROOT_PATH .. ".BottomButtons"
+local WINDOWS_PATH = ROOT_PATH .. ".ModalWindows"
+
+local BUTTON_TO_WINDOW = {
+	InventoryButton = "InventoryWindow",
+	ShopButton = "ShopWindow",
+	WorldsButton = "WorldsWindow",
+	TradeButton = "TradeWindow",
+	RankButton = "RankWindow",
+	SettingsButton = "SettingsWindow",
 }
 
-local BOTTOM_BUTTONS = {
-	Inventory = "InventoryButton",
-	Shop = "ShopButton",
-	Settings = "SettingsButton",
-	Upgrades = "UpgradesButton",
-	Trade = "TradeButton",
+local SIDE_BUTTON_NAMES = {
+	"InventoryButton",
+	"ShopButton",
+	"WorldsButton",
+	"TradeButton",
+	"RankButton",
+	"SettingsButton",
 }
 
-local SIDE_DOCK_BUTTON_NAMES = { "ShopButton", "SettingsButton", "UpgradesButton", "TradeButton" }
-local LEFT_BUTTONS = {
-	DailyQuests = "DailyQuestsButton",
-	Worlds = "WorldsButton",
-	Codes = "CodesButton",
-}
-
-local LEGACY_GENERATED_LAYER_NAMES = {
-	InventoryUI = true,
-	EquipmentShopUI = true,
-	GamepassUI = true,
-	ShopUI = true,
-	WorldUI = true,
-	SocialPanelsUI = true,
-	CodesUI = true,
-	DailyQuestGui = true,
-}
-
-local root = playerGui:WaitForChild("ClientUIRoot", 15)
-if not root then
-	warn("WindowButtonController: missing PlayerGui.ClientUIRoot")
-	return
-end
-
-local mainHud = root:WaitForChild("MainHUD", 15)
-if not mainHud then
-	warn("WindowButtonController: missing ClientUIRoot.MainHUD")
-	return
-end
-
-local modalWindows = mainHud:WaitForChild("ModalWindows", 10)
-local windowsFolder = modalWindows and modalWindows:WaitForChild("Windows", 10)
-if not windowsFolder then
-	warn("WindowButtonController: missing MainHUD.ModalWindows.Windows")
-	return
-end
-
-local bottomHud = mainHud:FindFirstChild("BottomHUD") or mainHud:FindFirstChild("ButtonsRow")
-local leftHud = mainHud:FindFirstChild("LeftHUD")
-local dimBackground = mainHud:FindFirstChild("DimBackground")
-local menuBlur = Lighting:FindFirstChild("MenuBlur")
-
-local DIM_BACKGROUND_ZINDEX = 10
-local WINDOW_ZINDEX_FLOOR = 20
-local HUD_BUTTON_ZINDEX_FLOOR = WINDOW_ZINDEX_FLOOR + 1
-
-local windows = {}
-local buttons = {}
-local activeKey = nil
-local dockOpen = false
-local lastPressAt = {}
 local warned = {}
+local windows = {}
+local allModalWindows = {}
+local buttons = {}
+local menuExpanded = false
+local activeWindowName = nil
+local lastPressAt = {}
 
 local function warnOnce(key, message)
 	if warned[key] then
@@ -89,6 +46,34 @@ local function warnOnce(key, message)
 	end
 	warned[key] = true
 	warn(message)
+end
+
+local function missing(path)
+	warnOnce("missing-" .. path, "WindowButtonController: missing " .. path)
+end
+
+local function getChild(parent, name, path, className)
+	local child = parent and parent:FindFirstChild(name)
+	if not child then
+		missing(path)
+		return nil
+	end
+	if className and not child:IsA(className) then
+		warnOnce("bad-" .. path, "WindowButtonController: " .. path .. " must be a " .. className)
+		return nil
+	end
+	return child
+end
+
+local function findButton(parent, name, path)
+	local object = getChild(parent, name, path, "GuiObject")
+	if object and (object:IsA("GuiButton") or object:FindFirstChildWhichIsA("GuiButton", true)) then
+		return object
+	end
+	if object then
+		warnOnce("bad-button-" .. path, "WindowButtonController: " .. path .. " needs a GuiButton or button child")
+	end
+	return object
 end
 
 local function debounce(key)
@@ -107,84 +92,6 @@ local function playUI(soundName)
 	end
 end
 
-local function getOrCreateScale(guiObject)
-	local scale = guiObject:FindFirstChild("ButtonReactScale")
-	if not scale or not scale:IsA("UIScale") then
-		scale = Instance.new("UIScale")
-		scale.Name = "ButtonReactScale"
-		scale.Scale = 1
-		scale.Parent = guiObject
-	end
-	return scale
-end
-
-local function tweenButtonScale(guiObject, scaleValue, duration, easingStyle)
-	if not guiObject then
-		return
-	end
-
-	local scale = getOrCreateScale(guiObject)
-	TweenService
-		:Create(scale, TweenInfo.new(duration or 0.1, easingStyle or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Scale = scaleValue,
-		})
-		:Play()
-end
-
-local function bindButtonReaction(guiObject)
-	if not guiObject or guiObject:GetAttribute("WindowButtonReactionBound") == true then
-		return
-	end
-	guiObject:SetAttribute("WindowButtonReactionBound", true)
-	getOrCreateScale(guiObject)
-
-	guiObject.MouseEnter:Connect(function()
-		tweenButtonScale(guiObject, 1.06, 0.1)
-	end)
-
-	guiObject.MouseLeave:Connect(function()
-		tweenButtonScale(guiObject, 1, 0.12)
-	end)
-
-	guiObject.InputBegan:Connect(function(input)
-		if
-			input.UserInputType == Enum.UserInputType.MouseButton1
-			or input.UserInputType == Enum.UserInputType.Touch
-		then
-			tweenButtonScale(guiObject, 0.92, 0.06)
-		end
-	end)
-
-	guiObject.InputEnded:Connect(function(input)
-		if
-			input.UserInputType == Enum.UserInputType.MouseButton1
-			or input.UserInputType == Enum.UserInputType.Touch
-		then
-			tweenButtonScale(guiObject, 1.06, 0.1, Enum.EasingStyle.Back)
-			task.delay(0.1, function()
-				if guiObject.Parent then
-					tweenButtonScale(guiObject, 1, 0.14)
-				end
-			end)
-		end
-	end)
-end
-
-local function findExactButton(scope, name)
-	if not scope then
-		return nil
-	end
-	local direct = scope:FindFirstChild(name)
-	if direct and direct:IsA("GuiObject") then
-		return direct
-	end
-	local descendant = scope:FindFirstChild(name, true)
-	if descendant and descendant:IsA("GuiObject") then
-		return descendant
-	end
-	return nil
-end
-
 local function connectPress(guiObject, callback, key)
 	if not guiObject then
 		return
@@ -199,276 +106,184 @@ local function connectPress(guiObject, callback, key)
 	if guiObject:IsA("GuiButton") then
 		guiObject.Active = true
 		guiObject.Activated:Connect(run)
-	else
-		guiObject.Active = true
-		guiObject.InputBegan:Connect(function(input)
-			if
-				input.UserInputType == Enum.UserInputType.MouseButton1
-				or input.UserInputType == Enum.UserInputType.Touch
-			then
-				run()
-			end
-		end)
-	end
-end
-
-local function connectButtonContainer(guiObject, callback, key)
-	if not guiObject then
 		return
 	end
 
-	local connected = false
-	if guiObject:IsA("GuiButton") then
-		connectPress(guiObject, callback, key)
-		connected = true
-	end
+	guiObject.Active = true
+	guiObject.InputBegan:Connect(function(input)
+		if
+			input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
+			run()
+		end
+	end)
 
 	for _, descendant in ipairs(guiObject:GetDescendants()) do
 		if descendant:IsA("GuiButton") then
-			connectPress(descendant, callback, key)
-			connected = true
-		end
-	end
-
-	if not connected then
-		connectPress(guiObject, callback, key)
-	end
-end
-
-local function hideLegacyGeneratedLayers()
-	for _, child in ipairs(root:GetChildren()) do
-		if LEGACY_GENERATED_LAYER_NAMES[child.Name] and child:IsA("GuiObject") then
-			child.Visible = false
+			descendant.Active = true
+			descendant.Activated:Connect(run)
 		end
 	end
 end
 
-local function applyGuiZIndexFloor(guiObject, zIndexFloor)
-	if guiObject:IsA("GuiObject") and guiObject.ZIndex < zIndexFloor then
-		guiObject.ZIndex = zIndexFloor
-	end
+local mainHud = playerGui:WaitForChild("MainHUD", 20)
+if not mainHud then
+	missing(ROOT_PATH)
+	return
+end
 
-	for _, descendant in ipairs(guiObject:GetDescendants()) do
-		if descendant:IsA("GuiObject") and descendant.ZIndex < zIndexFloor then
-			descendant.ZIndex = zIndexFloor
-		end
+local currencyBar = getChild(mainHud, "CurrencyBar", ROOT_PATH .. ".CurrencyBar", "GuiObject")
+local bottomButtons = getChild(mainHud, "BottomButtons", BUTTONS_PATH, "GuiObject")
+local modalWindows = getChild(mainHud, "ModalWindows", WINDOWS_PATH)
+
+if not bottomButtons or not modalWindows then
+	return
+end
+
+if currencyBar then
+	currencyBar.Visible = true
+end
+bottomButtons.Visible = true
+
+local menuButton = findButton(bottomButtons, "MenuButton", BUTTONS_PATH .. ".MenuButton")
+if not menuButton then
+	return
+end
+buttons.MenuButton = menuButton
+menuButton.Visible = true
+menuButton.Active = true
+
+for _, buttonName in ipairs(SIDE_BUTTON_NAMES) do
+	buttons[buttonName] = findButton(bottomButtons, buttonName, BUTTONS_PATH .. "." .. buttonName)
+end
+
+for _, child in ipairs(modalWindows:GetChildren()) do
+	if child:IsA("GuiObject") then
+		allModalWindows[child.Name] = child
+		child.Visible = false
 	end
 end
 
-local function prepareModalWindow(window)
-	window.Active = true
-	applyGuiZIndexFloor(window, WINDOW_ZINDEX_FLOOR)
+for _, windowName in pairs(BUTTON_TO_WINDOW) do
+	local window = allModalWindows[windowName]
+	if window then
+		windows[windowName] = window
+	else
+		missing(WINDOWS_PATH .. "." .. windowName)
+	end
 end
 
-local function prepareDimBackground()
-	if not (dimBackground and dimBackground:IsA("GuiObject")) then
-		return
-	end
-
-	dimBackground.AnchorPoint = Vector2.new(0, 0)
-	dimBackground.Position = UDim2.fromScale(0, 0)
-	dimBackground.Size = UDim2.fromScale(1, 1)
-	dimBackground.ZIndex = DIM_BACKGROUND_ZINDEX
-	dimBackground.Active = false
-	dimBackground.Selectable = false
-	pcall(function()
-		dimBackground.Interactable = false
-	end)
-end
-
-local function anyWindowVisible()
-	for key, window in pairs(windows) do
-		if window.Visible then
-			return key
-		end
-	end
-	return nil
-end
-
-local function setDockOpen(open)
-	dockOpen = open == true
-
-	local inventoryButton = buttons.Inventory
-	if inventoryButton then
-		inventoryButton.Visible = true
-		inventoryButton.Active = true
-	end
-
-	for _, buttonName in ipairs(SIDE_DOCK_BUTTON_NAMES) do
-		local button = findExactButton(bottomHud, buttonName)
+local function setSideButtonsVisible(visible)
+	for _, buttonName in ipairs(SIDE_BUTTON_NAMES) do
+		local button = buttons[buttonName]
 		if button then
-			button.Visible = dockOpen
-			button.Active = dockOpen
-		else
-			warnOnce("missing-bottom-" .. buttonName, "WindowButtonController: missing BottomHUD." .. buttonName)
+			button.Visible = visible
+			button.Active = visible
 		end
 	end
 end
 
-local function updateDim()
-	local open = activeKey ~= nil
-	if dimBackground and dimBackground:IsA("GuiObject") then
-		dimBackground.Visible = open
-		-- Reassert layering every time a window opens, since some Studio-edited UI can have low zindex.
-		dimBackground.ZIndex = DIM_BACKGROUND_ZINDEX
-	end
-	if menuBlur and menuBlur:IsA("BlurEffect") then
-		menuBlur.Enabled = open
+local function setMenuExpanded(expanded)
+	menuExpanded = expanded == true
+	setSideButtonsVisible(menuExpanded or activeWindowName ~= nil)
+	bottomButtons.Visible = true
+	menuButton.Visible = true
+	menuButton.Active = true
+	if currencyBar then
+		currencyBar.Visible = true
 	end
 end
 
 local function closeAllWindows()
-	if activeKey then
-		playUI("Close")
-	end
-	for _, window in pairs(windows) do
+	for _, window in pairs(allModalWindows) do
 		window.Visible = false
 	end
-	activeKey = nil
-	updateDim()
-	setDockOpen(false)
-	hideLegacyGeneratedLayers()
+	activeWindowName = nil
+	playUI("Close")
+	setMenuExpanded(false)
 end
 
-local function openWindow(key)
-	local window = windows[key]
+local function openWindow(windowName)
+	local window = allModalWindows[windowName]
 	if not window then
-		warnOnce(
-			"missing-window-" .. tostring(key),
-			"WindowButtonController: missing window " .. tostring(WINDOW_NAMES[key] or key)
-		)
+		missing(WINDOWS_PATH .. "." .. windowName)
 		return
 	end
 
-	prepareModalWindow(window)
-	for _, other in pairs(windows) do
+	for _, other in pairs(allModalWindows) do
 		other.Visible = false
 	end
 	window.Visible = true
-	activeKey = key
+	activeWindowName = windowName
 	playUI("Open")
-	updateDim()
-	hideLegacyGeneratedLayers()
-
-	if BOTTOM_BUTTONS[key] then
-		setDockOpen(true)
-	end
+	setMenuExpanded(true)
 end
 
-local function toggleWindow(key)
-	local window = windows[key]
-	if window and activeKey == key and window.Visible then
+local function toggleWindow(windowName)
+	local window = windows[windowName]
+	if window and window.Visible and activeWindowName == windowName then
 		closeAllWindows()
 	else
-		openWindow(key)
+		openWindow(windowName)
 	end
 end
 
-local function openWindowByName(windowName)
-	for key, mappedName in pairs(WINDOW_NAMES) do
-		if mappedName == windowName or key == windowName then
-			openWindow(key)
-			return
-		end
+connectPress(menuButton, function()
+	playUI("Click")
+	setMenuExpanded(not menuExpanded)
+end, "MenuButton")
+
+for buttonName, windowName in pairs(BUTTON_TO_WINDOW) do
+	local button = buttons[buttonName]
+	if button then
+		connectPress(button, function()
+			playUI("Click")
+			toggleWindow(windowName)
+		end, buttonName)
 	end
-	warnOnce(
-		"unknown-request-" .. tostring(windowName),
-		"WindowButtonController: unknown requested window " .. tostring(windowName)
-	)
 end
 
-for key, windowName in pairs(WINDOW_NAMES) do
-	local window = windowsFolder:FindFirstChild(windowName)
-	if window and window:IsA("GuiObject") then
-		windows[key] = window
-		prepareModalWindow(window)
-		window.Visible = false
+for windowName, window in pairs(allModalWindows) do
+	local closeButton = window:FindFirstChild("CloseButton", true)
+	if closeButton and closeButton:IsA("GuiObject") then
+		connectPress(closeButton, closeAllWindows, windowName .. ".CloseButton")
+	end
 
-		local closeButton = window:FindFirstChild("CloseButton", true)
-		if closeButton and closeButton:IsA("GuiObject") then
-			connectButtonContainer(closeButton, closeAllWindows, key .. ".CloseButton")
-		else
-			warnOnce("missing-close-" .. key, "WindowButtonController: " .. windowName .. " missing CloseButton")
-		end
-
-		window:GetPropertyChangedSignal("Visible"):Connect(function()
-			if window.Visible then
-				activeKey = key
-				prepareModalWindow(window)
-				updateDim()
-				if BOTTOM_BUTTONS[key] then
-					setDockOpen(true)
-				end
-			elseif activeKey == key then
-				activeKey = anyWindowVisible()
-				updateDim()
-				if not activeKey then
-					setDockOpen(false)
+	window:GetPropertyChangedSignal("Visible"):Connect(function()
+		if window.Visible then
+			activeWindowName = windowName
+			for otherName, other in pairs(allModalWindows) do
+				if otherName ~= windowName then
+					other.Visible = false
 				end
 			end
-		end)
-	else
-		warnOnce(
-			"missing-window-" .. key,
-			"WindowButtonController: missing MainHUD.ModalWindows.Windows." .. windowName
-		)
-	end
+			setMenuExpanded(true)
+		elseif activeWindowName == windowName then
+			activeWindowName = nil
+			for otherName, other in pairs(allModalWindows) do
+				if other.Visible then
+					activeWindowName = otherName
+					break
+				end
+			end
+			setMenuExpanded(menuExpanded)
+		end
+	end)
 end
 
-for key, buttonName in pairs(BOTTOM_BUTTONS) do
-	local button = findExactButton(bottomHud, buttonName)
-	if button then
-		buttons[key] = button
-		applyGuiZIndexFloor(button, HUD_BUTTON_ZINDEX_FLOOR)
-		bindButtonReaction(button)
-		connectButtonContainer(button, function()
-			playUI("Click")
-			toggleWindow(key)
-		end, buttonName)
-	else
-		warnOnce("missing-bottom-" .. buttonName, "WindowButtonController: missing BottomHUD." .. buttonName)
+local function openRequestedWindow()
+	local requested = tostring(mainHud:GetAttribute("RequestedWindow") or "")
+	if requested == "" then
+		return
 	end
+	local windowName = requested:match("Window$") and requested or (requested .. "Window")
+	openWindow(windowName)
 end
 
-for key, buttonName in pairs(LEFT_BUTTONS) do
-	local button = findExactButton(leftHud or mainHud, buttonName)
-	if button then
-		button.Visible = true
-		button.Active = true
-		applyGuiZIndexFloor(button, HUD_BUTTON_ZINDEX_FLOOR)
-		bindButtonReaction(button)
-		connectButtonContainer(button, function()
-			playUI("Click")
-			toggleWindow(key)
-		end, buttonName)
-	else
-		warnOnce("missing-left-" .. buttonName, "WindowButtonController: missing LeftHUD." .. buttonName)
-	end
-end
+mainHud:GetAttributeChangedSignal("RequestedWindow"):Connect(openRequestedWindow)
+mainHud:GetAttributeChangedSignal("RequestedWindowNonce"):Connect(openRequestedWindow)
 
-prepareDimBackground()
+setMenuExpanded(false)
 
-root:GetAttributeChangedSignal("RequestedWindow"):Connect(function()
-	local requested = root:GetAttribute("RequestedWindow")
-	if requested and requested ~= "" then
-		openWindowByName(requested)
-	end
-end)
-
-root:GetAttributeChangedSignal("RequestedWindowNonce"):Connect(function()
-	local requested = root:GetAttribute("RequestedWindow")
-	if requested and requested ~= "" then
-		openWindowByName(requested)
-	end
-end)
-
-root.ChildAdded:Connect(function(child)
-	if LEGACY_GENERATED_LAYER_NAMES[child.Name] and child:IsA("GuiObject") then
-		child.Visible = false
-	end
-end)
-
-closeAllWindows()
-setDockOpen(false)
-
-print("[WindowButtonController] editable MainHUD windows ready. Dim background is passive.")
+print("WindowButtonController: bound editable PlayerGui.MainHUD workflow.")

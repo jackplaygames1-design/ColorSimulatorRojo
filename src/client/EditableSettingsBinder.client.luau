@@ -8,6 +8,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 local Events = ReplicatedStorage:WaitForChild("Events")
 local requestSetSettingEvent = Events:WaitForChild("RequestSetSetting")
 local settingsUpdatedEvent = Events:WaitForChild("SettingsUpdated")
+local SettingsData = require(ReplicatedStorage:WaitForChild("SettingsData"))
 
 local CARD_CONFIG = {
 	MusicCard = {
@@ -17,62 +18,78 @@ local CARD_CONFIG = {
 		default = true,
 	},
 	SFXCard = {
-		title = "SFX",
+		title = "Sound Effects",
 		description = "Sound effects.",
 		settingKey = "SFX",
 		default = true,
 	},
+	GraphicsQualityCard = {
+		title = "Graphics Quality",
+		description = "Studio placeholder slider.",
+		status = "3",
+		buttonText = "",
+		disabled = true,
+	},
+	DamageNumbersCard = {
+		title = "Show Damage Numbers",
+		description = "Popup feedback while collecting.",
+		settingKey = "Popups",
+		default = true,
+	},
+	TradeRequestsCard = {
+		title = "Trade Requests",
+		description = "Allow incoming trade requests.",
+		settingKey = "TradeRequests",
+		default = true,
+	},
+	HidePetsCard = {
+		title = "Pet Hide Mode",
+		description = "Hide pet visuals on your client.",
+		settingKey = "HidePets",
+		default = false,
+	},
+	AutoHatchCard = {
+		title = "Auto Hatch",
+		description = "Auto hatch preference.",
+		settingKey = "AutoHatch",
+		default = false,
+	},
+	CameraShakeCard = {
+		title = "Camera Shake",
+		description = "Camera feedback while playing.",
+		settingKey = "CameraShake",
+		default = true,
+	},
 	LowDetailCard = {
-		title = "Low Detail",
+		title = "Low Detail FX",
 		description = "Reduce visual effects.",
 		settingKey = "LowFX",
 		default = false,
-	},
-	HidePetsCard = {
-		title = "Hide Pets",
-		description = "Pet visibility option coming soon.",
-		status = "SOON",
-		buttonText = "SOON",
-		disabled = true,
-	},
-	AutoDeleteCard = {
-		title = "Auto Delete",
-		description = "Auto-delete rules coming soon.",
-		status = "SOON",
-		buttonText = "SOON",
-		disabled = true,
-	},
-	CodesCard = {
-		title = "Codes",
-		description = "Open code redemption.",
-		status = "WINDOW",
-		buttonText = "OPEN",
-		openWindow = "CodesWindow",
 	},
 }
 
 local CARD_ORDER = {
 	"MusicCard",
 	"SFXCard",
+	"GraphicsQualityCard",
+	"DamageNumbersCard",
+	"TradeRequestsCard",
 	"HidePetsCard",
-	"LowDetailCard",
-	"AutoDeleteCard",
-	"CodesCard",
+	"AutoHatchCard",
+	"CameraShakeCard",
 }
 
-local root = playerGui:WaitForChild("ClientUIRoot", 15)
-if not root then
-	warn("EditableSettingsBinder: missing PlayerGui.ClientUIRoot")
+local mainHud = playerGui:WaitForChild("MainHUD", 15)
+if not mainHud then
+	warn("EditableSettingsBinder: missing PlayerGui.MainHUD")
 	return
 end
 
-local mainHud = root:WaitForChild("MainHUD", 15)
 local modalWindows = mainHud and mainHud:WaitForChild("ModalWindows", 10)
-local windowsFolder = modalWindows and modalWindows:WaitForChild("Windows", 10)
-local settingsWindow = windowsFolder and windowsFolder:WaitForChild("SettingsWindow", 10)
+local settingsWindow = modalWindows and modalWindows:WaitForChild("SettingsWindow", 10)
 local content = settingsWindow and settingsWindow:WaitForChild("Content", 10)
 if not content then
-	warn("EditableSettingsBinder: missing SettingsWindow.Content")
+	warn("EditableSettingsBinder: missing PlayerGui.MainHUD.ModalWindows.SettingsWindow.Content")
 	return
 end
 
@@ -109,7 +126,16 @@ local function setButtonEnabled(button, enabled)
 	pcall(function()
 		button.Interactable = enabled
 	end)
-	button.BackgroundColor3 = enabled and Color3.fromRGB(84, 225, 112) or Color3.fromRGB(170, 180, 205)
+	if not enabled then
+		button.BackgroundColor3 = Color3.fromRGB(170, 180, 205)
+	end
+end
+
+local function setToggleVisual(button, enabled)
+	if not button then
+		return
+	end
+	button.BackgroundColor3 = enabled and Color3.fromRGB(84, 225, 112) or Color3.fromRGB(235, 58, 58)
 end
 
 local function connectButton(button, callback)
@@ -121,8 +147,8 @@ local function connectButton(button, callback)
 end
 
 local function openWindow(windowName)
-	root:SetAttribute("RequestedWindow", windowName)
-	root:SetAttribute("RequestedWindowNonce", os.clock())
+	mainHud:SetAttribute("RequestedWindow", windowName)
+	mainHud:SetAttribute("RequestedWindowNonce", os.clock())
 end
 
 local function applyCard(cardName)
@@ -150,8 +176,9 @@ local function applyCard(cardName)
 			status.Text = enabled and "ON" or "OFF"
 		end
 		if button then
-			button.Text = enabled and "TURN OFF" or "TURN ON"
+			button.Text = enabled and "ON" or "OFF"
 			setButtonEnabled(button, true)
+			setToggleVisual(button, enabled)
 			connectButton(button, function()
 				requestSetSettingEvent:FireServer(
 					config.settingKey,
@@ -180,6 +207,20 @@ local function render()
 		applyCard(cardName)
 	end
 end
+
+local function connectActionButton(name, callback)
+	local button = content:FindFirstChild(name, true)
+	if button and button:IsA("GuiButton") then
+		connectButton(button, callback)
+	end
+end
+
+connectActionButton("ApplyButton", render)
+connectActionButton("ResetButton", function()
+	for key, defaultValue in pairs(SettingsData.Defaults) do
+		requestSetSettingEvent:FireServer(key, defaultValue)
+	end
+end)
 
 local function hookSettingsFolder(folder)
 	if connections.settingsChildAdded then

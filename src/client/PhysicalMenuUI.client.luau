@@ -1,13 +1,13 @@
 -- Legacy runtime menu generation is intentionally disabled.
--- The handmade PlayerGui.ClientUIRoot.BottomMenu is wired by ManualMenuHookup.client.luau.
+-- The handmade PlayerGui.MainHUD.BottomButtons is wired by WindowButtonController.client.luau.
 local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local root = playerGui:WaitForChild("ClientUIRoot", 5)
-if root and root:FindFirstChild("BottomMenu") and root:FindFirstChild("WindowLayer") then
-	print("PhysicalMenuUI: handmade ClientUIRoot.BottomMenu detected; legacy runtime menu disabled.")
+local root = playerGui:WaitForChild("MainHUD", 5)
+if root and root:FindFirstChild("BottomButtons") and root:FindFirstChild("ModalWindows") then
+	print("PhysicalMenuUI: handmade MainHUD.BottomButtons detected; legacy runtime menu disabled.")
 else
-	warn("PhysicalMenuUI: legacy runtime menu disabled; add/edit StarterGui.ClientUIRoot.BottomMenu in Studio.")
+	warn("PhysicalMenuUI: legacy runtime menu disabled; add/edit StarterGui.MainHUD.BottomButtons in Studio.")
 end

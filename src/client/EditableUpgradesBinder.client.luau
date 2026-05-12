@@ -79,16 +79,12 @@ local CARD_GAP_Y = 12
 local DEFAULT_CARD_SIZE = UDim2.fromOffset(222, 118)
 
 local function findMainHUD()
-	local root = playerGui:WaitForChild("ClientUIRoot", 30)
-	return root and root:WaitForChild("MainHUD", 30)
+	return playerGui:WaitForChild("MainHUD", 30)
 end
 
 local function findWindowsFolder(main)
 	local modal = main and main:FindFirstChild("ModalWindows")
-	if modal and modal:FindFirstChild("Windows") then
-		return modal.Windows
-	end
-	return main and main:FindFirstChild("Windows")
+	return modal
 end
 
 local function getContent(window)
@@ -411,7 +407,7 @@ if upgradesWindow then
 	bindExistingCards(upgradesWindow)
 	print("[EditableUpgradesBinder] UpgradesWindow bound to Gem upgrades.")
 else
-	warn("EditableUpgradesBinder: UpgradesWindow missing; no runtime window will be created.")
+	warn("EditableUpgradesBinder: missing PlayerGui.MainHUD.ModalWindows.UpgradesWindow")
 end
 
 if upgradeUpdatedEvent then

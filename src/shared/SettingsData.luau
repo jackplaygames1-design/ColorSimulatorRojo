@@ -5,6 +5,10 @@ SettingsData.Defaults = {
 	SFX = true,
 	Popups = true,
 	LowFX = false,
+	TradeRequests = true,
+	HidePets = false,
+	AutoHatch = false,
+	CameraShake = true,
 }
 
 SettingsData.AllowedKeys = {
@@ -12,6 +16,10 @@ SettingsData.AllowedKeys = {
 	SFX = true,
 	Popups = true,
 	LowFX = true,
+	TradeRequests = true,
+	HidePets = true,
+	AutoHatch = true,
+	CameraShake = true,
 }
 
 function SettingsData.IsAllowedKey(key)

@@ -68,7 +68,7 @@ GameBalance.Map = {
 GameBalance.Progression = {
 	StartSectorColor = "Red",
 	NextSectorColor = "Orange",
-	MaxPlayableSectorIndex = 2,
+	MaxPlayableSectorIndex = 3,
 	DefaultUnlockedSectorIndex = 1,
 }
 

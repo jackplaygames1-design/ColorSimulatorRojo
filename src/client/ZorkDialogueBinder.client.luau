@@ -10,25 +10,22 @@ local Events = ReplicatedStorage:WaitForChild("Events")
 local dailyQuestRemote = ReplicatedStorage:WaitForChild("DailyQuestRemote", 10)
 	or Events:FindFirstChild("DailyQuestRemote")
 
-local root = playerGui:WaitForChild("ClientUIRoot", 15)
-if not root then
-	warn("ZorkDialogueBinder: missing ClientUIRoot")
+local mainHud = playerGui:WaitForChild("MainHUD", 15)
+if not mainHud then
+	warn("ZorkDialogueBinder: missing PlayerGui.MainHUD")
 	return
 end
 
-local mainHud = root:WaitForChild("MainHUD", 15)
-local windowsFolder = mainHud
-	and mainHud:WaitForChild("ModalWindows", 10)
-	and mainHud.ModalWindows:WaitForChild("Windows", 10)
+local windowsFolder = mainHud and mainHud:WaitForChild("ModalWindows", 10)
 
 if not windowsFolder then
-	warn("ZorkDialogueBinder: missing editable windows folder")
+	warn("ZorkDialogueBinder: missing PlayerGui.MainHUD.ModalWindows")
 	return
 end
 
 local window = windowsFolder:FindFirstChild("ZorkDialogueWindow")
 if not window or not window:IsA("GuiObject") then
-	warn("ZorkDialogueBinder: add editable ZorkDialogueWindow with StudioMenuWindowsBuilder.")
+	warn("ZorkDialogueBinder: missing PlayerGui.MainHUD.ModalWindows.ZorkDialogueWindow")
 	return
 end
 
@@ -46,8 +43,8 @@ local function setText(instance, value)
 end
 
 local function requestWindow(windowName)
-	root:SetAttribute("RequestedWindow", windowName)
-	root:SetAttribute("RequestedWindowNonce", os.clock())
+	mainHud:SetAttribute("RequestedWindow", windowName)
+	mainHud:SetAttribute("RequestedWindowNonce", os.clock())
 end
 
 local function openDialogue(colorType)

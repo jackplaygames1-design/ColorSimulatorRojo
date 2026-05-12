@@ -10,20 +10,17 @@ local Events = ReplicatedStorage:WaitForChild("Events")
 local purchaseEvent = Events:WaitForChild("PurchasePaintTool")
 local equipEvent = Events:WaitForChild("EquipPaintTool")
 
-local root = playerGui:WaitForChild("ClientUIRoot", 15)
-local mainHud = root and root:WaitForChild("MainHUD", 15)
-local windowsFolder = mainHud
-	and mainHud:WaitForChild("ModalWindows", 10)
-	and mainHud.ModalWindows:WaitForChild("Windows", 10)
+local mainHud = playerGui:WaitForChild("MainHUD", 15)
+local windowsFolder = mainHud and mainHud:WaitForChild("ModalWindows", 10)
 
 if not windowsFolder then
-	warn("EditableBrushShopBinder: missing editable windows folder")
+	warn("EditableBrushShopBinder: missing PlayerGui.MainHUD.ModalWindows")
 	return
 end
 
 local window = windowsFolder:FindFirstChild("BrushShopWindow")
 if not window or not window:IsA("GuiObject") then
-	warn("EditableBrushShopBinder: add editable BrushShopWindow with StudioMenuWindowsBuilder.")
+	warn("EditableBrushShopBinder: missing PlayerGui.MainHUD.ModalWindows.BrushShopWindow")
 	return
 end
 

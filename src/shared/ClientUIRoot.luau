@@ -1,7 +1,7 @@
 -- Single client UI root and legacy UI cleanup for Color Simulator.
 local ClientUIRoot = {}
 
-local UI_SCREEN_NAME = "ClientUIRoot"
+local UI_SCREEN_NAME = "MainHUD"
 local LEGACY_GENERATED_UI_SCREEN_NAME = "ColorSimulatorUI"
 local UI_VERSION = "PublicBeta_UI_SINGLE_SOURCE_v2"
 local CLIENT_VERSION = "PublicBeta_MobileSectors_2026_05_08"
@@ -13,6 +13,7 @@ local warnedLegacy = {}
 local warnedRuntimeLayer = {}
 
 local LEGACY_SCREEN_GUI_NAMES = {
+	ClientUIRoot = true,
 	ColorSimulatorUI = true,
 	MainMenu = true,
 	MenuUI = true,
@@ -57,10 +58,6 @@ local RUNTIME_LAYER_NAMES = {
 	WorldUI = true,
 }
 
-local RUNTIME_LAYER_CREATION_ALLOWED = {
-	EggShopUI = true,
-}
-
 local function warnLegacyOnce(name)
 	if warnedLegacy[name] then
 		return
@@ -73,7 +70,8 @@ end
 local function cleanupLegacyRoots(playerGui)
 	for _, child in ipairs(playerGui:GetChildren()) do
 		if child:IsA("ScreenGui") and child.Name ~= UI_SCREEN_NAME then
-			if child:GetAttribute("LegacyUI") == true
+			if
+				child:GetAttribute("LegacyUI") == true
 				or LEGACY_SCREEN_GUI_NAMES[child.Name]
 				or child.Name == LEGACY_GENERATED_UI_SCREEN_NAME
 			then
@@ -129,7 +127,8 @@ function ClientUIRoot.GetRoot(playerGui)
 						return
 					end
 					if child.Name ~= UI_SCREEN_NAME then
-						if child:GetAttribute("LegacyUI") == true
+						if
+							child:GetAttribute("LegacyUI") == true
 							or LEGACY_SCREEN_GUI_NAMES[child.Name]
 							or child.Name == LEGACY_GENERATED_UI_SCREEN_NAME
 						then
@@ -157,7 +156,7 @@ function ClientUIRoot.GetRoot(playerGui)
 		if waitedRoot and waitedRoot:IsA("ScreenGui") then
 			root = waitedRoot
 		else
-			warn("ClientUIRoot: PlayerGui.ClientUIRoot is missing; runtime ScreenGui creation is disabled.")
+			warn("ClientUIRoot: PlayerGui.MainHUD is missing; runtime ScreenGui creation is disabled.")
 			return nil
 		end
 	end
@@ -185,25 +184,17 @@ function ClientUIRoot.GetLayer(playerGui, layerName)
 	end
 
 	local layer = root:FindFirstChild(layerName)
-	if layer and not layer:IsA("Frame") then
-		layer:Destroy()
+
+	if not layer then
+		if not warnedRuntimeLayer[layerName] then
+			warnedRuntimeLayer[layerName] = true
+			warn("ClientUIRoot: missing PlayerGui.MainHUD." .. tostring(layerName) .. "; runtime UI creation disabled.")
+		end
 		return nil
 	end
 
-	if not layer then
-		if RUNTIME_LAYER_CREATION_ALLOWED[layerName] then
-			layer = Instance.new("Frame")
-			layer.Name = layerName
-			layer.BackgroundTransparency = 1
-			layer.BorderSizePixel = 0
-			layer.Size = UDim2.fromScale(1, 1)
-			layer.Parent = root
-			return layer
-		end
-		if not warnedRuntimeLayer[layerName] then
-			warnedRuntimeLayer[layerName] = true
-			warn("ClientUIRoot: runtime UI layer creation disabled for " .. tostring(layerName))
-		end
+	if not layer:IsA("GuiObject") then
+		warn("ClientUIRoot: PlayerGui.MainHUD." .. tostring(layerName) .. " must be a GuiObject.")
 		return nil
 	end
 

@@ -52,6 +52,12 @@ local TELEPORTS = {
 		requiresTeleportUnlock = false,
 		worldColor = "Orange",
 	},
+	GreenSector = {
+		statusWhenReady = "READY",
+		requiredColor = "Green",
+		requiresTeleportUnlock = false,
+		worldColor = "Green",
+	},
 	InsidePipes = {
 		statusWhenReady = "READY",
 		requiredColor = "Orange",
@@ -64,29 +70,25 @@ local activePage = "Sectors"
 local statusMessage = ""
 
 local function mainHUD()
-	local root = playerGui:WaitForChild("ClientUIRoot", 30)
-	return root and root:WaitForChild("MainHUD", 30)
+	return playerGui:WaitForChild("MainHUD", 30)
 end
 
 local function windowsFolder(main)
 	local modal = main and main:FindFirstChild("ModalWindows")
-	if modal and modal:FindFirstChild("Windows") then
-		return modal.Windows
-	end
-	return main and main:FindFirstChild("Windows")
+	return modal
 end
 
 local main = mainHUD()
 local windows = windowsFolder(main)
 local worldsWindow = windows and windows:WaitForChild("WorldsWindow", 30)
 if not worldsWindow then
-	warn("EditableWorldsBinder: WorldsWindow missing; no runtime world select UI was created.")
+	warn("EditableWorldsBinder: missing PlayerGui.MainHUD.ModalWindows.WorldsWindow")
 	return
 end
 
 local content = worldsWindow:WaitForChild("Content", 10)
 if not content then
-	warn("EditableWorldsBinder: WorldsWindow.Content missing.")
+	warn("EditableWorldsBinder: missing PlayerGui.MainHUD.ModalWindows.WorldsWindow.Content")
 	return
 end
 
@@ -214,7 +216,8 @@ local function getUnlockedTeleportSet()
 end
 
 local function isWorldPlayable(world)
-	local index = tonumber(world and (world.WorldIndex or ColorData.getWorldIndex(world.primaryColor or world.id))) or math.huge
+	local index = tonumber(world and (world.WorldIndex or ColorData.getWorldIndex(world.primaryColor or world.id)))
+		or math.huge
 	return index <= maxPlayableIndex()
 end
 
@@ -320,7 +323,11 @@ local function updateWorldCard(world)
 
 	card:SetAttribute("WorldColor", colorType)
 	setText(card, "Name", world.DisplayName or world.name or colorType)
-	setText(card, "Meta", "Power x" .. tostring(world.rewardMultiplier or 1) .. " | " .. tostring(#(world.EggIds or {})) .. " eggs")
+	setText(
+		card,
+		"Meta",
+		"Power x" .. tostring(world.rewardMultiplier or 1) .. " | " .. tostring(#(world.EggIds or {})) .. " eggs"
+	)
 
 	if not playable then
 		setText(card, "Requirement", "Coming in a future update.")
@@ -412,7 +419,9 @@ local function updateTeleportCard(locationId, config)
 	local unlockedColors = getUnlockedColorSet()
 	local unlockedTeleports = getUnlockedTeleportSet()
 	local requiredColorReady = not config.requiredColor or unlockedColors[config.requiredColor] == true
-	local teleportReady = config.alwaysUnlocked or not config.requiresTeleportUnlock or unlockedTeleports[locationId] == true
+	local teleportReady = config.alwaysUnlocked
+		or not config.requiresTeleportUnlock
+		or unlockedTeleports[locationId] == true
 	local ready = requiredColorReady and teleportReady
 	local button = findButton(card, "TeleportButton")
 	local status = findText(card, "Status")
@@ -471,7 +480,11 @@ local function updateHeader()
 		end
 	end
 
-	setText(header, "CurrentSectorLabel", "Current: " .. tostring(currentWorld and (currentWorld.DisplayName or currentWorld.name) or "Start Sector"))
+	setText(
+		header,
+		"CurrentSectorLabel",
+		"Current: " .. tostring(currentWorld and (currentWorld.DisplayName or currentWorld.name) or "Start Sector")
+	)
 	setText(header, "ProgressLabel", tostring(unlockedCount) .. " / " .. tostring(playableCount) .. " sectors unlocked")
 	local status = findText(header, "HintLabel")
 	if status and statusMessage ~= "" then

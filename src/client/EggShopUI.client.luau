@@ -1,4 +1,9 @@
 -- Focused Sector egg shop: one usable egg per Sector.
+if true then
+	warn("EggShopUI disabled; egg UI must be a Studio-authored MainHUD/physical UI, not runtime-generated.")
+	return
+end
+
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

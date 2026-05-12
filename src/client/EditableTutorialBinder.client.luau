@@ -4,18 +4,17 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local root = playerGui:WaitForChild("ClientUIRoot", 15)
-local mainHud = root and root:WaitForChild("MainHUD", 15)
-local windowsFolder = mainHud
-	and mainHud:WaitForChild("ModalWindows", 10)
-	and mainHud.ModalWindows:WaitForChild("Windows", 10)
+local mainHud = playerGui:WaitForChild("MainHUD", 15)
+local windowsFolder = mainHud and mainHud:WaitForChild("ModalWindows", 10)
 
 if not windowsFolder then
+	warn("EditableTutorialBinder: missing PlayerGui.MainHUD.ModalWindows")
 	return
 end
 
 local window = windowsFolder:FindFirstChild("TutorialWindow")
 if not window or not window:IsA("GuiObject") then
+	warn("EditableTutorialBinder: missing PlayerGui.MainHUD.ModalWindows.TutorialWindow")
 	return
 end
 

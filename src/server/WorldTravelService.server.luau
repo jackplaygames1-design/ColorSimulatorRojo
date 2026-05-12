@@ -61,6 +61,13 @@ local LOCATION_CONFIG = {
 		CurrentWorld = "Orange",
 		AutoUnlockTeleport = true,
 	},
+	GreenSector = {
+		DisplayName = "Green Sector",
+		SpawnNames = { "GreenSectorSpawn", "GreenZoneSpawn", "GreenSpawn", "GreenZone" },
+		RequiredColor = "Green",
+		CurrentWorld = "Green",
+		AutoUnlockTeleport = true,
+	},
 	FutureSector = {
 		DisplayName = "Future Sector",
 		SpawnNames = {},
@@ -80,6 +87,9 @@ local LOCATION_ID_ALIASES = {
 	Zork = "ZorkShop",
 	Pipes = "InsidePipes",
 	OrangePipes = "InsidePipes",
+	Green = "GreenSector",
+	GreenZone = "GreenSector",
+	GreenSectorSpawn = "GreenSector",
 }
 
 local function resolveLocationId(locationId)

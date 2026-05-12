@@ -19,19 +19,12 @@ local questData = nil
 local questRows = {}
 
 local function getMainHUD()
-	local root = player:WaitForChild("PlayerGui"):WaitForChild("ClientUIRoot", 30)
-	if not root then
-		return nil
-	end
-	return root:WaitForChild("MainHUD", 30)
+	return player:WaitForChild("PlayerGui"):WaitForChild("MainHUD", 30)
 end
 
 local function getWindows(mainHUD)
 	local modalWindows = mainHUD and mainHUD:FindFirstChild("ModalWindows")
-	if modalWindows and modalWindows:FindFirstChild("Windows") then
-		return modalWindows.Windows
-	end
-	return mainHUD and mainHUD:FindFirstChild("Windows")
+	return modalWindows
 end
 
 local function findDeep(parent, name)
@@ -258,5 +251,5 @@ if dailyWindow then
 	end)
 	remote:FireServer("Get")
 else
-	warn("DailyQuestClient: editable DailyQuestsWindow missing; old runtime UI creation is disabled.")
+	warn("DailyQuestClient: missing PlayerGui.MainHUD.ModalWindows.DailyQuestsWindow")
 end

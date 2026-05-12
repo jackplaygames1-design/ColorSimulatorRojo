@@ -39,16 +39,14 @@ local MAX_CARD_WIDTH = 148
 local CARD_GAP = 10
 
 local function waitForInventoryWindow()
-	local root = playerGui:WaitForChild("ClientUIRoot", 30)
-	local mainHud = root and root:WaitForChild("MainHUD", 30)
+	local mainHud = playerGui:WaitForChild("MainHUD", 30)
 	local modalWindows = mainHud and mainHud:WaitForChild("ModalWindows", 30)
-	local windows = modalWindows and modalWindows:WaitForChild("Windows", 30)
-	return windows and windows:WaitForChild("InventoryWindow", 30)
+	return modalWindows and modalWindows:WaitForChild("InventoryWindow", 30)
 end
 
 local inventoryWindow = waitForInventoryWindow()
 if not inventoryWindow or not inventoryWindow:IsA("GuiObject") then
-	warn("EditableInventoryBinder: InventoryWindow missing. No runtime inventory window was created.")
+	warn("EditableInventoryBinder: missing PlayerGui.MainHUD.ModalWindows.InventoryWindow")
 	return
 end
 

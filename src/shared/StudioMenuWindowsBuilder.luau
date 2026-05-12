@@ -5,8 +5,6 @@
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateSettingsWindow()
 -- Codes-only refresh:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateCodesWindow()
--- Trade-only refresh:
--- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateTradeWindow()
 -- Shop-only refresh:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateShopWindow()
 -- Upgrades icon refresh:
@@ -2620,189 +2618,6 @@ local function makeTutorialWindow(windowsFolder)
 	return window
 end
 
-local function makeTradeList(parent, name, position, size, paddingAmount)
-	local list, created = findOrCreate(parent, "ScrollingFrame", name)
-	if created then
-		list.BackgroundTransparency = 1
-		list.BorderSizePixel = 0
-	end
-	list.Position = position
-	list.Size = size
-	list.ScrollBarThickness = 5
-	list.ScrollingDirection = Enum.ScrollingDirection.Y
-	list.CanvasSize = UDim2.fromOffset(0, 0)
-	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-	local layout = list:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.Padding = UDim.new(0, paddingAmount or 7)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = list
-
-	local padding = list:FindFirstChildOfClass("UIPadding") or Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 2)
-	padding.PaddingBottom = UDim.new(0, 4)
-	padding.PaddingLeft = UDim.new(0, 2)
-	padding.PaddingRight = UDim.new(0, 5)
-	padding.Parent = list
-	return list
-end
-
-local function makeTradeWindow(windowsFolder)
-	local window, content = makeWindow(windowsFolder, "TradeWindow", "TRADE", {})
-	window.Size = UDim2.fromOffset(820, 500)
-	window.Position = UDim2.fromScale(0.5, 0.46)
-	content.Size = UDim2.new(1, -44, 1, -108)
-
-	local oldComingSoon = content:FindFirstChild("ComingSoon")
-	if oldComingSoon and oldComingSoon:IsA("GuiObject") then
-		oldComingSoon.Visible = false
-	end
-
-	local root, rootCreated = findOrCreate(content, "Frame", "TradeRoot")
-	root.Position = UDim2.fromScale(0, 0)
-	root.Size = UDim2.fromScale(1, 1)
-	root.BackgroundTransparency = 1
-	root.BorderSizePixel = 0
-	root.ClipsDescendants = false
-	if rootCreated then
-		local rootStroke = root:FindFirstChildOfClass("UIStroke")
-		if rootStroke then
-			rootStroke:Destroy()
-		end
-		local rootCorner = root:FindFirstChildOfClass("UICorner")
-		if rootCorner then
-			rootCorner:Destroy()
-		end
-	end
-
-	local status = text(
-		root,
-		"Status",
-		"Choose a player to trade Colors and Gems.",
-		UDim2.fromOffset(18, 4),
-		UDim2.new(1, -36, 0, 30),
-		14
-	)
-	status.TextXAlignment = Enum.TextXAlignment.Center
-	status.BackgroundTransparency = 0
-	status.BackgroundColor3 = Color3.fromRGB(237, 244, 252)
-	status.TextStrokeTransparency = 1
-	applyCorner(status, 15)
-	applyStroke(status, Color3.fromRGB(206, 218, 235), 1)
-
-	local board =
-		frame(root, "Board", UDim2.fromOffset(12, 42), UDim2.new(1, -24, 1, -50), Color3.fromRGB(246, 249, 253))
-	applyCorner(board, 18)
-	applyStroke(board, OUTLINE, 2)
-
-	local playersPanel = frame(
-		board,
-		"PlayersPanel",
-		UDim2.fromOffset(12, 12),
-		UDim2.new(0.22, -14, 1, -24),
-		Color3.fromRGB(236, 243, 252)
-	)
-	local inventoryPanel = frame(
-		board,
-		"InventoryPanel",
-		UDim2.new(0.22, 4, 0, 12),
-		UDim2.new(0.28, -14, 1, -24),
-		Color3.fromRGB(236, 243, 252)
-	)
-	local offerPanel =
-		frame(board, "OfferPanel", UDim2.new(0.5, 4, 0, 12), UDim2.new(0.5, -16, 1, -24), Color3.fromRGB(236, 243, 252))
-
-	text(playersPanel, "Title", "PLAYERS", UDim2.fromOffset(12, 10), UDim2.new(1, -24, 0, 24), 14)
-	local playerHint =
-		text(playersPanel, "Hint", "Pick someone online.", UDim2.fromOffset(12, 34), UDim2.new(1, -24, 0, 18), 10)
-	playerHint.Font = Enum.Font.GothamBold
-	playerHint.TextColor3 = MUTED
-	playerHint.TextStrokeTransparency = 1
-	makeTradeList(playersPanel, "PlayersList", UDim2.fromOffset(10, 58), UDim2.new(1, -20, 1, -68))
-
-	text(inventoryPanel, "Title", "YOUR COLORS", UDim2.fromOffset(12, 10), UDim2.new(1, -24, 0, 24), 14)
-	local inventoryHint = text(
-		inventoryPanel,
-		"Hint",
-		"Add colors after a trade starts.",
-		UDim2.fromOffset(12, 34),
-		UDim2.new(1, -24, 0, 18),
-		10
-	)
-	inventoryHint.Font = Enum.Font.GothamBold
-	inventoryHint.TextColor3 = MUTED
-	inventoryHint.TextStrokeTransparency = 1
-	makeTradeList(inventoryPanel, "ColorsList", UDim2.fromOffset(10, 58), UDim2.new(1, -20, 1, -122))
-	local gemsOwned =
-		text(inventoryPanel, "GemsOwned", "Gems: 0", UDim2.new(0, 12, 1, -58), UDim2.new(1, -24, 0, 18), 11)
-	gemsOwned.Font = Enum.Font.GothamBlack
-	gemsOwned.TextColor3 = Color3.fromRGB(26, 124, 52)
-	gemsOwned.TextStrokeTransparency = 1
-	textBox(inventoryPanel, "GemBox", "Gems", UDim2.new(0, 12, 1, -36), UDim2.new(1, -82, 0, 30)).TextSize = 13
-	button(inventoryPanel, "SetGemsButton", "SET", UDim2.new(1, -62, 1, -36), UDim2.fromOffset(50, 30), CYAN)
-
-	text(offerPanel, "Title", "TRADE OFFER", UDim2.fromOffset(12, 10), UDim2.new(1, -24, 0, 24), 14)
-	local offerHint = text(
-		offerPanel,
-		"OfferHint",
-		"Ready when both sides look right.",
-		UDim2.fromOffset(12, 34),
-		UDim2.new(1, -24, 0, 18),
-		10
-	)
-	offerHint.Font = Enum.Font.GothamBold
-	offerHint.TextColor3 = MUTED
-	offerHint.TextStrokeTransparency = 1
-
-	local myOfferPanel = frame(
-		offerPanel,
-		"MyOfferPanel",
-		UDim2.fromOffset(12, 60),
-		UDim2.new(0.5, -18, 1, -116),
-		Color3.fromRGB(249, 252, 255)
-	)
-	applyStroke(myOfferPanel, Color3.fromRGB(206, 218, 235), 1)
-	local theirOfferPanel = frame(
-		offerPanel,
-		"TheirOfferPanel",
-		UDim2.new(0.5, 6, 0, 60),
-		UDim2.new(0.5, -18, 1, -116),
-		Color3.fromRGB(249, 252, 255)
-	)
-	applyStroke(theirOfferPanel, Color3.fromRGB(206, 218, 235), 1)
-
-	text(myOfferPanel, "MyName", "YOU", UDim2.fromOffset(10, 8), UDim2.new(1, -20, 0, 20), 12)
-	local myReady = text(myOfferPanel, "MyReady", "NOT READY", UDim2.fromOffset(10, 30), UDim2.new(1, -20, 0, 20), 11)
-	myReady.TextXAlignment = Enum.TextXAlignment.Center
-	myReady.TextColor3 = MUTED
-	myReady.BackgroundTransparency = 0
-	myReady.BackgroundColor3 = Color3.fromRGB(230, 236, 246)
-	applyCorner(myReady, 10)
-	makeTradeList(myOfferPanel, "MyOfferList", UDim2.fromOffset(8, 56), UDim2.new(1, -16, 1, -64), 6)
-
-	text(theirOfferPanel, "TheirName", "THEM", UDim2.fromOffset(10, 8), UDim2.new(1, -20, 0, 20), 12)
-	local theirReady =
-		text(theirOfferPanel, "TheirReady", "NOT READY", UDim2.fromOffset(10, 30), UDim2.new(1, -20, 0, 20), 11)
-	theirReady.TextXAlignment = Enum.TextXAlignment.Center
-	theirReady.TextColor3 = MUTED
-	theirReady.BackgroundTransparency = 0
-	theirReady.BackgroundColor3 = Color3.fromRGB(230, 236, 246)
-	applyCorner(theirReady, 10)
-	makeTradeList(theirOfferPanel, "TheirOfferList", UDim2.fromOffset(8, 56), UDim2.new(1, -16, 1, -64), 6)
-
-	button(offerPanel, "AcceptButton", "READY!", UDim2.new(0, 12, 1, -46), UDim2.new(0.5, -18, 0, 38), GREEN)
-	button(
-		offerPanel,
-		"CancelButton",
-		"CANCEL",
-		UDim2.new(0.5, 6, 1, -46),
-		UDim2.new(0.5, -18, 0, 38),
-		Color3.fromRGB(241, 83, 110)
-	)
-	return window
-end
-
 local function getSettingsContent()
 	local root = StarterGui:FindFirstChild("ClientUIRoot")
 	local mainHud = root and root:FindFirstChild("MainHUD")
@@ -2871,31 +2686,6 @@ function Builder.UpdateCodesWindow()
 
 	makeCodesContent(content)
 	print("StudioMenuWindowsBuilder: updated CodesWindow layout.")
-end
-
-function Builder.UpdateTradeWindow()
-	if not RunService:IsStudio() then
-		warn("StudioMenuWindowsBuilder.UpdateTradeWindow can only run in Roblox Studio.")
-		return
-	end
-	if RunService:IsRunning() then
-		warn("StudioMenuWindowsBuilder.UpdateTradeWindow should be run in edit mode, not during Play.")
-		return
-	end
-
-	local root = StarterGui:FindFirstChild("ClientUIRoot")
-	local mainHud = root and root:FindFirstChild("MainHUD")
-	local modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows")
-	local windowsFolder = modalWindows and modalWindows:FindFirstChild("Windows")
-	if not windowsFolder then
-		warn(
-			"StudioMenuWindowsBuilder.UpdateTradeWindow could not find StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows."
-		)
-		return
-	end
-
-	makeTradeWindow(windowsFolder)
-	print("StudioMenuWindowsBuilder: updated editable TradeWindow layout.")
 end
 
 function Builder.UpdateShopWindow()
@@ -3097,7 +2887,9 @@ function Builder.Build()
 	makeSettingsGrid(settingsContent)
 	local _, codesContent = makeWindow(windowsFolder, "CodesWindow", "CODES", {})
 	makeCodesContent(codesContent)
-	makeTradeWindow(windowsFolder)
+	local _, tradeContent = makeWindow(windowsFolder, "TradeWindow", "TRADE", {})
+	text(tradeContent, "ComingSoon", "Trading is coming soon!", UDim2.fromScale(0, 0.35), UDim2.fromScale(1, 0.18), 28).TextXAlignment =
+		Enum.TextXAlignment.Center
 	makeWorldsWindow(windowsFolder)
 	local _, questsContent = makeWindow(windowsFolder, "DailyQuestsWindow", "DAILY QUESTS", {})
 	makeDailyQuestRows(questsContent)
@@ -3105,5 +2897,1056 @@ function Builder.Build()
 
 	print("StudioMenuWindowsBuilder: editable UI created at StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows")
 end
+
+local function canBuildConceptMenus(commandName)
+	if not RunService:IsStudio() then
+		warn("StudioMenuWindowsBuilder." .. commandName .. " can only run in Roblox Studio.")
+		return false
+	end
+	if RunService:IsRunning() then
+		warn("StudioMenuWindowsBuilder." .. commandName .. " should be run in edit mode, not during Play.")
+		return false
+	end
+	return true
+end
+
+local function ensureClass(parent, className, name)
+	local existing = parent:FindFirstChild(name)
+	if existing and not existing:IsA(className) then
+		if existing:IsA("GuiObject") then
+			existing.Visible = false
+		end
+		existing.Name = name .. "_Legacy"
+		existing = nil
+	end
+	if existing then
+		return existing
+	end
+
+	local instance = Instance.new(className)
+	instance.Name = name
+	instance.Parent = parent
+	return instance
+end
+
+local function clearChildren(parent)
+	for _, child in ipairs(parent:GetChildren()) do
+		child:Destroy()
+	end
+end
+
+local function conceptLabel(parent, name, value, position, size, textSize, alignment)
+	local label = text(parent, name, value, position, size, textSize)
+	label.TextXAlignment = alignment or Enum.TextXAlignment.Left
+	label.TextWrapped = true
+	return label
+end
+
+local function conceptButton(parent, name, value, position, size, color)
+	local btn = button(parent, name, value, position, size, color)
+	btn.TextSize = math.min(btn.TextSize, 24)
+	return btn
+end
+
+local function conceptPanel(parent, name, position, size, color, radius, strokeThickness)
+	local panel = frame(parent, name, position, size, color or Color3.fromRGB(255, 255, 255))
+	applyCorner(panel, radius or 18)
+	applyStroke(panel, OUTLINE, strokeThickness or 2)
+	return panel
+end
+
+local function conceptWindow(modalWindows, name, title)
+	local window = ensureClass(modalWindows, "Frame", name)
+	clearChildren(window)
+	window.AnchorPoint = Vector2.new(0.5, 0.5)
+	window.Position = UDim2.fromScale(0.5, 0.48)
+	window.Size = UDim2.fromScale(0.82, 0.78)
+	window.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	window.BorderSizePixel = 0
+	window.ClipsDescendants = false
+	window.Visible = false
+	applyCorner(window, 28)
+	applyStroke(window, OUTLINE, 5)
+
+	local titleLabel =
+		conceptLabel(window, "Title", title, UDim2.fromScale(0.05, -0.11), UDim2.fromScale(0.9, 0.14), 58)
+	titleLabel.AnchorPoint = Vector2.new(0, 0)
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Center
+	titleLabel.TextStrokeColor3 = OUTLINE
+	titleLabel.TextStrokeTransparency = 0
+	titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+	conceptButton(
+		window,
+		"CloseButton",
+		"X",
+		UDim2.new(1, -78, 0, -42),
+		UDim2.fromOffset(70, 70),
+		Color3.fromRGB(216, 24, 32)
+	)
+
+	local content = conceptPanel(
+		window,
+		"Content",
+		UDim2.fromScale(0.03, 0.06),
+		UDim2.fromScale(0.94, 0.88),
+		Color3.fromRGB(248, 252, 255),
+		22,
+		2
+	)
+	content.ClipsDescendants = false
+	return window, content
+end
+
+local function makeCurrencySlot(parent, name, icon, order)
+	local slot =
+		conceptPanel(parent, name, UDim2.fromOffset(0, 0), UDim2.fromOffset(150, 42), Color3.fromRGB(31, 41, 58), 12, 0)
+	slot.LayoutOrder = order
+	slot.BackgroundTransparency = 0.08
+	conceptLabel(slot, "Icon", icon, UDim2.fromOffset(8, 0), UDim2.fromOffset(38, 42), 24, Enum.TextXAlignment.Center)
+	local amount = conceptLabel(slot, "Amount", "0", UDim2.fromOffset(48, 0), UDim2.new(1, -54, 1, 0), 20)
+	amount.TextColor3 = Color3.fromRGB(255, 255, 255)
+	amount.TextStrokeColor3 = OUTLINE
+	amount.TextStrokeTransparency = 0
+	return slot
+end
+
+local function buildCurrencyBar(mainHud)
+	local currencyBar = ensureClass(mainHud, "Frame", "CurrencyBar")
+	clearChildren(currencyBar)
+	currencyBar.AnchorPoint = Vector2.new(0, 1)
+	currencyBar.Position = UDim2.new(0, 20, 1, -88)
+	currencyBar.Size = UDim2.fromOffset(160, 150)
+	currencyBar.BackgroundTransparency = 1
+	currencyBar.Visible = true
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	layout.Padding = UDim.new(0, 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = currencyBar
+
+	makeCurrencySlot(currencyBar, "ColorFrame", "COLOR", 1)
+	makeCurrencySlot(currencyBar, "GemsFrame", "GEMS", 2)
+	makeCurrencySlot(currencyBar, "CoinsFrame", "COINS", 3)
+end
+
+local function makeBottomButton(parent, name, label, order, color)
+	local btn = conceptButton(parent, name, label, UDim2.fromOffset(0, 0), UDim2.fromOffset(68, 68), color)
+	btn.LayoutOrder = order
+	btn.TextSize = 17
+	return btn
+end
+
+local function buildBottomButtons(mainHud)
+	local bottomButtons = ensureClass(mainHud, "Frame", "BottomButtons")
+	clearChildren(bottomButtons)
+	bottomButtons.AnchorPoint = Vector2.new(0.5, 1)
+	bottomButtons.Position = UDim2.new(0.5, 0, 1, -24)
+	bottomButtons.Size = UDim2.fromOffset(620, 78)
+	bottomButtons.BackgroundTransparency = 1
+	bottomButtons.Visible = true
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, 12)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = bottomButtons
+
+	makeBottomButton(bottomButtons, "RankButton", "RANK", 1, Color3.fromRGB(45, 167, 255))
+	makeBottomButton(bottomButtons, "TradeButton", "TRADE", 2, Color3.fromRGB(45, 167, 255))
+	makeBottomButton(bottomButtons, "InventoryButton", "INV", 3, Color3.fromRGB(45, 167, 255))
+	makeBottomButton(bottomButtons, "MenuButton", "MENU", 4, Color3.fromRGB(24, 138, 232))
+	makeBottomButton(bottomButtons, "ShopButton", "SHOP", 5, Color3.fromRGB(45, 167, 255))
+	makeBottomButton(bottomButtons, "WorldsButton", "WORLD", 6, Color3.fromRGB(45, 167, 255))
+	makeBottomButton(bottomButtons, "SettingsButton", "SET", 7, Color3.fromRGB(45, 167, 255))
+end
+
+local function makeInventoryTab(parent, name, label, order, selected)
+	local tab = conceptButton(
+		parent,
+		name,
+		label,
+		UDim2.fromOffset(0, 0),
+		UDim2.new(1, -22, 0, 76),
+		selected and Color3.fromRGB(28, 134, 255) or Color3.fromRGB(255, 255, 255)
+	)
+	tab.LayoutOrder = order
+	tab.TextColor3 = selected and Color3.fromRGB(255, 255, 255) or TEXT_DARK
+	tab.TextStrokeTransparency = selected and 0 or 0.55
+	return tab
+end
+
+local function makeInventoryCard(parent, name, order)
+	local card = conceptButton(
+		parent,
+		name,
+		"",
+		UDim2.fromOffset(0, 0),
+		UDim2.fromOffset(120, 120),
+		Color3.fromRGB(247, 250, 255)
+	)
+	card.LayoutOrder = order
+	card:SetAttribute("InventoryCardSlot", true)
+	card.Text = ""
+
+	local preview = conceptPanel(
+		card,
+		"Preview",
+		UDim2.fromScale(0.12, 0.1),
+		UDim2.fromScale(0.76, 0.58),
+		Color3.fromRGB(236, 245, 255),
+		12,
+		0
+	)
+	local viewport = ensureClass(preview, "ViewportFrame", "PreviewViewport")
+	viewport.Size = UDim2.fromScale(1, 1)
+	viewport.BackgroundTransparency = 1
+	viewport.Position = UDim2.fromScale(0, 0)
+	conceptLabel(
+		preview,
+		"IconText",
+		"IMG",
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(1, 1),
+		18,
+		Enum.TextXAlignment.Center
+	)
+
+	local itemName = conceptLabel(
+		card,
+		"ItemName",
+		"",
+		UDim2.fromScale(0.08, 0.7),
+		UDim2.fromScale(0.84, 0.15),
+		14,
+		Enum.TextXAlignment.Center
+	)
+	itemName.TextYAlignment = Enum.TextYAlignment.Center
+	local meta = conceptLabel(
+		card,
+		"ItemMeta",
+		"",
+		UDim2.fromScale(0.08, 0.84),
+		UDim2.fromScale(0.84, 0.13),
+		12,
+		Enum.TextXAlignment.Center
+	)
+	meta.TextColor3 = MUTED
+	return card
+end
+
+local function buildInventoryWindow(modalWindows)
+	local _, content = conceptWindow(modalWindows, "InventoryWindow", "INVENTORY")
+
+	local tabs = conceptPanel(
+		content,
+		"Tabs",
+		UDim2.fromScale(0.02, 0.05),
+		UDim2.fromScale(0.16, 0.88),
+		Color3.fromRGB(250, 252, 255),
+		16,
+		2
+	)
+	local tabLayout = Instance.new("UIListLayout")
+	tabLayout.FillDirection = Enum.FillDirection.Vertical
+	tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	tabLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+	tabLayout.Padding = UDim.new(0, 14)
+	tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	tabLayout.Parent = tabs
+	makeInventoryTab(tabs, "ColorsTab", "PETS", 1, true)
+	makeInventoryTab(tabs, "BrushesTab", "COLORS", 2, false)
+	makeInventoryTab(tabs, "PotionsTab", "BOOSTS", 3, false)
+	makeInventoryTab(tabs, "ItemsTab", "ITEMS", 4, false)
+
+	local search =
+		textBox(content, "SearchBox", "Search inventory...", UDim2.fromScale(0.22, 0.05), UDim2.fromScale(0.39, 0.08))
+	search.TextSize = 20
+	conceptButton(
+		content,
+		"SortButton",
+		"Newest",
+		UDim2.fromScale(0.64, 0.05),
+		UDim2.fromScale(0.14, 0.08),
+		Color3.fromRGB(255, 255, 255)
+	).TextColor3 =
+		TEXT_DARK
+
+	local grid = ensureClass(content, "ScrollingFrame", "GridPanel")
+	grid.Position = UDim2.fromScale(0.21, 0.17)
+	grid.Size = UDim2.fromScale(0.57, 0.7)
+	grid.BackgroundColor3 = Color3.fromRGB(250, 252, 255)
+	grid.BorderSizePixel = 0
+	grid.ScrollBarThickness = 8
+	grid.CanvasSize = UDim2.fromScale(0, 0)
+	grid.AutomaticCanvasSize = Enum.AutomaticSize.None
+	applyCorner(grid, 16)
+	applyStroke(grid, Color3.fromRGB(215, 225, 240), 2)
+
+	clearChildren(grid)
+	applyCorner(grid, 16)
+	applyStroke(grid, Color3.fromRGB(215, 225, 240), 2)
+	local template = makeInventoryCard(grid, "ItemCardTemplate", 0)
+	template.Visible = false
+	for index = 1, 12 do
+		makeInventoryCard(grid, "PreviewSlot" .. tostring(index), index)
+	end
+	local emptyText = conceptLabel(
+		grid,
+		"EmptyText",
+		"No items yet.",
+		UDim2.fromScale(0, 0.42),
+		UDim2.fromScale(1, 0.1),
+		20,
+		Enum.TextXAlignment.Center
+	)
+	emptyText.Visible = false
+	local footer = conceptPanel(
+		grid,
+		"Footer",
+		UDim2.new(0, 14, 1, -44),
+		UDim2.new(1, -28, 0, 30),
+		Color3.fromRGB(239, 246, 255),
+		12,
+		0
+	)
+	conceptLabel(
+		footer,
+		"CapacityText",
+		"Colors: 0 / 75",
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(1, 1),
+		14,
+		Enum.TextXAlignment.Center
+	)
+
+	local details = conceptPanel(
+		content,
+		"DetailsPanel",
+		UDim2.fromScale(0.8, 0.05),
+		UDim2.fromScale(0.18, 0.82),
+		Color3.fromRGB(246, 250, 255),
+		18,
+		2
+	)
+	conceptLabel(
+		details,
+		"DetailsTitle",
+		"ITEM DETAILS",
+		UDim2.fromScale(0, 0.02),
+		UDim2.fromScale(1, 0.08),
+		18,
+		Enum.TextXAlignment.Center
+	)
+	local bigPreview = conceptPanel(
+		details,
+		"BigPreview",
+		UDim2.fromScale(0.18, 0.12),
+		UDim2.fromScale(0.64, 0.26),
+		Color3.fromRGB(236, 245, 255),
+		14,
+		0
+	)
+	local bigViewport = ensureClass(bigPreview, "ViewportFrame", "PreviewViewport")
+	bigViewport.Size = UDim2.fromScale(1, 1)
+	bigViewport.BackgroundTransparency = 1
+	conceptLabel(
+		bigPreview,
+		"IconText",
+		"IMG",
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(1, 1),
+		22,
+		Enum.TextXAlignment.Center
+	)
+	conceptLabel(
+		details,
+		"ItemName",
+		"Select an Item",
+		UDim2.fromScale(0.08, 0.4),
+		UDim2.fromScale(0.84, 0.08),
+		22,
+		Enum.TextXAlignment.Center
+	)
+	conceptLabel(
+		details,
+		"RarityLabel",
+		"",
+		UDim2.fromScale(0.08, 0.49),
+		UDim2.fromScale(0.84, 0.06),
+		16,
+		Enum.TextXAlignment.Center
+	).TextColor3 =
+		Color3.fromRGB(31, 122, 226)
+	conceptLabel(
+		details,
+		"SelectedDescription",
+		"Choose a card to see details.",
+		UDim2.fromScale(0.08, 0.57),
+		UDim2.fromScale(0.84, 0.1),
+		14,
+		Enum.TextXAlignment.Center
+	)
+	local statsBox = conceptPanel(
+		details,
+		"StatsBox",
+		UDim2.fromScale(0.08, 0.68),
+		UDim2.fromScale(0.84, 0.1),
+		Color3.fromRGB(255, 255, 255),
+		12,
+		1
+	)
+	conceptLabel(
+		statsBox,
+		"StatsText",
+		"",
+		UDim2.fromScale(0.06, 0.05),
+		UDim2.fromScale(0.88, 0.9),
+		13,
+		Enum.TextXAlignment.Center
+	)
+	conceptButton(
+		details,
+		"EquipButton",
+		"EQUIP",
+		UDim2.fromScale(0.08, 0.8),
+		UDim2.fromScale(0.84, 0.08),
+		Color3.fromRGB(73, 218, 57)
+	)
+	conceptButton(
+		details,
+		"LockButton",
+		"LOCK",
+		UDim2.fromScale(0.08, 0.89),
+		UDim2.fromScale(0.4, 0.07),
+		Color3.fromRGB(30, 150, 255)
+	)
+	conceptButton(
+		details,
+		"DeleteButton",
+		"DELETE",
+		UDim2.fromScale(0.52, 0.89),
+		UDim2.fromScale(0.4, 0.07),
+		Color3.fromRGB(236, 43, 38)
+	)
+end
+
+local function makeSettingsRow(parent, name, label, description, order, defaultText)
+	local row = conceptPanel(
+		parent,
+		name,
+		UDim2.fromOffset(0, 0),
+		UDim2.new(1, -12, 0, 56),
+		Color3.fromRGB(255, 255, 255),
+		12,
+		1
+	)
+	row.LayoutOrder = order
+	conceptLabel(row, "Name", label, UDim2.fromScale(0.04, 0.1), UDim2.fromScale(0.48, 0.44), 18)
+	local desc =
+		conceptLabel(row, "Description", description, UDim2.fromScale(0.04, 0.52), UDim2.fromScale(0.5, 0.34), 12)
+	desc.TextColor3 = MUTED
+	local status = conceptLabel(
+		row,
+		"Status",
+		defaultText or "ON",
+		UDim2.fromScale(0.66, 0.18),
+		UDim2.fromScale(0.1, 0.62),
+		18,
+		Enum.TextXAlignment.Center
+	)
+	status.TextColor3 = Color3.fromRGB(255, 255, 255)
+	status.TextStrokeColor3 = OUTLINE
+	status.TextStrokeTransparency = 0
+	conceptButton(
+		row,
+		"ToggleButton",
+		defaultText or "ON",
+		UDim2.fromScale(0.78, 0.16),
+		UDim2.fromScale(0.18, 0.68),
+		Color3.fromRGB(73, 218, 57)
+	)
+	return row
+end
+
+local function buildSettingsWindow(modalWindows)
+	local _, content = conceptWindow(modalWindows, "SettingsWindow", "SETTINGS")
+
+	local categories = conceptPanel(
+		content,
+		"CategoryList",
+		UDim2.fromScale(0.02, 0.06),
+		UDim2.fromScale(0.18, 0.78),
+		Color3.fromRGB(250, 252, 255),
+		16,
+		2
+	)
+	local catLayout = Instance.new("UIListLayout")
+	catLayout.FillDirection = Enum.FillDirection.Vertical
+	catLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	catLayout.Padding = UDim.new(0, 12)
+	catLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	catLayout.Parent = categories
+	conceptButton(
+		categories,
+		"GeneralCategory",
+		"General",
+		UDim2.fromOffset(0, 0),
+		UDim2.new(1, -20, 0, 68),
+		Color3.fromRGB(28, 134, 255)
+	).LayoutOrder =
+		1
+	conceptButton(
+		categories,
+		"AudioCategory",
+		"Audio",
+		UDim2.fromOffset(0, 0),
+		UDim2.new(1, -20, 0, 68),
+		Color3.fromRGB(255, 255, 255)
+	).LayoutOrder =
+		2
+	conceptButton(
+		categories,
+		"GameplayCategory",
+		"Gameplay",
+		UDim2.fromOffset(0, 0),
+		UDim2.new(1, -20, 0, 68),
+		Color3.fromRGB(255, 255, 255)
+	).LayoutOrder =
+		3
+	conceptButton(
+		categories,
+		"NotificationsCategory",
+		"Notices",
+		UDim2.fromOffset(0, 0),
+		UDim2.new(1, -20, 0, 68),
+		Color3.fromRGB(255, 255, 255)
+	).LayoutOrder =
+		4
+
+	local rows = conceptPanel(
+		content,
+		"SettingsRows",
+		UDim2.fromScale(0.23, 0.06),
+		UDim2.fromScale(0.5, 0.78),
+		Color3.fromRGB(250, 252, 255),
+		16,
+		0
+	)
+	rows.BackgroundTransparency = 1
+	local rowLayout = Instance.new("UIListLayout")
+	rowLayout.FillDirection = Enum.FillDirection.Vertical
+	rowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	rowLayout.Padding = UDim.new(0, 8)
+	rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	rowLayout.Parent = rows
+	makeSettingsRow(rows, "MusicCard", "Music", "Background music.", 1, "ON")
+	makeSettingsRow(rows, "SFXCard", "Sound Effects", "Sound feedback.", 2, "ON")
+	makeSettingsRow(rows, "GraphicsQualityCard", "Graphics Quality", "Placeholder quality slider.", 3, "3")
+	makeSettingsRow(rows, "DamageNumbersCard", "Show Damage Numbers", "Popup feedback while collecting.", 4, "ON")
+	makeSettingsRow(rows, "TradeRequestsCard", "Trade Requests", "Allow incoming trade requests.", 5, "ON")
+	makeSettingsRow(rows, "HidePetsCard", "Pet Hide Mode", "Hide pet visuals locally.", 6, "OFF")
+	makeSettingsRow(rows, "AutoHatchCard", "Auto Hatch", "Auto hatch preference.", 7, "OFF")
+	makeSettingsRow(rows, "CameraShakeCard", "Camera Shake", "Camera feedback while playing.", 8, "ON")
+
+	conceptPanel(
+		content,
+		"PreviewPanel",
+		UDim2.fromScale(0.76, 0.06),
+		UDim2.fromScale(0.21, 0.78),
+		Color3.fromRGB(250, 252, 255),
+		16,
+		1
+	)
+	conceptButton(
+		content,
+		"ApplyButton",
+		"APPLY",
+		UDim2.fromScale(0.25, 0.86),
+		UDim2.fromScale(0.22, 0.08),
+		Color3.fromRGB(73, 218, 57)
+	)
+	conceptButton(
+		content,
+		"ResetButton",
+		"RESET",
+		UDim2.fromScale(0.5, 0.86),
+		UDim2.fromScale(0.22, 0.08),
+		Color3.fromRGB(236, 43, 38)
+	)
+	conceptLabel(
+		content,
+		"InfoText",
+		"Adjust your game experience here.",
+		UDim2.fromScale(0.04, 0.94),
+		UDim2.fromScale(0.92, 0.04),
+		16,
+		Enum.TextXAlignment.Center
+	).TextColor3 =
+		Color3.fromRGB(125, 141, 170)
+end
+
+local function makeTradeSlot(parent, name, order, role)
+	local slot = conceptButton(
+		parent,
+		name,
+		"",
+		UDim2.fromOffset(0, 0),
+		UDim2.fromOffset(132, 96),
+		Color3.fromRGB(255, 255, 255)
+	)
+	slot.LayoutOrder = order
+	slot:SetAttribute("TradeSlotRole", role)
+	slot.Text = ""
+	conceptLabel(
+		slot,
+		"Name",
+		"",
+		UDim2.fromScale(0.08, 0.12),
+		UDim2.fromScale(0.84, 0.38),
+		14,
+		Enum.TextXAlignment.Center
+	)
+	conceptLabel(
+		slot,
+		"Meta",
+		"",
+		UDim2.fromScale(0.08, 0.52),
+		UDim2.fromScale(0.84, 0.22),
+		11,
+		Enum.TextXAlignment.Center
+	).TextColor3 =
+		MUTED
+	conceptButton(
+		slot,
+		role == "MyOffer" and "RemoveButton" or "AddButton",
+		role == "TheirOffer" and "" or "ADD",
+		UDim2.fromScale(0.12, 0.72),
+		UDim2.fromScale(0.76, 0.22),
+		Color3.fromRGB(73, 218, 57)
+	).TextSize =
+		12
+	return slot
+end
+
+local function makeTradeList(parent, name, title, position, size)
+	local panel = conceptPanel(parent, name, position, size, Color3.fromRGB(250, 252, 255), 16, 2)
+	conceptLabel(
+		panel,
+		"Title",
+		title,
+		UDim2.fromScale(0.04, 0.02),
+		UDim2.fromScale(0.92, 0.08),
+		18,
+		Enum.TextXAlignment.Center
+	)
+	local list = conceptPanel(
+		panel,
+		name .. "List",
+		UDim2.fromScale(0.04, 0.12),
+		UDim2.fromScale(0.92, 0.72),
+		Color3.fromRGB(255, 255, 255),
+		14,
+		1
+	)
+	list.BackgroundTransparency = 0.2
+	return panel, list
+end
+
+local function buildTradeWindow(modalWindows)
+	local _, content = conceptWindow(modalWindows, "TradeWindow", "TRADING")
+	conceptLabel(
+		content,
+		"Status",
+		"Choose a player to trade.",
+		UDim2.fromScale(0.1, 0.02),
+		UDim2.fromScale(0.8, 0.06),
+		18,
+		Enum.TextXAlignment.Center
+	).TextColor3 =
+		Color3.fromRGB(31, 122, 226)
+
+	local playersPanel = conceptPanel(
+		content,
+		"PlayersPanel",
+		UDim2.fromScale(0.03, 0.1),
+		UDim2.fromScale(0.16, 0.8),
+		Color3.fromRGB(250, 252, 255),
+		16,
+		2
+	)
+	conceptLabel(playersPanel, "Title", "PLAYERS", UDim2.fromScale(0.07, 0.03), UDim2.fromScale(0.86, 0.08), 16)
+	local playersList = conceptPanel(
+		playersPanel,
+		"PlayersList",
+		UDim2.fromScale(0.07, 0.13),
+		UDim2.fromScale(0.86, 0.36),
+		Color3.fromRGB(255, 255, 255),
+		12,
+		1
+	)
+	local playerLayout = Instance.new("UIListLayout")
+	playerLayout.Padding = UDim.new(0, 8)
+	playerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	playerLayout.Parent = playersList
+	for index = 1, 4 do
+		local row = conceptButton(
+			playersList,
+			"PlayerSlot" .. tostring(index),
+			"",
+			UDim2.fromOffset(0, 0),
+			UDim2.new(1, -8, 0, 44),
+			Color3.fromRGB(245, 249, 255)
+		)
+		row.LayoutOrder = index
+		row:SetAttribute("TradeSlotRole", "Player")
+		conceptLabel(row, "Name", "", UDim2.fromScale(0.05, 0.1), UDim2.fromScale(0.56, 0.8), 12)
+		conceptButton(
+			row,
+			"TradeButton",
+			"TRADE",
+			UDim2.fromScale(0.62, 0.18),
+			UDim2.fromScale(0.34, 0.64),
+			Color3.fromRGB(73, 218, 57)
+		).TextSize =
+			11
+	end
+
+	local colorsList = conceptPanel(
+		playersPanel,
+		"ColorsList",
+		UDim2.fromScale(0.07, 0.54),
+		UDim2.fromScale(0.86, 0.4),
+		Color3.fromRGB(255, 255, 255),
+		12,
+		1
+	)
+	local colorLayout = Instance.new("UIListLayout")
+	colorLayout.Padding = UDim.new(0, 8)
+	colorLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	colorLayout.Parent = colorsList
+	for index = 1, 6 do
+		local row = conceptButton(
+			colorsList,
+			"ColorSlot" .. tostring(index),
+			"",
+			UDim2.fromOffset(0, 0),
+			UDim2.new(1, -8, 0, 44),
+			Color3.fromRGB(245, 249, 255)
+		)
+		row.LayoutOrder = index
+		row:SetAttribute("TradeSlotRole", "Color")
+		conceptLabel(row, "Name", "", UDim2.fromScale(0.05, 0.08), UDim2.fromScale(0.54, 0.5), 12)
+		conceptLabel(row, "Meta", "", UDim2.fromScale(0.05, 0.55), UDim2.fromScale(0.54, 0.34), 10).TextColor3 = MUTED
+		conceptButton(
+			row,
+			"AddButton",
+			"ADD",
+			UDim2.fromScale(0.62, 0.18),
+			UDim2.fromScale(0.34, 0.64),
+			Color3.fromRGB(73, 218, 57)
+		).TextSize =
+			11
+	end
+
+	local yourPanel, myOfferList =
+		makeTradeList(content, "YourOfferPanel", "YOUR OFFER", UDim2.fromScale(0.22, 0.1), UDim2.fromScale(0.29, 0.66))
+	local myGrid = Instance.new("UIGridLayout")
+	myGrid.CellSize = UDim2.fromScale(0.46, 0.31)
+	myGrid.CellPadding = UDim2.fromScale(0.04, 0.04)
+	myGrid.SortOrder = Enum.SortOrder.LayoutOrder
+	myGrid.Parent = myOfferList
+	for index = 1, 6 do
+		makeTradeSlot(myOfferList, "MyOfferSlot" .. tostring(index), index, "MyOffer")
+	end
+	conceptLabel(
+		yourPanel,
+		"MyOfferGems",
+		"Gems: 0",
+		UDim2.fromScale(0.08, 0.86),
+		UDim2.fromScale(0.84, 0.08),
+		18,
+		Enum.TextXAlignment.Center
+	)
+
+	local theirPanel, theirOfferList = makeTradeList(
+		content,
+		"TheirOfferPanel",
+		"THEIR OFFER",
+		UDim2.fromScale(0.59, 0.1),
+		UDim2.fromScale(0.29, 0.66)
+	)
+	local theirGrid = Instance.new("UIGridLayout")
+	theirGrid.CellSize = UDim2.fromScale(0.46, 0.31)
+	theirGrid.CellPadding = UDim2.fromScale(0.04, 0.04)
+	theirGrid.SortOrder = Enum.SortOrder.LayoutOrder
+	theirGrid.Parent = theirOfferList
+	for index = 1, 6 do
+		makeTradeSlot(theirOfferList, "TheirOfferSlot" .. tostring(index), index, "TheirOffer")
+	end
+	conceptLabel(
+		theirPanel,
+		"TheirOfferGems",
+		"Gems: 0",
+		UDim2.fromScale(0.08, 0.86),
+		UDim2.fromScale(0.84, 0.08),
+		18,
+		Enum.TextXAlignment.Center
+	)
+
+	conceptLabel(
+		content,
+		"SwapIcon",
+		"SWAP",
+		UDim2.fromScale(0.515, 0.31),
+		UDim2.fromScale(0.07, 0.08),
+		20,
+		Enum.TextXAlignment.Center
+	).TextColor3 =
+		Color3.fromRGB(31, 122, 226)
+	local gemBox = textBox(content, "GemBox", "Gems", UDim2.fromScale(0.37, 0.79), UDim2.fromScale(0.13, 0.07))
+	gemBox.TextSize = 18
+	conceptButton(
+		content,
+		"SetGemsButton",
+		"SET",
+		UDim2.fromScale(0.51, 0.79),
+		UDim2.fromScale(0.08, 0.07),
+		Color3.fromRGB(80, 214, 224)
+	)
+	conceptLabel(
+		content,
+		"GemsLabel",
+		"Gems: 0",
+		UDim2.fromScale(0.22, 0.8),
+		UDim2.fromScale(0.13, 0.05),
+		15,
+		Enum.TextXAlignment.Center
+	)
+	conceptLabel(
+		content,
+		"MyReady",
+		"NOT READY",
+		UDim2.fromScale(0.31, 0.9),
+		UDim2.fromScale(0.18, 0.05),
+		16,
+		Enum.TextXAlignment.Center
+	)
+	conceptLabel(
+		content,
+		"TheirReady",
+		"NOT READY",
+		UDim2.fromScale(0.61, 0.9),
+		UDim2.fromScale(0.18, 0.05),
+		16,
+		Enum.TextXAlignment.Center
+	)
+	conceptButton(
+		content,
+		"AcceptButton",
+		"ACCEPT",
+		UDim2.fromScale(0.32, 0.86),
+		UDim2.fromScale(0.18, 0.08),
+		Color3.fromRGB(73, 218, 57)
+	)
+	conceptButton(
+		content,
+		"CancelButton",
+		"CANCEL",
+		UDim2.fromScale(0.52, 0.86),
+		UDim2.fromScale(0.18, 0.08),
+		Color3.fromRGB(236, 43, 38)
+	)
+end
+
+local function buildRankWindow(modalWindows)
+	local _, content = conceptWindow(modalWindows, "RankWindow", "RANKS")
+	conceptLabel(
+		content,
+		"CurrentRankHeader",
+		"CURRENT RANK",
+		UDim2.fromScale(0.28, 0.02),
+		UDim2.fromScale(0.44, 0.08),
+		24,
+		Enum.TextXAlignment.Center
+	).TextColor3 =
+		Color3.fromRGB(90, 140, 210)
+	local badge = conceptPanel(
+		content,
+		"RankBadge",
+		UDim2.fromScale(0.15, 0.17),
+		UDim2.fromScale(0.22, 0.26),
+		Color3.fromRGB(239, 248, 255),
+		22,
+		4
+	)
+	conceptLabel(
+		badge,
+		"RankIconText",
+		"I",
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(1, 1),
+		64,
+		Enum.TextXAlignment.Center
+	).TextColor3 =
+		Color3.fromRGB(28, 134, 255)
+	conceptLabel(
+		content,
+		"RankName",
+		"RANK I",
+		UDim2.fromScale(0.43, 0.2),
+		UDim2.fromScale(0.4, 0.16),
+		54,
+		Enum.TextXAlignment.Center
+	)
+
+	conceptLabel(
+		content,
+		"ProgressTitle",
+		"Progress to Next Rank",
+		UDim2.fromScale(0.2, 0.48),
+		UDim2.fromScale(0.6, 0.07),
+		22,
+		Enum.TextXAlignment.Center
+	)
+	local bar = conceptPanel(
+		content,
+		"ProgressBar",
+		UDim2.fromScale(0.15, 0.57),
+		UDim2.fromScale(0.7, 0.055),
+		Color3.fromRGB(255, 255, 255),
+		18,
+		2
+	)
+	local fill = conceptPanel(
+		bar,
+		"ProgressFill",
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(0.68, 1),
+		Color3.fromRGB(24, 164, 245),
+		18,
+		0
+	)
+	fill.BorderSizePixel = 0
+	conceptLabel(content, "ProgressLabel", "0 / 2,500 XP", UDim2.fromScale(0.15, 0.63), UDim2.fromScale(0.3, 0.06), 20)
+	conceptLabel(
+		content,
+		"ProgressPercent",
+		"0%",
+		UDim2.fromScale(0.7, 0.63),
+		UDim2.fromScale(0.15, 0.06),
+		24,
+		Enum.TextXAlignment.Right
+	).TextColor3 =
+		Color3.fromRGB(31, 122, 226)
+
+	conceptLabel(
+		content,
+		"PerksTitle",
+		"Unlocked Perks",
+		UDim2.fromScale(0.2, 0.74),
+		UDim2.fromScale(0.6, 0.06),
+		22,
+		Enum.TextXAlignment.Center
+	)
+	local perks = conceptPanel(
+		content,
+		"Perks",
+		UDim2.fromScale(0.18, 0.82),
+		UDim2.fromScale(0.64, 0.12),
+		Color3.fromRGB(248, 252, 255),
+		16,
+		0
+	)
+	perks.BackgroundTransparency = 1
+	local perkLayout = Instance.new("UIListLayout")
+	perkLayout.FillDirection = Enum.FillDirection.Horizontal
+	perkLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	perkLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	perkLayout.Padding = UDim.new(0, 18)
+	perkLayout.Parent = perks
+	for index, info in ipairs({
+		{ "PerkCoins", "+10% Coins" },
+		{ "PerkLuck", "+5% Hatch Luck" },
+		{ "PerkSlots", "+1 Equip Slot" },
+	}) do
+		local card = conceptPanel(
+			perks,
+			"PerkCard" .. tostring(index),
+			UDim2.fromOffset(0, 0),
+			UDim2.fromOffset(190, 74),
+			Color3.fromRGB(255, 255, 255),
+			14,
+			1
+		)
+		card.LayoutOrder = index
+		conceptLabel(
+			card,
+			info[1],
+			info[2],
+			UDim2.fromScale(0.08, 0.16),
+			UDim2.fromScale(0.84, 0.68),
+			18,
+			Enum.TextXAlignment.Center
+		)
+	end
+end
+
+local function buildPlaceholderWindow(modalWindows, name, title)
+	if modalWindows:FindFirstChild(name) then
+		return
+	end
+	local _, content = conceptWindow(modalWindows, name, title)
+	conceptLabel(
+		content,
+		"Placeholder",
+		"This editable window is ready for Studio layout.",
+		UDim2.fromScale(0.1, 0.42),
+		UDim2.fromScale(0.8, 0.16),
+		24,
+		Enum.TextXAlignment.Center
+	)
+end
+
+function Builder.BuildConceptMenus()
+	if not canBuildConceptMenus("BuildConceptMenus") then
+		return
+	end
+
+	local legacyRoot = StarterGui:FindFirstChild("ClientUIRoot")
+	if legacyRoot and legacyRoot:IsA("ScreenGui") then
+		legacyRoot.Enabled = false
+	end
+
+	local mainHud = ensureClass(StarterGui, "ScreenGui", "MainHUD")
+	mainHud.ResetOnSpawn = false
+	mainHud.IgnoreGuiInset = true
+	mainHud.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	mainHud.DisplayOrder = math.max(mainHud.DisplayOrder, 100)
+	mainHud.Enabled = true
+
+	buildCurrencyBar(mainHud)
+	buildBottomButtons(mainHud)
+
+	local modalWindows = ensureClass(mainHud, "Folder", "ModalWindows")
+	buildInventoryWindow(modalWindows)
+	buildSettingsWindow(modalWindows)
+	buildTradeWindow(modalWindows)
+	buildRankWindow(modalWindows)
+	buildPlaceholderWindow(modalWindows, "ShopWindow", "SHOP")
+	buildPlaceholderWindow(modalWindows, "WorldsWindow", "WORLDS")
+
+	print("StudioMenuWindowsBuilder: built editable concept menus at StarterGui.MainHUD.")
+	print("Command: require(game.ReplicatedStorage.StudioMenuWindowsBuilder).BuildConceptMenus()")
+end
+
+Builder.BuildMainHUD = Builder.BuildConceptMenus
+Builder.UpdateConceptMenus = Builder.BuildConceptMenus
+Builder.Build = Builder.BuildConceptMenus
 
 return Builder

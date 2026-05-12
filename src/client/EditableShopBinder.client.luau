@@ -64,16 +64,12 @@ local function warnOnce(key, message)
 end
 
 local function getMainHUD()
-	local root = playerGui:WaitForChild("ClientUIRoot", 30)
-	return root and root:WaitForChild("MainHUD", 30)
+	return playerGui:WaitForChild("MainHUD", 30)
 end
 
 local function getWindows(mainHUD)
 	local modalWindows = mainHUD and mainHUD:FindFirstChild("ModalWindows")
-	if modalWindows and modalWindows:FindFirstChild("Windows") then
-		return modalWindows.Windows
-	end
-	return mainHUD and mainHUD:FindFirstChild("Windows")
+	return modalWindows
 end
 
 local function getTextLabel(parent, name)
@@ -117,16 +113,12 @@ local function applyShopIcon(card, item)
 
 	local iconImage = iconCircle:FindFirstChild("IconImage")
 	if not iconImage or not iconImage:IsA("ImageLabel") then
-		iconImage = Instance.new("ImageLabel")
-		iconImage.Name = "IconImage"
-		iconImage.Parent = iconCircle
+		warnOnce(
+			"missing-icon-" .. tostring(item.id or item.name or item.iconKey),
+			"EditableShopBinder: missing Studio-authored IconImage under " .. iconCircle:GetFullName()
+		)
+		return
 	end
-	iconImage.BackgroundTransparency = 1
-	iconImage.BorderSizePixel = 0
-	iconImage.Position = UDim2.fromOffset(2, 2)
-	iconImage.Size = UDim2.new(1, -4, 1, -4)
-	iconImage.ScaleType = Enum.ScaleType.Fit
-	iconImage.ZIndex = iconCircle.ZIndex + 2
 	iconImage.Image = image
 	iconImage.Visible = image ~= ""
 	iconImage:SetAttribute("GamepassIconKey", item.iconKey or "")
@@ -142,17 +134,18 @@ local function applyShopIcon(card, item)
 	iconCircle:SetAttribute("ExpectedGamepassIconFile", spec and spec.SourceFile or item.iconSourceFile or "")
 end
 
-local function getOrCreateScale(parent, name)
+local function findScale(parent, name)
 	local scale = parent:FindFirstChild(name)
-	if not scale or not scale:IsA("UIScale") then
-		scale = Instance.new("UIScale")
-		scale.Name = name
-		scale.Parent = parent
+	if scale and scale:IsA("UIScale") then
+		return scale
 	end
-	return scale
+	return nil
 end
 
 local function tweenScale(scale, value, duration)
+	if not scale then
+		return
+	end
 	TweenService:Create(scale, TweenInfo.new(duration or 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Scale = value,
 	}):Play()
@@ -419,7 +412,7 @@ local function bindButton(card)
 	end
 	card:SetAttribute("EditableShopCardBound", true)
 
-	local cardScale = getOrCreateScale(card, "CardScale")
+	local cardScale = findScale(card, "CardScale")
 	card.MouseEnter:Connect(function()
 		local stroke = getStroke(card)
 		local itemId = card:GetAttribute("ShopItemId")
@@ -444,7 +437,7 @@ local function bindButton(card)
 		return
 	end
 
-	local buttonScale = getOrCreateScale(button, "ButtonScale")
+	local buttonScale = findScale(button, "ButtonScale")
 	button.MouseEnter:Connect(function()
 		tweenScale(buttonScale, 1.05, 0.1)
 	end)
@@ -485,7 +478,10 @@ local function bindButton(card)
 					warnOnce("infinite-pack-free", "EditableShopBinder: ClaimInfinitePackTier remote is missing.")
 				end
 			elseif tier and isFree then
-				warnOnce("infinite-pack-unsupported-free", "EditableShopBinder: this free Infinite Pack reward is not wired yet.")
+				warnOnce(
+					"infinite-pack-unsupported-free",
+					"EditableShopBinder: this free Infinite Pack reward is not wired yet."
+				)
 			elseif tier and productId and productId > 0 then
 				MarketplaceService:PromptProductPurchase(player, productId)
 			end
@@ -526,7 +522,7 @@ local function startIconPulse(card)
 	if not iconCircle or not iconCircle:IsA("GuiObject") then
 		return
 	end
-	local scale = getOrCreateScale(iconCircle, "IconScale")
+	local scale = findScale(iconCircle, "IconScale")
 	card:SetAttribute("EditableShopPulseStarted", true)
 	task.spawn(function()
 		while iconCircle.Parent do
@@ -649,7 +645,7 @@ local mainHUD = getMainHUD()
 local windows = mainHUD and getWindows(mainHUD)
 local shopWindow = windows and windows:WaitForChild("ShopWindow", 30)
 if not shopWindow then
-	warn("EditableShopBinder: ShopWindow missing; no runtime shop window will be created.")
+	warn("EditableShopBinder: missing PlayerGui.MainHUD.ModalWindows.ShopWindow")
 	return
 end
 
@@ -660,7 +656,10 @@ if claimInfinitePackTierEvent and claimInfinitePackTierEvent:IsA("RemoteEvent") 
 		if action == "Claimed" then
 			player:SetAttribute("InfinitePackClaimed_" .. tierId, true)
 		elseif payload and payload.message then
-			warnOnce("infinite-pack-claim-" .. tierId .. "-" .. tostring(payload.message), "EditableShopBinder: " .. tostring(payload.message))
+			warnOnce(
+				"infinite-pack-claim-" .. tierId .. "-" .. tostring(payload.message),
+				"EditableShopBinder: " .. tostring(payload.message)
+			)
 		end
 		updateAllCards(shopWindow)
 	end)
