@@ -1175,6 +1175,9 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt)
 	if prompt:GetAttribute("ShopExitPrompt") or prompt.Name == "ExitShopPrompt" then
 		return
 	end
+	if prompt:GetAttribute("NpcDialogueId") then
+		return
+	end
 
 	if prompt:GetAttribute("CombinedShopPrompt")
 		or prompt:GetAttribute("BrushShopPrompt")

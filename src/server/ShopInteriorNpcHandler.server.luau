@@ -28,8 +28,10 @@ local NPC_ROLE = "Brush Merchant"
 local SHOP_COLOR = "Red"
 local FADE_IN_TIME = 0.18
 local SHOP_TELEPORT_COOLDOWN = 1.2
+local SHOP_REENTER_GRACE_SECONDS = 2.75
 
 local teleportLocks = {}
+local reenterBlockedUntil = {}
 
 local function getMap()
 	return Workspace:FindFirstChild(MAP_NAME)
@@ -240,6 +242,7 @@ local function ensurePrompt(core)
 	prompt:SetAttribute("BrushShopPrompt", true)
 	prompt:SetAttribute("CombinedShopPrompt", true)
 	prompt:SetAttribute("BrushNpcDialogue", true)
+	prompt:SetAttribute("NpcDialogueId", NPC_DISPLAY_NAME)
 	prompt:SetAttribute("NpcName", NPC_DISPLAY_NAME)
 	prompt:SetAttribute("ColorType", SHOP_COLOR)
 	prompt:SetAttribute("ShopColor", SHOP_COLOR)
@@ -393,18 +396,7 @@ local function findExteriorExitAnchor()
 	return nil
 end
 
-local function teleportToExterior(player, entrance)
-	if not entrance then
-		return false
-	end
-
-	local exitAnchor = findExteriorExitAnchor()
-	if exitAnchor then
-		local destination = exitAnchor.Position + Vector3.new(0, exitAnchor.Size.Y * 0.5 + 3.2, 0)
-		local lookAt = Vector3.new(entrance.Position.X, destination.Y, entrance.Position.Z)
-		return setRootCFrame(player, CFrame.lookAt(destination, lookAt))
-	end
-
+local function getEntranceOutward(entrance)
 	local shopCenter = getExteriorShopCenter(entrance)
 	local outward = shopCenter and (entrance.Position - shopCenter) or Vector3.zero
 	if outward.Magnitude < 0.01 then
@@ -423,7 +415,30 @@ local function teleportToExterior(player, entrance)
 		outward = outward.Unit
 	end
 
-	local offset = math.max(math.max(entrance.Size.X, entrance.Size.Z) * 0.5 + 22, 24)
+	return outward
+end
+
+local function teleportToExterior(player, entrance)
+	if not entrance then
+		return false
+	end
+
+	local outward = getEntranceOutward(entrance)
+	local minimumDoorClearance = math.max(math.max(entrance.Size.X, entrance.Size.Z) * 0.5 + 22, 24)
+	local exitAnchor = findExteriorExitAnchor()
+	if exitAnchor then
+		local destination = exitAnchor.Position + Vector3.new(0, exitAnchor.Size.Y * 0.5 + 3.2, 0)
+		local horizontalOffset =
+			Vector3.new(destination.X - entrance.Position.X, 0, destination.Z - entrance.Position.Z)
+		if horizontalOffset.Magnitude < minimumDoorClearance then
+			destination = entrance.Position + outward * minimumDoorClearance
+			destination = Vector3.new(destination.X, entrance.Position.Y + entrance.Size.Y * 0.5 + 3.2, destination.Z)
+		end
+		local lookAt = Vector3.new(entrance.Position.X, destination.Y, entrance.Position.Z)
+		return setRootCFrame(player, CFrame.lookAt(destination, lookAt))
+	end
+
+	local offset = minimumDoorClearance
 	local destination = entrance.Position + outward * offset
 	destination = Vector3.new(destination.X, entrance.Position.Y + entrance.Size.Y * 0.5 + 3.2, destination.Z)
 	local lookAt = Vector3.new(entrance.Position.X, destination.Y, entrance.Position.Z)
@@ -477,6 +492,10 @@ local function ensureShopTeleportPrompts(shopInside, floor, npcCore)
 	end
 
 	local function enterShop(player)
+		local blockedUntil = reenterBlockedUntil[player]
+		if blockedUntil and os.clock() < blockedUntil then
+			return
+		end
 		playShopTransition(player, function()
 			return teleportToInterior(player, floor, npcCore or floor)
 		end, function()
@@ -572,6 +591,8 @@ local function ensureShopTeleportPrompts(shopInside, floor, npcCore)
 		exitPrompt.Triggered:Connect(function(player)
 			playShopTransition(player, function()
 				return teleportToExterior(player, primaryEntrance)
+			end, function()
+				reenterBlockedUntil[player] = os.clock() + SHOP_REENTER_GRACE_SECONDS
 			end)
 		end)
 	end
@@ -684,6 +705,7 @@ task.delay(6, ensureColorBrushNpc)
 
 Players.PlayerRemoving:Connect(function(player)
 	teleportLocks[player] = nil
+	reenterBlockedUntil[player] = nil
 end)
 
 Workspace.DescendantAdded:Connect(function(obj)

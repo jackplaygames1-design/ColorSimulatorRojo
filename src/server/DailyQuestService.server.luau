@@ -5,6 +5,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local RankService = require(script.Parent:WaitForChild("RankService"))
+
 local NPC_NAME = "Zork"
 local QUESTS_PER_DAY = 3
 local ZORK_INTRO_VERSION = 3
@@ -521,6 +523,7 @@ local function claimQuest(player, slot)
 		quest.claimed = false
 		return
 	end
+	RankService.AwardForDailyQuest(player)
 
 	saveProfile(player, true)
 	DailyQuestRemote:FireClient(player, "Update", makeClientData(profile))

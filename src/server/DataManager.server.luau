@@ -7,6 +7,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local RankService = require(script.Parent:WaitForChild("RankService"))
 local SettingsData = require(ReplicatedStorage:WaitForChild("SettingsData"))
 local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
 
@@ -63,6 +64,9 @@ local DEFAULT_DATA = {
 	Gems = 0,
 	Diamonds = 0,
 	Rebirths = 0,
+	RankLevel = 1,
+	RankXP = 0,
+	RankTotalXP = 0,
 	UnlockedColors = { "Red" },
 	CurrentWorld = "Red",
 	UnlockedTeleports = { "OriginSector" },
@@ -654,6 +658,10 @@ local function formatProfileSummary(data)
 		.. tostring(countUnlockedSectors(data))
 		.. " currentWorld="
 		.. tostring(data and data.CurrentWorld or "")
+		.. " rank="
+		.. tostring(data and data.RankLevel or 1)
+		.. " rankXP="
+		.. tostring(data and data.RankXP or 0)
 		.. " codes="
 		.. tostring(countMap(data and data.RedeemedCodes))
 		.. " grants="
@@ -939,6 +947,10 @@ local function migrateData(saved)
 	data.UnlockedTeleports =
 		normalizeTeleportList(data.UnlockedTeleports or data.UnlockedLocations or data.UnlockedZones)
 	data.HighestUnlockedWorld = getHighestUnlockedColor(data.UnlockedColors)
+	local rankData = RankService.NormalizeData(data)
+	data.RankLevel = rankData.RankLevel
+	data.RankXP = rankData.RankXP
+	data.RankTotalXP = rankData.RankTotalXP
 	data.OwnedPaintTools = normalizePaintToolList(data.OwnedPaintTools)
 	data.EquippedPaintTool = normalizeEquippedPaintTool(data.EquippedPaintTool, data.OwnedPaintTools)
 	if not hadTutorialCompletionFlag then
@@ -1022,6 +1034,10 @@ local function validateProfileData(player, data, context)
 	data.UnlockedTeleports =
 		normalizeTeleportList(data.UnlockedTeleports or data.UnlockedLocations or data.UnlockedZones)
 	data.HighestUnlockedWorld = getHighestUnlockedColor(data.UnlockedColors)
+	local rankData = RankService.NormalizeData(data)
+	data.RankLevel = rankData.RankLevel
+	data.RankXP = rankData.RankXP
+	data.RankTotalXP = rankData.RankTotalXP
 
 	local recordsByKey = {}
 	local backupList = {}
@@ -1097,6 +1113,7 @@ local DATA_FOLDERS = {
 	leaderstats = true,
 	ColorStorage = true,
 	Upgrades = true,
+	RankData = true,
 	PetData = true,
 	RedeemedCodes = true,
 	Settings = true,
@@ -1242,6 +1259,20 @@ local function applyData(player, data)
 	rebirths.Name = "Rebirths"
 	rebirths.Value = data.Rebirths
 	rebirths.Parent = leaderstats
+
+	local rankData = RankService.NormalizeData(data)
+	local rankFolder = Instance.new("Folder")
+	rankFolder.Name = "RankData"
+	rankFolder.Parent = player
+	RankService.ApplyToFolder(player, rankFolder, rankData)
+	for _, child in ipairs(rankFolder:GetChildren()) do
+		watchValueForDirty(player, child, "rank")
+	end
+	rankFolder.ChildAdded:Connect(function(child)
+		watchValueForDirty(player, child, "rank")
+		markPlayerDirty(player, "rank")
+		RankService.SyncPlayerAttributes(player)
+	end)
 
 	-- ColorStorage keeps world/unlock state for backward compatibility with existing scripts and saves.
 	local storage = Instance.new("Folder")
@@ -1516,6 +1547,21 @@ local function collectData(player)
 		data.Rebirths = stats:FindFirstChild("Rebirths") and stats.Rebirths.Value or 0
 	end
 
+	local rankFolder = player:FindFirstChild("RankData")
+	if rankFolder then
+		local rankLevel = rankFolder:FindFirstChild("RankLevel")
+		local rankXP = rankFolder:FindFirstChild("RankXP")
+		local rankTotalXP = rankFolder:FindFirstChild("RankTotalXP")
+		local normalizedRank = RankService.NormalizeData({
+			RankLevel = rankLevel and rankLevel:IsA("ValueBase") and rankLevel.Value or data.RankLevel,
+			RankXP = rankXP and rankXP:IsA("ValueBase") and rankXP.Value or data.RankXP,
+			RankTotalXP = rankTotalXP and rankTotalXP:IsA("ValueBase") and rankTotalXP.Value or data.RankTotalXP,
+		})
+		data.RankLevel = normalizedRank.RankLevel
+		data.RankXP = normalizedRank.RankXP
+		data.RankTotalXP = normalizedRank.RankTotalXP
+	end
+
 	local storage = player:FindFirstChild("ColorStorage")
 	if storage then
 		local upgradeFolder = player:FindFirstChild("Upgrades")
@@ -1704,6 +1750,7 @@ local CRITICAL_REASONS = {
 	["settings"] = true,
 	["group-rewards"] = true,
 	["gamepass-grants"] = true,
+	["rank-up"] = true,
 }
 
 local function addDestructiveIssue(issues, label, oldValue, newValue)

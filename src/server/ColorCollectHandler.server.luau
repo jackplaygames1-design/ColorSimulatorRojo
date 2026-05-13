@@ -11,6 +11,7 @@ local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
 local GroupRewardsService = require(script.Parent:WaitForChild("GroupRewardsService"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local RankService = require(script.Parent:WaitForChild("RankService"))
 
 local function loadToolData()
 	local module = ReplicatedStorage:WaitForChild("ToolData", 3)
@@ -284,6 +285,7 @@ local function awardCoins(player, amount)
 	end
 
 	coins.Value += amount
+	RankService.AwardFromCoins(player, amount, "rank-color-coins")
 	reportDailyQuestProgress(player, "CoinsEarned", amount)
 	return true
 end

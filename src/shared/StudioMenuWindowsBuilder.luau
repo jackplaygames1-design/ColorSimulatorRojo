@@ -191,6 +191,66 @@ local function button(parent, name, value, position, size, color)
 	return btn
 end
 
+local function applyBigXText(guiObject, zIndex)
+	local function styleText(textObject)
+		textObject.Text = "X"
+		textObject.TextColor3 = Color3.fromRGB(255, 255, 255)
+		textObject.TextSize = 48
+		textObject.TextScaled = false
+		textObject.TextStrokeColor3 = OUTLINE
+		textObject.TextStrokeTransparency = 0
+		textObject.TextXAlignment = Enum.TextXAlignment.Center
+		textObject.TextYAlignment = Enum.TextYAlignment.Center
+		textObject.ZIndex = zIndex or textObject.ZIndex
+		textObject.Font = Enum.Font.GothamBlack
+		pcall(function()
+			textObject.FontFace =
+				Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+		end)
+	end
+
+	if guiObject:IsA("TextButton") or guiObject:IsA("TextLabel") then
+		styleText(guiObject)
+		local runtimeText = guiObject:FindFirstChild("RuntimeText")
+		if runtimeText and runtimeText:IsA("GuiObject") then
+			runtimeText.Visible = false
+		end
+		return
+	end
+
+	local runtimeText = guiObject:FindFirstChild("RuntimeText")
+	if not runtimeText or not runtimeText:IsA("TextLabel") then
+		if runtimeText then
+			runtimeText:Destroy()
+		end
+		runtimeText = Instance.new("TextLabel")
+		runtimeText.Name = "RuntimeText"
+		runtimeText.BackgroundTransparency = 1
+		runtimeText.BorderSizePixel = 0
+		runtimeText.Position = UDim2.fromScale(0, 0)
+		runtimeText.Size = UDim2.fromScale(1, 1)
+		runtimeText.Parent = guiObject
+	end
+	runtimeText.Visible = true
+	styleText(runtimeText)
+end
+
+local function styleCloseButton(closeButton, position, size, zIndex)
+	closeButton.Position = position
+	closeButton.Size = size
+	closeButton.BackgroundColor3 = Color3.fromRGB(188, 21, 28)
+	closeButton.BorderSizePixel = 0
+	closeButton.ZIndex = zIndex or closeButton.ZIndex
+	closeButton:SetAttribute("NoTextGlow", true)
+	if closeButton:IsA("GuiButton") then
+		closeButton.AutoButtonColor = true
+	end
+	applyCorner(closeButton, 14)
+	applyStroke(closeButton, OUTLINE, 2)
+	applyBigXText(closeButton, (zIndex or closeButton.ZIndex) + 1)
+	return closeButton
+end
+
 local function textBox(parent, name, placeholder, position, size)
 	local existing = parent:FindFirstChild(name)
 	if existing and not existing:IsA("TextBox") then
@@ -276,7 +336,19 @@ local function makeWindow(windowsFolder, name, title, tabs)
 	applyStroke(window, Color3.fromRGB(35, 38, 45), 4)
 
 	text(window, "Title", title, UDim2.fromOffset(24, 14), UDim2.new(1, -112, 0, 42), 30)
-	button(window, "CloseButton", "X", UDim2.new(1, -70, 0, 14), UDim2.fromOffset(52, 48), Color3.fromRGB(188, 21, 28))
+	styleCloseButton(
+		button(
+			window,
+			"CloseButton",
+			"X",
+			UDim2.new(1, -70, 0, 14),
+			UDim2.fromOffset(52, 48),
+			Color3.fromRGB(188, 21, 28)
+		),
+		UDim2.new(1, -70, 0, 14),
+		UDim2.fromOffset(52, 48),
+		window.ZIndex + 3
+	)
 	if tabs and #tabs > 0 then
 		makeTabs(window, tabs)
 	end
@@ -1065,22 +1137,7 @@ local function prepShopWindow(shopWindow)
 	title.ZIndex = 1002
 
 	local closeButton = shopWindow:FindFirstChild("CloseButton")
-	if closeButton and closeButton:IsA("ImageButton") then
-		closeButton.Position = UDim2.new(1, -72, 0, 16)
-		closeButton.Size = UDim2.fromOffset(54, 54)
-		closeButton.BackgroundColor3 = Color3.fromRGB(188, 21, 28)
-		closeButton.BorderSizePixel = 0
-		closeButton.ZIndex = 1003
-		applyCorner(closeButton, 14)
-		applyStroke(closeButton, OUTLINE, 2)
-		local runtimeText = text(closeButton, "RuntimeText", "X", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 28)
-		runtimeText.TextScaled = true
-		runtimeText.TextXAlignment = Enum.TextXAlignment.Center
-		runtimeText.TextColor3 = Color3.fromRGB(255, 255, 255)
-		runtimeText.TextStrokeTransparency = 0
-		runtimeText.TextStrokeColor3 = OUTLINE
-		runtimeText.ZIndex = 1004
-	else
+	if not closeButton or not closeButton:IsA("GuiButton") then
 		closeButton = button(
 			shopWindow,
 			"CloseButton",
@@ -1089,9 +1146,8 @@ local function prepShopWindow(shopWindow)
 			UDim2.fromOffset(54, 54),
 			Color3.fromRGB(188, 21, 28)
 		)
-		closeButton.ZIndex = 1003
-		closeButton.TextScaled = true
 	end
+	styleCloseButton(closeButton, UDim2.new(1, -72, 0, 16), UDim2.fromOffset(54, 54), 1003)
 
 	return shopWindow
 end
@@ -1989,16 +2045,19 @@ local function prepWorldsWindow(worldsWindow)
 	title.TextStrokeTransparency = 1
 	title.ZIndex = 1002
 
-	local closeButton = button(
-		worldsWindow,
-		"CloseButton",
-		"X",
+	styleCloseButton(
+		button(
+			worldsWindow,
+			"CloseButton",
+			"X",
+			UDim2.new(1, -74, 0, 16),
+			UDim2.fromOffset(56, 54),
+			Color3.fromRGB(188, 21, 28)
+		),
 		UDim2.new(1, -74, 0, 16),
 		UDim2.fromOffset(56, 54),
-		Color3.fromRGB(188, 21, 28)
+		1004
 	)
-	closeButton.TextScaled = true
-	closeButton.ZIndex = 1004
 end
 
 local function makeWorldsTabs(worldsWindow)
@@ -2545,6 +2604,33 @@ local function makeBrushShopWindow(windowsFolder)
 	return window
 end
 
+local function makeDailyQuestsWindow(windowsFolder)
+	local window, content = makeWindow(windowsFolder, "DailyQuestsWindow", "DAILY QUESTS", {})
+	window.Size = UDim2.fromOffset(780, 430)
+	window.Position = UDim2.fromScale(0.5, 0.45)
+
+	local intro = text(
+		content,
+		"IntroText",
+		"Daily jobs from Zork. Finish them, then come back here to claim gems.",
+		UDim2.fromOffset(18, 12),
+		UDim2.new(1, -36, 0, 28),
+		15
+	)
+	intro.Font = Enum.Font.GothamBold
+	intro.TextColor3 = MUTED
+	intro.TextStrokeTransparency = 1
+
+	local listHost = frame(content, "Body", UDim2.fromOffset(14, 52), UDim2.new(1, -28, 1, -66), PANEL)
+	listHost.BackgroundTransparency = 1
+	local bodyStroke = listHost:FindFirstChildOfClass("UIStroke")
+	if bodyStroke then
+		bodyStroke:Destroy()
+	end
+	makeDailyQuestRows(listHost)
+	return window
+end
+
 local function makeZorkDialogueWindow(windowsFolder)
 	local window = frame(
 		windowsFolder,
@@ -2558,7 +2644,19 @@ local function makeZorkDialogueWindow(windowsFolder)
 	applyCorner(window, 24)
 	applyStroke(window, OUTLINE, 4)
 	text(window, "Title", "ZORK", UDim2.fromOffset(24, 16), UDim2.new(1, -104, 0, 36), 28)
-	button(window, "CloseButton", "X", UDim2.new(1, -64, 0, 14), UDim2.fromOffset(46, 42), Color3.fromRGB(188, 21, 28))
+	styleCloseButton(
+		button(
+			window,
+			"CloseButton",
+			"X",
+			UDim2.new(1, -64, 0, 14),
+			UDim2.fromOffset(46, 42),
+			Color3.fromRGB(188, 21, 28)
+		),
+		UDim2.new(1, -70, 0, 14),
+		UDim2.fromOffset(52, 48),
+		window.ZIndex + 3
+	)
 
 	local content = frame(window, "Content", UDim2.fromOffset(22, 70), UDim2.new(1, -44, 1, -92), PANEL)
 	local name = text(content, "SpeakerName", "Zork", UDim2.fromOffset(18, 12), UDim2.fromOffset(150, 28), 22)
@@ -2698,10 +2796,15 @@ function Builder.UpdateShopWindow()
 		return
 	end
 
-	local root = StarterGui:FindFirstChild("ClientUIRoot")
-	local mainHud = root and root:FindFirstChild("MainHUD")
+	local mainHud = StarterGui:FindFirstChild("MainHUD")
 	local modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows")
-	local windowsFolder = modalWindows and modalWindows:FindFirstChild("Windows")
+	local windowsFolder = modalWindows
+	local root = StarterGui:FindFirstChild("ClientUIRoot")
+	if not windowsFolder then
+		local legacyMainHud = root and root:FindFirstChild("MainHUD")
+		local legacyModalWindows = legacyMainHud and legacyMainHud:FindFirstChild("ModalWindows")
+		windowsFolder = legacyModalWindows and legacyModalWindows:FindFirstChild("Windows")
+	end
 	local existingShopWindow = StarterGui:FindFirstChild("ShopWindow", true)
 	if not windowsFolder and existingShopWindow and existingShopWindow.Parent then
 		windowsFolder = existingShopWindow.Parent
@@ -2798,10 +2901,15 @@ function Builder.UpdateWorldsWindow()
 		return
 	end
 
-	local root = StarterGui:FindFirstChild("ClientUIRoot")
-	local mainHud = root and root:FindFirstChild("MainHUD")
+	local mainHud = StarterGui:FindFirstChild("MainHUD")
 	local modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows")
-	local windowsFolder = modalWindows and modalWindows:FindFirstChild("Windows")
+	local windowsFolder = modalWindows
+	local root = StarterGui:FindFirstChild("ClientUIRoot")
+	if not windowsFolder then
+		local legacyMainHud = root and root:FindFirstChild("MainHUD")
+		local legacyModalWindows = legacyMainHud and legacyMainHud:FindFirstChild("ModalWindows")
+		windowsFolder = legacyModalWindows and legacyModalWindows:FindFirstChild("Windows")
+	end
 	local existingWorldsWindow = StarterGui:FindFirstChild("WorldsWindow", true)
 	if not windowsFolder and existingWorldsWindow and existingWorldsWindow.Parent then
 		windowsFolder = existingWorldsWindow.Parent
@@ -2815,35 +2923,6 @@ function Builder.UpdateWorldsWindow()
 
 	makeWorldsWindow(windowsFolder)
 	print("StudioMenuWindowsBuilder: updated WorldsWindow sector select layout.")
-end
-
-function Builder.UpdateZorkWindows()
-	if not RunService:IsStudio() then
-		warn("StudioMenuWindowsBuilder.UpdateZorkWindows can only run in Roblox Studio.")
-		return
-	end
-	if RunService:IsRunning() then
-		warn("StudioMenuWindowsBuilder.UpdateZorkWindows should be run in edit mode, not during Play.")
-		return
-	end
-
-	local root = StarterGui:FindFirstChild("ClientUIRoot")
-	local mainHud = root and root:FindFirstChild("MainHUD")
-	local modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows")
-	local windowsFolder = modalWindows and modalWindows:FindFirstChild("Windows")
-	if not windowsFolder then
-		warn(
-			"StudioMenuWindowsBuilder.UpdateZorkWindows could not find StarterGui.ClientUIRoot.MainHUD.ModalWindows.Windows."
-		)
-		return
-	end
-
-	makeZorkDialogueWindow(windowsFolder)
-	makeBrushShopWindow(windowsFolder)
-	local _, questsContent = makeWindow(windowsFolder, "DailyQuestsWindow", "DAILY QUESTS", {})
-	makeDailyQuestRows(questsContent)
-	makeTutorialWindow(windowsFolder)
-	print("StudioMenuWindowsBuilder: updated editable Zork, BrushShop, Daily Quests, and Tutorial windows.")
 end
 
 function Builder.Build()
@@ -3046,13 +3125,18 @@ local function conceptWindow(modalWindows, name, title)
 	titleLabel.TextStrokeTransparency = 0
 	titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 
-	conceptButton(
-		window,
-		"CloseButton",
-		"X",
+	styleCloseButton(
+		conceptButton(
+			window,
+			"CloseButton",
+			"X",
+			UDim2.new(1, -78, 0, -42),
+			UDim2.fromOffset(70, 70),
+			Color3.fromRGB(216, 24, 32)
+		),
 		UDim2.new(1, -78, 0, -42),
 		UDim2.fromOffset(70, 70),
-		Color3.fromRGB(216, 24, 32)
+		window.ZIndex + 3
 	)
 
 	local content = conceptPanel(
@@ -3103,6 +3187,62 @@ local function buildCurrencyBar(mainHud)
 	makeCurrencySlot(currencyBar, "CoinsFrame", "COINS", 3)
 end
 
+local BOTTOM_BUTTON_ICONS = {
+	InventoryButton = {
+		SourceFile = "assets/ui/upgradeicons/sliced/inventory_size.png",
+	},
+	MenuButton = {
+		SourceFile = "assets/ui/menu_hamburger.png",
+	},
+	RankButton = {
+		SourceFile = "assets/ui/rank_badge.png",
+	},
+	SettingsButton = {
+		SourceFile = "assets/ui/settings_gear.png",
+	},
+	ShopButton = {
+		SourceFile = "assets/ui/market_shop.png",
+	},
+	TradeButton = {
+		SourceFile = "assets/ui/trading_arrows.png",
+	},
+	WorldsButton = {
+		SourceFile = "assets/ui/market_shop.png",
+	},
+}
+
+local function assetPathToImage(sourceFile)
+	sourceFile = tostring(sourceFile or ""):gsub("\\", "/")
+	if sourceFile == "" then
+		return ""
+	end
+	return "rbxasset://" .. sourceFile
+end
+
+local function applyBottomButtonIcon(btn, name, label)
+	if not btn or not btn:IsA("ImageButton") then
+		return
+	end
+
+	local spec = BOTTOM_BUTTON_ICONS[name] or {}
+	local image = tostring(spec.Image or "")
+	if image == "" then
+		image = assetPathToImage(spec.SourceFile)
+	end
+
+	btn.Image = image
+	btn.ScaleType = Enum.ScaleType.Fit
+	btn.ImageTransparency = 0
+	btn:SetAttribute("Label", label)
+	btn:SetAttribute("ExpectedIconFile", spec.SourceFile or "")
+
+	local textLabel = btn:FindFirstChild("Label")
+	if textLabel and textLabel:IsA("TextLabel") then
+		textLabel.Text = ""
+		textLabel.Visible = false
+	end
+end
+
 local function makeBottomButton(parent, name, label, order, color)
 	local btn = imageButton(parent, name, UDim2.fromOffset(0, 0), UDim2.fromOffset(68, 68), color)
 	btn.LayoutOrder = order
@@ -3126,6 +3266,7 @@ local function makeBottomButton(parent, name, label, order, color)
 	textLabel.TextWrapped = true
 	textLabel.Size = UDim2.new(1, -8, 1, -8)
 	textLabel.Position = UDim2.fromOffset(4, 4)
+	applyBottomButtonIcon(btn, name, label)
 	return btn
 end
 
@@ -3161,8 +3302,12 @@ local function convertExistingBottomButtons(mainHud)
 		return
 	end
 
+	local legacyInventoryButton = bottomButtons:FindFirstChild("InventoryButton")
+	if legacyInventoryButton then
+		legacyInventoryButton:Destroy()
+	end
+
 	for _, name in ipairs({
-		"InventoryButton",
 		"MenuButton",
 		"RankButton",
 		"SettingsButton",
@@ -3178,6 +3323,7 @@ local function convertExistingBottomButtons(mainHud)
 			converted.AnchorPoint = existing.AnchorPoint
 			converted.Visible = existing.Visible
 			converted.ZIndex = existing.ZIndex
+			applyBottomButtonIcon(converted, name, tostring(existing:GetAttribute("Label") or name))
 		end
 	end
 end
@@ -4061,6 +4207,276 @@ end
 
 Builder.UpdateTradingWindow = Builder.UpdateTradeWindow
 
+local function ensurePhysicalDialogueChild(parent, className, name)
+	local existing = parent:FindFirstChild(name)
+	if existing and existing:IsA(className) then
+		return existing, false
+	end
+	if existing then
+		if existing:IsA("GuiObject") then
+			existing.Visible = false
+		end
+		existing.Name = name .. "_Legacy"
+	end
+
+	local instance = Instance.new(className)
+	instance.Name = name
+	instance.Parent = parent
+	return instance, true
+end
+
+local function setDialogueTextDefaults(label, created, value, position, size, textSize, alignment)
+	if not created then
+		return
+	end
+	label.BackgroundTransparency = 1
+	label.Position = position
+	label.Size = size
+	label.Font = Enum.Font.GothamBlack
+	label.Text = value
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextSize = textSize
+	label.TextStrokeColor3 = Color3.fromRGB(13, 16, 24)
+	label.TextStrokeTransparency = 0.25
+	label.TextWrapped = true
+	label.TextXAlignment = alignment or Enum.TextXAlignment.Left
+	label.TextYAlignment = Enum.TextYAlignment.Top
+end
+
+local function setDialogueOptionDefaults(optionButton, created, value, color)
+	optionButton:SetAttribute("UseDialogueOptionColor", true)
+	if not created then
+		return
+	end
+	optionButton.BackgroundColor3 = color
+	optionButton.BorderSizePixel = 0
+	optionButton.AutoButtonColor = true
+	optionButton.Font = Enum.Font.GothamBlack
+	optionButton.Text = value
+	optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	optionButton.TextSize = 13
+	optionButton.TextScaled = false
+	optionButton.TextStrokeColor3 = Color3.fromRGB(13, 16, 24)
+	optionButton.TextStrokeTransparency = 0.25
+	optionButton.TextTruncate = Enum.TextTruncate.AtEnd
+	applyCorner(optionButton, 10)
+	applyStroke(optionButton, Color3.fromRGB(13, 16, 24), 2)
+end
+
+local function buildNpcDialogueUI(mainHud)
+	local root, rootCreated = ensurePhysicalDialogueChild(mainHud, "Frame", "ZorkDialogueUI")
+	root:SetAttribute("EditableNpcDialogueUI", true)
+	root:SetAttribute("ClientBoundBy", "NpcDialogueClient.client.luau")
+	root:SetAttribute("WorldOffsetY", root:GetAttribute("WorldOffsetY") or 5.8)
+	if rootCreated then
+		root.AnchorPoint = Vector2.new(0.5, 1)
+		root.Position = UDim2.fromScale(0.5, 0.5)
+		root.Size = UDim2.fromOffset(620, 330)
+		root.BackgroundTransparency = 1
+		root.BorderSizePixel = 0
+		root.Visible = true
+		root.ZIndex = 900
+	end
+
+	local panel, panelCreated = ensurePhysicalDialogueChild(root, "Frame", "Panel")
+	if panelCreated then
+		panel.AnchorPoint = Vector2.new(0.5, 0.5)
+		panel.Position = UDim2.fromScale(0.5, 0.5)
+		panel.Size = UDim2.new(1, -10, 1, -10)
+		panel.BackgroundColor3 = Color3.fromRGB(24, 27, 36)
+		panel.BackgroundTransparency = 0.04
+		panel.BorderSizePixel = 0
+		panel.ZIndex = root.ZIndex + 10
+	end
+	applyCorner(panel, 18)
+	local panelStroke = applyStroke(panel, Color3.fromRGB(76, 214, 224), 4)
+	panelStroke:SetAttribute("UseNpcAccent", true)
+
+	local accent, accentCreated = ensurePhysicalDialogueChild(panel, "Frame", "AccentBar")
+	if accentCreated then
+		accent.Position = UDim2.fromOffset(0, 0)
+		accent.Size = UDim2.new(0, 12, 1, 0)
+		accent.BackgroundColor3 = Color3.fromRGB(76, 214, 224)
+		accent.BorderSizePixel = 0
+		accent.ZIndex = panel.ZIndex + 1
+	end
+	accent:SetAttribute("UseNpcAccent", true)
+	applyCorner(accent, 18)
+
+	local speakerName, nameCreated = ensurePhysicalDialogueChild(panel, "TextLabel", "SpeakerName")
+	setDialogueTextDefaults(speakerName, nameCreated, "Zork", UDim2.fromOffset(30, 16), UDim2.new(0.48, 0, 0, 34), 28)
+	if nameCreated then
+		speakerName.TextYAlignment = Enum.TextYAlignment.Center
+		speakerName.ZIndex = panel.ZIndex + 2
+	end
+
+	local speakerRole, roleCreated = ensurePhysicalDialogueChild(panel, "TextLabel", "SpeakerRole")
+	setDialogueTextDefaults(
+		speakerRole,
+		roleCreated,
+		"Brush Merchant + Quest Keeper",
+		UDim2.new(0.52, 0, 0, 22),
+		UDim2.new(0.42, 0, 0, 24),
+		14,
+		Enum.TextXAlignment.Right
+	)
+	if roleCreated then
+		speakerRole.Font = Enum.Font.GothamBold
+		speakerRole.TextColor3 = Color3.fromRGB(176, 188, 204)
+		speakerRole.TextYAlignment = Enum.TextYAlignment.Center
+		speakerRole.ZIndex = panel.ZIndex + 2
+	end
+
+	local bodyButton, bodyButtonCreated = ensurePhysicalDialogueChild(panel, "TextButton", "BodyButton")
+	if bodyButtonCreated then
+		bodyButton.Position = UDim2.fromScale(0, 0)
+		bodyButton.Size = UDim2.fromScale(1, 1)
+		bodyButton.BackgroundTransparency = 1
+		bodyButton.BorderSizePixel = 0
+		bodyButton.AutoButtonColor = false
+		bodyButton.Text = ""
+		bodyButton.ZIndex = panel.ZIndex + 1
+	end
+
+	local bodyText, bodyTextCreated = ensurePhysicalDialogueChild(bodyButton, "TextLabel", "BodyText")
+	setDialogueTextDefaults(
+		bodyText,
+		bodyTextCreated,
+		"If you need better paint power, I sell brushes. If you need extra rewards, I keep daily quests warmed up.",
+		UDim2.fromOffset(28, 58),
+		UDim2.new(1, -56, 0, 104),
+		19
+	)
+	if bodyTextCreated then
+		bodyText.Font = Enum.Font.GothamBold
+		bodyText.ZIndex = panel.ZIndex + 4
+	end
+
+	local options, optionsCreated = ensurePhysicalDialogueChild(panel, "Frame", "Options")
+	if optionsCreated then
+		options.BackgroundTransparency = 1
+		options.Position = UDim2.fromOffset(28, 180)
+		options.Size = UDim2.new(1, -56, 0, 118)
+		options.ZIndex = panel.ZIndex + 10
+	end
+	local grid = options:FindFirstChildOfClass("UIGridLayout")
+	if not grid then
+		grid = Instance.new("UIGridLayout")
+		grid.CellSize = UDim2.fromOffset(268, 32)
+		grid.CellPadding = UDim2.fromOffset(10, 8)
+		grid.FillDirectionMaxCells = 2
+		grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		grid.VerticalAlignment = Enum.VerticalAlignment.Top
+		grid.SortOrder = Enum.SortOrder.LayoutOrder
+		grid.Parent = options
+	end
+
+	local template, templateCreated = ensurePhysicalDialogueChild(options, "TextButton", "OptionTemplate")
+	template.Visible = false
+	template.LayoutOrder = 0
+	template.ZIndex = options.ZIndex + 2
+	setDialogueOptionDefaults(template, templateCreated, "Option", Color3.fromRGB(55, 216, 54))
+
+	local previewOptions = {
+		{ "Show me brushes", Color3.fromRGB(55, 216, 54) },
+		{ "Daily quests", Color3.fromRGB(240, 198, 49) },
+		{ "How do quests work?", Color3.fromRGB(76, 214, 224) },
+		{ "Who are you?", Color3.fromRGB(76, 214, 224) },
+		{ "Bye", Color3.fromRGB(236, 72, 92) },
+	}
+	for index, option in ipairs(previewOptions) do
+		local preview, previewCreated = ensurePhysicalDialogueChild(options, "TextButton", "PreviewOption" .. index)
+		preview:SetAttribute("DialoguePreviewOption", true)
+		if previewCreated then
+			preview.Visible = true
+			preview.LayoutOrder = index
+			preview.ZIndex = options.ZIndex + 2
+		end
+		setDialogueOptionDefaults(preview, previewCreated, option[1], option[2])
+	end
+
+	local pointer, pointerCreated = ensurePhysicalDialogueChild(panel, "Frame", "Pointer")
+	if pointerCreated then
+		pointer.AnchorPoint = Vector2.new(0.5, 0)
+		pointer.Position = UDim2.new(0.5, 0, 1, -12)
+		pointer.Size = UDim2.fromOffset(26, 26)
+		pointer.BackgroundColor3 = Color3.fromRGB(24, 27, 36)
+		pointer.BorderSizePixel = 0
+		pointer.Rotation = 45
+		pointer.ZIndex = panel.ZIndex - 1
+	end
+
+	return root
+end
+
+function Builder.UpdateNpcDialogueUI()
+	if not canBuildConceptMenus("UpdateNpcDialogueUI") then
+		return
+	end
+
+	local mainHud = ensureClass(StarterGui, "ScreenGui", "MainHUD")
+	mainHud.ResetOnSpawn = false
+	mainHud.IgnoreGuiInset = true
+	mainHud.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	mainHud.DisplayOrder = math.max(mainHud.DisplayOrder, 100)
+	mainHud.Enabled = true
+
+	buildNpcDialogueUI(mainHud)
+	print("StudioMenuWindowsBuilder: updated editable StarterGui.MainHUD.ZorkDialogueUI.")
+end
+
+Builder.UpdateZorkDialogueUI = Builder.UpdateNpcDialogueUI
+Builder.BuildNpcDialogueUI = Builder.UpdateNpcDialogueUI
+Builder.BuildZorkDialogueUI = Builder.UpdateNpcDialogueUI
+
+function Builder.UpdateZorkWindows()
+	if not canBuildConceptMenus("UpdateZorkWindows") then
+		return
+	end
+
+	local legacyRoot = StarterGui:FindFirstChild("ClientUIRoot")
+	if legacyRoot and legacyRoot:IsA("ScreenGui") then
+		legacyRoot.Enabled = false
+	end
+
+	local mainHud = ensureClass(StarterGui, "ScreenGui", "MainHUD")
+	mainHud.ResetOnSpawn = false
+	mainHud.IgnoreGuiInset = true
+	mainHud.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	mainHud.DisplayOrder = math.max(mainHud.DisplayOrder, 100)
+	mainHud.Enabled = true
+
+	buildNpcDialogueUI(mainHud)
+	local windowsFolder = ensureClass(mainHud, "Folder", "ModalWindows")
+	makeBrushShopWindow(windowsFolder)
+	makeDailyQuestsWindow(windowsFolder)
+	print(
+		"StudioMenuWindowsBuilder: updated editable StarterGui.MainHUD ZorkDialogueUI, BrushShopWindow, and DailyQuestsWindow."
+	)
+end
+
+Builder.BuildZorkWindows = Builder.UpdateZorkWindows
+Builder.BuildZorkShopUI = Builder.UpdateZorkWindows
+Builder.BuildBrushShopUI = Builder.UpdateZorkWindows
+Builder.BuildDailyQuestsUI = Builder.UpdateZorkWindows
+
+function Builder.UpdateCloseButtons()
+	if not canBuildConceptMenus("UpdateCloseButtons") then
+		return
+	end
+
+	local updated = 0
+	for _, descendant in ipairs(StarterGui:GetDescendants()) do
+		if descendant.Name == "CloseButton" and descendant:IsA("GuiButton") then
+			styleCloseButton(descendant, descendant.Position, descendant.Size, math.max(descendant.ZIndex, 1003))
+			updated += 1
+		end
+	end
+	print("StudioMenuWindowsBuilder: updated " .. tostring(updated) .. " editable close button(s).")
+end
+
+Builder.FixCloseButtons = Builder.UpdateCloseButtons
+
 function Builder.BuildConceptMenus()
 	if not canBuildConceptMenus("BuildConceptMenus") then
 		return
@@ -4081,14 +4497,17 @@ function Builder.BuildConceptMenus()
 	buildCurrencyBar(mainHud)
 	buildBottomButtons(mainHud)
 	buildShopTransitionOverlay(mainHud)
+	buildNpcDialogueUI(mainHud)
 
 	local modalWindows = ensureClass(mainHud, "Folder", "ModalWindows")
 	buildInventoryWindow(modalWindows)
 	buildSettingsWindow(modalWindows)
 	buildTradeWindow(modalWindows)
 	buildRankWindow(modalWindows)
-	buildPlaceholderWindow(modalWindows, "ShopWindow", "SHOP")
-	buildPlaceholderWindow(modalWindows, "WorldsWindow", "WORLDS")
+	makeShopWindow(modalWindows)
+	makeWorldsWindow(modalWindows)
+	makeBrushShopWindow(modalWindows)
+	makeDailyQuestsWindow(modalWindows)
 
 	print("StudioMenuWindowsBuilder: built editable concept menus at StarterGui.MainHUD.")
 	print("Command: require(game.ReplicatedStorage.StudioMenuWindowsBuilder).BuildConceptMenus()")

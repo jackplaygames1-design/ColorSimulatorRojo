@@ -71,6 +71,7 @@ local CARD_CONFIG = {
 local CARD_ORDER = {
 	"MusicCard",
 	"SFXCard",
+	"GraphicsQualityCard",
 	"DamageNumbersCard",
 	"TradeRequestsCard",
 	"HidePetsCard",
@@ -78,6 +79,11 @@ local CARD_ORDER = {
 	"CameraShakeCard",
 	"LowDetailCard",
 }
+
+local SCROLL_ORDER = {}
+for index, cardName in ipairs(CARD_ORDER) do
+	SCROLL_ORDER[cardName] = index * 10
+end
 
 local mainHud = playerGui:WaitForChild("MainHUD", 15)
 if not mainHud then
@@ -151,6 +157,136 @@ local function openWindow(windowName)
 	mainHud:SetAttribute("RequestedWindowNonce", os.clock())
 end
 
+local function configureRowsScroll(scroll)
+	scroll.Active = true
+	scroll.BackgroundTransparency = 1
+	scroll.BorderSizePixel = 0
+	scroll.ClipsDescendants = true
+	scroll.ScrollBarThickness = 8
+	scroll.ScrollBarImageColor3 = Color3.fromRGB(104, 115, 136)
+	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	scroll.ScrollingEnabled = true
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroll.CanvasSize = UDim2.fromOffset(0, 0)
+
+	local layout = scroll:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.Padding = UDim.new(0, 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = scroll
+
+	local padding = scroll:FindFirstChildOfClass("UIPadding") or Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 4)
+	padding.PaddingBottom = UDim.new(0, 12)
+	padding.PaddingLeft = UDim.new(0, 4)
+	padding.PaddingRight = UDim.new(0, 4)
+	padding.Parent = scroll
+end
+
+local function makeActionRow(scroll)
+	local actionRow = scroll:FindFirstChild("ActionButtonsRow")
+	if not actionRow or not actionRow:IsA("Frame") then
+		actionRow = Instance.new("Frame")
+		actionRow.Name = "ActionButtonsRow"
+		actionRow.BackgroundTransparency = 1
+		actionRow.BorderSizePixel = 0
+		actionRow.Parent = scroll
+	end
+
+	actionRow.LayoutOrder = 900
+	actionRow.Size = UDim2.new(1, -16, 0, 48)
+	actionRow.ClipsDescendants = false
+
+	local layout = actionRow:FindFirstChildOfClass("UIListLayout") or Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, 14)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = actionRow
+
+	return actionRow
+end
+
+local function moveActionButton(scroll, rowsContainer, buttonName, order)
+	local button = rowsContainer:FindFirstChild(buttonName) or content:FindFirstChild(buttonName)
+	if not button or not button:IsA("GuiButton") then
+		return
+	end
+	if button:IsDescendantOf(scroll) then
+		return
+	end
+
+	local actionRow = makeActionRow(scroll)
+	button.Parent = actionRow
+	button.LayoutOrder = order
+	button.Position = UDim2.fromOffset(0, 0)
+	button.Size = UDim2.new(0.5, -10, 0, 38)
+end
+
+local function findRowsContainer()
+	local namedRows = content:FindFirstChild("SettingsRows", true)
+	if namedRows and namedRows:IsA("GuiObject") then
+		return namedRows
+	end
+
+	for _, cardName in ipairs(CARD_ORDER) do
+		local card = content:FindFirstChild(cardName, true)
+		local parent = card and card.Parent
+		if parent and parent ~= content and parent:IsA("GuiObject") then
+			return parent
+		end
+	end
+
+	return nil
+end
+
+local function ensureScrollableSettingsRows()
+	local rowsContainer = findRowsContainer()
+	if not rowsContainer then
+		return
+	end
+
+	local scroll
+	if rowsContainer:IsA("ScrollingFrame") then
+		scroll = rowsContainer
+	else
+		rowsContainer.ClipsDescendants = true
+		scroll = rowsContainer:FindFirstChild("RowsScroll")
+		if not scroll or not scroll:IsA("ScrollingFrame") then
+			scroll = Instance.new("ScrollingFrame")
+			scroll.Name = "RowsScroll"
+			scroll.Parent = rowsContainer
+		end
+
+		scroll.Position = UDim2.fromScale(0, 0)
+		scroll.Size = UDim2.fromScale(1, 1)
+		scroll.ZIndex = rowsContainer.ZIndex + 1
+
+		for cardName, order in pairs(SCROLL_ORDER) do
+			local card = rowsContainer:FindFirstChild(cardName)
+			if card and card:IsA("GuiObject") then
+				card.Parent = scroll
+				card.LayoutOrder = order
+				card.Position = UDim2.fromOffset(0, 0)
+			end
+		end
+	end
+
+	configureRowsScroll(scroll)
+
+	for cardName, order in pairs(SCROLL_ORDER) do
+		local card = scroll:FindFirstChild(cardName)
+		if card and card:IsA("GuiObject") then
+			card.LayoutOrder = order
+		end
+	end
+
+	moveActionButton(scroll, rowsContainer, "ApplyButton", 1)
+	moveActionButton(scroll, rowsContainer, "ResetButton", 2)
+end
+
 local function applyCard(cardName)
 	local config = CARD_CONFIG[cardName]
 	local card = content:FindFirstChild(cardName, true)
@@ -214,6 +350,8 @@ local function connectActionButton(name, callback)
 		connectButton(button, callback)
 	end
 end
+
+ensureScrollableSettingsRows()
 
 connectActionButton("ApplyButton", render)
 connectActionButton("ResetButton", function()

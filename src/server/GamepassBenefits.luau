@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local AdminConfig = require(ReplicatedStorage:WaitForChild("AdminConfig"))
+local RankService = require(script.Parent:WaitForChild("RankService"))
 local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
 
 local GamepassBenefits = {}
@@ -166,7 +167,7 @@ function GamepassBenefits.grantAll(player)
 end
 
 function GamepassBenefits.getCoinMultiplier(player)
-	local multiplier = 1
+	local multiplier = RankService.GetCoinMultiplier(player)
 	for _, pass in ipairs(RobuxShopConfig.Gamepasses or {}) do
 		if pass.coinMultiplier and GamepassBenefits.owns(player, pass.id) then
 			multiplier *= tonumber(pass.coinMultiplier) or 1
@@ -176,7 +177,7 @@ function GamepassBenefits.getCoinMultiplier(player)
 end
 
 function GamepassBenefits.getLuckMultiplier(player)
-	local multiplier = 1
+	local multiplier = RankService.GetLuckMultiplier(player)
 	for _, pass in ipairs(RobuxShopConfig.Gamepasses or {}) do
 		if pass.luckMultiplier and GamepassBenefits.owns(player, pass.id) then
 			multiplier *= tonumber(pass.luckMultiplier) or 1
@@ -186,7 +187,7 @@ function GamepassBenefits.getLuckMultiplier(player)
 end
 
 function GamepassBenefits.getExtraEquippedColorSlots(player)
-	local extra = 0
+	local extra = RankService.GetExtraEquippedColorSlots(player)
 	for _, pass in ipairs(RobuxShopConfig.Gamepasses or {}) do
 		if pass.extraEquippedColors and GamepassBenefits.owns(player, pass.id) then
 			extra += tonumber(pass.extraEquippedColors) or 0

@@ -1,9 +1,14 @@
 -- Studio-only helper for authoring editable egg hatch prompts in Workspace.
 -- Run from Studio edit mode:
 -- require(game.ReplicatedStorage.StudioEggPromptBuilder).Update()
+-- Editable MainHUD layer:
+-- require(game.ReplicatedStorage.StudioEggPromptBuilder).BuildUI()
+-- Both:
+-- require(game.ReplicatedStorage.StudioEggPromptBuilder).BuildAll()
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
 local Workspace = game:GetService("Workspace")
 
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
@@ -36,6 +41,18 @@ local function findOrCreate(parent, className, name)
 	instance.Name = name
 	instance.Parent = parent
 	return instance
+end
+
+local function canEditInStudio(actionName)
+	if not RunService:IsStudio() then
+		warn("StudioEggPromptBuilder." .. actionName .. " can only run in Roblox Studio.")
+		return false
+	end
+	if RunService:IsRunning() then
+		warn("StudioEggPromptBuilder." .. actionName .. " should be run in edit mode, not during Play.")
+		return false
+	end
+	return true
 end
 
 local function applyCorner(instance, radius)
@@ -479,12 +496,7 @@ local function findRedPromptTemplate(holders)
 end
 
 function Builder.Update()
-	if not RunService:IsStudio() then
-		warn("StudioEggPromptBuilder.Update can only run in Roblox Studio.")
-		return
-	end
-	if RunService:IsRunning() then
-		warn("StudioEggPromptBuilder.Update should be run in edit mode, not during Play.")
+	if not canEditInStudio("Update") then
 		return
 	end
 
@@ -511,13 +523,60 @@ end
 
 Builder.UpdateEggPrompts = Builder.Update
 Builder.SyncEggPrompts = Builder.Update
-Builder.ReplaceSpawnEgg = function()
-	if not RunService:IsStudio() then
-		warn("StudioEggPromptBuilder.ReplaceSpawnEgg can only run in Roblox Studio.")
+
+function Builder.BuildUI()
+	if not canEditInStudio("BuildUI") then
 		return
 	end
-	if RunService:IsRunning() then
-		warn("StudioEggPromptBuilder.ReplaceSpawnEgg should be run in edit mode, not during Play.")
+
+	local mainHud = StarterGui:FindFirstChild("MainHUD")
+	if not mainHud then
+		mainHud = Instance.new("ScreenGui")
+		mainHud.Name = "MainHUD"
+		mainHud.ResetOnSpawn = false
+		mainHud.IgnoreGuiInset = true
+		mainHud.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		mainHud.DisplayOrder = 100
+		mainHud.Parent = StarterGui
+	elseif not mainHud:IsA("ScreenGui") then
+		warn("StudioEggPromptBuilder: StarterGui.MainHUD exists but is not a ScreenGui.")
+		return
+	end
+
+	local layer = mainHud:FindFirstChild("EggShopUI")
+	if layer and not layer:IsA("GuiObject") then
+		warn("StudioEggPromptBuilder: StarterGui.MainHUD.EggShopUI exists but is not a GuiObject.")
+		return
+	end
+	if not layer then
+		layer = Instance.new("Frame")
+		layer.Name = "EggShopUI"
+		layer.Size = UDim2.fromScale(1, 1)
+		layer.Position = UDim2.fromScale(0, 0)
+		layer.BackgroundTransparency = 1
+		layer.BorderSizePixel = 0
+		layer.Visible = true
+		layer.ZIndex = 800
+		layer.Parent = mainHud
+	end
+
+	layer:SetAttribute("EditableEggHatchLayer", true)
+	layer:SetAttribute("ClientBoundBy", "EggShopUI.client.luau")
+	print("StudioEggPromptBuilder: ready editable StarterGui.MainHUD.EggShopUI layer.")
+	return layer
+end
+
+function Builder.BuildAll()
+	Builder.BuildUI()
+	Builder.Update()
+end
+
+Builder.UpdateUI = Builder.BuildUI
+Builder.BuildEggUI = Builder.BuildUI
+Builder.UpdateAll = Builder.BuildAll
+
+Builder.ReplaceSpawnEgg = function()
+	if not canEditInStudio("ReplaceSpawnEgg") then
 		return
 	end
 	local _, replaced = replaceSpawnEggModel()

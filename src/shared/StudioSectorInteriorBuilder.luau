@@ -214,21 +214,59 @@ local function buildZorkAtPad(pad, colorType)
 	setShopAttrs(npc, colorType)
 
 	local baseCFrame = pad.CFrame * CFrame.new(0, pad.Size.Y * 0.5 + 3.15, 0)
-	local root = makePart(npc, "HumanoidRootPart", Vector3.new(2, 5, 2), baseCFrame, COLORS.Cyan, Enum.Material.SmoothPlastic, 1)
+	local root =
+		makePart(npc, "HumanoidRootPart", Vector3.new(2, 5, 2), baseCFrame, COLORS.Cyan, Enum.Material.SmoothPlastic, 1)
 	root.CanCollide = false
 	root.CanQuery = false
 	npc.PrimaryPart = root
 
 	local body = makePart(npc, "ColorBody", Vector3.new(3.2, 3.2, 3.2), baseCFrame, COLORS.Cyan, Enum.Material.Neon)
 	body.Shape = Enum.PartType.Ball
-	local core = makePart(npc, "ShopPromptCore", Vector3.new(3.8, 4.6, 3.8), baseCFrame, COLORS.Cyan, Enum.Material.SmoothPlastic, 1)
+	local core = makePart(
+		npc,
+		"ShopPromptCore",
+		Vector3.new(3.8, 4.6, 3.8),
+		baseCFrame,
+		COLORS.Cyan,
+		Enum.Material.SmoothPlastic,
+		1
+	)
 	core.CanCollide = false
-	local head = makePart(npc, "ColorHead", Vector3.new(1.7, 1.7, 1.7), baseCFrame * CFrame.new(0, 2.35, 0), COLORS.Green, Enum.Material.Neon)
+	local head = makePart(
+		npc,
+		"ColorHead",
+		Vector3.new(1.7, 1.7, 1.7),
+		baseCFrame * CFrame.new(0, 2.35, 0),
+		COLORS.Green,
+		Enum.Material.Neon
+	)
 	head.Shape = Enum.PartType.Ball
-	local glow = makeCylinder(npc, "ColorGlow", Vector3.new(4.3, 0.25, 4.3), baseCFrame * CFrame.new(0, -1.75, 0) * CFrame.Angles(0, 0, math.rad(90)), COLORS.Cyan, Enum.Material.Neon, 0.22)
+	local glow = makeCylinder(
+		npc,
+		"ColorGlow",
+		Vector3.new(4.3, 0.25, 4.3),
+		baseCFrame * CFrame.new(0, -1.75, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		COLORS.Cyan,
+		Enum.Material.Neon,
+		0.22
+	)
 	glow.CanCollide = false
-	local handle = makeCylinder(npc, "BrushHandle", Vector3.new(0.28, 3.1, 0.28), baseCFrame * CFrame.new(1.75, 0.2, 0) * CFrame.Angles(0, 0, math.rad(24)), COLORS.Yellow, Enum.Material.SmoothPlastic)
-	local bristles = makePart(npc, "BrushBristles", Vector3.new(0.8, 0.65, 0.8), baseCFrame * CFrame.new(2.35, 1.55, 0) * CFrame.Angles(0, 0, math.rad(24)), Color3.fromRGB(255, 85, 130), Enum.Material.Neon)
+	local handle = makeCylinder(
+		npc,
+		"BrushHandle",
+		Vector3.new(0.28, 3.1, 0.28),
+		baseCFrame * CFrame.new(1.75, 0.2, 0) * CFrame.Angles(0, 0, math.rad(24)),
+		COLORS.Yellow,
+		Enum.Material.SmoothPlastic
+	)
+	local bristles = makePart(
+		npc,
+		"BrushBristles",
+		Vector3.new(0.8, 0.65, 0.8),
+		baseCFrame * CFrame.new(2.35, 1.55, 0) * CFrame.Angles(0, 0, math.rad(24)),
+		Color3.fromRGB(255, 85, 130),
+		Enum.Material.Neon
+	)
 	bristles.Shape = Enum.PartType.Ball
 
 	for _, part in ipairs({ root, body, core, head, glow, handle, bristles }) do
@@ -241,6 +279,7 @@ local function buildZorkAtPad(pad, colorType)
 	prompt:SetAttribute("BrushShopPrompt", true)
 	prompt:SetAttribute("CombinedShopPrompt", true)
 	prompt:SetAttribute("BrushNpcDialogue", true)
+	prompt:SetAttribute("NpcDialogueId", "Zork")
 	prompt:SetAttribute("NpcName", "Zork")
 	prompt:SetAttribute("ColorType", colorType)
 	prompt:SetAttribute("ShopColor", colorType)
@@ -255,7 +294,14 @@ function Builder.BuildZorkOnPads()
 
 	local built = 0
 	for _, obj in ipairs(Workspace:GetDescendants()) do
-		if obj:IsA("BasePart") and (obj:GetAttribute("ZorkPad") == true or string.lower(obj.Name) == "zorkpad" or string.match(string.lower(obj.Name), "zorkpad$")) then
+		if
+			obj:IsA("BasePart")
+			and (
+				obj:GetAttribute("ZorkPad") == true
+				or string.lower(obj.Name) == "zorkpad"
+				or string.match(string.lower(obj.Name), "zorkpad$")
+			)
+		then
 			buildZorkAtPad(obj)
 			built += 1
 		end
@@ -269,7 +315,10 @@ local function findOrangeAnchor()
 	local distant = map and map:FindFirstChild("DistantSectors")
 	if distant then
 		for _, obj in ipairs(distant:GetDescendants()) do
-			if obj:IsA("BasePart") and (obj:GetAttribute("SectorColor") == "Orange" or obj:GetAttribute("ColorType") == "Orange") then
+			if
+				obj:IsA("BasePart")
+				and (obj:GetAttribute("SectorColor") == "Orange" or obj:GetAttribute("ColorType") == "Orange")
+			then
 				return obj
 			end
 		end
@@ -291,7 +340,9 @@ function Builder.BuildOrangeMutationInterior(options)
 
 	local existingInterior = destroyIfOverwrite(interiors, "OrangeSectorInterior", overwrite)
 	if existingInterior then
-		warn("StudioSectorInteriorBuilder: OrangeSectorInterior already exists. Pass { overwrite = true } to rebuild it.")
+		warn(
+			"StudioSectorInteriorBuilder: OrangeSectorInterior already exists. Pass { overwrite = true } to rebuild it."
+		)
 		return existingInterior
 	end
 	local existingPipe = pipes:FindFirstChild("OrangeSectorPipe")
@@ -311,17 +362,52 @@ function Builder.BuildOrangeMutationInterior(options)
 	interior.Name = "OrangeSectorInterior"
 	interior.Parent = interiors
 
-	local floor = makePart(interior, "OrangeInteriorFloor", Vector3.new(430, 3, 430), CFrame.new(interiorOrigin), COLORS.OrangeDeep, Enum.Material.SmoothPlastic)
+	local floor = makePart(
+		interior,
+		"OrangeInteriorFloor",
+		Vector3.new(430, 3, 430),
+		CFrame.new(interiorOrigin),
+		COLORS.OrangeDeep,
+		Enum.Material.SmoothPlastic
+	)
 	floor:SetAttribute("MutationUnlockArea", true)
 	setInteriorAttrs(floor, colorType)
 
 	local wallHeight = 180
 	local wallY = interiorOrigin.Y + wallHeight * 0.5
 	local walls = {
-		makePart(interior, "OrangeWallNorth", Vector3.new(450, wallHeight, 14), CFrame.new(interiorOrigin.X, wallY, interiorOrigin.Z - 222), COLORS.Orange, Enum.Material.SmoothPlastic),
-		makePart(interior, "OrangeWallSouth", Vector3.new(450, wallHeight, 14), CFrame.new(interiorOrigin.X, wallY, interiorOrigin.Z + 222), COLORS.OrangeDark, Enum.Material.SmoothPlastic),
-		makePart(interior, "OrangeWallEast", Vector3.new(14, wallHeight, 450), CFrame.new(interiorOrigin.X + 222, wallY, interiorOrigin.Z), COLORS.Orange, Enum.Material.SmoothPlastic),
-		makePart(interior, "OrangeWallWest", Vector3.new(14, wallHeight, 450), CFrame.new(interiorOrigin.X - 222, wallY, interiorOrigin.Z), COLORS.OrangeDark, Enum.Material.SmoothPlastic),
+		makePart(
+			interior,
+			"OrangeWallNorth",
+			Vector3.new(450, wallHeight, 14),
+			CFrame.new(interiorOrigin.X, wallY, interiorOrigin.Z - 222),
+			COLORS.Orange,
+			Enum.Material.SmoothPlastic
+		),
+		makePart(
+			interior,
+			"OrangeWallSouth",
+			Vector3.new(450, wallHeight, 14),
+			CFrame.new(interiorOrigin.X, wallY, interiorOrigin.Z + 222),
+			COLORS.OrangeDark,
+			Enum.Material.SmoothPlastic
+		),
+		makePart(
+			interior,
+			"OrangeWallEast",
+			Vector3.new(14, wallHeight, 450),
+			CFrame.new(interiorOrigin.X + 222, wallY, interiorOrigin.Z),
+			COLORS.Orange,
+			Enum.Material.SmoothPlastic
+		),
+		makePart(
+			interior,
+			"OrangeWallWest",
+			Vector3.new(14, wallHeight, 450),
+			CFrame.new(interiorOrigin.X - 222, wallY, interiorOrigin.Z),
+			COLORS.OrangeDark,
+			Enum.Material.SmoothPlastic
+		),
 	}
 	for _, wall in ipairs(walls) do
 		setInteriorAttrs(wall, colorType)
@@ -350,20 +436,44 @@ function Builder.BuildOrangeMutationInterior(options)
 		setInteriorAttrs(column, colorType)
 	end
 
-	local spawn = makePart(interior, "OrangeInteriorSpawn", Vector3.new(28, 1, 28), CFrame.new(interiorOrigin + Vector3.new(0, 3, 172)), COLORS.Cyan, Enum.Material.Neon, 0.12)
+	local spawn = makePart(
+		interior,
+		"OrangeInteriorSpawn",
+		Vector3.new(28, 1, 28),
+		CFrame.new(interiorOrigin + Vector3.new(0, 3, 172)),
+		COLORS.Cyan,
+		Enum.Material.Neon,
+		0.12
+	)
 	spawn.CanCollide = false
 	spawn:SetAttribute("SectorInteriorSpawn", true)
 	spawn:SetAttribute("MutationUnlockArea", true)
 	setInteriorAttrs(spawn, colorType)
 
-	local zorkPad = makePart(interior, "OrangeZorkPad", Vector3.new(24, 1, 24), CFrame.new(interiorOrigin + Vector3.new(-74, 3, 80)), COLORS.Cyan, Enum.Material.Neon, 0.08)
+	local zorkPad = makePart(
+		interior,
+		"OrangeZorkPad",
+		Vector3.new(24, 1, 24),
+		CFrame.new(interiorOrigin + Vector3.new(-74, 3, 80)),
+		COLORS.Cyan,
+		Enum.Material.Neon,
+		0.08
+	)
 	zorkPad.CanCollide = false
 	zorkPad:SetAttribute("ZorkPad", true)
 	zorkPad:SetAttribute("MutationUnlockArea", true)
 	setInteriorAttrs(zorkPad, colorType)
 	buildZorkAtPad(zorkPad, colorType)
 
-	local mutationStation = makePart(interior, "MutationUnlockStation", Vector3.new(42, 1.2, 32), CFrame.new(interiorOrigin + Vector3.new(78, 3, 78)), COLORS.Purple, Enum.Material.Neon, 0.08)
+	local mutationStation = makePart(
+		interior,
+		"MutationUnlockStation",
+		Vector3.new(42, 1.2, 32),
+		CFrame.new(interiorOrigin + Vector3.new(78, 3, 78)),
+		COLORS.Purple,
+		Enum.Material.Neon,
+		0.08
+	)
 	mutationStation.CanCollide = false
 	mutationStation:SetAttribute("MutationUnlockStation", true)
 	mutationStation:SetAttribute("MutationUnlockArea", true)
@@ -374,8 +484,23 @@ function Builder.BuildOrangeMutationInterior(options)
 	exitPipe.Name = "OrangeInteriorExitPipe"
 	exitPipe.Parent = interior
 	local exitBase = interiorOrigin + Vector3.new(0, 12, 202)
-	makeCylinder(exitPipe, "PipeRing", Vector3.new(24, 5, 24), CFrame.new(exitBase) * CFrame.Angles(0, 0, math.rad(90)), COLORS.Orange, Enum.Material.Neon)
-	local exitTrigger = makePart(exitPipe, "OrangeInteriorExitTrigger", Vector3.new(22, 20, 10), CFrame.new(exitBase), COLORS.Cyan, Enum.Material.ForceField, 0.86)
+	makeCylinder(
+		exitPipe,
+		"PipeRing",
+		Vector3.new(24, 5, 24),
+		CFrame.new(exitBase) * CFrame.Angles(0, 0, math.rad(90)),
+		COLORS.Orange,
+		Enum.Material.Neon
+	)
+	local exitTrigger = makePart(
+		exitPipe,
+		"OrangeInteriorExitTrigger",
+		Vector3.new(22, 20, 10),
+		CFrame.new(exitBase),
+		COLORS.Cyan,
+		Enum.Material.ForceField,
+		0.86
+	)
 	exitTrigger.CanCollide = false
 	exitTrigger.CanTouch = true
 	exitTrigger:SetAttribute("SectorInteriorExit", true)
@@ -387,9 +512,31 @@ function Builder.BuildOrangeMutationInterior(options)
 	pipe.Name = "OrangeSectorPipe"
 	pipe.Parent = pipes
 	local pipeCFrame = CFrame.new(pipeOrigin) * CFrame.Angles(0, math.rad(35), 0)
-	makeCylinder(pipe, "PipeOuterRing", Vector3.new(34, 7, 34), pipeCFrame * CFrame.Angles(0, 0, math.rad(90)), COLORS.Orange, Enum.Material.Neon)
-	makeCylinder(pipe, "PipeInnerDark", Vector3.new(25, 7.4, 25), pipeCFrame * CFrame.Angles(0, 0, math.rad(90)), COLORS.Dark, Enum.Material.SmoothPlastic)
-	local trigger = makePart(pipe, "OrangeSectorPipeTrigger", Vector3.new(26, 24, 12), pipeCFrame, COLORS.Cyan, Enum.Material.ForceField, 0.86)
+	makeCylinder(
+		pipe,
+		"PipeOuterRing",
+		Vector3.new(34, 7, 34),
+		pipeCFrame * CFrame.Angles(0, 0, math.rad(90)),
+		COLORS.Orange,
+		Enum.Material.Neon
+	)
+	makeCylinder(
+		pipe,
+		"PipeInnerDark",
+		Vector3.new(25, 7.4, 25),
+		pipeCFrame * CFrame.Angles(0, 0, math.rad(90)),
+		COLORS.Dark,
+		Enum.Material.SmoothPlastic
+	)
+	local trigger = makePart(
+		pipe,
+		"OrangeSectorPipeTrigger",
+		Vector3.new(26, 24, 12),
+		pipeCFrame,
+		COLORS.Cyan,
+		Enum.Material.ForceField,
+		0.86
+	)
 	trigger.CanCollide = false
 	trigger.CanTouch = true
 	trigger:SetAttribute("SectorInteriorEntrance", true)
@@ -398,20 +545,38 @@ function Builder.BuildOrangeMutationInterior(options)
 	trigger:SetAttribute("ColorType", colorType)
 	makePrompt(trigger, "EnterSectorPrompt", "Orange Sector Pipe", "Enter", 16)
 
-	local pipeExitSpawn = makePart(Workspace, "PipeExitSpawn", Vector3.new(8, 1, 8), pipeCFrame * CFrame.new(0, 12, -56), COLORS.Cyan, Enum.Material.Neon, 1)
+	local pipeExitSpawn = makePart(
+		Workspace,
+		"PipeExitSpawn",
+		Vector3.new(8, 1, 8),
+		pipeCFrame * CFrame.new(0, 12, -56),
+		COLORS.Cyan,
+		Enum.Material.Neon,
+		1
+	)
 	pipeExitSpawn.Anchored = true
 	pipeExitSpawn.CanCollide = false
 	pipeExitSpawn.CanTouch = false
 	pipeExitSpawn.CanQuery = true
 	pipeExitSpawn:SetAttribute("PipeExitSpawn", true)
 
-	local returnAnchor = makePart(pipe, "OrangeSectorExteriorReturn", Vector3.new(14, 1, 14), pipeCFrame * CFrame.new(0, -10, -22), COLORS.Cyan, Enum.Material.Neon, 0.35)
+	local returnAnchor = makePart(
+		pipe,
+		"OrangeSectorExteriorReturn",
+		Vector3.new(14, 1, 14),
+		pipeCFrame * CFrame.new(0, -10, -22),
+		COLORS.Cyan,
+		Enum.Material.Neon,
+		0.35
+	)
 	returnAnchor.CanCollide = false
 	returnAnchor:SetAttribute("SectorInteriorExteriorReturn", true)
 	returnAnchor:SetAttribute("SectorColor", colorType)
 	returnAnchor:SetAttribute("ColorType", colorType)
 
-	print("StudioSectorInteriorBuilder: built editable Orange Sector interior, pipe, MutationUnlockStation, ZorkPad, and baked Zork.")
+	print(
+		"StudioSectorInteriorBuilder: built editable Orange Sector interior, pipe, MutationUnlockStation, ZorkPad, and baked Zork."
+	)
 	return interior
 end
 

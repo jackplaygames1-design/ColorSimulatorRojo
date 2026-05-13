@@ -171,6 +171,9 @@ local function hookPipeTrigger(trigger)
 	if not trigger:IsA("BasePart") then
 		return
 	end
+	if trigger:GetAttribute("SectorInteriorEntrance") == true or trigger:GetAttribute("SectorInteriorExit") == true then
+		return
+	end
 	if trigger:GetAttribute("PipeTeleportHooked") == true then
 		return
 	end
@@ -208,6 +211,9 @@ end
 
 local function shouldTryHook(part)
 	if not part:IsA("BasePart") then
+		return false
+	end
+	if part:GetAttribute("SectorInteriorEntrance") == true or part:GetAttribute("SectorInteriorExit") == true then
 		return false
 	end
 	if

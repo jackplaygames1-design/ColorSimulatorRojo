@@ -12,6 +12,7 @@ local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 local COOLDOWN = 1.2
 local FADE_IN_TIME = 0.18
 local SAFE_LANDING_HEIGHT = 6
+local POST_TELEPORT_TOUCH_GRACE = 2.5
 local locks = {}
 local teleportTokens = {}
 local hooked = {}
@@ -36,6 +37,31 @@ local function beginTeleportGrace(player)
 			player:SetAttribute("IsTeleporting", false)
 		end
 	end)
+end
+
+local function suppressPipeTouchBounce(player)
+	local token = (teleportTokens[player] or 0) + 1
+	teleportTokens[player] = token
+	player:SetAttribute("IsTeleporting", true)
+	player:SetAttribute("SectorInteriorTouchGraceUntil", os.clock() + POST_TELEPORT_TOUCH_GRACE)
+
+	task.delay(POST_TELEPORT_TOUCH_GRACE, function()
+		if player.Parent and teleportTokens[player] == token then
+			player:SetAttribute("IsTeleporting", false)
+			player:SetAttribute("SectorInteriorTouchGraceUntil", nil)
+		end
+	end)
+end
+
+local function isPipeTouchSuppressed(player)
+	if not player then
+		return true
+	end
+	if player:GetAttribute("IsTeleporting") == true then
+		return true
+	end
+	local graceUntil = tonumber(player:GetAttribute("SectorInteriorTouchGraceUntil"))
+	return graceUntil ~= nil and os.clock() < graceUntil
 end
 
 local function setRootCFrame(player, cframe)
@@ -139,7 +165,9 @@ end
 local function findPartByAttribute(attributeName, colorType, destinationName)
 	for _, obj in ipairs(Workspace:GetDescendants()) do
 		if obj:IsA("BasePart") and obj:GetAttribute(attributeName) == true then
-			local objColor = obj:GetAttribute("SectorColor") or obj:GetAttribute("ColorType") or obj:GetAttribute("AreaColor")
+			local objColor = obj:GetAttribute("SectorColor")
+				or obj:GetAttribute("ColorType")
+				or obj:GetAttribute("AreaColor")
 			local nameMatches = not destinationName or obj:FindFirstAncestor(destinationName) ~= nil
 			if objColor == colorType and nameMatches then
 				return obj
@@ -165,8 +193,13 @@ local function getModelBounds(container)
 				local half = obj.Size * 0.5
 				local low = obj.Position - half
 				local high = obj.Position + half
-				minPoint = Vector3.new(math.min(minPoint.X, low.X), math.min(minPoint.Y, low.Y), math.min(minPoint.Z, low.Z))
-				maxPoint = Vector3.new(math.max(maxPoint.X, high.X), math.max(maxPoint.Y, high.Y), math.max(maxPoint.Z, high.Z))
+				minPoint =
+					Vector3.new(math.min(minPoint.X, low.X), math.min(minPoint.Y, low.Y), math.min(minPoint.Z, low.Z))
+				maxPoint = Vector3.new(
+					math.max(maxPoint.X, high.X),
+					math.max(maxPoint.Y, high.Y),
+					math.max(maxPoint.Z, high.Z)
+				)
 				found = true
 			end
 		end
@@ -174,8 +207,10 @@ local function getModelBounds(container)
 			local half = container.Size * 0.5
 			local low = container.Position - half
 			local high = container.Position + half
-			minPoint = Vector3.new(math.min(minPoint.X, low.X), math.min(minPoint.Y, low.Y), math.min(minPoint.Z, low.Z))
-			maxPoint = Vector3.new(math.max(maxPoint.X, high.X), math.max(maxPoint.Y, high.Y), math.max(maxPoint.Z, high.Z))
+			minPoint =
+				Vector3.new(math.min(minPoint.X, low.X), math.min(minPoint.Y, low.Y), math.min(minPoint.Z, low.Z))
+			maxPoint =
+				Vector3.new(math.max(maxPoint.X, high.X), math.max(maxPoint.Y, high.Y), math.max(maxPoint.Z, high.Z))
 			found = true
 		end
 		if not found then
@@ -204,9 +239,7 @@ local function isInsideBounds(position, boundsCFrame, boundsSize, margin)
 	end
 	local localPoint = boundsCFrame:PointToObjectSpace(position)
 	local half = boundsSize * 0.5 + Vector3.new(margin, margin, margin)
-	return math.abs(localPoint.X) <= half.X
-		and math.abs(localPoint.Y) <= half.Y
-		and math.abs(localPoint.Z) <= half.Z
+	return math.abs(localPoint.X) <= half.X and math.abs(localPoint.Y) <= half.Y and math.abs(localPoint.Z) <= half.Z
 end
 
 local function getInteriorContainer(destinationName)
@@ -216,7 +249,8 @@ local function getInteriorContainer(destinationName)
 		return direct
 	end
 	for _, obj in ipairs(Workspace:GetDescendants()) do
-		if obj:GetAttribute("SectorInterior") == true
+		if
+			obj:GetAttribute("SectorInterior") == true
 			and (obj:GetAttribute("SectorColor") == "Orange" or obj:GetAttribute("ColorType") == "Orange")
 		then
 			return obj
@@ -319,7 +353,8 @@ local function findExteriorReturn(trigger)
 		return destination
 	end
 	for _, obj in ipairs(Workspace:GetDescendants()) do
-		if obj:IsA("BasePart")
+		if
+			obj:IsA("BasePart")
 			and obj:GetAttribute("SectorInteriorEntrance") == true
 			and (obj:GetAttribute("SectorColor") or obj:GetAttribute("ColorType") or "Orange") == colorType
 		then
@@ -372,7 +407,11 @@ local function ensurePipeExitSpawn(trigger)
 		exitCFrame = exteriorReturnCFrame(exteriorReturn, trigger)
 	else
 		exitCFrame = trigger.CFrame + Vector3.new(0, math.max(8, trigger.Size.Y * 0.5 + 8), -34)
-		warn("SectorInteriorHandler: missing SectorInteriorExteriorReturn for " .. trigger:GetFullName() .. "; creating fallback PipeExitSpawn.")
+		warn(
+			"SectorInteriorHandler: missing SectorInteriorExteriorReturn for "
+				.. trigger:GetFullName()
+				.. "; creating fallback PipeExitSpawn."
+		)
 	end
 
 	local marker = Instance.new("Part")
@@ -383,6 +422,9 @@ local function ensurePipeExitSpawn(trigger)
 end
 
 local function playTransition(player, callback)
+	if isPipeTouchSuppressed(player) then
+		return
+	end
 	local now = os.clock()
 	if locks[player] and now - locks[player] < COOLDOWN then
 		return
@@ -398,6 +440,7 @@ local function playTransition(player, callback)
 			return
 		end
 		callback()
+		suppressPipeTouchBounce(player)
 		task.delay(0.08, function()
 			if player.Parent and transitionEvent and transitionEvent:IsA("RemoteEvent") then
 				transitionEvent:FireClient(player, "FadeOut")

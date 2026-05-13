@@ -5,6 +5,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
+local RankService = require(script.Parent:WaitForChild("RankService"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local unlockEvent = Events:WaitForChild("UnlockArea")
@@ -30,7 +31,8 @@ local DESTINATION_WAIT_TIME = 7
 local MAP_NAME = "ColorSimulatorMap"
 local GATES_FOLDER_NAME = "Gates"
 local INTERACTION_ZONE_NAME = "GateInteractionZone"
-local RUNTIME_WORLD_BUILDING_ENABLED = GameBalance.FeatureFlags and GameBalance.FeatureFlags.RuntimeWorldBuildingEnabled == true
+local RUNTIME_WORLD_BUILDING_ENABLED = GameBalance.FeatureFlags
+	and GameBalance.FeatureFlags.RuntimeWorldBuildingEnabled == true
 local RETURN_TO_WORLD_ON_SPAWN = GameBalance.Map and GameBalance.Map.ReturnToCurrentWorldOnSpawn == true
 local PROGRESSION_CONFIG = GameBalance.Progression or {}
 local MAX_PLAYABLE_SECTOR_INDEX = tonumber(PROGRESSION_CONFIG.MaxPlayableSectorIndex) or math.huge
@@ -159,8 +161,7 @@ local function appendUnlockedTeleport(player, locationId)
 end
 
 local function ensureDefaultUnlockedSectors(player)
-	local unlockedValue = player:FindFirstChild("ColorStorage")
-		and player.ColorStorage:FindFirstChild("UnlockedColors")
+	local unlockedValue = player:FindFirstChild("ColorStorage") and player.ColorStorage:FindFirstChild("UnlockedColors")
 	if not unlockedValue then
 		return
 	end
@@ -207,7 +208,8 @@ local function isGateCandidate(gate)
 	if not gate then
 		return false
 	end
-	if gate:GetAttribute("AreaGate")
+	if
+		gate:GetAttribute("AreaGate")
 		or gate:GetAttribute("GateColor")
 		or gate:GetAttribute("UnlockColor")
 		or gate:GetAttribute("ColorType")
@@ -250,7 +252,11 @@ local function isBakedEditableMap()
 
 	local map = workspace:FindFirstChild(MAP_NAME)
 	return map
-		and (map:GetAttribute("BakedEditableMap") == true or map:FindFirstChild("Lobby") or map:FindFirstChild("RedZone"))
+		and (
+			map:GetAttribute("BakedEditableMap") == true
+			or map:FindFirstChild("Lobby")
+			or map:FindFirstChild("RedZone")
+		)
 end
 
 local function shouldPreserveGateVisuals(part)
@@ -258,7 +264,8 @@ local function shouldPreserveGateVisuals(part)
 end
 
 local function styleGatePart(part, world)
-	local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color or Color3.fromRGB(120, 220, 255)
+	local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color
+		or Color3.fromRGB(120, 220, 255)
 	part.Material = Enum.Material.SmoothPlastic
 	part.Color = worldColor:Lerp(Color3.fromRGB(30, 34, 42), 0.45)
 	part.Transparency = math.min(part.Transparency, 0.18)
@@ -349,7 +356,8 @@ local function ensureGateVisuals(part, world)
 		end
 	end
 
-	local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color or Color3.fromRGB(120, 220, 255)
+	local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color
+		or Color3.fromRGB(120, 220, 255)
 	local width = math.max(12, part.Size.X)
 	local height = math.max(12, part.Size.Y)
 	local depth = math.max(1, part.Size.Z)
@@ -357,13 +365,58 @@ local function ensureGateVisuals(part, world)
 	local frameColor = Color3.fromRGB(24, 27, 34)
 	local glowColor = worldColor:Lerp(Color3.fromRGB(245, 255, 255), 0.18)
 
-	local top = makeGateVisualPart(part, "GateVisualTopFrame", Vector3.new(width + 3, 1.4, 0.7), Vector3.new(0, height / 2 + 0.7, frontZ), frameColor)
-	local left = makeGateVisualPart(part, "GateVisualLeftFrame", Vector3.new(1.4, height + 2.8, 0.7), Vector3.new(-width / 2 - 0.7, 0, frontZ), frameColor)
-	local right = makeGateVisualPart(part, "GateVisualRightFrame", Vector3.new(1.4, height + 2.8, 0.7), Vector3.new(width / 2 + 0.7, 0, frontZ), frameColor)
-	local glowLeft = makeGateVisualPart(part, "GateVisualLeftGlow", Vector3.new(0.45, height - 5, 0.5), Vector3.new(-width / 2 + 2.2, 0, frontZ - 0.08), glowColor, Enum.Material.Neon)
-	local glowRight = makeGateVisualPart(part, "GateVisualRightGlow", Vector3.new(0.45, height - 5, 0.5), Vector3.new(width / 2 - 2.2, 0, frontZ - 0.08), glowColor, Enum.Material.Neon)
-	local statusLight = makeGateVisualPart(part, "GateVisualStatusLight", Vector3.new(1.4, 1.4, 0.6), Vector3.new(width / 2 - 3.2, height / 2 - 3.2, frontZ - 0.12), Color3.fromRGB(255, 120, 120), Enum.Material.Neon)
-	local sign = makeGateVisualPart(part, "GateVisualSign", Vector3.new(math.min(22, width - 6), 6.2, 0.55), Vector3.new(0, math.min(6, height * 0.16), frontZ - 0.2), Color3.fromRGB(24, 27, 34))
+	local top = makeGateVisualPart(
+		part,
+		"GateVisualTopFrame",
+		Vector3.new(width + 3, 1.4, 0.7),
+		Vector3.new(0, height / 2 + 0.7, frontZ),
+		frameColor
+	)
+	local left = makeGateVisualPart(
+		part,
+		"GateVisualLeftFrame",
+		Vector3.new(1.4, height + 2.8, 0.7),
+		Vector3.new(-width / 2 - 0.7, 0, frontZ),
+		frameColor
+	)
+	local right = makeGateVisualPart(
+		part,
+		"GateVisualRightFrame",
+		Vector3.new(1.4, height + 2.8, 0.7),
+		Vector3.new(width / 2 + 0.7, 0, frontZ),
+		frameColor
+	)
+	local glowLeft = makeGateVisualPart(
+		part,
+		"GateVisualLeftGlow",
+		Vector3.new(0.45, height - 5, 0.5),
+		Vector3.new(-width / 2 + 2.2, 0, frontZ - 0.08),
+		glowColor,
+		Enum.Material.Neon
+	)
+	local glowRight = makeGateVisualPart(
+		part,
+		"GateVisualRightGlow",
+		Vector3.new(0.45, height - 5, 0.5),
+		Vector3.new(width / 2 - 2.2, 0, frontZ - 0.08),
+		glowColor,
+		Enum.Material.Neon
+	)
+	local statusLight = makeGateVisualPart(
+		part,
+		"GateVisualStatusLight",
+		Vector3.new(1.4, 1.4, 0.6),
+		Vector3.new(width / 2 - 3.2, height / 2 - 3.2, frontZ - 0.12),
+		Color3.fromRGB(255, 120, 120),
+		Enum.Material.Neon
+	)
+	local sign = makeGateVisualPart(
+		part,
+		"GateVisualSign",
+		Vector3.new(math.min(22, width - 6), 6.2, 0.55),
+		Vector3.new(0, math.min(6, height * 0.16), frontZ - 0.2),
+		Color3.fromRGB(24, 27, 34)
+	)
 
 	for _, visual in ipairs({ top, left, right, glowLeft, glowRight, statusLight, sign }) do
 		visual:SetAttribute("GateVisualRole", visual.Name)
@@ -478,8 +531,7 @@ local function isSectorDestinationCandidate(instance, colorType)
 		or instance:GetAttribute("ColorType")
 		or instance:GetAttribute("AreaColor")
 	return sectorColor == colorType
-		and (instance:GetAttribute("SectorAnchor") == true
-			or instance:GetAttribute("DistantSectorColumn") == true)
+		and (instance:GetAttribute("SectorAnchor") == true or instance:GetAttribute("DistantSectorColumn") == true)
 end
 
 local function getObjectColor(instance)
@@ -510,7 +562,11 @@ local function isPlayableDestinationFloor(part, colorType)
 		return false
 	end
 
-	if part:GetAttribute("EggStation") == true or part:GetAttribute("BrushShop") == true or part:GetAttribute("ShopStation") == true then
+	if
+		part:GetAttribute("EggStation") == true
+		or part:GetAttribute("BrushShop") == true
+		or part:GetAttribute("ShopStation") == true
+	then
 		return false
 	end
 	if part:GetAttribute("DistantSectorColumn") == true or part:GetAttribute("SectorAnchor") == true then
@@ -543,7 +599,10 @@ local function getPlayableFloorScore(part, colorType)
 	if part:GetAttribute("AreaSpawn") == true or part:GetAttribute("WorldSpawn") == true then
 		score += 500000
 	end
-	if loweredColor ~= "" and (string.find(loweredName, loweredColor .. "zone") or string.find(loweredName, loweredColor .. "floor")) then
+	if
+		loweredColor ~= ""
+		and (string.find(loweredName, loweredColor .. "zone") or string.find(loweredName, loweredColor .. "floor"))
+	then
 		score += 250000
 	end
 	return score
@@ -606,7 +665,11 @@ local function isSectorSpawnForColor(part, colorType, rootColor)
 	if not isNamedSpawnDestination(part) then
 		return false
 	end
-	if part:GetAttribute("EggStation") == true or part:GetAttribute("BrushShop") == true or part:GetAttribute("ShopStation") == true then
+	if
+		part:GetAttribute("EggStation") == true
+		or part:GetAttribute("BrushShop") == true
+		or part:GetAttribute("ShopStation") == true
+	then
 		return false
 	end
 
@@ -623,7 +686,11 @@ local function getSpawnDestinationScore(part)
 	if loweredName == "spawnlocation" then
 		score += 8000
 	end
-	if part:GetAttribute("AreaSpawn") == true or part:GetAttribute("WorldSpawn") == true or part:GetAttribute("SectorSpawn") == true then
+	if
+		part:GetAttribute("AreaSpawn") == true
+		or part:GetAttribute("WorldSpawn") == true
+		or part:GetAttribute("SectorSpawn") == true
+	then
 		score += 5000
 	end
 	if loweredName == "sectorspawn" or loweredName == "arrivalspawn" or loweredName == "travelspawn" then
@@ -712,7 +779,11 @@ local function findSectorDestination(colorType)
 	local seen = {}
 	for _, root in ipairs(roots) do
 		for _, obj in ipairs(root:GetDescendants()) do
-			if not seen[obj] and (obj:IsA("Model") or obj:IsA("BasePart")) and isSectorDestinationCandidate(obj, colorType) then
+			if
+				not seen[obj]
+				and (obj:IsA("Model") or obj:IsA("BasePart"))
+				and isSectorDestinationCandidate(obj, colorType)
+			then
 				seen[obj] = true
 				local sectorSpawn = findBestSectorSpawn(obj, colorType)
 				if sectorSpawn then
@@ -851,7 +922,8 @@ local function getPartLandingCFrame(part)
 	raycastParams.FilterDescendantsInstances = { part }
 
 	local result = workspace:Raycast(origin, Vector3.new(0, -220, 0), raycastParams)
-	local position = (result and result.Position or part.CFrame:PointToWorldSpace(Vector3.new(0, part.Size.Y * 0.5, 0))) + Vector3.new(0, 6, 0)
+	local position = (result and result.Position or part.CFrame:PointToWorldSpace(Vector3.new(0, part.Size.Y * 0.5, 0)))
+		+ Vector3.new(0, 6, 0)
 	local flatLook = Vector3.new(lookVector.X, 0, lookVector.Z)
 	if flatLook.Magnitude < 0.05 then
 		flatLook = Vector3.new(0, 0, -1)
@@ -889,8 +961,12 @@ local function getDestinationCFrame(destination)
 		return CFrame.lookAt(position, cf.Position)
 	end
 
-	if destination:IsA("BasePart")
-		and (destination:GetAttribute("SectorAnchor") == true or destination:GetAttribute("DistantSectorColumn") == true)
+	if
+		destination:IsA("BasePart")
+		and (
+			destination:GetAttribute("SectorAnchor") == true
+			or destination:GetAttribute("DistantSectorColumn") == true
+		)
 	then
 		local topY = destination.Position.Y + destination.Size.Y * 0.5
 		local position = Vector3.new(destination.Position.X, topY + 8, destination.Position.Z)
@@ -954,11 +1030,12 @@ local function createFallbackSpawn(colorType)
 
 	local basePosition
 	if zone then
-		basePosition = zone.Position + Vector3.new(
-			-math.min(math.max(zone.Size.X * 0.32, 42), 110),
-			zone.Size.Y * 0.5 + 0.75,
-			-math.min(math.max(zone.Size.Z * 0.32, 42), 110)
-		)
+		basePosition = zone.Position
+			+ Vector3.new(
+				-math.min(math.max(zone.Size.X * 0.32, 42), 110),
+				zone.Size.Y * 0.5 + 0.75,
+				-math.min(math.max(zone.Size.Z * 0.32, 42), 110)
+			)
 	elseif station then
 		basePosition = station.Position + Vector3.new(0, math.max(station.Size.Y * 0.5 + 1, 3), -18)
 	elseif colorType == "Red" then
@@ -990,7 +1067,8 @@ local function createFallbackSpawn(colorType)
 
 	local colorInfo = ColorData.Colors[colorType]
 	spawn.CFrame = CFrame.new(basePosition)
-	spawn.Color = colorInfo and colorInfo.color:Lerp(Color3.fromRGB(255, 255, 255), 0.28) or Color3.fromRGB(118, 238, 244)
+	spawn.Color = colorInfo and colorInfo.color:Lerp(Color3.fromRGB(255, 255, 255), 0.28)
+		or Color3.fromRGB(118, 238, 244)
 	spawn.Material = Enum.Material.SmoothPlastic
 	spawn:SetAttribute("AreaSpawn", true)
 	spawn:SetAttribute("WorldSpawn", true)
@@ -1095,10 +1173,8 @@ local function teleportCharacterSafely(player, destinationCFrame)
 end
 
 local function sendState(player)
-	local unlockedValue = player:FindFirstChild("ColorStorage")
-		and player.ColorStorage:FindFirstChild("UnlockedColors")
-	local currentWorld = player:FindFirstChild("ColorStorage")
-		and player.ColorStorage:FindFirstChild("CurrentWorld")
+	local unlockedValue = player:FindFirstChild("ColorStorage") and player.ColorStorage:FindFirstChild("UnlockedColors")
+	local currentWorld = player:FindFirstChild("ColorStorage") and player.ColorStorage:FindFirstChild("CurrentWorld")
 	unlockEvent:FireClient(
 		player,
 		"state",
@@ -1153,8 +1229,18 @@ local function teleportToWorld(player, world)
 		tutorialWorldTraveledEvent:Fire(player, world.primaryColor, world)
 	end
 	local elapsed = os.clock() - startedAt
-	print("SectorTravel: " .. player.Name .. " -> " .. tostring(world.primaryColor) .. " in " .. string.format("%.2f", elapsed) .. "s")
-	print("Sector travel completed: " .. tostring(world.primaryColor) .. " in " .. string.format("%.3f", elapsed) .. "s")
+	print(
+		"SectorTravel: "
+			.. player.Name
+			.. " -> "
+			.. tostring(world.primaryColor)
+			.. " in "
+			.. string.format("%.2f", elapsed)
+			.. "s"
+	)
+	print(
+		"Sector travel completed: " .. tostring(world.primaryColor) .. " in " .. string.format("%.3f", elapsed) .. "s"
+	)
 	if elapsed > 0.5 then
 		warn("SectorTravel slow: " .. tostring(world.primaryColor) .. " took " .. string.format("%.2f", elapsed) .. "s")
 	end
@@ -1188,7 +1274,12 @@ local function tryUnlockWorld(player, world)
 
 	if coins.Value < world.unlockCost then
 		print("Not enough Coins: " .. player.Name .. " needs " .. tostring(world.unlockCost) .. " for " .. world.name)
-		unlockEvent:FireClient(player, "error", world.primaryColor, "Need " .. formatCoins(world.unlockCost) .. " to unlock " .. world.name)
+		unlockEvent:FireClient(
+			player,
+			"error",
+			world.primaryColor,
+			"Need " .. formatCoins(world.unlockCost) .. " to unlock " .. world.name
+		)
 		return false
 	end
 
@@ -1200,6 +1291,7 @@ local function tryUnlockWorld(player, world)
 		or nil
 	local unlockedTeleport = teleportLocationId and appendUnlockedTeleport(player, teleportLocationId)
 	markDataDirty(player, "unlocked-" .. world.primaryColor)
+	RankService.AwardForWorldUnlock(player, world)
 	print("Unlocked " .. world.name .. " for " .. tostring(world.unlockCost) .. " Coins")
 	unlockEvent:FireClient(player, "unlocked", world.primaryColor, world)
 	if unlockedTeleport and travelResultEvent and travelResultEvent:IsA("RemoteEvent") then
@@ -1303,8 +1395,7 @@ requestTravelToSectorEvent.OnServerEvent:Connect(function(player, sectorId)
 		return
 	end
 
-	local unlockedValue = player:FindFirstChild("ColorStorage")
-		and player.ColorStorage:FindFirstChild("UnlockedColors")
+	local unlockedValue = player:FindFirstChild("ColorStorage") and player.ColorStorage:FindFirstChild("UnlockedColors")
 	if not unlockedValue then
 		requestTravelToSectorEvent:FireClient(player, false, world.primaryColor, "Data is not ready.")
 		return
@@ -1316,7 +1407,12 @@ requestTravelToSectorEvent.OnServerEvent:Connect(function(player, sectorId)
 	end
 
 	if not ColorData.isColorUnlocked(unlockedValue.Value, world.primaryColor) then
-		warn("[AreaUnlockHandler] " .. player.Name .. " requested locked sector travel to " .. tostring(world.primaryColor))
+		warn(
+			"[AreaUnlockHandler] "
+				.. player.Name
+				.. " requested locked sector travel to "
+				.. tostring(world.primaryColor)
+		)
 		requestTravelToSectorEvent:FireClient(player, false, world.primaryColor, "Unlock " .. world.name .. " first.")
 		return
 	end
@@ -1420,7 +1516,11 @@ local function returnToCurrentWorld(player)
 	local currentWorld = storage:FindFirstChild("CurrentWorld")
 	local unlockedValue = storage:FindFirstChild("UnlockedColors")
 	local world = ColorData.getWorldByColor(currentWorld and currentWorld.Value or "Red")
-	if world and isSectorPlayable(world.primaryColor) and ColorData.isColorUnlocked(unlockedValue and unlockedValue.Value or "Red", world.primaryColor) then
+	if
+		world
+		and isSectorPlayable(world.primaryColor)
+		and ColorData.isColorUnlocked(unlockedValue and unlockedValue.Value or "Red", world.primaryColor)
+	then
 		if teleportToWorld(player, world) then
 			lastReturnAt[player] = now
 		end

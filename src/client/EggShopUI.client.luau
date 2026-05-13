@@ -1,8 +1,4 @@
 -- Focused Sector egg shop: one usable egg per Sector.
-if true then
-	warn("EggShopUI disabled; egg UI must be a Studio-authored MainHUD/physical UI, not runtime-generated.")
-	return
-end
 
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
@@ -47,6 +43,43 @@ local unlockedColors = colorStorage:WaitForChild("UnlockedColors")
 local leaderstats = player:WaitForChild("leaderstats", 10)
 local coinsValue = leaderstats and leaderstats:WaitForChild("Coins", 10)
 local playerGui = player:WaitForChild("PlayerGui")
+
+local function getEggShopLayer()
+	local layer = ClientUIRoot.GetLayer(playerGui, "EggShopUI")
+	if layer then
+		return layer
+	end
+
+	local mainHud = playerGui:WaitForChild("MainHUD", 10)
+	if not mainHud or not mainHud:IsA("ScreenGui") then
+		warn("EggShopUI: missing PlayerGui.MainHUD; hatch UI cannot load.")
+		return nil
+	end
+
+	layer = mainHud:FindFirstChild("EggShopUI")
+	if layer and layer:IsA("GuiObject") then
+		return layer
+	end
+
+	layer = Instance.new("Frame")
+	layer.Name = "EggShopUI"
+	layer.Size = UDim2.fromScale(1, 1)
+	layer.Position = UDim2.fromScale(0, 0)
+	layer.BackgroundTransparency = 1
+	layer.BorderSizePixel = 0
+	layer.Visible = true
+	layer.ZIndex = 800
+	layer:SetAttribute("RuntimeFallback", true)
+	layer:SetAttribute(
+		"EditableSourceHint",
+		"Run require(game.ReplicatedStorage.StudioEggPromptBuilder).BuildUI() in Studio edit mode."
+	)
+	layer.Parent = mainHud
+	warn(
+		"EggShopUI: created runtime fallback layer. Run StudioEggPromptBuilder.BuildUI() to add an editable StarterGui.MainHUD.EggShopUI layer."
+	)
+	return layer
+end
 
 local DARK = Color3.fromRGB(35, 38, 45)
 local WHITE = Color3.fromRGB(255, 255, 255)
@@ -189,6 +222,8 @@ local function getEggCostText(eggId)
 	return formatNum(egg.cost or 0) .. " Coins"
 end
 
+local findEggOptionsGui
+
 local function configureEggPrompt(prompt)
 	if not prompt or not prompt:IsA("ProximityPrompt") then
 		return
@@ -201,7 +236,8 @@ local function configureEggPrompt(prompt)
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance, 18)
 	prompt.RequiresLineOfSight = false
-	prompt.Style = Enum.ProximityPromptStyle.Custom
+	prompt.Style = findEggOptionsGui and findEggOptionsGui(prompt.Parent) and Enum.ProximityPromptStyle.Custom
+		or Enum.ProximityPromptStyle.Default
 	prompt:SetAttribute("EggShopPrompt", true)
 end
 
@@ -212,7 +248,7 @@ local function setPromptText(parent, name, value)
 	end
 end
 
-local function findEggOptionsGui(eggPart)
+function findEggOptionsGui(eggPart)
 	if not eggPart then
 		return nil
 	end
@@ -257,6 +293,10 @@ local function bindEggOptionsGui(eggPart)
 
 	eggParts[holder] = true
 	eggOptionGuis[holder] = gui
+	local prompt = holder:FindFirstChildWhichIsA("ProximityPrompt", true)
+	if prompt then
+		configureEggPrompt(prompt)
+	end
 
 	local eggId = getEggIdFromPart(holder)
 	local egg = eggId and PetData.Eggs[eggId]
@@ -324,7 +364,10 @@ local function setEggPromptsEnabled(enabled)
 	end
 end
 
-local screenGui = ClientUIRoot.GetLayer(playerGui, "EggShopUI")
+local screenGui = getEggShopLayer()
+if not screenGui then
+	return
+end
 local rootScreenGui = screenGui and screenGui:FindFirstAncestorOfClass("ScreenGui")
 local externalGuiEnabledState = {}
 local defaultPlayerGuiNames = {
@@ -1957,6 +2000,7 @@ if coinsValue then
 	end)
 end
 
+buildWorldRows()
 selectEgg(selectedEggId or chooseBestUnlockedEgg())
 
 UIManager.register("Eggs", function()

@@ -13,6 +13,7 @@ local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
 local GroupRewardsService = require(script.Parent:WaitForChild("GroupRewardsService"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local RankService = require(script.Parent:WaitForChild("RankService"))
 
 -- Load PetTraits safely
 local PetTraits = nil
@@ -362,6 +363,7 @@ local function awardCoins(player, amount)
 	end
 
 	coins.Value += amount
+	RankService.AwardFromCoins(player, amount, "rank-pet-coins")
 	reportDailyQuestProgress(player, "CoinsEarned", amount)
 	return true
 end
@@ -1253,6 +1255,7 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	sendState(player)
 	hatchEvent:FireClient(player, true, entry)
 	reportDailyQuestProgress(player, "ColorsHatched", 1)
+	RankService.AwardForHatch(player, eggId, cost)
 	if tutorialHatchSucceededEvent and tutorialHatchSucceededEvent:IsA("BindableEvent") then
 		tutorialHatchSucceededEvent:Fire(player, eggId, entry)
 	end

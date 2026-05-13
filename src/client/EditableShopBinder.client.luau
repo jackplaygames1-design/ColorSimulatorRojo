@@ -1,4 +1,4 @@
--- Binds the Studio-authored ShopWindow. This script does not create a replacement shop UI.
+-- Binds the editable ShopWindow and fills an empty placeholder with a usable shop layout.
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,10 +15,15 @@ local claimInfinitePackTierEvent = Events and Events:WaitForChild("ClaimInfinite
 
 local OUTLINE = Color3.fromRGB(35, 38, 45)
 local TEXT_DARK = Color3.fromRGB(38, 36, 52)
+local MUTED = Color3.fromRGB(92, 98, 116)
+local CYAN = Color3.fromRGB(76, 214, 224)
 local TAB_ACTIVE = Color3.fromRGB(76, 214, 224)
 local TAB_INACTIVE = Color3.fromRGB(232, 238, 248)
 local GREEN = Color3.fromRGB(84, 225, 112)
 local DISABLED = Color3.fromRGB(170, 180, 205)
+local GOLD = Color3.fromRGB(255, 218, 74)
+local PANEL = Color3.fromRGB(246, 249, 255)
+local COMING_SOON_TEXT = "COMING SOON"
 
 local PAGE_NAMES = {
 	Featured = "FeaturedPage",
@@ -30,6 +35,11 @@ local PAGE_NAMES = {
 local PREMIUM_PULSE_IDS = {
 	VIP = true,
 	LuckyHatch = true,
+}
+
+local COMING_SOON_PAGES = {
+	Boosts = true,
+	Currency = true,
 }
 
 local gamepassesById = {}
@@ -132,6 +142,785 @@ local function applyShopIcon(card, item)
 
 	iconCircle:SetAttribute("GamepassIconKey", item.iconKey or "")
 	iconCircle:SetAttribute("ExpectedGamepassIconFile", spec and spec.SourceFile or item.iconSourceFile or "")
+end
+
+local function applyCorner(instance, radius)
+	local corner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, radius or 12)
+	corner.Parent = instance
+	return corner
+end
+
+local function applyStroke(instance, color, thickness)
+	local stroke = instance:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	stroke.Color = color or OUTLINE
+	stroke.Thickness = thickness or 2
+	stroke.Parent = instance
+	return stroke
+end
+
+local function makeScale(parent, name)
+	local scale = parent:FindFirstChild(name)
+	if not scale or not scale:IsA("UIScale") then
+		scale = Instance.new("UIScale")
+		scale.Name = name
+		scale.Parent = parent
+	end
+	scale.Scale = 1
+	return scale
+end
+
+local function makeFrame(parent, name, position, size, color, zIndex)
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.Position = position
+	frame.Size = size
+	frame.BackgroundColor3 = color or Color3.fromRGB(255, 255, 255)
+	frame.BorderSizePixel = 0
+	frame.ZIndex = zIndex or 1003
+	frame.Parent = parent
+	applyCorner(frame, 16)
+	applyStroke(frame, OUTLINE, 2)
+	return frame
+end
+
+local function makeText(parent, name, value, position, size, textSize, color, zIndex)
+	local label = Instance.new("TextLabel")
+	label.Name = name
+	label.BackgroundTransparency = 1
+	label.Position = position
+	label.Size = size
+	label.Font = Enum.Font.GothamBlack
+	label.Text = tostring(value or "")
+	label.TextColor3 = color or TEXT_DARK
+	label.TextSize = textSize or 18
+	label.TextWrapped = true
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.TextStrokeTransparency = 1
+	label.ZIndex = zIndex or 1004
+	label.Parent = parent
+	return label
+end
+
+local function makeButton(parent, name, value, position, size, color, zIndex)
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.Position = position
+	button.Size = size
+	button.BackgroundColor3 = color or GREEN
+	button.BorderSizePixel = 0
+	button.AutoButtonColor = false
+	button.Font = Enum.Font.GothamBlack
+	button.Text = tostring(value or "")
+	button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	button.TextSize = 16
+	button.TextScaled = true
+	button.TextWrapped = true
+	button.TextStrokeColor3 = OUTLINE
+	button.TextStrokeTransparency = 0
+	button.ZIndex = zIndex or 1005
+	button.Parent = parent
+	applyCorner(button, 12)
+	applyStroke(button, OUTLINE, 2)
+	makeScale(button, "ButtonScale")
+	return button
+end
+
+local function clearGeneratedLayout(parent)
+	for _, child in ipairs(parent:GetChildren()) do
+		if
+			child:IsA("GuiObject")
+			or child:IsA("UIGridLayout")
+			or child:IsA("UIListLayout")
+			or child:IsA("UIPadding")
+		then
+			child:Destroy()
+		end
+	end
+end
+
+local function clearWindowForGeneratedShop(shopWindow)
+	for _, child in ipairs(shopWindow:GetChildren()) do
+		if
+			child.Name ~= "CloseButton"
+			and (
+				child:IsA("GuiObject")
+				or child:IsA("UIGridLayout")
+				or child:IsA("UIListLayout")
+				or child:IsA("UIPadding")
+			)
+		then
+			child:Destroy()
+		end
+	end
+end
+
+local function getSortedGamepasses()
+	if RobuxShopConfig.getSortedGamepasses then
+		return RobuxShopConfig.getSortedGamepasses()
+	end
+
+	local passes = {}
+	for _, pass in ipairs(RobuxShopConfig.Gamepasses or {}) do
+		if pass.showInShop ~= false then
+			table.insert(passes, pass)
+		end
+	end
+	table.sort(passes, function(a, b)
+		return (a.sortOrder or 999) < (b.sortOrder or 999)
+	end)
+	return passes
+end
+
+local function getProductsForCategory(categoryName)
+	local products = {}
+	local source = RobuxShopConfig.getSortedDevProducts and RobuxShopConfig.getSortedDevProducts()
+		or RobuxShopConfig.DevProducts
+		or {}
+	for _, product in ipairs(source) do
+		if product.showInShop ~= false and tostring(product.category or "") == categoryName then
+			table.insert(products, product)
+		end
+	end
+	return products
+end
+
+local function makeIconCircle(parent, name, item, position, size, zIndex)
+	local iconColor = (item.color or CYAN):Lerp(Color3.fromRGB(255, 255, 255), 0.28)
+	local circle = makeFrame(parent, name, position, size, iconColor, zIndex or 1004)
+	applyCorner(circle, 999)
+	makeScale(circle, "IconScale")
+
+	local iconText = makeText(
+		circle,
+		"IconText",
+		tostring(item.icon or "?"),
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(1, 1),
+		24,
+		Color3.fromRGB(255, 255, 255),
+		(circle.ZIndex or 1004) + 1
+	)
+	iconText.TextXAlignment = Enum.TextXAlignment.Center
+	iconText.TextScaled = true
+	iconText.TextStrokeColor3 = OUTLINE
+	iconText.TextStrokeTransparency = 0
+
+	local iconImage = Instance.new("ImageLabel")
+	iconImage.Name = "IconImage"
+	iconImage.BackgroundTransparency = 1
+	iconImage.BorderSizePixel = 0
+	iconImage.Position = UDim2.fromOffset(3, 3)
+	iconImage.Size = UDim2.new(1, -6, 1, -6)
+	iconImage.ScaleType = Enum.ScaleType.Fit
+	iconImage.ZIndex = iconText.ZIndex + 1
+	iconImage.Image = tostring(item.iconImage or "")
+	iconImage.Visible = iconImage.Image ~= ""
+	iconImage.Parent = circle
+	iconText.Visible = iconImage.Image == ""
+	return circle
+end
+
+local function styleCloseButton(shopWindow)
+	local closeButton = shopWindow:FindFirstChild("CloseButton")
+	if closeButton and not closeButton:IsA("GuiButton") then
+		closeButton:Destroy()
+		closeButton = nil
+	end
+	if not closeButton then
+		closeButton = makeButton(
+			shopWindow,
+			"CloseButton",
+			"X",
+			UDim2.new(1, -72, 0, 16),
+			UDim2.fromOffset(54, 54),
+			Color3.fromRGB(188, 21, 28),
+			1006
+		)
+	end
+
+	closeButton.Position = UDim2.new(1, -72, 0, 16)
+	closeButton.Size = UDim2.fromOffset(54, 54)
+	closeButton.BackgroundColor3 = Color3.fromRGB(188, 21, 28)
+	closeButton.BorderSizePixel = 0
+	closeButton.ZIndex = 1006
+	applyCorner(closeButton, 14)
+	applyStroke(closeButton, OUTLINE, 2)
+	if closeButton:IsA("TextButton") then
+		closeButton.Text = "X"
+		closeButton.TextScaled = false
+		closeButton.TextSize = 48
+		closeButton.Font = Enum.Font.GothamBlack
+		pcall(function()
+			closeButton.FontFace =
+				Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+		end)
+		closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		closeButton.TextStrokeColor3 = OUTLINE
+		closeButton.TextStrokeTransparency = 0
+	else
+		local runtimeText = closeButton:FindFirstChild("RuntimeText")
+		if not runtimeText or not runtimeText:IsA("TextLabel") then
+			runtimeText = makeText(
+				closeButton,
+				"RuntimeText",
+				"X",
+				UDim2.fromScale(0, 0),
+				UDim2.fromScale(1, 1),
+				28,
+				Color3.fromRGB(255, 255, 255),
+				1007
+			)
+		end
+		runtimeText.Text = "X"
+		runtimeText.TextScaled = false
+		runtimeText.TextSize = 48
+		runtimeText.Font = Enum.Font.GothamBlack
+		pcall(function()
+			runtimeText.FontFace =
+				Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+		end)
+		runtimeText.TextXAlignment = Enum.TextXAlignment.Center
+		runtimeText.TextYAlignment = Enum.TextYAlignment.Center
+		runtimeText.TextStrokeColor3 = OUTLINE
+		runtimeText.TextStrokeTransparency = 0
+	end
+end
+
+local function makeShopTabs(shopWindow)
+	local tabs = makeFrame(
+		shopWindow,
+		"Tabs",
+		UDim2.fromOffset(26, 76),
+		UDim2.new(1, -52, 0, 48),
+		Color3.fromRGB(255, 255, 255),
+		1002
+	)
+	tabs.BackgroundTransparency = 1
+	local stroke = tabs:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke:Destroy()
+	end
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, 10)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = tabs
+
+	for index, tabName in ipairs({ "Featured", "Gamepasses", "Boosts", "Currency" }) do
+		local tab = makeButton(
+			tabs,
+			tabName .. "Tab",
+			tabName,
+			UDim2.fromScale(0, 0),
+			UDim2.fromOffset(150, 38),
+			index == 1 and TAB_ACTIVE or TAB_INACTIVE,
+			1003
+		)
+		tab.LayoutOrder = index
+		tab.TextSize = 18
+		tab.TextColor3 = index == 1 and Color3.fromRGB(255, 255, 255) or TEXT_DARK
+		tab.TextStrokeTransparency = index == 1 and 0 or 1
+	end
+	return tabs
+end
+
+local function makeContentPages(shopWindow)
+	local content = makeFrame(shopWindow, "Content", UDim2.fromOffset(26, 136), UDim2.new(1, -52, 1, -164), PANEL, 1001)
+	content.ClipsDescendants = true
+	applyCorner(content, 18)
+	applyStroke(content, OUTLINE, 3)
+
+	for index, pageName in ipairs({ "FeaturedPage", "GamepassesPage", "BoostsPage", "CurrencyPage" }) do
+		local page = makeFrame(content, pageName, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), PANEL, 1002)
+		page.BackgroundTransparency = 1
+		page.Visible = index == 1
+		local pageStroke = page:FindFirstChildOfClass("UIStroke")
+		if pageStroke then
+			pageStroke:Destroy()
+		end
+	end
+	return content
+end
+
+local function makeInfiniteTierCard(parent, tier, layoutOrder)
+	local card = makeFrame(
+		parent,
+		tostring(tier.id) .. "Card",
+		UDim2.fromScale(0, 0),
+		UDim2.fromOffset(98, 118),
+		Color3.fromRGB(255, 255, 255),
+		1005
+	)
+	card:SetAttribute("ShopItemId", tier.id)
+	card:SetAttribute("ShopItemKind", "InfinitePackTier")
+	card.LayoutOrder = layoutOrder
+	makeScale(card, "CardScale")
+	applyCorner(card, 12)
+
+	local iconCircle = makeIconCircle(card, "IconCircle", tier, UDim2.fromOffset(9, 8), UDim2.fromOffset(80, 60), 1006)
+	applyCorner(iconCircle, 10)
+	applyShopIcon(card, tier)
+
+	local reward = makeText(
+		card,
+		"RewardLabel",
+		tostring(tier.rewardText or tier.displayName or ""),
+		UDim2.fromOffset(7, 70),
+		UDim2.fromOffset(84, 18),
+		10,
+		TEXT_DARK,
+		1007
+	)
+	reward.Font = Enum.Font.GothamBold
+	reward.TextXAlignment = Enum.TextXAlignment.Center
+
+	local price = makeText(
+		card,
+		"PriceLabel",
+		tier.free and "FREE" or (tostring(tier.price or 0) .. " R$"),
+		UDim2.fromOffset(9, 90),
+		UDim2.fromOffset(78, 22),
+		12,
+		TEXT_DARK,
+		1007
+	)
+	price.TextXAlignment = Enum.TextXAlignment.Center
+	price.Visible = false
+
+	local buy = makeButton(
+		card,
+		"BuyButton",
+		tier.free and "FREE" or (tostring(tier.price or 0) .. " R$"),
+		UDim2.fromOffset(9, 90),
+		UDim2.fromOffset(80, 24),
+		tier.free and GREEN or Color3.fromRGB(118, 235, 80),
+		1007
+	)
+	buy.TextSize = tier.free and 18 or 14
+	return card
+end
+
+local function makeShopCard(parent, item, kind, layoutOrder, compact)
+	local cardSize = compact and UDim2.fromOffset(140, 66) or UDim2.fromOffset(225, 112)
+	local card = makeFrame(
+		parent,
+		tostring(item.id) .. "Card",
+		UDim2.fromScale(0, 0),
+		cardSize,
+		Color3.fromRGB(255, 255, 255),
+		1003
+	)
+	card:SetAttribute("ShopItemId", item.id)
+	card:SetAttribute("ShopItemKind", kind)
+	card.LayoutOrder = layoutOrder
+	makeScale(card, "CardScale")
+
+	local icon = makeIconCircle(
+		card,
+		"IconCircle",
+		item,
+		compact and UDim2.fromOffset(8, 8) or UDim2.fromOffset(12, 14),
+		compact and UDim2.fromOffset(42, 42) or UDim2.fromOffset(58, 58),
+		1004
+	)
+	if kind == "Gamepass" then
+		applyShopIcon(card, item)
+	end
+
+	local title = makeText(
+		card,
+		"Title",
+		tostring(item.displayName or item.id),
+		compact and UDim2.fromOffset(56, 7) or UDim2.fromOffset(82, 12),
+		compact and UDim2.new(1, -64, 0, 20) or UDim2.new(1, -94, 0, 26),
+		compact and 12 or 17,
+		TEXT_DARK,
+		1005
+	)
+	title.TextScaled = compact
+
+	local description = makeText(
+		card,
+		"Description",
+		tostring(item.description or ""),
+		UDim2.fromOffset(82, 42),
+		UDim2.new(1, -94, 0, 32),
+		12,
+		MUTED,
+		1005
+	)
+	description.Font = Enum.Font.GothamBold
+	description.Visible = not compact
+
+	local price = makeText(
+		card,
+		"PriceLabel",
+		tostring(item.price or 0) .. " R$",
+		UDim2.fromOffset(12, 78),
+		UDim2.fromOffset(96, 24),
+		14,
+		TEXT_DARK,
+		1005
+	)
+	price.TextXAlignment = Enum.TextXAlignment.Center
+	price.Visible = false
+
+	local buy = makeButton(
+		card,
+		"BuyButton",
+		"BUY",
+		compact and UDim2.new(1, -78, 1, -24) or UDim2.new(1, -124, 1, -40),
+		compact and UDim2.fromOffset(68, 18) or UDim2.fromOffset(112, 30),
+		kind == "Product" and DISABLED or GREEN,
+		1005
+	)
+	buy.TextSize = compact and 10 or 13
+
+	if item.badge and item.badge ~= "" then
+		local badge = makeFrame(
+			card,
+			"Badge",
+			compact and UDim2.new(0, 8, 1, -22) or UDim2.new(0, 12, 1, -38),
+			compact and UDim2.fromOffset(58, 18) or UDim2.fromOffset(94, 24),
+			GOLD,
+			1006
+		)
+		applyCorner(badge, 999)
+		local badgeText = makeText(
+			badge,
+			"Text",
+			tostring(item.badge),
+			UDim2.fromScale(0, 0),
+			UDim2.fromScale(1, 1),
+			compact and 9 or 11,
+			TEXT_DARK,
+			1007
+		)
+		badgeText.TextXAlignment = Enum.TextXAlignment.Center
+		badgeText.TextScaled = true
+	end
+
+	return card
+end
+
+local function bindCanvasToLayout(scroller, layout, paddingY)
+	local function resize()
+		scroller.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + (paddingY or 24))
+	end
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize)
+	task.defer(resize)
+end
+
+local function makeGridPage(page, holderName, items, kind)
+	local scroller = Instance.new("ScrollingFrame")
+	scroller.Name = holderName
+	scroller.Position = UDim2.fromOffset(16, 14)
+	scroller.Size = UDim2.new(1, -32, 1, -28)
+	scroller.BackgroundTransparency = 1
+	scroller.BorderSizePixel = 0
+	scroller.ScrollBarThickness = 6
+	scroller.ScrollBarImageColor3 = MUTED
+	scroller.ScrollingDirection = Enum.ScrollingDirection.Y
+	scroller.CanvasSize = UDim2.fromOffset(0, 0)
+	scroller.ZIndex = 1002
+	scroller.Parent = page
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 2)
+	padding.PaddingBottom = UDim.new(0, 12)
+	padding.Parent = scroller
+
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.fromOffset(225, 112)
+	grid.CellPadding = UDim2.fromOffset(12, 12)
+	grid.FillDirectionMaxCells = 3
+	grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	grid.VerticalAlignment = Enum.VerticalAlignment.Top
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = scroller
+	bindCanvasToLayout(scroller, grid, 24)
+
+	for index, item in ipairs(items) do
+		makeShopCard(scroller, item, kind, index, false)
+	end
+end
+
+local function styleComingSoonLabel(label, textSize)
+	label.BackgroundTransparency = 1
+	label.BorderSizePixel = 0
+	label.Font = Enum.Font.GothamBlack
+	label.Text = COMING_SOON_TEXT
+	label.TextColor3 = TEXT_DARK
+	label.TextScaled = true
+	label.TextSize = textSize or 44
+	label.TextWrapped = true
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextStrokeTransparency = 0
+end
+
+local function ensureComingSoonLabel(parent, name, zIndex)
+	local label = parent:FindFirstChild(name)
+	if not label or not label:IsA("TextLabel") then
+		if label then
+			label:Destroy()
+		end
+		label = Instance.new("TextLabel")
+		label.Name = name
+		label.Parent = parent
+	end
+
+	label.Position = UDim2.fromScale(0.08, 0.24)
+	label.Size = UDim2.fromScale(0.84, 0.52)
+	label.ZIndex = zIndex or ((parent:IsA("GuiObject") and parent.ZIndex + 4) or 1006)
+	label.Visible = true
+	styleComingSoonLabel(label, 44)
+	return label
+end
+
+local function applyPageComingSoon(page)
+	for _, child in ipairs(page:GetChildren()) do
+		if child:IsA("GuiObject") and child.Name ~= "ComingSoonLabel" then
+			child.Visible = false
+		end
+	end
+
+	page:SetAttribute("ShopComingSoonPage", true)
+	ensureComingSoonLabel(page, "ComingSoonLabel", page.ZIndex + 5)
+end
+
+local function applyForeverPackComingSoon(shopWindow)
+	local panel = shopWindow:FindFirstChild("InfinitePackPanel", true)
+	if not panel or not panel:IsA("GuiObject") then
+		return
+	end
+
+	for _, child in ipairs(panel:GetChildren()) do
+		if child:IsA("GuiObject") and child.Name ~= "RainbowBand" and child.Name ~= "Title" then
+			child.Visible = false
+		end
+	end
+
+	local title = panel:FindFirstChild("Title")
+	if title and title:IsA("TextLabel") then
+		title.Position = UDim2.fromScale(0.07, 0.25)
+		title.Size = UDim2.fromScale(0.86, 0.5)
+		title.ZIndex = math.max(title.ZIndex, panel.ZIndex + 6)
+		title.Visible = true
+		styleComingSoonLabel(title, 48)
+	else
+		ensureComingSoonLabel(panel, "ComingSoonLabel", panel.ZIndex + 6)
+	end
+end
+
+local function applyComingSoonShopSections(shopWindow)
+	local content = shopWindow:FindFirstChild("Content", true)
+	if content then
+		for pageKey, shouldShowComingSoon in pairs(COMING_SOON_PAGES) do
+			local page = shouldShowComingSoon and content:FindFirstChild(PAGE_NAMES[pageKey])
+			if page and page:IsA("GuiObject") then
+				applyPageComingSoon(page)
+			end
+		end
+	end
+
+	applyForeverPackComingSoon(shopWindow)
+end
+
+local function makeFeaturedShopPage(page)
+	local pack = RobuxShopConfig.InfinitePack or {}
+	local panel = makeFrame(
+		page,
+		"InfinitePackPanel",
+		UDim2.fromOffset(16, 12),
+		UDim2.new(1, -32, 0, 214),
+		Color3.fromRGB(184, 246, 255),
+		1003
+	)
+	panel.ClipsDescendants = true
+	applyCorner(panel, 18)
+	applyStroke(panel, OUTLINE, 3)
+
+	local shine = makeFrame(
+		panel,
+		"RainbowBand",
+		UDim2.new(-0.05, 0, 0, 52),
+		UDim2.new(1.1, 0, 0, 62),
+		Color3.fromRGB(255, 122, 188),
+		1004
+	)
+	shine.BackgroundTransparency = 0.38
+	shine.Rotation = -7
+	local shineStroke = shine:FindFirstChildOfClass("UIStroke")
+	if shineStroke then
+		shineStroke:Destroy()
+	end
+
+	local reset = makeText(
+		panel,
+		"ResetLabel",
+		"Resets in 23:59:59",
+		UDim2.fromOffset(18, 14),
+		UDim2.fromOffset(190, 34),
+		22,
+		TEXT_DARK,
+		1006
+	)
+	reset.TextScaled = true
+	reset.TextStrokeTransparency = 0
+	reset.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+
+	local title = makeText(
+		panel,
+		"Title",
+		tostring(pack.displayName or "THE FOREVER PACK!"),
+		UDim2.new(0, 210, 0, 12),
+		UDim2.new(1, -230, 0, 40),
+		30,
+		TEXT_DARK,
+		1006
+	)
+	title.TextXAlignment = Enum.TextXAlignment.Center
+	title.TextScaled = true
+	title.TextStrokeTransparency = 0
+	title.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+
+	local track = Instance.new("ScrollingFrame")
+	track.Name = "TierTrack"
+	track.Position = UDim2.fromOffset(14, 62)
+	track.Size = UDim2.new(1, -28, 0, 138)
+	track.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	track.BorderSizePixel = 0
+	track.ScrollBarThickness = 0
+	track.ScrollingDirection = Enum.ScrollingDirection.X
+	track.CanvasSize = UDim2.fromOffset((#infinitePackTiers * 128) + 80, 0)
+	track.ZIndex = 1005
+	track.Parent = panel
+	applyCorner(track, 14)
+	applyStroke(track, OUTLINE, 2)
+
+	local list = Instance.new("UIListLayout")
+	list.FillDirection = Enum.FillDirection.Horizontal
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	list.VerticalAlignment = Enum.VerticalAlignment.Center
+	list.Padding = UDim.new(0, 10)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = track
+
+	for index, tier in ipairs(infinitePackTiers) do
+		makeInfiniteTierCard(track, tier, index * 2)
+		if index < #infinitePackTiers then
+			local arrow = makeText(
+				track,
+				"Arrow" .. tostring(index),
+				"->",
+				UDim2.fromScale(0, 0),
+				UDim2.fromOffset(18, 118),
+				26,
+				OUTLINE,
+				1007
+			)
+			arrow.LayoutOrder = (index * 2) + 1
+			arrow.TextXAlignment = Enum.TextXAlignment.Center
+			arrow.TextScaled = true
+		end
+	end
+
+	local holder = makeFrame(page, "SpotlightCards", UDim2.fromOffset(16, 238), UDim2.new(1, -32, 1, -250), PANEL, 1002)
+	holder.BackgroundTransparency = 1
+	local holderStroke = holder:FindFirstChildOfClass("UIStroke")
+	if holderStroke then
+		holderStroke:Destroy()
+	end
+
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.fromOffset(140, 66)
+	grid.CellPadding = UDim2.fromOffset(8, 8)
+	grid.FillDirectionMaxCells = 5
+	grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	grid.VerticalAlignment = Enum.VerticalAlignment.Top
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = holder
+
+	for index, pass in ipairs(getSortedGamepasses()) do
+		if index <= 5 then
+			makeShopCard(holder, pass, "Gamepass", index, true)
+		end
+	end
+end
+
+local function hasEditableShopLayout(shopWindow)
+	if not shopWindow:FindFirstChild("Tabs") or not shopWindow:FindFirstChild("Content") then
+		return false
+	end
+	for _, descendant in ipairs(shopWindow:GetDescendants()) do
+		if descendant:IsA("GuiObject") and descendant:GetAttribute("ShopItemId") then
+			return true
+		end
+	end
+	return false
+end
+
+local function ensureShopLayout(shopWindow)
+	if hasEditableShopLayout(shopWindow) then
+		return
+	end
+
+	clearWindowForGeneratedShop(shopWindow)
+	shopWindow.AnchorPoint = Vector2.new(0.5, 0.5)
+	shopWindow.Position = UDim2.fromScale(0.5, 0.5)
+	shopWindow.Size = UDim2.fromOffset(820, 500)
+	shopWindow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	shopWindow.BorderSizePixel = 0
+	shopWindow.ClipsDescendants = false
+	shopWindow.ZIndex = math.max(shopWindow.ZIndex, 1000)
+	applyCorner(shopWindow, 24)
+	applyStroke(shopWindow, OUTLINE, 4)
+
+	local title = makeText(
+		shopWindow,
+		"Title",
+		"ROBUX SHOP",
+		UDim2.fromOffset(26, 16),
+		UDim2.new(1, -120, 0, 46),
+		32,
+		TEXT_DARK,
+		1002
+	)
+	title.TextScaled = true
+	styleCloseButton(shopWindow)
+	makeShopTabs(shopWindow)
+	local content = makeContentPages(shopWindow)
+
+	local featuredPage = content:FindFirstChild("FeaturedPage")
+	if featuredPage and featuredPage:IsA("GuiObject") then
+		clearGeneratedLayout(featuredPage)
+		makeFeaturedShopPage(featuredPage)
+	end
+
+	local gamepassesPage = content:FindFirstChild("GamepassesPage")
+	if gamepassesPage and gamepassesPage:IsA("GuiObject") then
+		clearGeneratedLayout(gamepassesPage)
+		makeGridPage(gamepassesPage, "GamepassCards", getSortedGamepasses(), "Gamepass")
+	end
+
+	local boostsPage = content:FindFirstChild("BoostsPage")
+	if boostsPage and boostsPage:IsA("GuiObject") then
+		clearGeneratedLayout(boostsPage)
+		makeGridPage(boostsPage, "BoostCards", getProductsForCategory("Boosts"), "Product")
+	end
+
+	local currencyPage = content:FindFirstChild("CurrencyPage")
+	if currencyPage and currencyPage:IsA("GuiObject") then
+		clearGeneratedLayout(currencyPage)
+		makeGridPage(currencyPage, "CurrencyCards", getProductsForCategory("Currency"), "Product")
+	end
 end
 
 local function findScale(parent, name)
@@ -648,6 +1437,9 @@ if not shopWindow then
 	warn("EditableShopBinder: missing PlayerGui.MainHUD.ModalWindows.ShopWindow")
 	return
 end
+
+ensureShopLayout(shopWindow)
+applyComingSoonShopSections(shopWindow)
 
 if claimInfinitePackTierEvent and claimInfinitePackTierEvent:IsA("RemoteEvent") then
 	claimInfinitePackTierEvent.OnClientEvent:Connect(function(action, tierId, payload)

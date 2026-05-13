@@ -1,5 +1,6 @@
 -- Binds the Studio-authored RankWindow bones. This script never creates UI.
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -55,6 +56,7 @@ end
 local ui = {
 	RankName = findDescendant(content, "RankName", "TextLabel", ROOT_PATH .. ".Content.RankName"),
 	RankIconText = findDescendant(content, "RankIconText", "TextLabel", ROOT_PATH .. ".Content.RankIconText"),
+	ProgressTitle = findDescendant(content, "ProgressTitle", "TextLabel", ROOT_PATH .. ".Content.ProgressTitle"),
 	ProgressLabel = findDescendant(content, "ProgressLabel", "TextLabel", ROOT_PATH .. ".Content.ProgressLabel"),
 	ProgressPercent = findDescendant(content, "ProgressPercent", "TextLabel", ROOT_PATH .. ".Content.ProgressPercent"),
 	ProgressFill = findDescendant(content, "ProgressFill", "GuiObject", ROOT_PATH .. ".Content.ProgressFill"),
@@ -69,9 +71,27 @@ local function setText(object, value)
 	end
 end
 
+local function formatNumber(value)
+	value = math.floor(tonumber(value) or 0)
+	local text = tostring(value)
+	while true do
+		local nextText, replacements = string.gsub(text, "^(-?%d+)(%d%d%d)", "%1,%2")
+		text = nextText
+		if replacements == 0 then
+			break
+		end
+	end
+	return text
+end
+
 local function findValue(names)
+	local rankData = player:FindFirstChild("RankData")
 	local leaderstats = player:FindFirstChild("leaderstats")
 	for _, name in ipairs(names) do
+		local rankValue = rankData and rankData:FindFirstChild(name)
+		if rankValue and rankValue:IsA("ValueBase") then
+			return rankValue.Value
+		end
 		local value = leaderstats and leaderstats:FindFirstChild(name)
 		if value and value:IsA("ValueBase") then
 			return value.Value
@@ -84,24 +104,57 @@ local function findValue(names)
 	return nil
 end
 
-local function update()
+local activeProgressTween = nil
+
+local function setProgressFill(progress, replayFromStart)
+	if not ui.ProgressFill then
+		return
+	end
+
+	local targetSize = UDim2.fromScale(progress, 1)
+	if activeProgressTween then
+		activeProgressTween:Cancel()
+		activeProgressTween = nil
+	end
+
+	if rankWindow.Visible then
+		if replayFromStart then
+			ui.ProgressFill.Size = UDim2.fromScale(0, 1)
+		end
+		activeProgressTween = TweenService:Create(
+			ui.ProgressFill,
+			TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Size = targetSize }
+		)
+		activeProgressTween:Play()
+	else
+		ui.ProgressFill.Size = targetSize
+	end
+end
+
+local function update(replayProgress)
 	local rankName = findValue({ "RankName", "Rank", "CurrentRank" }) or "RANK I"
 	local rankLevel = tonumber(findValue({ "RankLevel", "Level" })) or 1
 	local xp = tonumber(findValue({ "RankXP", "XP", "Experience" })) or 0
 	local nextXp = tonumber(findValue({ "NextRankXP", "RankXPRequired", "XPRequired" })) or 2500
-	nextXp = math.max(1, nextXp)
+	local maxRank = tonumber(findValue({ "RankMaxRank" })) or 5
+	local isMaxed = findValue({ "RankIsMaxed" }) == true or rankLevel >= maxRank or nextXp <= 0
+	local iconText = findValue({ "RankIcon" }) or rankLevel
+	local coinBonus = tonumber(findValue({ "RankCoinBonusPercent" })) or 10
+	local luckBonus = tonumber(findValue({ "RankLuckBonusPercent" })) or 5
+	local slots = tonumber(findValue({ "RankExtraEquipSlots" })) or 1
 
-	local progress = math.clamp(xp / nextXp, 0, 1)
+	nextXp = math.max(0, nextXp)
+	local progress = isMaxed and 1 or math.clamp(xp / math.max(1, nextXp), 0, 1)
 	setText(ui.RankName, tostring(rankName))
-	setText(ui.RankIconText, tostring(rankLevel))
-	setText(ui.ProgressLabel, tostring(math.floor(xp)) .. " / " .. tostring(math.floor(nextXp)) .. " XP")
+	setText(ui.RankIconText, tostring(iconText))
+	setText(ui.ProgressTitle, isMaxed and "Max Rank Reached" or "Progress to Next Rank")
+	setText(ui.ProgressLabel, isMaxed and "MAX RANK" or (formatNumber(xp) .. " / " .. formatNumber(nextXp) .. " XP"))
 	setText(ui.ProgressPercent, tostring(math.floor(progress * 100 + 0.5)) .. "%")
-	setText(ui.PerkCoins, "+10% Coins")
-	setText(ui.PerkLuck, "+5% Hatch Luck")
-	setText(ui.PerkSlots, "+1 Equip Slot")
-	if ui.ProgressFill then
-		ui.ProgressFill.Size = UDim2.fromScale(progress, 1)
-	end
+	setText(ui.PerkCoins, "+" .. tostring(coinBonus) .. "% Coins")
+	setText(ui.PerkLuck, "+" .. tostring(luckBonus) .. "% Hatch Luck")
+	setText(ui.PerkSlots, "+" .. tostring(slots) .. " Equip Slot" .. (slots == 1 and "" or "s"))
+	setProgressFill(progress, replayProgress == true)
 end
 
 local function connectValue(value)
@@ -124,9 +177,26 @@ local function connectLeaderstats()
 	end)
 end
 
+local function connectRankData()
+	local rankData = player:FindFirstChild("RankData")
+	if not rankData then
+		return
+	end
+	for _, child in ipairs(rankData:GetChildren()) do
+		connectValue(child)
+	end
+	rankData.ChildAdded:Connect(function(child)
+		connectValue(child)
+		update()
+	end)
+end
+
 player.ChildAdded:Connect(function(child)
 	if child.Name == "leaderstats" then
 		connectLeaderstats()
+		update()
+	elseif child.Name == "RankData" then
+		connectRankData()
 		update()
 	end
 end)
@@ -140,14 +210,25 @@ for _, attributeName in ipairs({
 	"RankXP",
 	"XP",
 	"Experience",
+	"RankIcon",
 	"NextRankXP",
 	"RankXPRequired",
 	"XPRequired",
+	"RankMaxRank",
+	"RankIsMaxed",
+	"RankCoinBonusPercent",
+	"RankLuckBonusPercent",
+	"RankExtraEquipSlots",
 }) do
 	player:GetAttributeChangedSignal(attributeName):Connect(update)
 end
 
+rankWindow:GetPropertyChangedSignal("Visible"):Connect(function()
+	update(rankWindow.Visible)
+end)
+
 connectLeaderstats()
+connectRankData()
 update()
 
 print("[EditableRankBinder] RankWindow bound to existing Studio UI.")

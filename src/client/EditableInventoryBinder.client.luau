@@ -78,6 +78,26 @@ local function isInventoryCardSlot(object)
 		or object:GetAttribute("InventoryCardSlot") == true
 end
 
+local function collectItemCards()
+	local cards = {}
+	if not ui.gridPanel then
+		return cards
+	end
+
+	for _, child in ipairs(ui.gridPanel:GetChildren()) do
+		if isInventoryCardSlot(child) then
+			table.insert(cards, child)
+		end
+	end
+	table.sort(cards, function(a, b)
+		if a.LayoutOrder ~= b.LayoutOrder then
+			return a.LayoutOrder < b.LayoutOrder
+		end
+		return a.Name < b.Name
+	end)
+	return cards
+end
+
 local function disconnectCards()
 	for _, connection in ipairs(cardConnections) do
 		if connection and connection.Connected then
@@ -717,20 +737,9 @@ local function prepareStructure()
 		ui.cardTemplate = nil
 	end
 
-	ui.itemCards = {}
-	for _, child in ipairs(ui.gridPanel:GetChildren()) do
-		if isInventoryCardSlot(child) then
-			table.insert(ui.itemCards, child)
-		end
-	end
-	table.sort(ui.itemCards, function(a, b)
-		if a.LayoutOrder ~= b.LayoutOrder then
-			return a.LayoutOrder < b.LayoutOrder
-		end
-		return a.Name < b.Name
-	end)
+	ui.itemCards = collectItemCards()
 	if #ui.itemCards == 0 then
-		warn("EditableInventoryBinder: add physical card slots to GridPanel; runtime card cloning is disabled.")
+		warn("EditableInventoryBinder: add ItemCardTemplate or physical card slots to GridPanel.")
 	end
 
 	ui.emptyText = ui.gridPanel:FindFirstChild("EmptyText", true)
@@ -890,7 +899,9 @@ local function polishDetails(detailWidth)
 	else
 		if not detailScrollWarningShown then
 			detailScrollWarningShown = true
-			warn("EditableInventoryBinder: InventoryWindow.Content.DetailsPanel should be a ScrollingFrame for tall pet details.")
+			warn(
+				"EditableInventoryBinder: InventoryWindow.Content.DetailsPanel should be a ScrollingFrame for tall pet details."
+			)
 		end
 	end
 
@@ -1152,6 +1163,47 @@ local function makeCard(item, index)
 	connectCardSelection(card, selectItem)
 end
 
+local function resetGeneratedCards()
+	if not ui.gridPanel then
+		ui.itemCards = {}
+		return
+	end
+
+	for _, child in ipairs(ui.gridPanel:GetChildren()) do
+		if child:GetAttribute("EditableInventoryGeneratedCard") == true then
+			child:Destroy()
+		end
+	end
+	ui.itemCards = collectItemCards()
+end
+
+local function ensureItemCards(requiredCount)
+	requiredCount = math.max(0, math.floor(tonumber(requiredCount) or 0))
+	if not ui.gridPanel then
+		return
+	end
+
+	ui.itemCards = collectItemCards()
+	local source = ui.cardTemplate
+	if not (source and source:IsA("GuiObject")) then
+		source = ui.itemCards[1]
+	end
+	if not source then
+		return
+	end
+
+	for index = #ui.itemCards + 1, requiredCount do
+		local card = source:Clone()
+		card.Name = "RuntimeItemCard" .. tostring(index)
+		card.LayoutOrder = index
+		card.Visible = false
+		card:SetAttribute("EditableInventoryGeneratedCard", true)
+		card:SetAttribute("InventoryCardSlot", true)
+		card.Parent = ui.gridPanel
+		table.insert(ui.itemCards, card)
+	end
+end
+
 renderDetails = function()
 	local item = selectedItem
 	if not item then
@@ -1214,11 +1266,7 @@ local function renderInventory()
 	disconnectCards()
 	disconnectViewports()
 	polishInventoryLayout()
-	for _, child in ipairs(ui.grid:GetChildren()) do
-		if child:GetAttribute("EditableInventoryGeneratedCard") == true then
-			child:Destroy()
-		end
-	end
+	resetGeneratedCards()
 	if ui.cardTemplate then
 		ui.cardTemplate.Visible = false
 	end
@@ -1231,6 +1279,7 @@ local function renderInventory()
 	end
 
 	local items = getTabItems()
+	ensureItemCards(#items)
 	if ui.emptyText then
 		ui.emptyText.Visible = #items == 0
 		ui.emptyText.Text = "No " .. string.lower(currentTab) .. " yet."

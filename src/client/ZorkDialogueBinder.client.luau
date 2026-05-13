@@ -1,4 +1,9 @@
 -- Binds baked Zork prompts to editable Studio windows.
+-- Disabled: NpcDialogueClient.client.luau now owns Zork and future NPC conversations.
+if true then
+	return
+end
+
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
