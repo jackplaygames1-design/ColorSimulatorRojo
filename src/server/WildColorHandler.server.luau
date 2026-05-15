@@ -1,12 +1,12 @@
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
 local ServerStorage = game:GetService("ServerStorage")
+local TweenService = game:GetService("TweenService")
 
+local BuffService = require(script.Parent:WaitForChild("BuffService"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
-local BuffService = require(script.Parent:WaitForChild("BuffService"))
 
 local FEATURE_ENABLED = not (GameBalance.FeatureFlags and GameBalance.FeatureFlags.WildColorsEnabled == false)
 local WILD_CONFIG = GameBalance.WildGameplay and GameBalance.WildGameplay.WildColors or {}
@@ -85,7 +85,9 @@ local function reportDailyQuestProgress(player, questId, amount)
 end
 
 local function inferColorFromMapPart(part)
-	local attrColor = part:GetAttribute("ColorType") or part:GetAttribute("WorldColor") or part:GetAttribute("AreaColor")
+	local attrColor = part:GetAttribute("ColorType")
+		or part:GetAttribute("WorldColor")
+		or part:GetAttribute("AreaColor")
 	local partName = string.lower(part.Name or "")
 	local parentName = part.Parent and string.lower(part.Parent.Name or "") or ""
 	local looksLikeFloor = string.find(partName, "floor")
@@ -107,7 +109,11 @@ local function inferColorFromMapPart(part)
 		or partName == "glowshell"
 		or partName == "highlight"
 		or string.find(partName, "floatcore", 1, true)
-	if ColorData.getWorldByColor(attrColor) and not blockedName and (part:GetAttribute("PlayableSectorFloor") == true or looksLikeFloor or largeFlatSurface) then
+	if
+		ColorData.getWorldByColor(attrColor)
+		and not blockedName
+		and (part:GetAttribute("PlayableSectorFloor") == true or looksLikeFloor or largeFlatSurface)
+	then
 		return attrColor
 	end
 
@@ -159,7 +165,8 @@ end
 local function configureColorZonePart(part)
 	local partName = string.lower(part.Name or "")
 	local parentName = part.Parent and string.lower(part.Parent.Name or "") or ""
-	if part:GetAttribute("BreakableType")
+	if
+		part:GetAttribute("BreakableType")
 		or part:GetAttribute("PaintPuddleVersion")
 		or part:GetAttribute("GemDeposit")
 		or part:GetAttribute("WildColor")
@@ -186,10 +193,11 @@ local function configureColorZonePart(part)
 
 	local playableSectorFloor = part:GetAttribute("PlayableSectorFloor") == true
 	local namedPlayableSectorColor = inferPlayableSectorColorFromName(part)
-	if not playableSectorFloor and (part:GetAttribute("DistantSectorColumn")
-		or part:GetAttribute("SectorAnchor")
-		or part:GetAttribute("DecorativeOnly")
-		or part:FindFirstAncestor("DistantSectors") ~= nil)
+	if
+		not playableSectorFloor
+		and (part:GetAttribute("DistantSectorColumn") or part:GetAttribute("SectorAnchor") or part:GetAttribute(
+			"DecorativeOnly"
+		) or part:FindFirstAncestor("DistantSectors") ~= nil)
 		and not namedPlayableSectorColor
 	then
 		if part:GetAttribute("ColorZone") == true then
@@ -231,9 +239,7 @@ end
 local function isPointInside(part, worldPosition, margin)
 	local localPoint = part.CFrame:PointToObjectSpace(worldPosition)
 	local half = part.Size * 0.5 + Vector3.new(margin or 0, margin or 0, margin or 0)
-	return math.abs(localPoint.X) <= half.X
-		and math.abs(localPoint.Y) <= half.Y
-		and math.abs(localPoint.Z) <= half.Z
+	return math.abs(localPoint.X) <= half.X and math.abs(localPoint.Y) <= half.Y and math.abs(localPoint.Z) <= half.Z
 end
 
 local function isPlayerInsideColorZone(player, colorType)
@@ -245,7 +251,11 @@ local function isPlayerInsideColorZone(player, colorType)
 	for _, obj in ipairs(workspace:GetDescendants()) do
 		if obj:IsA("BasePart") then
 			local zoneColor = configureColorZonePart(obj)
-			if zoneColor == colorType and obj:GetAttribute("ColorZone") == true and isPointInside(obj, root.Position, 12) then
+			if
+				zoneColor == colorType
+				and obj:GetAttribute("ColorZone") == true
+				and isPointInside(obj, root.Position, 12)
+			then
 				return true
 			end
 		end
@@ -339,7 +349,8 @@ local function isBadSpawnNeighbor(part, zone)
 	if part == zone or part:GetAttribute("PlayableSectorFloor") == true or part:GetAttribute("ColorZone") == true then
 		return false
 	end
-	if part:GetAttribute("SellZone")
+	if
+		part:GetAttribute("SellZone")
 		or part:GetAttribute("SellLocation")
 		or part:GetAttribute("BrushShop")
 		or part:GetAttribute("CombinedShop")
@@ -532,9 +543,10 @@ local function makeWildColor(world, position, wildType)
 
 	model.Parent = wildFolder
 
-	local tween = TweenService:Create(core, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-		CFrame = core.CFrame * CFrame.new(0, 0.45, 0),
-	})
+	local tween =
+		TweenService:Create(core, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+			CFrame = core.CFrame * CFrame.new(0, 0.45, 0),
+		})
 	tween:Play()
 
 	core.Touched:Connect(function(hit)

@@ -3,10 +3,10 @@ if true then
 	return
 end
 
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
 local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
@@ -73,7 +73,10 @@ noticeEvent.OnClientEvent:Connect(function(payload)
 	end
 
 	if payload.type == "buff" then
-		showToast(tostring(payload.name or "Wild Color") .. "! " .. tostring(math.floor(payload.duration or 0)) .. "s", payload.color)
+		showToast(
+			tostring(payload.name or "Wild Color") .. "! " .. tostring(math.floor(payload.duration or 0)) .. "s",
+			payload.color
+		)
 	elseif payload.type == "gems" then
 		showToast("+" .. tostring(payload.amount or 0) .. " Gems", Color3.fromRGB(90, 255, 120))
 	elseif payload.type == "message" then

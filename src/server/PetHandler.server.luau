@@ -388,6 +388,45 @@ local function getMaxSlots(player)
 	return baseSlots + GamepassBenefits.getExtraEquippedColorSlots(player)
 end
 
+local DEFAULT_COLOR_INVENTORY_CAPACITY = 75
+
+local function getColorInventoryCapacity(player)
+	if GamepassBenefits.hasInfiniteStorage(player) then
+		return math.huge
+	end
+
+	local petDataFolder = player:FindFirstChild("PetData")
+	local value = petDataFolder
+		and (petDataFolder:FindFirstChild("MaxInventory") or petDataFolder:FindFirstChild("MaxStorage"))
+	if value and value:IsA("ValueBase") then
+		local capacity = math.floor(tonumber(value.Value) or 0)
+		if capacity > 0 then
+			return capacity
+		end
+	end
+
+	return DEFAULT_COLOR_INVENTORY_CAPACITY
+end
+
+local function countColorInventory(inventory)
+	local total = 0
+	for _, data in pairs(inventory or {}) do
+		total += math.max(1, math.floor(tonumber(data and data.stackAmount) or 1))
+	end
+	return total
+end
+
+local function canAddColorsToInventory(player, inventory, amount)
+	local capacity = getColorInventoryCapacity(player)
+	if capacity == math.huge then
+		return true, capacity, countColorInventory(inventory)
+	end
+
+	local currentCount = countColorInventory(inventory)
+	amount = math.max(1, math.floor(tonumber(amount) or 1))
+	return currentCount + amount <= capacity, capacity, currentCount
+end
+
 local function getDataDirtyEvent()
 	if not dataDirtyEvent or not dataDirtyEvent.Parent then
 		dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
@@ -1121,6 +1160,20 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 		warn("PetHandler: blocked hatch before inventory was ready for " .. player.Name)
 		return
 	end
+	local hasInventoryRoom, inventoryCapacity, inventoryCount = canAddColorsToInventory(player, inv, 1)
+	if not hasInventoryRoom then
+		failHatch("Inventory full")
+		warn(
+			"PetHandler: blocked hatch for "
+				.. player.Name
+				.. " because inventory is full ("
+				.. tostring(inventoryCount)
+				.. "/"
+				.. tostring(inventoryCapacity)
+				.. ")."
+		)
+		return
+	end
 
 	state = {
 		active = true,
@@ -1158,6 +1211,20 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	local personalityId = "Neutral"
 	local mutationId = mutation and mutation.Id or "None"
 	local variantKey = PetData.makeVariantKey(petId, personalityId, mutationId, traitId)
+	hasInventoryRoom, inventoryCapacity, inventoryCount = canAddColorsToInventory(player, inv, 1)
+	if not hasInventoryRoom then
+		hatchState[player] = nil
+		failHatch("Inventory full")
+		warn(
+			"PetHandler: race-safe hatch block for "
+				.. player.Name
+				.. " because inventory reached "
+				.. tostring(inventoryCount)
+				.. "/"
+				.. tostring(inventoryCapacity)
+		)
+		return
+	end
 
 	-- Stack or create
 	local wasDuplicate = inv[variantKey] ~= nil

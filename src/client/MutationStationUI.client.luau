@@ -95,7 +95,12 @@ local function button(parent, props)
 		item.Position = props.Position
 	end
 	corner(item, props.CornerRadius or 14)
-	stroke(item, props.StrokeColor or Color3.fromRGB(255, 255, 255), props.StrokeThickness or 2, props.StrokeTransparency or 0.5)
+	stroke(
+		item,
+		props.StrokeColor or Color3.fromRGB(255, 255, 255),
+		props.StrokeThickness or 2,
+		props.StrokeTransparency or 0.5
+	)
 	UITheme.ApplyTouchTarget(item, math.max(44, item.AbsoluteSize.Y))
 	return item
 end
@@ -254,7 +259,8 @@ local closeOverlay = button(overlayPage, {
 	ZIndex = 176,
 })
 
-local what = section(overlayPage, "What Are Mutations?", "1", UDim2.fromOffset(28, 118), UDim2.fromOffset(392, 180), PURPLE)
+local what =
+	section(overlayPage, "What Are Mutations?", "1", UDim2.fromOffset(28, 118), UDim2.fromOffset(392, 180), PURPLE)
 local dna = label(what, {
 	Text = "DNA",
 	Position = UDim2.fromOffset(34, 76),
@@ -491,10 +497,8 @@ local function makeMutationCard(mutationId, order)
 
 	local typeColor = ColorMutationData.getTypeColor(mutation.Type)
 	local card = Instance.new("Frame")
-	card.BackgroundColor3 = mutation.Type == "Light"
-		and Color3.fromRGB(58, 48, 24)
-		or mutation.Type == "Corrupted"
-		and Color3.fromRGB(47, 13, 24)
+	card.BackgroundColor3 = mutation.Type == "Light" and Color3.fromRGB(58, 48, 24)
+		or mutation.Type == "Corrupted" and Color3.fromRGB(47, 13, 24)
 		or Color3.fromRGB(31, 18, 57)
 	card.BorderSizePixel = 0
 	card.LayoutOrder = order
@@ -680,13 +684,18 @@ remote.OnClientEvent:Connect(function(actionName, data)
 	end
 end)
 
-UIManager.register("MutationStation", function(data)
-	if data then
-		showIndex(data)
-	else
-		remote:FireServer("Get")
-		showIndex(currentState)
+UIManager.register(
+	"MutationStation",
+	function(data)
+		if data then
+			showIndex(data)
+		else
+			remote:FireServer("Get")
+			showIndex(currentState)
+		end
+	end,
+	closeGui,
+	function()
+		return gui.Visible == true
 	end
-end, closeGui, function()
-	return gui.Visible == true
-end)
+)

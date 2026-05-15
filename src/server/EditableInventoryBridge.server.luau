@@ -4,11 +4,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
-local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
-local ItemsData = require(ReplicatedStorage:WaitForChild("ItemsData"))
-local PetDefinitions = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetDefinitions"))
 local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
+local ItemsData = require(ReplicatedStorage:WaitForChild("ItemsData"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local PetDefinitions = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetDefinitions"))
+local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
 
 local remotes = ReplicatedStorage:FindFirstChild("Remotes")
 if not remotes then
@@ -31,10 +31,11 @@ if not inventoryAction then
 	inventoryAction.Parent = remotes
 end
 
+local petInventorySnapshotFunction = ServerStorage:FindFirstChild("PetInventorySnapshot")
+
 local Events = ReplicatedStorage:WaitForChild("Events")
 local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 local equipPaintToolEvent = Events:WaitForChild("EquipPaintTool")
-local useItemEvent = Events:WaitForChild("UseItem")
 
 local COLOR_CAPACITY = 75
 local INFINITE_CAPACITY_LABEL = "∞"
@@ -70,7 +71,12 @@ local function waitForPlayerPetData(player)
 			end
 		end)
 		local startedAt = os.clock()
-		while player.Parent and not ready and player:GetAttribute("DataManagerReady") ~= true and os.clock() - startedAt < 10 do
+		while
+			player.Parent
+			and not ready
+			and player:GetAttribute("DataManagerReady") ~= true
+			and os.clock() - startedAt < 10
+		do
 			task.wait(0.1)
 		end
 		if connection and connection.Connected then
@@ -163,15 +169,89 @@ local function parsePetInventory(value)
 	return entries
 end
 
+local function getLivePetInventorySnapshot(player)
+	if not petInventorySnapshotFunction or not petInventorySnapshotFunction.Parent then
+		petInventorySnapshotFunction = ServerStorage:FindFirstChild("PetInventorySnapshot")
+	end
+	if not (petInventorySnapshotFunction and petInventorySnapshotFunction:IsA("BindableFunction")) then
+		return nil
+	end
+
+	local ok, records, equippedList, lockedList = pcall(function()
+		return petInventorySnapshotFunction:Invoke(player)
+	end)
+	if not ok or type(records) ~= "table" then
+		return nil
+	end
+
+	return records,
+		type(equippedList) == "table" and equippedList or {},
+		type(lockedList) == "table" and lockedList or {}
+end
+
+local function buildEntriesFromSnapshot(records)
+	local entries = {}
+	for _, record in ipairs(records) do
+		if type(record) ~= "table" then
+			continue
+		end
+
+		local petId = tostring(record.petId or record.PetId or "")
+		if petId == "" then
+			continue
+		end
+
+		local traitId = PetData.normalizeTraitId(record.traitId or record.TraitId or "Neutral")
+		local mutationId = PetData.normalizeMutationId(record.mutationId or record.MutationId or "None")
+		local personalityId = PetData.normalizePersonalityId(record.personalityId or record.PersonalityId or "Neutral")
+		local stackAmount = math.max(1, tonumber(record.stackAmount or record.StackAmount or record.Amount) or 1)
+		local entry = PetData.buildPetEntry(
+			petId,
+			stackAmount,
+			record.isShiny == true or record.IsShiny == true,
+			personalityId,
+			mutationId,
+			traitId
+		)
+		if entry then
+			entry.variantKey = tostring(record.variantKey or record.VariantKey or entry.variantKey)
+			entry.petId = petId
+			entry.modelName = record.modelName or record.ModelName or entry.modelName
+			table.insert(entries, entry)
+		end
+	end
+	return entries
+end
+
+local function buildSetFromList(values)
+	local set = {}
+	for _, value in ipairs(values or {}) do
+		if value ~= nil and tostring(value) ~= "" then
+			set[tostring(value)] = true
+		end
+	end
+	return set
+end
+
+local function entryIsInSet(entry, set)
+	if not entry or not set then
+		return false
+	end
+	return set[tostring(entry.variantKey or "")] == true or set[tostring(entry.petId or "")] == true
+end
+
 local function buildColorRows(player)
-	local petFolder, inventoryValue, equippedValue, lockedValue = waitForPlayerPetData(player)
-	print("[InventoryBridge] PetData folder", petFolder)
-	print("[InventoryBridge] Inventory raw", inventoryValue and inventoryValue.Value)
-	local equipped = setFromCsv(equippedValue and equippedValue.Value or "")
-	local locked = setFromCsv(lockedValue and lockedValue.Value or "")
+	local _, inventoryValue, equippedValue, lockedValue = waitForPlayerPetData(player)
+	local snapshotRecords, equippedList, lockedList = getLivePetInventorySnapshot(player)
+	local entries = snapshotRecords and buildEntriesFromSnapshot(snapshotRecords)
+		or parsePetInventory(inventoryValue and inventoryValue.Value or "")
+	local equipped = snapshotRecords and buildSetFromList(equippedList)
+		or setFromCsv(equippedValue and equippedValue.Value or "")
+	local locked = snapshotRecords and buildSetFromList(lockedList)
+		or setFromCsv(lockedValue and lockedValue.Value or "")
 
 	local rows = {}
-	for _, entry in ipairs(parsePetInventory(inventoryValue and inventoryValue.Value or "")) do
+	for _, entry in ipairs(entries) do
 		local pet = PetData.Pets[entry.petId] or {}
 		local definition = PetDefinitions.Get(entry.petId)
 		local mutationName = entry.mutationId or entry.mutationName or "None"
@@ -182,6 +262,7 @@ local function buildColorRows(player)
 		if entry.petId == "DevRainbowPet" and displayName == "Rainbow Pet" then
 			displayName = "Dev Rainbow Pet"
 		end
+		local amount = math.max(1, tonumber(entry.stackAmount) or 1)
 		local rarity = entry.rarity or pet.rarity or "Color"
 		if entry.legacyColorKey and entry.traitId and entry.traitId ~= "Neutral" then
 			rarity = entry.traitId
@@ -191,9 +272,9 @@ local function buildColorRows(player)
 			Kind = "Color",
 			Name = displayName,
 			Rarity = rarity,
-			Amount = math.max(1, tonumber(entry.stackAmount) or 1),
-			Equipped = equipped[entry.variantKey] == true or equipped[entry.petId] == true,
-			Locked = locked[entry.variantKey] == true,
+			Amount = amount,
+			Equipped = entryIsInSet(entry, equipped),
+			Locked = entryIsInSet(entry, locked),
 			MutationId = entry.mutationId,
 			Mutation = mutationName,
 			Trait = entry.traitName,
@@ -206,13 +287,13 @@ local function buildColorRows(player)
 			ModelName = entry.modelName or (definition and definition.ModelName) or pet.modelName or entry.petId,
 			PetId = entry.petId,
 			Stats = {
+				"Owned: x" .. tostring(amount),
 				"Power: " .. tostring(entry.finalPower or entry.effectivePower or 0),
 				"Color Gain: x" .. string.format("%.2f", tonumber(entry.colorMult) or 1),
 				"Coin Bonus: x" .. string.format("%.2f", tonumber(entry.coinMult) or 1),
 			},
 		})
 	end
-	print("[InventoryBridge] Parsed color count", #rows)
 
 	table.sort(rows, function(a, b)
 		if a.Equipped ~= b.Equipped then
@@ -248,7 +329,8 @@ local function buildBrushRows(player)
 				IconImage = tool.IconImage or tool.iconImage,
 				ModelName = tool.ModelName or tool.Id,
 				Stats = {
-					"Power: x" .. string.format("%.2f", tonumber(tool.PowerMultiplier or tool.CollectPowerMultiplier) or 1),
+					"Power: x"
+						.. string.format("%.2f", tonumber(tool.PowerMultiplier or tool.CollectPowerMultiplier) or 1),
 					"Range: " .. tostring(tool.Range or "-"),
 					"Width: " .. tostring(tool.Width or "-"),
 				},

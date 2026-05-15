@@ -36,7 +36,11 @@ local function getSourceFolder(optional)
 		or Workspace:FindFirstChild(SOURCE_NAME)
 		or ServerStorage:FindFirstChild(SOURCE_NAME)
 	if not sourceFolder and not optional then
-		warn("PetVisualService: missing Workspace." .. SOURCE_NAME .. ". Run the StudioPetAppearanceBuilder command to create it.")
+		warn(
+			"PetVisualService: missing Workspace."
+				.. SOURCE_NAME
+				.. ". Run the StudioPetAppearanceBuilder command to create it."
+		)
 	end
 	return sourceFolder
 end
@@ -320,8 +324,16 @@ function PetVisualService.PublishToReplicatedStorage()
 						clone:SetAttribute("FromPetAppearanceStudio", true)
 						clone:SetAttribute("EggId", eggId)
 						clone:SetAttribute("PetId", petId)
-						clone:SetAttribute("DisplayName", template:GetAttribute("DisplayName") or PetData.GetCompanionDisplayName(petId))
-						clone:SetAttribute("Rarity", template:GetAttribute("Rarity") or (PetData.Pets[petId] and PetData.Pets[petId].rarity) or "Common")
+						clone:SetAttribute(
+							"DisplayName",
+							template:GetAttribute("DisplayName") or PetData.GetCompanionDisplayName(petId)
+						)
+						clone:SetAttribute(
+							"Rarity",
+							template:GetAttribute("Rarity")
+								or (PetData.Pets[petId] and PetData.Pets[petId].rarity)
+								or "Common"
+						)
 						clone.Parent = petModelsFolder
 						published += 1
 					end

@@ -4,9 +4,9 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AdminConfig = require(ReplicatedStorage:WaitForChild("AdminConfig"))
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
-local ColorTraitData = require(ReplicatedStorage:WaitForChild("ColorTraitData"))
 local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
+local ColorTraitData = require(ReplicatedStorage:WaitForChild("ColorTraitData"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 
 local BanStore = DataStoreService:GetDataStore("ColorSimulatorAdminBans_v1")
 local sessionBans = {}
@@ -32,7 +32,12 @@ local function findPlayer(query)
 	for _, player in ipairs(Players:GetPlayers()) do
 		local name = string.lower(player.Name)
 		local displayName = string.lower(player.DisplayName)
-		if name == query or displayName == query or string.sub(name, 1, #query) == query or string.sub(displayName, 1, #query) == query then
+		if
+			name == query
+			or displayName == query
+			or string.sub(name, 1, #query) == query
+			or string.sub(displayName, 1, #query) == query
+		then
 			return player
 		end
 	end
@@ -109,11 +114,13 @@ local function setBan(userId, banned, reason, moderatorName)
 		return false
 	end
 
-	sessionBans[userId] = banned and {
-		reason = reason ~= "" and reason or "Banned by staff.",
-		moderator = moderatorName,
-		time = os.time(),
-	} or nil
+	sessionBans[userId] = banned
+			and {
+				reason = reason ~= "" and reason or "Banned by staff.",
+				moderator = moderatorName,
+				time = os.time(),
+			}
+		or nil
 
 	local ok, err = pcall(function()
 		BanStore:UpdateAsync("User_" .. tostring(userId), function()
@@ -152,7 +159,9 @@ local function commandHelp(player)
 	print("Admin commands for " .. player.Name .. ":")
 	print("  !kick player [reason] | !bring player | !goto player | !respawn [player] | !announce message")
 	if isDeveloper(player) then
-		print("  Developer: !coins player amount | !gems player amount | !givepet player petId [amount] [trait] [mutation]")
+		print(
+			"  Developer: !coins player amount | !gems player amount | !givepet player petId [amount] [trait] [mutation]"
+		)
 		print("  Developer: !fly [player] [on/off] | !unfly [player] | !ban player [reason] | !unban userId")
 	end
 end
@@ -205,39 +214,52 @@ local function handleCommand(player, rawMessage)
 			announce(text)
 		end
 	elseif command == "coins" or command == "givecoins" or command == "money" then
-		if not isDeveloper(player) then return end
+		if not isDeveloper(player) then
+			return
+		end
 		local target = findPlayer(args[2]) or player
 		local amount = parseAmount(args[3] or args[2], 0, 100000000)
 		if amount > 0 and addCurrency(target, "Coins", amount) then
 			print(player.Name .. " gave " .. tostring(amount) .. " Coins to " .. target.Name)
 		end
 	elseif command == "gems" or command == "givegems" or command == "diamonds" then
-		if not isDeveloper(player) then return end
+		if not isDeveloper(player) then
+			return
+		end
 		local target = findPlayer(args[2]) or player
 		local amount = parseAmount(args[3] or args[2], 0, 10000000)
 		if amount > 0 and addCurrency(target, "Gems", amount) then
 			print(player.Name .. " gave " .. tostring(amount) .. " Gems to " .. target.Name)
 		end
 	elseif command == "givepet" or command == "givecolor" or command == "pet" then
-		if not isDeveloper(player) then return end
+		if not isDeveloper(player) then
+			return
+		end
 		local target = findPlayer(args[2]) or player
 		local petArgIndex = target == player and 2 or 3
-		local ok, result = grantColor(target, args[petArgIndex], args[petArgIndex + 1], args[petArgIndex + 2], args[petArgIndex + 3])
+		local ok, result =
+			grantColor(target, args[petArgIndex], args[petArgIndex + 1], args[petArgIndex + 2], args[petArgIndex + 3])
 		print("Admin givepet by " .. player.Name .. ": " .. tostring(ok) .. " - " .. tostring(result))
 	elseif command == "fly" then
-		if not isDeveloper(player) then return end
+		if not isDeveloper(player) then
+			return
+		end
 		local target = findPlayer(args[2]) or player
 		local mode = string.lower(tostring(args[3] or args[2] or "on"))
 		local enabled = mode ~= "off" and mode ~= "false" and mode ~= "0"
 		target:SetAttribute("AdminFlyEnabled", enabled)
 		print(player.Name .. " set fly=" .. tostring(enabled) .. " for " .. target.Name)
 	elseif command == "unfly" then
-		if not isDeveloper(player) then return end
+		if not isDeveloper(player) then
+			return
+		end
 		local target = findPlayer(args[2]) or player
 		target:SetAttribute("AdminFlyEnabled", false)
 		print(player.Name .. " disabled fly for " .. target.Name)
 	elseif command == "ban" then
-		if not isDeveloper(player) then return end
+		if not isDeveloper(player) then
+			return
+		end
 		local target = findPlayer(args[2])
 		if target and target ~= player then
 			local reason = table.concat(args, " ", 3)
@@ -247,7 +269,9 @@ local function handleCommand(player, rawMessage)
 			end
 		end
 	elseif command == "unban" then
-		if not isDeveloper(player) then return end
+		if not isDeveloper(player) then
+			return
+		end
 		local userId = tonumber(args[2])
 		if userId and setBan(userId, false, "", player.Name) then
 			print(player.Name .. " unbanned userId " .. tostring(userId))

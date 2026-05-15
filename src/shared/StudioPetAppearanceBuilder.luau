@@ -1,9 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local PetModelUtil = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetModelUtil"))
 
 local StudioPetAppearanceBuilder = {}
@@ -75,11 +75,46 @@ local function createEggModel(eggId, egg)
 	local dark = color:Lerp(Color3.fromRGB(30, 32, 42), 0.32)
 	local light = color:Lerp(Color3.fromRGB(255, 255, 255), 0.5)
 
-	local core = makePreviewPart(model, "Core", Enum.PartType.Ball, Vector3.new(4.4, 5.4, 4.4), CFrame.new(0, 2.7, 0), color, Enum.Material.SmoothPlastic)
+	local core = makePreviewPart(
+		model,
+		"Core",
+		Enum.PartType.Ball,
+		Vector3.new(4.4, 5.4, 4.4),
+		CFrame.new(0, 2.7, 0),
+		color,
+		Enum.Material.SmoothPlastic
+	)
 	model.PrimaryPart = core
-	makePreviewPart(model, "LowerBand", Enum.PartType.Cylinder, Vector3.new(0.26, 4.7, 4.7), CFrame.new(0, 1.55, 0) * CFrame.Angles(0, 0, math.rad(90)), dark, Enum.Material.SmoothPlastic, 0.05)
-	makePreviewPart(model, "UpperBand", Enum.PartType.Cylinder, Vector3.new(0.22, 3.9, 3.9), CFrame.new(0, 3.72, 0) * CFrame.Angles(0, 0, math.rad(90)), light, Enum.Material.SmoothPlastic, 0.12)
-	makePreviewPart(model, "Highlight", Enum.PartType.Ball, Vector3.new(0.8, 1.15, 0.24), CFrame.new(-1.2, 4, -1.6) * CFrame.Angles(0, math.rad(-25), math.rad(-15)), Color3.fromRGB(255, 255, 255), Enum.Material.SmoothPlastic, 0.1)
+	makePreviewPart(
+		model,
+		"LowerBand",
+		Enum.PartType.Cylinder,
+		Vector3.new(0.26, 4.7, 4.7),
+		CFrame.new(0, 1.55, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		dark,
+		Enum.Material.SmoothPlastic,
+		0.05
+	)
+	makePreviewPart(
+		model,
+		"UpperBand",
+		Enum.PartType.Cylinder,
+		Vector3.new(0.22, 3.9, 3.9),
+		CFrame.new(0, 3.72, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		light,
+		Enum.Material.SmoothPlastic,
+		0.12
+	)
+	makePreviewPart(
+		model,
+		"Highlight",
+		Enum.PartType.Ball,
+		Vector3.new(0.8, 1.15, 0.24),
+		CFrame.new(-1.2, 4, -1.6) * CFrame.Angles(0, math.rad(-25), math.rad(-15)),
+		Color3.fromRGB(255, 255, 255),
+		Enum.Material.SmoothPlastic,
+		0.1
+	)
 
 	local lightObject = Instance.new("PointLight")
 	lightObject.Name = "EggGlow"
@@ -115,7 +150,15 @@ local function createPetTemplate(entry)
 
 	local model = Instance.new("Model")
 	model.Name = petId
-	local core = makePreviewPart(model, "Core", Enum.PartType.Ball, Vector3.new(2.2, 2.2, 2.2), CFrame.new(0, 1.1, 0), pet.color or Color3.fromRGB(255, 255, 255), Enum.Material.SmoothPlastic)
+	local core = makePreviewPart(
+		model,
+		"Core",
+		Enum.PartType.Ball,
+		Vector3.new(2.2, 2.2, 2.2),
+		CFrame.new(0, 1.1, 0),
+		pet.color or Color3.fromRGB(255, 255, 255),
+		Enum.Material.SmoothPlastic
+	)
 	model.PrimaryPart = core
 	return model
 end
@@ -297,9 +340,13 @@ function StudioPetAppearanceBuilder.Arrange()
 					local mutationColumn = column
 					for _, mutationModel in ipairs(getSortedChildren(pet)) do
 						if isVisualObject(mutationModel) then
-							local mutationPosition = rowOrigin + Vector3.new(mutationColumn * PET_SPACING, 0, MUTATION_SPACING)
+							local mutationPosition = rowOrigin
+								+ Vector3.new(mutationColumn * PET_SPACING, 0, MUTATION_SPACING)
 							placeOnGround(mutationModel, mutationPosition, 0)
-							addPreviewLabel(mutationModel, mutationModel:GetAttribute("MutationId") or mutationModel.Name)
+							addPreviewLabel(
+								mutationModel,
+								mutationModel:GetAttribute("MutationId") or mutationModel.Name
+							)
 							mutationColumn += 1
 						end
 					end

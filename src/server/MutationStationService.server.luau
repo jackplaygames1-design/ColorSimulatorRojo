@@ -40,16 +40,15 @@ end
 local function isPointInside(part, position, margin)
 	local localPoint = part.CFrame:PointToObjectSpace(position)
 	local half = part.Size * 0.5 + Vector3.new(margin, margin, margin)
-	return math.abs(localPoint.X) <= half.X
-		and math.abs(localPoint.Y) <= half.Y
-		and math.abs(localPoint.Z) <= half.Z
+	return math.abs(localPoint.X) <= half.X and math.abs(localPoint.Y) <= half.Y and math.abs(localPoint.Z) <= half.Z
 end
 
 local function isLikelyMutationStation(part)
 	if not part or not part:IsA("BasePart") then
 		return false
 	end
-	if part:GetAttribute("MutationUnlockStation") == true
+	if
+		part:GetAttribute("MutationUnlockStation") == true
 		or part:GetAttribute("MutationStation") == true
 		or part:GetAttribute("FeatureUnlock") == "Mutations"
 	then

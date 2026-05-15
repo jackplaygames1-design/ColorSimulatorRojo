@@ -24,6 +24,10 @@ local DISABLED = Color3.fromRGB(170, 180, 205)
 local GOLD = Color3.fromRGB(255, 218, 74)
 local PANEL = Color3.fromRGB(246, 249, 255)
 local COMING_SOON_TEXT = "COMING SOON"
+local SHOP_WINDOW_POSITION = UDim2.fromScale(0.5, 0.47)
+local SHOP_WINDOW_SIZE = UDim2.fromScale(0.76, 0.68)
+local CLOSE_BUTTON_POSITION = UDim2.new(1, -78, 0, -42)
+local CLOSE_BUTTON_SIZE = UDim2.fromOffset(70, 70)
 
 local PAGE_NAMES = {
 	Featured = "FeaturedPage",
@@ -333,16 +337,16 @@ local function styleCloseButton(shopWindow)
 			shopWindow,
 			"CloseButton",
 			"X",
-			UDim2.new(1, -72, 0, 16),
-			UDim2.fromOffset(54, 54),
+			CLOSE_BUTTON_POSITION,
+			CLOSE_BUTTON_SIZE,
 			Color3.fromRGB(188, 21, 28),
 			1006
 		)
 	end
 
-	closeButton.Position = UDim2.new(1, -72, 0, 16)
-	closeButton.Size = UDim2.fromOffset(54, 54)
-	closeButton.BackgroundColor3 = Color3.fromRGB(188, 21, 28)
+	closeButton.Position = CLOSE_BUTTON_POSITION
+	closeButton.Size = CLOSE_BUTTON_SIZE
+	closeButton.BackgroundColor3 = Color3.fromRGB(216, 24, 32)
 	closeButton.BorderSizePixel = 0
 	closeButton.ZIndex = 1006
 	applyCorner(closeButton, 14)
@@ -361,10 +365,18 @@ local function styleCloseButton(shopWindow)
 		closeButton.TextStrokeTransparency = 0
 	else
 		local runtimeText = closeButton:FindFirstChild("RuntimeText")
-		if not runtimeText or not runtimeText:IsA("TextLabel") then
-			runtimeText = makeText(
+		if runtimeText and runtimeText:IsA("GuiObject") then
+			runtimeText:Destroy()
+		end
+
+		local closeIcon = closeButton:FindFirstChild("CloseIcon")
+		if not closeIcon or not closeIcon:IsA("TextLabel") then
+			if closeIcon then
+				closeIcon:Destroy()
+			end
+			closeIcon = makeText(
 				closeButton,
-				"RuntimeText",
+				"CloseIcon",
 				"X",
 				UDim2.fromScale(0, 0),
 				UDim2.fromScale(1, 1),
@@ -373,18 +385,18 @@ local function styleCloseButton(shopWindow)
 				1007
 			)
 		end
-		runtimeText.Text = "X"
-		runtimeText.TextScaled = false
-		runtimeText.TextSize = 48
-		runtimeText.Font = Enum.Font.GothamBlack
+		closeIcon.Text = "X"
+		closeIcon.TextScaled = false
+		closeIcon.TextSize = 48
+		closeIcon.Font = Enum.Font.GothamBlack
 		pcall(function()
-			runtimeText.FontFace =
+			closeIcon.FontFace =
 				Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
 		end)
-		runtimeText.TextXAlignment = Enum.TextXAlignment.Center
-		runtimeText.TextYAlignment = Enum.TextYAlignment.Center
-		runtimeText.TextStrokeColor3 = OUTLINE
-		runtimeText.TextStrokeTransparency = 0
+		closeIcon.TextXAlignment = Enum.TextXAlignment.Center
+		closeIcon.TextYAlignment = Enum.TextYAlignment.Center
+		closeIcon.TextStrokeColor3 = OUTLINE
+		closeIcon.TextStrokeTransparency = 0
 	end
 end
 
@@ -874,8 +886,8 @@ local function ensureShopLayout(shopWindow)
 
 	clearWindowForGeneratedShop(shopWindow)
 	shopWindow.AnchorPoint = Vector2.new(0.5, 0.5)
-	shopWindow.Position = UDim2.fromScale(0.5, 0.5)
-	shopWindow.Size = UDim2.fromOffset(820, 500)
+	shopWindow.Position = SHOP_WINDOW_POSITION
+	shopWindow.Size = SHOP_WINDOW_SIZE
 	shopWindow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	shopWindow.BorderSizePixel = 0
 	shopWindow.ClipsDescendants = false

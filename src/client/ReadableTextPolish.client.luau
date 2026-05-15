@@ -73,7 +73,10 @@ local function shouldStyleText(obj)
 	if obj:IsA("TextButton") then
 		return true
 	end
-	if #text <= 18 and (obj.Name:lower():find("button") or obj.Name:lower():find("status") or obj.Name:lower():find("pill")) then
+	if
+		#text <= 18
+		and (obj.Name:lower():find("button") or obj.Name:lower():find("status") or obj.Name:lower():find("pill"))
+	then
 		return true
 	end
 	return false
@@ -104,7 +107,12 @@ end
 
 local function isDisabledButton(button)
 	local text = normalizeText(button.Text)
-	return text == "LOCKED" or text == "CLAIMED" or text == "COMING SOON" or text == "SET ID" or text == "DELETE OFF" or button.Active == false
+	return text == "LOCKED"
+		or text == "CLAIMED"
+		or text == "COMING SOON"
+		or text == "SET ID"
+		or text == "DELETE OFF"
+		or button.Active == false
 end
 
 local function applyHover(button)
@@ -119,19 +127,25 @@ local function applyHover(button)
 	local pressedColor = Color3.fromRGB(56, 190, 220)
 
 	local function tweenColor(color)
-		if not button.Parent then return end
+		if not button.Parent then
+			return
+		end
 		TweenService:Create(button, TweenInfo.new(0.10, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			BackgroundColor3 = color,
 		}):Play()
 	end
 
 	button.MouseEnter:Connect(function()
-		if isDisabledButton(button) then return end
+		if isDisabledButton(button) then
+			return
+		end
 		tweenColor(hoverColor)
 	end)
 
 	button.MouseLeave:Connect(function()
-		if not button.Parent then return end
+		if not button.Parent then
+			return
+		end
 		if isDisabledButton(button) then
 			button.BackgroundColor3 = DISABLED_GREY
 		else
@@ -140,21 +154,32 @@ local function applyHover(button)
 	end)
 
 	button.MouseButton1Down:Connect(function()
-		if isDisabledButton(button) then return end
+		if isDisabledButton(button) then
+			return
+		end
 		tweenColor(pressedColor)
 	end)
 
 	button.MouseButton1Up:Connect(function()
-		if isDisabledButton(button) then return end
+		if isDisabledButton(button) then
+			return
+		end
 		local mouseLocation = UserInputService:GetMouseLocation()
 		local pos = button.AbsolutePosition
 		local size = button.AbsoluteSize
-		local inside = mouseLocation.X >= pos.X and mouseLocation.X <= pos.X + size.X and mouseLocation.Y >= pos.Y and mouseLocation.Y <= pos.Y + size.Y
+		local inside = mouseLocation.X >= pos.X
+			and mouseLocation.X <= pos.X + size.X
+			and mouseLocation.Y >= pos.Y
+			and mouseLocation.Y <= pos.Y + size.Y
 		tweenColor(inside and hoverColor or originalColor)
 	end)
 
 	button:GetPropertyChangedSignal("BackgroundColor3"):Connect(function()
-		if not isDisabledButton(button) and button.BackgroundColor3 ~= hoverColor and button.BackgroundColor3 ~= pressedColor then
+		if
+			not isDisabledButton(button)
+			and button.BackgroundColor3 ~= hoverColor
+			and button.BackgroundColor3 ~= pressedColor
+		then
 			originalColor = button.BackgroundColor3
 		end
 	end)

@@ -17,8 +17,7 @@ local function getPlayerFromHit(hit)
 end
 
 local function isPortalPart(part)
-	return part:IsA("BasePart")
-		and (part:GetAttribute("LobbyRedZonePortal") == true or part.Name == "RedZonePortal")
+	return part:IsA("BasePart") and (part:GetAttribute("LobbyRedZonePortal") == true or part.Name == "RedZonePortal")
 end
 
 local function getRedZoneDestination()
@@ -40,7 +39,9 @@ local function getRedZoneDestination()
 
 	for _, obj in ipairs(map:GetDescendants()) do
 		if obj:IsA("BasePart") then
-			local spawnColor = obj:GetAttribute("AreaSpawnColor") or obj:GetAttribute("SpawnColor") or obj:GetAttribute("TeleportColor")
+			local spawnColor = obj:GetAttribute("AreaSpawnColor")
+				or obj:GetAttribute("SpawnColor")
+				or obj:GetAttribute("TeleportColor")
 			if spawnColor == "Red" then
 				return obj
 			end

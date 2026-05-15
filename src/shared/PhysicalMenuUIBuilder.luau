@@ -157,16 +157,16 @@ function PhysicalMenuUIBuilder.Build()
 		menu.ZIndex = 55
 	end
 
-local backdrop, createdBackdrop = findOrCreate(menu, "Frame", "Backdrop")
-if createdBackdrop then
-	backdrop.Size = UDim2.fromScale(1, 1)
-	backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	backdrop.BackgroundTransparency = 0.45
-	backdrop.BorderSizePixel = 0
-	backdrop.ZIndex = 55
-	backdrop.Active = false
-	backdrop.Selectable = false
-end
+	local backdrop, createdBackdrop = findOrCreate(menu, "Frame", "Backdrop")
+	if createdBackdrop then
+		backdrop.Size = UDim2.fromScale(1, 1)
+		backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+		backdrop.BackgroundTransparency = 0.45
+		backdrop.BorderSizePixel = 0
+		backdrop.ZIndex = 55
+		backdrop.Active = false
+		backdrop.Selectable = false
+	end
 
 	local panel, createdPanel = findOrCreate(menu, "Frame", "Panel")
 	if createdPanel then
@@ -232,7 +232,11 @@ end
 	setupMenuTile(grid, "MenuBtn_SETTINGS", "SETTINGS", 3, Color3.fromRGB(214, 211, 239))
 	setupMenuTile(grid, "MenuBtn_GAMEPASS", "MARKET", 4, Color3.fromRGB(246, 227, 99))
 
-	print("PhysicalMenuUIBuilder: PhysicalMenuUI is ready in StarterGui." .. screen.Name .. ". Edit it in Studio, then save.")
+	print(
+		"PhysicalMenuUIBuilder: PhysicalMenuUI is ready in StarterGui."
+			.. screen.Name
+			.. ". Edit it in Studio, then save."
+	)
 	return menu
 end
 

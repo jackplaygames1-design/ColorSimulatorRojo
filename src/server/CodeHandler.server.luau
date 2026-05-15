@@ -3,41 +3,43 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local codeDataModule = ReplicatedStorage:FindFirstChild("CodeData")
-local CodeData = codeDataModule and require(codeDataModule) or {
-	Codes = {
-		RELEASE = {
-			Code = "RELEASE",
-			Active = true,
-			MaxUsesPerPlayer = 1,
-			Message = "Release reward claimed!",
-			Rewards = {
-				{ Type = "Coins", Amount = 1000 },
+local CodeData = codeDataModule and require(codeDataModule)
+	or {
+		Codes = {
+			RELEASE = {
+				Code = "RELEASE",
+				Active = true,
+				MaxUsesPerPlayer = 1,
+				Message = "Release reward claimed!",
+				Rewards = {
+					{ Type = "Coins", Amount = 1000 },
+				},
+			},
+			COLOR = {
+				Code = "COLOR",
+				Active = true,
+				MaxUsesPerPlayer = 1,
+				Message = "Color boost claimed!",
+				Rewards = {
+					{ Type = "Coins", Amount = 250 },
+				},
+			},
+			PET = {
+				Code = "PET",
+				Active = true,
+				MaxUsesPerPlayer = 1,
+				Message = "Starter Color claimed!",
+				Rewards = {
+					{ Type = "Pet", PetId = "RedBlob", Amount = 5 },
+				},
 			},
 		},
-		COLOR = {
-			Code = "COLOR",
-			Active = true,
-			MaxUsesPerPlayer = 1,
-			Message = "Color boost claimed!",
-			Rewards = {
-				{ Type = "Coins", Amount = 250 },
-			},
-		},
-		PET = {
-			Code = "PET",
-			Active = true,
-			MaxUsesPerPlayer = 1,
-			Message = "Starter Color claimed!",
-			Rewards = {
-				{ Type = "Pet", PetId = "RedBlob", Amount = 5 },
-			},
-		},
-	},
-}
+	}
 
-CodeData.normalize = CodeData.normalize or function(code)
-	return string.upper((tostring(code or ""):gsub("%s+", "")))
-end
+CodeData.normalize = CodeData.normalize
+	or function(code)
+		return string.upper((tostring(code or ""):gsub("%s+", "")))
+	end
 
 CodeData.getCode = CodeData.getCode or function(code)
 	return CodeData.Codes[CodeData.normalize(code)]

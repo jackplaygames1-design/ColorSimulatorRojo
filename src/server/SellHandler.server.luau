@@ -5,10 +5,10 @@ local RunService = game:GetService("RunService")
 local DEBUG_LOGS = RunService:IsStudio()
 
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local ColorEffectHandler = require(script.Parent:WaitForChild("ColorEffectHandler"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
-local ColorEffectHandler = require(script.Parent:WaitForChild("ColorEffectHandler"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local teleportToSellEvent = Events:WaitForChild("TeleportToSell")
@@ -55,7 +55,8 @@ local function disableSellPart(sellPart)
 	end
 
 	for _, child in ipairs(sellPart:GetDescendants()) do
-		if child:IsA("ProximityPrompt")
+		if
+			child:IsA("ProximityPrompt")
 			or child:IsA("BillboardGui")
 			or child:IsA("SurfaceGui")
 			or child:IsA("ParticleEmitter")
@@ -76,14 +77,19 @@ local function sellPartMatchesColor(part, colorType)
 		return false
 	end
 
-	local sellColor = part:GetAttribute("ColorType")
-		or part:GetAttribute("AreaColor")
-		or part:GetAttribute("SellColor")
+	local sellColor = part:GetAttribute("ColorType") or part:GetAttribute("AreaColor") or part:GetAttribute("SellColor")
 	if not sellColor then
 		local worldIndex = ColorData.getWorldIndex(colorType)
-		if part.Name == tostring(colorType) .. "SellPad"
+		if
+			part.Name == tostring(colorType) .. "SellPad"
 			or part.Name == tostring(colorType) .. "SellStation"
-			or (worldIndex and (part.Name == "World" .. tostring(worldIndex) .. "Sell" or part.Name == "World" .. tostring(worldIndex) .. "_Sell"))
+			or (
+				worldIndex
+				and (
+					part.Name == "World" .. tostring(worldIndex) .. "Sell"
+					or part.Name == "World" .. tostring(worldIndex) .. "_Sell"
+				)
+			)
 		then
 			sellColor = colorType
 			part:SetAttribute("ColorType", colorType)
@@ -96,7 +102,8 @@ end
 
 local function isSellPart(obj)
 	return obj:IsA("BasePart")
-		and (obj:GetAttribute("SellZone")
+		and (
+			obj:GetAttribute("SellZone")
 			or obj:GetAttribute("SellLocation")
 			or obj.Name == "SellZone"
 			or obj.Name == "Sell"
@@ -108,7 +115,8 @@ local function isSellPart(obj)
 			or obj.Name == "World2Sell"
 			or string.match(obj.Name, "^World%d+_Sell$")
 			or string.match(obj.Name, "^World%d+Sell$")
-			or string.match(obj.Name, "SellStation$"))
+			or string.match(obj.Name, "SellStation$")
+		)
 end
 
 local function findSellPart(colorType)
@@ -200,7 +208,8 @@ end
 
 local function ensureSellVisuals(sellPart)
 	for _, child in ipairs(sellPart:GetChildren()) do
-		if (child:IsA("BasePart") and child:GetAttribute("SellZoneDecor"))
+		if
+			(child:IsA("BasePart") and child:GetAttribute("SellZoneDecor"))
 			or child:IsA("ParticleEmitter")
 			or child:IsA("PointLight")
 			or child.Name == "SellSparkles"
@@ -290,9 +299,7 @@ end
 local function isPointInside(part, worldPosition, margin)
 	local localPoint = part.CFrame:PointToObjectSpace(worldPosition)
 	local half = part.Size * 0.5 + Vector3.new(margin, margin, margin)
-	return math.abs(localPoint.X) <= half.X
-		and math.abs(localPoint.Y) <= half.Y
-		and math.abs(localPoint.Z) <= half.Z
+	return math.abs(localPoint.X) <= half.X and math.abs(localPoint.Y) <= half.Y and math.abs(localPoint.Z) <= half.Z
 end
 
 local function getHighestUnlockedColor(player)
@@ -424,7 +431,13 @@ local function handleSell(player, shouldTeleport, responseEvent)
 	responseEvent = responseEvent or teleportToSellEvent
 	if ok then
 		if DEBUG_LOGS then
-			print("Sell zone sold " .. tostring(result.colorSold) .. " Color for " .. tostring(result.coinsEarned) .. " Coins")
+			print(
+				"Sell zone sold "
+					.. tostring(result.colorSold)
+					.. " Color for "
+					.. tostring(result.coinsEarned)
+					.. " Coins"
+			)
 		end
 		responseEvent:FireClient(player, true, result)
 	else

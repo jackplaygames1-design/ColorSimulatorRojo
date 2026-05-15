@@ -1,7 +1,7 @@
 -- Script in ServerScriptService named "ZoneSpawner"
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
-local Players = game:GetService("Players")
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 
@@ -12,8 +12,8 @@ if featureFlags.RuntimeColorPopulationEnabled == false then
 end
 
 local SPAWN_CONFIG = {
-	PaintBlob    = 0.66,
-	PaintGlob    = 0.25,
+	PaintBlob = 0.66,
+	PaintGlob = 0.25,
 	PaintBoulder = 0.09,
 }
 
@@ -54,9 +54,7 @@ end
 local function isPointInside(part, worldPosition, margin)
 	local localPoint = part.CFrame:PointToObjectSpace(worldPosition)
 	local half = part.Size * 0.5 + Vector3.new(margin, margin, margin)
-	return math.abs(localPoint.X) <= half.X
-		and math.abs(localPoint.Y) <= half.Y
-		and math.abs(localPoint.Z) <= half.Z
+	return math.abs(localPoint.X) <= half.X and math.abs(localPoint.Y) <= half.Y and math.abs(localPoint.Z) <= half.Z
 end
 
 local function inferPlayableSectorColorFromName(part)
@@ -97,11 +95,53 @@ local function hasProtectedEggAncestor(part)
 	local current = part
 	while current do
 		local name = string.lower(current.Name or "")
-		if string.find(name, "egg", 1, true)
+		if
+			string.find(name, "egg", 1, true)
 			or current:GetAttribute("EggStation") == true
 			or current:GetAttribute("TutorialEgg") == true
 			or current:GetAttribute("BakedTutorialEgg") == true
 			or current:GetAttribute("EggId") ~= nil
+		then
+			return true
+		end
+		current = current.Parent
+	end
+	return false
+end
+
+local function hasNoSpawnNameOrAttribute(part)
+	if not part or not part:IsA("BasePart") then
+		return false
+	end
+	if part:IsA("SpawnLocation") then
+		return true
+	end
+	if
+		part:GetAttribute("AreaSpawn") == true
+		or part:GetAttribute("WorldSpawn") == true
+		or part:GetAttribute("SectorSpawn") == true
+		or part:GetAttribute("LobbySpawn") == true
+		or part:GetAttribute("NoColorSpawn") == true
+		or part:GetAttribute("SafeZone") == true
+		or part:GetAttribute("TeleportLocation") == true
+		or part:GetAttribute("PipeTeleport") == true
+		or part:GetAttribute("SectorInteriorEntrance") == true
+		or part:GetAttribute("SectorInteriorExit") == true
+	then
+		return true
+	end
+
+	local current = part
+	while current do
+		local name = string.lower(current.Name or "")
+		if
+			string.find(name, "spawn", 1, true)
+			or string.find(name, "teleport", 1, true)
+			or string.find(name, "safe", 1, true)
+			or string.find(name, "tutorial", 1, true)
+			or string.find(name, "pipe", 1, true)
+			or string.find(name, "portal", 1, true)
+			or string.find(name, "gate", 1, true)
 		then
 			return true
 		end
@@ -126,9 +166,13 @@ local function shouldNeverBeColorZone(part)
 		or string.find(parentName, "area", 1, true)
 	local namedPlayableSectorColor = inferPlayableSectorColorFromName(part)
 	local playableSectorFloor = part:GetAttribute("PlayableSectorFloor") == true
-	local playableNamedSectorFloor = floorishName and namedPlayableSectorColor and isSectorPlayable(namedPlayableSectorColor)
+	local playableNamedSectorFloor = floorishName
+		and namedPlayableSectorColor
+		and isSectorPlayable(namedPlayableSectorColor)
 
-	if part.Name == "SpawnEgg"
+	if
+		part:IsA("SpawnLocation")
+		or part.Name == "SpawnEgg"
 		or part:FindFirstAncestor("SpawnEgg") ~= nil
 		or part:FindFirstAncestor("PetAppearanceStudio") ~= nil
 		or part:GetAttribute("BreakableType") ~= nil
@@ -156,6 +200,7 @@ local function shouldNeverBeColorZone(part)
 		or part:GetAttribute("AreaGate") == true
 		or part:GetAttribute("GateInteraction") == true
 		or part:GetAttribute("ColorBlobSpawn") == true
+		or hasNoSpawnNameOrAttribute(part)
 	then
 		return true
 	end
@@ -163,9 +208,7 @@ local function shouldNeverBeColorZone(part)
 		return false
 	end
 
-	if part:GetAttribute("DistantSectorColumn") == true
-		or part:GetAttribute("SectorAnchor") == true
-	then
+	if part:GetAttribute("DistantSectorColumn") == true or part:GetAttribute("SectorAnchor") == true then
 		return true
 	end
 
@@ -173,9 +216,12 @@ local function shouldNeverBeColorZone(part)
 	local shop = map and map:FindFirstChild("Shop")
 	local distantSectors = map and map:FindFirstChild("DistantSectors")
 	return (shop ~= nil and part:IsDescendantOf(shop))
-		or (distantSectors ~= nil and part:IsDescendantOf(distantSectors)
+		or (
+			distantSectors ~= nil
+			and part:IsDescendantOf(distantSectors)
 			and part:GetAttribute("PlayableSectorFloor") ~= true
-			and not namedPlayableSectorColor)
+			and not namedPlayableSectorColor
+		)
 end
 
 local function looksLikeZoneSurface(part)
@@ -184,7 +230,8 @@ local function looksLikeZoneSurface(part)
 	end
 	local partName = string.lower(part.Name or "")
 	local parentName = part.Parent and string.lower(part.Parent.Name or "") or ""
-	if string.find(partName, "pipe", 1, true)
+	if
+		string.find(partName, "pipe", 1, true)
 		or string.find(parentName, "pipe", 1, true)
 		or partName == "core"
 		or partName == "glowshell"
@@ -194,7 +241,10 @@ local function looksLikeZoneSurface(part)
 		return false
 	end
 	local horizontalArea = part.Size.X * part.Size.Z
-	local largeFlatSurface = horizontalArea >= 1600 and part.Size.X >= 35 and part.Size.Z >= 35 and part.Size.Y <= math.max(8, math.min(part.Size.X, part.Size.Z) * 0.3)
+	local largeFlatSurface = horizontalArea >= 1600
+		and part.Size.X >= 35
+		and part.Size.Z >= 35
+		and part.Size.Y <= math.max(8, math.min(part.Size.X, part.Size.Z) * 0.3)
 	local namedSurface = string.find(partName, "floor")
 		or string.find(partName, "ground")
 		or string.find(partName, "zone")
@@ -208,14 +258,19 @@ local function looksLikeZoneSurface(part)
 end
 
 local function inferColorFromMapPart(part)
-	local attrColor = part:GetAttribute("ColorType") or part:GetAttribute("WorldColor") or part:GetAttribute("AreaColor")
+	local attrColor = part:GetAttribute("ColorType")
+		or part:GetAttribute("WorldColor")
+		or part:GetAttribute("AreaColor")
 	if ColorData.getWorldByColor(attrColor) and looksLikeZoneSurface(part) then
 		return attrColor
 	end
 
 	local partName = string.lower(part.Name or "")
 	local parentName = part.Parent and string.lower(part.Parent.Name or "") or ""
-	local looksLikeFloor = string.find(partName, "floor") or string.find(partName, "ground") or string.find(partName, "zone") or string.find(partName, "area")
+	local looksLikeFloor = string.find(partName, "floor")
+		or string.find(partName, "ground")
+		or string.find(partName, "zone")
+		or string.find(partName, "area")
 	for _, world in ipairs(ColorData.Worlds or {}) do
 		local color = world.primaryColor
 		local loweredColor = string.lower(color)
@@ -275,7 +330,11 @@ end
 
 local function isBakedEditableMap(map)
 	return map
-		and (map:GetAttribute("BakedEditableMap") == true or map:FindFirstChild("Lobby") or map:FindFirstChild("RedZone"))
+		and (
+			map:GetAttribute("BakedEditableMap") == true
+			or map:FindFirstChild("Lobby")
+			or map:FindFirstChild("RedZone")
+		)
 end
 
 local function getRuntimeBlobParent()
@@ -336,7 +395,7 @@ end
 
 local function randomPositionInZone(zonePart)
 	local size = zonePart.Size
-	local cf   = zonePart.CFrame
+	local cf = zonePart.CFrame
 	local rx = math.random() * size.X - size.X / 2
 	local rz = math.random() * size.Z - size.Z / 2
 	local ry = size.Y / 2
@@ -361,7 +420,20 @@ local function isProtectedSpawnBlocker(part, zone)
 		return false
 	end
 
-	if part.Name == "SpawnEgg"
+	if
+		part:IsA("SpawnLocation")
+		or hasNoSpawnNameOrAttribute(part)
+		or part:GetAttribute("NoColorSpawn") == true
+		or part:GetAttribute("SafeZone") == true
+		or part:GetAttribute("TeleportLocation") == true
+		or part:GetAttribute("PipeTeleport") == true
+		or part:GetAttribute("SectorInteriorEntrance") == true
+		or part:GetAttribute("SectorInteriorExit") == true
+		or part:GetAttribute("AreaSpawn") == true
+		or part:GetAttribute("WorldSpawn") == true
+		or part:GetAttribute("SectorSpawn") == true
+		or part:GetAttribute("LobbySpawn") == true
+		or part.Name == "SpawnEgg"
 		or part.Name == "ShopEntrance"
 		or part.Name == "Door"
 		or part.Name == "Entrance"
@@ -387,7 +459,8 @@ local function isProtectedSpawnBlocker(part, zone)
 		local ancestor = part.Parent
 		while ancestor and ancestor ~= map do
 			local name = string.lower(ancestor.Name or "")
-			if string.find(name, "shop", 1, true)
+			if
+				string.find(name, "shop", 1, true)
 				or string.find(name, "egg", 1, true)
 				or string.find(name, "spawn", 1, true)
 			then
@@ -411,7 +484,8 @@ local function collectSpawnExclusions(zone)
 end
 
 local function getExclusionPadding(part, defaultPadding)
-	if part.Name == "SpawnEgg"
+	if
+		part.Name == "SpawnEgg"
 		or part:FindFirstAncestor("SpawnEgg") ~= nil
 		or hasProtectedEggAncestor(part)
 		or part:GetAttribute("EggStation") == true
@@ -419,7 +493,8 @@ local function getExclusionPadding(part, defaultPadding)
 	then
 		return EGG_EXCLUSION_PADDING
 	end
-	if part:GetAttribute("BrushShop") == true
+	if
+		part:GetAttribute("BrushShop") == true
 		or part:GetAttribute("CombinedShop") == true
 		or part:GetAttribute("ShopStation") == true
 		or part:GetAttribute("ShopEntrance") == true
@@ -467,7 +542,12 @@ local function markerMatchesZone(marker, zone, colorType)
 	end
 
 	local markerZoneId = marker:GetAttribute("ZoneId")
-	if markerZoneId and markerZoneId ~= zone.Name and markerZoneId ~= colorType and markerZoneId ~= colorType .. "Zone" then
+	if
+		markerZoneId
+		and markerZoneId ~= zone.Name
+		and markerZoneId ~= colorType
+		and markerZoneId ~= colorType .. "Zone"
+	then
 		return false
 	end
 
@@ -575,14 +655,26 @@ local function addPuddleDetails(part)
 	local lobeCount = math.random(3, 4)
 	for i = 1, lobeCount do
 		local angle = (math.pi * 2 / lobeCount) * i + math.random(-45, 45) / 100
-		local offset = Vector3.new(math.cos(angle) * baseSize.X * math.random(24, 48) / 100, -baseSize.Y * 0.06, math.sin(angle) * baseSize.Z * math.random(22, 44) / 100)
+		local offset = Vector3.new(
+			math.cos(angle) * baseSize.X * math.random(24, 48) / 100,
+			-baseSize.Y * 0.06,
+			math.sin(angle) * baseSize.Z * math.random(22, 44) / 100
+		)
 		local lobeSize = Vector3.new(
 			baseSize.X * math.random(58, 82) / 100,
 			math.max(0.24, baseSize.Y * math.random(64, 90) / 100),
 			baseSize.Z * math.random(54, 78) / 100
 		)
 		local lobeColor = (i % 2 == 0) and lighter or darker:Lerp(baseColor, 0.72)
-		addPuddlePiece(part, "PuddleLobe", CFrame.new(offset) * CFrame.Angles(0, angle, 0), lobeSize, lobeColor, 0, part.Material)
+		addPuddlePiece(
+			part,
+			"PuddleLobe",
+			CFrame.new(offset) * CFrame.Angles(0, angle, 0),
+			lobeSize,
+			lobeColor,
+			0,
+			part.Material
+		)
 	end
 
 	addPuddlePiece(
@@ -612,7 +704,11 @@ local function addPuddleDetails(part)
 		addPuddlePiece(
 			part,
 			"PuddleSplash",
-			CFrame.new(math.cos(angle) * baseSize.X * distance, -baseSize.Y * 0.06, math.sin(angle) * baseSize.Z * distance),
+			CFrame.new(
+				math.cos(angle) * baseSize.X * distance,
+				-baseSize.Y * 0.06,
+				math.sin(angle) * baseSize.Z * distance
+			),
 			Vector3.new(baseSize.X * splashSize * 1.3, math.max(0.08, baseSize.Y * 0.18), baseSize.X * splashSize),
 			baseColor:Lerp(Color3.new(1, 1, 1), math.random(8, 26) / 100),
 			0,
@@ -623,7 +719,9 @@ end
 
 local function spawnObject(zone, breakableType, colorType, forcedPosition, exclusions)
 	local data = ColorData.Breakables[breakableType]
-	if not data then return end
+	if not data then
+		return
+	end
 	local world = ColorData.getWorldByColor(colorType)
 	local configuredRewardMult = world and tonumber(world.rewardMultiplier)
 	local zoneRewardMult = tonumber(zone:GetAttribute("RewardMultiplier"))
@@ -636,21 +734,21 @@ local function spawnObject(zone, breakableType, colorType, forcedPosition, exclu
 	end
 
 	local part = Instance.new("Part")
-	part.Name        = breakableType
-	part.Shape       = Enum.PartType.Ball
+	part.Name = breakableType
+	part.Shape = Enum.PartType.Ball
 	local sizeScale = math.random(104, 128) / 100
-	part.Size        = getPuddleSize(data.size * sizeScale)
-	part.Anchored    = true
-	part.CanCollide  = false
-	part.CanTouch    = GameBalance.Collection and GameBalance.Collection.AllowTouchCollectionFallback == true
-	part.CanQuery    = true
-	part.CastShadow  = false
-	part.Material    = math.random() < 0.22 and Enum.Material.Neon or Enum.Material.SmoothPlastic
+	part.Size = getPuddleSize(data.size * sizeScale)
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = GameBalance.Collection and GameBalance.Collection.AllowTouchCollectionFallback == true
+	part.CanQuery = true
+	part.CastShadow = false
+	part.Material = math.random() < 0.22 and Enum.Material.Neon or Enum.Material.SmoothPlastic
 
 	part.Color = getVariedThemeColor(colorType)
 
 	part:SetAttribute("BreakableType", breakableType)
-	part:SetAttribute("ColorType",     colorType)
+	part:SetAttribute("ColorType", colorType)
 	part:SetAttribute("ClusterSize", data.clusterSize or breakableType)
 	part:SetAttribute("BaseColorReward", data.baseReward or data.rewardMin or 1)
 	part:SetAttribute("RewardMultiplier", rewardMult)
@@ -664,7 +762,8 @@ local function spawnObject(zone, breakableType, colorType, forcedPosition, exclu
 	if not pos then
 		return nil
 	end
-	part.CFrame = CFrame.new(pos + Vector3.new(0, part.Size.Y / 2, 0)) * CFrame.Angles(0, math.rad(math.random(0, 359)), 0)
+	part.CFrame = CFrame.new(pos + Vector3.new(0, part.Size.Y / 2, 0))
+		* CFrame.Angles(0, math.rad(math.random(0, 359)), 0)
 	part:SetAttribute("IdleBaseCFrame", part.CFrame)
 	addPuddleDetails(part)
 	part.Transparency = COLLECTOR_BASE_TRANSPARENCY
@@ -678,7 +777,8 @@ local function countExistingActiveBlobs(colorType, zone)
 	local count = 0
 	local parent = getRuntimeBlobParent()
 	for _, obj in ipairs(parent:GetChildren()) do
-		if obj:IsA("BasePart")
+		if
+			obj:IsA("BasePart")
 			and obj:GetAttribute("BreakableType")
 			and obj:GetAttribute("ColorType") == colorType
 			and obj:GetAttribute("PaintPuddleVersion") == PUDDLE_VERSION
@@ -694,7 +794,11 @@ end
 local function removeOldBreakables()
 	local removed = 0
 	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("BasePart") and obj:GetAttribute("BreakableType") and obj:GetAttribute("PaintPuddleVersion") ~= PUDDLE_VERSION then
+		if
+			obj:IsA("BasePart")
+			and obj:GetAttribute("BreakableType")
+			and obj:GetAttribute("PaintPuddleVersion") ~= PUDDLE_VERSION
+		then
 			obj:Destroy()
 			removed += 1
 		end
@@ -705,13 +809,16 @@ local function removeOldBreakables()
 	end
 end
 
-local function removeBlockedRuntimeBreakables(zone)
+local function removeInvalidRuntimeBreakables(zone, colorType)
 	local removed = 0
 	local exclusions = collectSpawnExclusions(zone)
 	local parent = getRuntimeBlobParent()
 	for _, obj in ipairs(parent:GetChildren()) do
-		if isRuntimeBlobPart(obj) and obj:GetAttribute("ColorType") == zone:GetAttribute("ColorType") then
-			if not isPositionAllowed(obj.Position, exclusions, DEFAULT_EXCLUSION_PADDING) then
+		if isRuntimeBlobPart(obj) and isPointInside(zone, obj.Position, 4) then
+			local objColorType = obj:GetAttribute("ColorType")
+			if
+				objColorType ~= colorType or not isPositionAllowed(obj.Position, exclusions, DEFAULT_EXCLUSION_PADDING)
+			then
 				objectHealth[obj] = nil
 				obj:Destroy()
 				removed += 1
@@ -719,7 +826,7 @@ local function removeBlockedRuntimeBreakables(zone)
 		end
 	end
 	if DEBUG_LOGS and removed > 0 then
-		print("ZoneSpawner: removed " .. tostring(removed) .. " Color blobs blocked by baked gameplay objects.")
+		print("ZoneSpawner: removed " .. tostring(removed) .. " misplaced or blocked Color blobs.")
 	end
 	return removed
 end
@@ -731,9 +838,9 @@ local function scheduleRespawn(part, breakableType, colorType, delay)
 		local data = ColorData.Breakables[breakableType]
 		if data then
 			objectHealth[part] = data.health
-			part.Transparency  = part:GetAttribute("CollectorBaseTransparency") or COLLECTOR_BASE_TRANSPARENCY
-			part.CanCollide    = false
-			part.CanQuery      = true
+			part.Transparency = part:GetAttribute("CollectorBaseTransparency") or COLLECTOR_BASE_TRANSPARENCY
+			part.CanCollide = false
+			part.CanQuery = true
 			part:SetAttribute("IsCollected", false)
 			setPuddleDetailsVisible(part, true)
 
@@ -742,7 +849,9 @@ local function scheduleRespawn(part, breakableType, colorType, delay)
 				local visualColor = getStoredColor(part, colorType)
 				part.Color = visualColor
 				local light = part:FindFirstChildOfClass("PointLight")
-				if light then light.Color = visualColor end
+				if light then
+					light.Color = visualColor
+				end
 			end
 
 			local origSize = part:GetAttribute("OriginalSize") or data.size
@@ -753,7 +862,9 @@ local function scheduleRespawn(part, breakableType, colorType, delay)
 					part.Size = origSize * (i / 8)
 				end
 			end
-			if part and part.Parent then part.Size = origSize end
+			if part and part.Parent then
+				part.Size = origSize
+			end
 		end
 	end
 	if part and part.Parent then
@@ -763,8 +874,10 @@ end
 
 local function watchObject(part)
 	local breakableType = part:GetAttribute("BreakableType")
-	local colorType     = part:GetAttribute("ColorType")
-	if not breakableType or not colorType then return end
+	local colorType = part:GetAttribute("ColorType")
+	if not breakableType or not colorType then
+		return
+	end
 
 	part:GetPropertyChangedSignal("Transparency"):Connect(function()
 		setPuddleDetailsVisible(part, part.Transparency < 1)
@@ -787,30 +900,47 @@ local function populateZone(zone)
 	local spawned = 0
 	local world = ColorData.getWorldByColor(colorType)
 	local configuredCount = world and world.blobCount or 44
-	local requestedCount = math.floor(math.max(tonumber(zone:GetAttribute("BlobCount")) or 0, configuredCount) * CLUSTER_COUNT_MULTIPLIER)
+	local requestedCount =
+		math.floor(math.max(tonumber(zone:GetAttribute("BlobCount")) or 0, configuredCount) * CLUSTER_COUNT_MULTIPLIER)
 	local populationConfig = getZonePopulationConfig()
 	local maxBlobsPerZone = tonumber(populationConfig.MaxBlobsPerZone) or 80
 	local targetCount = math.min(requestedCount, maxBlobsPerZone)
 	if requestedCount > maxBlobsPerZone then
-		warn("ZoneSpawner warning: requested " .. tostring(requestedCount) .. " blobs, clamped to " .. tostring(maxBlobsPerZone))
+		warn(
+			"ZoneSpawner warning: requested "
+				.. tostring(requestedCount)
+				.. " blobs, clamped to "
+				.. tostring(maxBlobsPerZone)
+		)
 	end
 
+	removeInvalidRuntimeBreakables(zone, colorType)
 	local existingCount = countExistingActiveBlobs(colorType, zone)
-	if existingCount > 0 then
-		local removedBlocked = removeBlockedRuntimeBreakables(zone)
-		if removedBlocked > 0 then
-			existingCount = math.max(0, existingCount - removedBlocked)
-		end
-	end
 	local repopulateCooldown = tonumber(populationConfig.RepopulateCooldown) or 20
 	if existingCount >= targetCount then
 		lastPopulatedAt[zone] = lastPopulatedAt[zone] or os.clock()
-		print("ZoneSpawner: populated " .. zone.Name .. " with 0 blobs in " .. string.format("%.2f", os.clock() - startedAt) .. "s; existing=" .. tostring(existingCount) .. "/" .. tostring(targetCount))
+		print(
+			"ZoneSpawner: populated "
+				.. zone.Name
+				.. " with 0 blobs in "
+				.. string.format("%.2f", os.clock() - startedAt)
+				.. "s; existing="
+				.. tostring(existingCount)
+				.. "/"
+				.. tostring(targetCount)
+		)
 		return
 	end
 	if lastPopulatedAt[zone] and os.clock() - lastPopulatedAt[zone] < repopulateCooldown then
 		if DEBUG_LOGS then
-			print("ZoneSpawner: skipped " .. zone.Name .. " repopulation during cooldown; existing=" .. tostring(existingCount) .. "/" .. tostring(targetCount))
+			print(
+				"ZoneSpawner: skipped "
+					.. zone.Name
+					.. " repopulation during cooldown; existing="
+					.. tostring(existingCount)
+					.. "/"
+					.. tostring(targetCount)
+			)
 		end
 		return
 	end
@@ -850,7 +980,20 @@ local function populateZone(zone)
 		end
 	end
 	local elapsed = os.clock() - startedAt
-	print("ZoneSpawner: populated " .. zone.Name .. " with " .. spawned .. " blobs in " .. string.format("%.2f", elapsed) .. "s; existing=" .. tostring(existingCount) .. ", target=" .. tostring(targetCount) .. ", markers=" .. tostring(#spawnMarkers))
+	print(
+		"ZoneSpawner: populated "
+			.. zone.Name
+			.. " with "
+			.. spawned
+			.. " blobs in "
+			.. string.format("%.2f", elapsed)
+			.. "s; existing="
+			.. tostring(existingCount)
+			.. ", target="
+			.. tostring(targetCount)
+			.. ", markers="
+			.. tostring(#spawnMarkers)
+	)
 	if elapsed > 0.5 then
 		warn("ZoneSpawner: population took over 0.5s for " .. zone.Name .. "; work was batched over frames.")
 	end
@@ -862,7 +1005,9 @@ local function findZoneByColor(colorType)
 	for _, obj in ipairs(workspace:GetDescendants()) do
 		if obj:IsA("BasePart") then
 			local zoneColor = configureColorZonePart(obj)
-			if obj:GetAttribute("ColorZone") and (obj:GetAttribute("ColorType") == colorType or zoneColor == colorType) then
+			if
+				obj:GetAttribute("ColorZone") and (obj:GetAttribute("ColorType") == colorType or zoneColor == colorType)
+			then
 				local score = getZoneScore(obj)
 				if score > bestScore then
 					best = obj
@@ -985,7 +1130,8 @@ task.spawn(function()
 				for _, obj in ipairs(workspace:GetDescendants()) do
 					if obj:IsA("BasePart") then
 						local zoneColor = configureColorZonePart(obj)
-						if obj:GetAttribute("ColorZone") == true
+						if
+							obj:GetAttribute("ColorZone") == true
 							and zoneColor
 							and zoneColor ~= "Red"
 							and isPointInside(obj, root.Position, 12)

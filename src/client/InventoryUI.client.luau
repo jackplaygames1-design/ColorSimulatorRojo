@@ -1,32 +1,34 @@
 -- LocalScript in StarterPlayerScripts named "InventoryUI"
 if true then
-	warn("InventoryUI.client.luau is disabled; EditableInventoryBinder.client.luau binds MainHUD.ModalWindows.Windows.InventoryWindow.")
+	warn(
+		"InventoryUI.client.luau is disabled; EditableInventoryBinder.client.luau binds MainHUD.ModalWindows.Windows.InventoryWindow."
+	)
 	return
 end
 
-local Players           = game:GetService("Players")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService      = game:GetService("TweenService")
-local RunService        = game:GetService("RunService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
-local player    = Players.LocalPlayer
-local PetData   = require(ReplicatedStorage:WaitForChild("PetData"))
+local player = Players.LocalPlayer
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local ItemsData = require(ReplicatedStorage:WaitForChild("ItemsData"))
-local ToolData  = require(ReplicatedStorage:WaitForChild("ToolData"))
-local UITheme   = require(ReplicatedStorage:WaitForChild("UITheme"))
-local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
 local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
+local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local PetDefinitions = require(Modules:WaitForChild("PetDefinitions"))
 local PetModelUtil = require(Modules:WaitForChild("PetModelUtil"))
 
-local Events          = ReplicatedStorage:WaitForChild("Events")
+local Events = ReplicatedStorage:WaitForChild("Events")
 local petsLoadedEvent = Events:WaitForChild("PetsLoaded")
-local equipEvent      = Events:WaitForChild("EquipPet")
-local mergeEvent      = Events:WaitForChild("MergePet")
-local useEvent        = Events:WaitForChild("UseItem")
+local equipEvent = Events:WaitForChild("EquipPet")
+local mergeEvent = Events:WaitForChild("MergePet")
+local useEvent = Events:WaitForChild("UseItem")
 local equipPaintToolEvent = Events:WaitForChild("EquipPaintTool")
 
 local openInventoryBindable = ReplicatedStorage:FindFirstChild("HudOpenInventory")
@@ -62,41 +64,41 @@ local warnedLegacyInventoryOpen = false
 --   THEME
 -- ========================
 local THEME = {
-	bg        = Color3.fromRGB(255, 255, 255),
-	panel     = Color3.fromRGB(255, 255, 255),
-	stroke    = Color3.fromRGB(35, 38, 45),
-	titleBg   = UITheme.Colors.PrimaryPurple,
+	bg = Color3.fromRGB(255, 255, 255),
+	panel = Color3.fromRGB(255, 255, 255),
+	stroke = Color3.fromRGB(35, 38, 45),
+	titleBg = UITheme.Colors.PrimaryPurple,
 	titleText = Color3.fromRGB(30, 36, 48),
 	tabActive = UITheme.Colors.PrimaryPurple,
-	tabInact  = UITheme.Colors.PanelLavender,
-	cardBg    = Color3.fromRGB(255, 255, 255),
-	subtext   = Color3.fromRGB(80, 84, 104),
-	searchBg  = Color3.fromRGB(255, 255, 255),
-	green     = UITheme.Colors.PrimaryGreen,
-	red       = UITheme.Colors.ErrorRed,
-	yellow    = UITheme.Colors.PrimaryYellow,
-	pink      = Color3.fromRGB(255, 112, 218),
-	aqua      = Color3.fromRGB(122, 242, 248),
-	lavender  = Color3.fromRGB(222, 220, 255),
+	tabInact = UITheme.Colors.PanelLavender,
+	cardBg = Color3.fromRGB(255, 255, 255),
+	subtext = Color3.fromRGB(80, 84, 104),
+	searchBg = Color3.fromRGB(255, 255, 255),
+	green = UITheme.Colors.PrimaryGreen,
+	red = UITheme.Colors.ErrorRed,
+	yellow = UITheme.Colors.PrimaryYellow,
+	pink = Color3.fromRGB(255, 112, 218),
+	aqua = Color3.fromRGB(122, 242, 248),
+	lavender = Color3.fromRGB(222, 220, 255),
 	controlText = Color3.fromRGB(50, 45, 86),
 	controlTextSoft = Color3.fromRGB(84, 78, 132),
 	buttonText = Color3.fromRGB(255, 255, 255),
 }
 
 local RARITY_COLOR = {
-	Common    = Color3.fromRGB(180, 180, 180),
-	Uncommon  = Color3.fromRGB(80,  200, 80),
-	Rare      = Color3.fromRGB(80,  120, 255),
-	Epic      = Color3.fromRGB(180, 60,  255),
+	Common = Color3.fromRGB(180, 180, 180),
+	Uncommon = Color3.fromRGB(80, 200, 80),
+	Rare = Color3.fromRGB(80, 120, 255),
+	Epic = Color3.fromRGB(180, 60, 255),
 	Legendary = Color3.fromRGB(255, 200, 0),
-	Mythic    = Color3.fromRGB(255, 60,  60),
-	Event     = Color3.fromRGB(255, 140, 0),
+	Mythic = Color3.fromRGB(255, 60, 60),
+	Event = Color3.fromRGB(255, 140, 0),
 }
 
 local TIER_COLOR = {
-	Normal    = Color3.fromRGB(200, 200, 200),
-	Gilded    = Color3.fromRGB(255, 200, 50),
-	Royal     = Color3.fromRGB(180, 60,  255),
+	Normal = Color3.fromRGB(200, 200, 200),
+	Gilded = Color3.fromRGB(255, 200, 50),
+	Royal = Color3.fromRGB(180, 60, 255),
 	Celestial = Color3.fromRGB(100, 220, 255),
 }
 
@@ -108,11 +110,11 @@ local WINDOW_BUTTON_Z = 130
 -- ========================
 --   STATE
 -- ========================
-local allPets      = {}
+local allPets = {}
 local equippedPets = {}
-local favorites    = {}
-local newItems     = {}
-local playerItems  = {}
+local favorites = {}
+local newItems = {}
+local playerItems = {}
 local lastPetStateAt = 0
 local colorStorage = player:WaitForChild("ColorStorage", 10)
 local unlockedColorsValue = colorStorage and colorStorage:WaitForChild("UnlockedColors", 10)
@@ -120,11 +122,11 @@ local petFolder = player:WaitForChild("PetData", 10)
 local petInventoryValue = petFolder and petFolder:WaitForChild("Inventory", 10)
 local petEquippedValue = petFolder and petFolder:WaitForChild("Equipped", 10)
 
-local currentTab    = "Colors"
-local searchText    = ""
-local currentSort   = "Power"
+local currentTab = "Colors"
+local searchText = ""
+local currentSort = "Power"
 local currentFilter = "All"
-local isOpen        = false
+local isOpen = false
 local openedFromMenu = false
 local lastInventoryOpenedAt = 0
 
@@ -139,27 +141,25 @@ local queuedInventoryOpenContext = nil
 local queuedInventoryClose = false
 local queuedInventoryCloseContext = nil
 
-UIManager.register("Inventory",
-	function(context)
-		if toggleInventory then
-			toggleInventory(true, context)
-		else
-			queuedInventoryOpen = true
-			queuedInventoryOpenContext = context
-			queuedInventoryClose = false
-		end
-	end,
-	function(context)
-		if toggleInventory then
-			toggleInventory(false, context)
-		else
-			queuedInventoryClose = true
-			queuedInventoryCloseContext = context
-			queuedInventoryOpen = false
-		end
-	end,
-	function() return isOpen end
-)
+UIManager.register("Inventory", function(context)
+	if toggleInventory then
+		toggleInventory(true, context)
+	else
+		queuedInventoryOpen = true
+		queuedInventoryOpenContext = context
+		queuedInventoryClose = false
+	end
+end, function(context)
+	if toggleInventory then
+		toggleInventory(false, context)
+	else
+		queuedInventoryClose = true
+		queuedInventoryCloseContext = context
+		queuedInventoryOpen = false
+	end
+end, function()
+	return isOpen
+end)
 
 openInventoryBindable.Event:Connect(function(context)
 	context = type(context) == "table" and context or { from = "HUD", defaultTab = "Brushes" }
@@ -174,291 +174,292 @@ openInventoryBindable.Event:Connect(function(context)
 end)
 
 local overlay = Instance.new("Frame")
-overlay.Size             = UDim2.new(1, 0, 1, 0)
+overlay.Size = UDim2.new(1, 0, 1, 0)
 overlay.BackgroundColor3 = Color3.new(0, 0, 0)
 overlay.BackgroundTransparency = 0.4
-overlay.BorderSizePixel  = 0
-overlay.ZIndex           = 50
-overlay.Visible          = false
-overlay.Parent           = screenGui
+overlay.BorderSizePixel = 0
+overlay.ZIndex = 50
+overlay.Visible = false
+overlay.Parent = screenGui
 
 local panel = Instance.new("Frame")
-panel.AnchorPoint      = Vector2.new(0.5, 0.5)
-panel.Size             = UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT)
-panel.Position         = UDim2.fromScale(0.5, 0.5)
+panel.AnchorPoint = Vector2.new(0.5, 0.5)
+panel.Size = UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT)
+panel.Position = UDim2.fromScale(0.5, 0.5)
 panel.BackgroundColor3 = THEME.panel
-panel.BorderSizePixel  = 0
-panel.Visible          = false
-panel.ZIndex           = 60
-panel.Parent           = screenGui
+panel.BorderSizePixel = 0
+panel.Visible = false
+panel.ZIndex = 60
+panel.Parent = screenGui
 UITheme.ApplyResponsiveScale(panel, PANEL_WIDTH, PANEL_HEIGHT, 0.72, 28)
 local panelCorner = Instance.new("UICorner")
 panelCorner.CornerRadius = UDim.new(0, 28)
-panelCorner.Parent       = panel
+panelCorner.Parent = panel
 local panelStroke = Instance.new("UIStroke")
-panelStroke.Color     = THEME.stroke
+panelStroke.Color = THEME.stroke
 panelStroke.Thickness = 5
-panelStroke.Parent    = panel
+panelStroke.Parent = panel
 
 -- ========================
 --   HEADER
 -- ========================
 local header = Instance.new("Frame")
-header.Size             = UDim2.new(1, 0, 0, 64)
+header.Size = UDim2.new(1, 0, 0, 64)
 header.BackgroundColor3 = THEME.titleBg
-header.BorderSizePixel  = 0
-header.ZIndex           = 42
-header.Parent           = panel
+header.BorderSizePixel = 0
+header.ZIndex = 42
+header.Parent = panel
 local headerCorner = Instance.new("UICorner")
 headerCorner.CornerRadius = UDim.new(0, 28)
-headerCorner.Parent       = header
+headerCorner.Parent = header
 local headerStroke = Instance.new("UIStroke")
-headerStroke.Color     = Color3.new(1, 1, 1)
+headerStroke.Color = Color3.new(1, 1, 1)
 headerStroke.Thickness = 0
-headerStroke.Parent    = header
+headerStroke.Parent = header
 
 local titleL = Instance.new("TextLabel")
-titleL.Size                   = UDim2.new(1, -116, 1, 0)
-titleL.Position               = UDim2.new(0, 22, 0, 0)
+titleL.Size = UDim2.new(1, -116, 1, 0)
+titleL.Position = UDim2.new(0, 22, 0, 0)
 titleL.BackgroundTransparency = 1
-titleL.Font                   = Enum.Font.LuckiestGuy
-titleL.TextSize               = 28
-titleL.TextColor3             = Color3.new(1, 1, 1)
+titleL.Font = Enum.Font.LuckiestGuy
+titleL.TextSize = 28
+titleL.TextColor3 = Color3.new(1, 1, 1)
 titleL.TextStrokeTransparency = 0
-titleL.TextStrokeColor3       = THEME.stroke
-titleL.TextXAlignment         = Enum.TextXAlignment.Left
-titleL.Text                   = "INVENTORY"
-titleL.ZIndex                 = 64
-titleL.Parent                 = header
+titleL.TextStrokeColor3 = THEME.stroke
+titleL.TextXAlignment = Enum.TextXAlignment.Left
+titleL.Text = "INVENTORY"
+titleL.ZIndex = 64
+titleL.Parent = header
 
 local backBtn = Instance.new("TextButton")
-backBtn.Size             = UDim2.new(0, 42, 0, 42)
-backBtn.Position         = UDim2.new(0, 12, 0.5, -21)
+backBtn.Size = UDim2.new(0, 42, 0, 42)
+backBtn.Position = UDim2.new(0, 12, 0.5, -21)
 backBtn.BackgroundColor3 = UITheme.Colors.PanelCream
-backBtn.AutoButtonColor  = false
-backBtn.Font             = Enum.Font.LuckiestGuy
-backBtn.TextSize         = 26
-backBtn.TextColor3       = THEME.stroke
+backBtn.AutoButtonColor = false
+backBtn.Font = Enum.Font.LuckiestGuy
+backBtn.TextSize = 26
+backBtn.TextColor3 = THEME.stroke
 backBtn.TextStrokeTransparency = 1
-backBtn.Text             = "<"
-backBtn.Visible          = false
-backBtn.ZIndex           = 65
-backBtn.Parent           = header
+backBtn.Text = "<"
+backBtn.Visible = false
+backBtn.ZIndex = 65
+backBtn.Parent = header
 local backBtnCorner = Instance.new("UICorner")
 backBtnCorner.CornerRadius = UDim.new(0, 14)
-backBtnCorner.Parent       = backBtn
+backBtnCorner.Parent = backBtn
 local backBtnStroke = Instance.new("UIStroke")
-backBtnStroke.Color     = THEME.stroke
+backBtnStroke.Color = THEME.stroke
 backBtnStroke.Thickness = 4
-backBtnStroke.Parent    = backBtn
+backBtnStroke.Parent = backBtn
 
 local closeBtn = Instance.new("TextButton")
-closeBtn.Name             = "InventoryCloseButton"
-closeBtn.Size             = UDim2.new(0, 42, 0, 42)
-closeBtn.Position         = UDim2.new(1, -52, 0.5, -21)
+closeBtn.Name = "InventoryCloseButton"
+closeBtn.Size = UDim2.new(0, 42, 0, 42)
+closeBtn.Position = UDim2.new(1, -52, 0.5, -21)
 closeBtn.BackgroundColor3 = THEME.red
-closeBtn.AutoButtonColor  = false
-closeBtn.Active           = true
-closeBtn.Selectable       = true
-closeBtn.Font             = Enum.Font.LuckiestGuy
-closeBtn.TextSize         = 22
-closeBtn.TextColor3       = Color3.new(1, 1, 1)
+closeBtn.AutoButtonColor = false
+closeBtn.Active = true
+closeBtn.Selectable = true
+closeBtn.Font = Enum.Font.LuckiestGuy
+closeBtn.TextSize = 22
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
 closeBtn.TextStrokeTransparency = 0
 closeBtn.TextStrokeColor3 = THEME.stroke
-closeBtn.Text             = "X"
-closeBtn.ZIndex           = WINDOW_BUTTON_Z
+closeBtn.Text = "X"
+closeBtn.ZIndex = WINDOW_BUTTON_Z
 closeBtn:SetAttribute("NoTextGlow", true)
-closeBtn.Parent           = header
+closeBtn.Parent = header
 local closeBtnCorner = Instance.new("UICorner")
 closeBtnCorner.CornerRadius = UDim.new(0, 14)
-closeBtnCorner.Parent       = closeBtn
+closeBtnCorner.Parent = closeBtn
 local closeBtnStroke = Instance.new("UIStroke")
-closeBtnStroke.Color     = THEME.stroke
+closeBtnStroke.Color = THEME.stroke
 closeBtnStroke.Thickness = 4
-closeBtnStroke.Parent    = closeBtn
+closeBtnStroke.Parent = closeBtn
 
 -- ========================
 --   SEARCH + SORT + FILTER
 -- ========================
 local toolRow = Instance.new("Frame")
-toolRow.Size             = UDim2.new(1, -24, 0, 38)
-toolRow.Position         = UDim2.new(0, 12, 0, 70)
+toolRow.Size = UDim2.new(1, -24, 0, 38)
+toolRow.Position = UDim2.new(0, 12, 0, 70)
 toolRow.BackgroundTransparency = 1
-toolRow.ZIndex           = 42
-toolRow.Parent           = panel
+toolRow.ZIndex = 42
+toolRow.Parent = panel
 local toolLayout = Instance.new("UIListLayout")
-toolLayout.FillDirection     = Enum.FillDirection.Horizontal
+toolLayout.FillDirection = Enum.FillDirection.Horizontal
 toolLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-toolLayout.Padding           = UDim.new(0, 8)
-toolLayout.Parent            = toolRow
+toolLayout.Padding = UDim.new(0, 8)
+toolLayout.Parent = toolRow
 
 local searchBox = Instance.new("TextBox")
-searchBox.Size             = UDim2.new(0, 240, 0, 34)
+searchBox.Size = UDim2.new(0, 240, 0, 34)
 searchBox.BackgroundColor3 = THEME.searchBg
-searchBox.BorderSizePixel  = 0
-searchBox.Font             = Enum.Font.GothamBold
-searchBox.TextSize         = 15
-searchBox.TextColor3       = THEME.controlText
+searchBox.BorderSizePixel = 0
+searchBox.Font = Enum.Font.GothamBold
+searchBox.TextSize = 15
+searchBox.TextColor3 = THEME.controlText
 searchBox.TextStrokeTransparency = 1
-searchBox.PlaceholderText  = "Search..."
+searchBox.PlaceholderText = "Search..."
 searchBox.PlaceholderColor3 = THEME.controlTextSoft
-searchBox.Text             = ""
+searchBox.Text = ""
 searchBox.ClipsDescendants = false
 searchBox:SetAttribute("NoTextGlow", true)
-searchBox.ZIndex           = 43
-searchBox.Parent           = toolRow
+searchBox.ZIndex = 43
+searchBox.Parent = toolRow
 local searchPadding = Instance.new("UIPadding")
 searchPadding.PaddingLeft = UDim.new(0, 12)
 searchPadding.PaddingRight = UDim.new(0, 10)
 searchPadding.Parent = searchBox
 local searchCorner = Instance.new("UICorner")
 searchCorner.CornerRadius = UDim.new(0, 10)
-searchCorner.Parent       = searchBox
+searchCorner.Parent = searchBox
 local searchStroke = Instance.new("UIStroke")
-searchStroke.Color     = THEME.stroke
+searchStroke.Color = THEME.stroke
 searchStroke.Thickness = 4
-searchStroke.Parent    = searchBox
+searchStroke.Parent = searchBox
 
-local SORT_OPTIONS = {"Power","Name","Rarity","Stack","Newest"}
+local SORT_OPTIONS = { "Power", "Name", "Rarity", "Stack", "Newest" }
 local sortIdx = 1
 
 local sortBtn = Instance.new("TextButton")
-sortBtn.Size             = UDim2.new(0, 148, 0, 34)
+sortBtn.Size = UDim2.new(0, 148, 0, 34)
 sortBtn.BackgroundColor3 = THEME.searchBg
-sortBtn.AutoButtonColor  = false
-sortBtn.Font             = Enum.Font.GothamBold
-sortBtn.TextSize         = 15
-sortBtn.TextColor3       = THEME.controlText
+sortBtn.AutoButtonColor = false
+sortBtn.Font = Enum.Font.GothamBold
+sortBtn.TextSize = 15
+sortBtn.TextColor3 = THEME.controlText
 sortBtn.TextStrokeTransparency = 1
 sortBtn.TextStrokeColor3 = Color3.new(1, 1, 1)
-sortBtn.Text             = "Sort: Power V"
+sortBtn.Text = "Sort: Power V"
 sortBtn.ClipsDescendants = false
 sortBtn:SetAttribute("NoTextGlow", true)
-sortBtn.ZIndex           = 43
-sortBtn.Parent           = toolRow
+sortBtn.ZIndex = 43
+sortBtn.Parent = toolRow
 local sortCorner = Instance.new("UICorner")
 sortCorner.CornerRadius = UDim.new(0, 10)
-sortCorner.Parent       = sortBtn
+sortCorner.Parent = sortBtn
 local sortStroke2 = Instance.new("UIStroke")
-sortStroke2.Color     = THEME.stroke
+sortStroke2.Color = THEME.stroke
 sortStroke2.Thickness = 3
-sortStroke2.Parent    = sortBtn
+sortStroke2.Parent = sortBtn
 
-local FILTER_OPTIONS = {"All","Equipped","Unequipped","Favorites","Common","Uncommon","Rare","Epic","Legendary"}
+local FILTER_OPTIONS =
+	{ "All", "Equipped", "Unequipped", "Favorites", "Common", "Uncommon", "Rare", "Epic", "Legendary" }
 local filterIdx = 1
 
 local filterBtn = Instance.new("TextButton")
-filterBtn.Size             = UDim2.new(0, 156, 0, 34)
+filterBtn.Size = UDim2.new(0, 156, 0, 34)
 filterBtn.BackgroundColor3 = THEME.searchBg
-filterBtn.AutoButtonColor  = false
-filterBtn.Font             = Enum.Font.GothamBold
-filterBtn.TextSize         = 15
-filterBtn.TextColor3       = THEME.controlText
+filterBtn.AutoButtonColor = false
+filterBtn.Font = Enum.Font.GothamBold
+filterBtn.TextSize = 15
+filterBtn.TextColor3 = THEME.controlText
 filterBtn.TextStrokeTransparency = 1
 filterBtn.TextStrokeColor3 = Color3.new(1, 1, 1)
-filterBtn.Text             = "Filter: All V"
+filterBtn.Text = "Filter: All V"
 filterBtn.ClipsDescendants = false
 filterBtn:SetAttribute("NoTextGlow", true)
-filterBtn.ZIndex           = 43
-filterBtn.Parent           = toolRow
+filterBtn.ZIndex = 43
+filterBtn.Parent = toolRow
 local filterCorner = Instance.new("UICorner")
 filterCorner.CornerRadius = UDim.new(0, 10)
-filterCorner.Parent       = filterBtn
+filterCorner.Parent = filterBtn
 local filterStroke2 = Instance.new("UIStroke")
-filterStroke2.Color     = THEME.stroke
+filterStroke2.Color = THEME.stroke
 filterStroke2.Thickness = 3
-filterStroke2.Parent    = filterBtn
+filterStroke2.Parent = filterBtn
 
 -- ========================
 --   TAB BAR
 -- ========================
-local TABS = {"Colors","Brushes"}
+local TABS = { "Colors", "Brushes" }
 local TAB_ICONS = {
-	Colors      = "COLORS",
-	Brushes     = "BRUSHES",
+	Colors = "COLORS",
+	Brushes = "BRUSHES",
 }
 
 local tabBar = Instance.new("Frame")
-tabBar.Size             = UDim2.new(1, -24, 0, 42)
-tabBar.Position         = UDim2.new(0, 12, 0, 114)
+tabBar.Size = UDim2.new(1, -24, 0, 42)
+tabBar.Position = UDim2.new(0, 12, 0, 114)
 tabBar.BackgroundColor3 = THEME.searchBg
-tabBar.BorderSizePixel  = 0
-tabBar.ZIndex           = 42
-tabBar.Parent           = panel
+tabBar.BorderSizePixel = 0
+tabBar.ZIndex = 42
+tabBar.Parent = panel
 local tabBarCorner = Instance.new("UICorner")
 tabBarCorner.CornerRadius = UDim.new(0, 14)
-tabBarCorner.Parent       = tabBar
+tabBarCorner.Parent = tabBar
 local tabBarStroke = Instance.new("UIStroke")
-tabBarStroke.Color     = THEME.stroke
+tabBarStroke.Color = THEME.stroke
 tabBarStroke.Thickness = 4
-tabBarStroke.Parent    = tabBar
+tabBarStroke.Parent = tabBar
 local tabLayout = Instance.new("UIListLayout")
-tabLayout.FillDirection       = Enum.FillDirection.Horizontal
+tabLayout.FillDirection = Enum.FillDirection.Horizontal
 tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-tabLayout.VerticalAlignment   = Enum.VerticalAlignment.Center
-tabLayout.Padding             = UDim.new(0, 5)
-tabLayout.Parent              = tabBar
+tabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+tabLayout.Padding = UDim.new(0, 5)
+tabLayout.Parent = tabBar
 local tabPad = Instance.new("UIPadding")
-tabPad.PaddingLeft  = UDim.new(0, 6)
+tabPad.PaddingLeft = UDim.new(0, 6)
 tabPad.PaddingRight = UDim.new(0, 6)
-tabPad.Parent       = tabBar
+tabPad.Parent = tabBar
 
 -- ========================
 --   ACTION BAR
 -- ========================
 local actionBar = Instance.new("Frame")
-actionBar.Size             = UDim2.new(1, -24, 0, 34)
-actionBar.Position         = UDim2.new(0, 12, 0, 162)
+actionBar.Size = UDim2.new(1, -24, 0, 34)
+actionBar.Position = UDim2.new(0, 12, 0, 162)
 actionBar.BackgroundTransparency = 1
-actionBar.ZIndex           = 42
-actionBar.Parent           = panel
+actionBar.ZIndex = 42
+actionBar.Parent = panel
 local actionLayout = Instance.new("UIListLayout")
-actionLayout.FillDirection     = Enum.FillDirection.Horizontal
+actionLayout.FillDirection = Enum.FillDirection.Horizontal
 actionLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-actionLayout.Padding           = UDim.new(0, 6)
-actionLayout.Parent            = actionBar
+actionLayout.Padding = UDim.new(0, 6)
+actionLayout.Parent = actionBar
 
 local function makeActionBtn(text, bg, tc)
 	local b = Instance.new("TextButton")
-	b.AutomaticSize    = Enum.AutomaticSize.X
-	b.Size             = UDim2.new(0, 0, 0, 28)
+	b.AutomaticSize = Enum.AutomaticSize.X
+	b.Size = UDim2.new(0, 0, 0, 28)
 	b.BackgroundColor3 = bg
-	b.AutoButtonColor  = false
-	b.Font             = Enum.Font.GothamBold
-	b.TextSize         = 14
-	b.TextColor3       = Color3.new(1, 1, 1)
+	b.AutoButtonColor = false
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 14
+	b.TextColor3 = Color3.new(1, 1, 1)
 	b.TextStrokeTransparency = 0.45
 	b.TextStrokeColor3 = THEME.stroke
-	b.Text             = "  " .. text .. "  "
-	b.ZIndex           = 43
-	b.Parent           = actionBar
+	b.Text = "  " .. text .. "  "
+	b.ZIndex = 43
+	b.Parent = actionBar
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, 10)
-	c.Parent       = b
+	c.Parent = b
 	local s = Instance.new("UIStroke")
-	s.Color     = THEME.stroke
+	s.Color = THEME.stroke
 	s.Thickness = 3
-	s.Parent    = b
+	s.Parent = b
 	return b
 end
 
-local equipBestBtn  = makeActionBtn("EQUIP BEST",     THEME.green,   Color3.new(1,1,1))
-local unequipAllBtn = makeActionBtn("UNEQUIP ALL",    THEME.red,     Color3.new(1,1,1))
+local equipBestBtn = makeActionBtn("EQUIP BEST", THEME.green, Color3.new(1, 1, 1))
+local unequipAllBtn = makeActionBtn("UNEQUIP ALL", THEME.red, Color3.new(1, 1, 1))
 
 -- ========================
 --   CONTENT SCROLL
 -- ========================
 local contentScroll = Instance.new("ScrollingFrame")
-contentScroll.Size                 = UDim2.new(1, -24, 1, -210)
-contentScroll.Position             = UDim2.new(0, 12, 0, 202)
+contentScroll.Size = UDim2.new(1, -24, 1, -210)
+contentScroll.Position = UDim2.new(0, 12, 0, 202)
 contentScroll.BackgroundTransparency = 0
 contentScroll.BackgroundColor3 = Color3.fromRGB(250, 255, 255)
-contentScroll.BorderSizePixel      = 0
-contentScroll.ScrollBarThickness   = 6
+contentScroll.BorderSizePixel = 0
+contentScroll.ScrollBarThickness = 6
 contentScroll.ScrollBarImageColor3 = THEME.stroke
-contentScroll.CanvasSize           = UDim2.new(0, 0, 0, 0)
-contentScroll.ZIndex               = 42
-contentScroll.Parent               = panel
+contentScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+contentScroll.ZIndex = 42
+contentScroll.Parent = panel
 local contentCorner = Instance.new("UICorner")
 contentCorner.CornerRadius = UDim.new(0, 18)
 contentCorner.Parent = contentScroll
@@ -468,15 +469,15 @@ contentStroke.Thickness = 4
 contentStroke.Parent = contentScroll
 
 local contentGrid = Instance.new("UIGridLayout")
-contentGrid.CellSize    = UDim2.new(0, 148, 0, 190)
+contentGrid.CellSize = UDim2.new(0, 148, 0, 190)
 contentGrid.CellPadding = UDim2.new(0, 10, 0, 10)
-contentGrid.Parent      = contentScroll
+contentGrid.Parent = contentScroll
 local contentPad = Instance.new("UIPadding")
-contentPad.PaddingLeft   = UDim.new(0, 8)
-contentPad.PaddingTop    = UDim.new(0, 8)
-contentPad.PaddingRight  = UDim.new(0, 8)
+contentPad.PaddingLeft = UDim.new(0, 8)
+contentPad.PaddingTop = UDim.new(0, 8)
+contentPad.PaddingRight = UDim.new(0, 8)
 contentPad.PaddingBottom = UDim.new(0, 8)
-contentPad.Parent        = contentScroll
+contentPad.Parent = contentScroll
 
 local emptyLayer = Instance.new("Frame")
 emptyLayer.Size = contentScroll.Size
@@ -487,23 +488,23 @@ emptyLayer.ZIndex = 46
 emptyLayer.Parent = panel
 
 local emptyLabel = Instance.new("TextLabel")
-emptyLabel.Size                   = UDim2.new(1, -40, 0, 60)
-emptyLabel.AnchorPoint            = Vector2.new(0.5, 0.5)
-emptyLabel.Position               = UDim2.fromScale(0.5, 0.5)
+emptyLabel.Size = UDim2.new(1, -40, 0, 60)
+emptyLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+emptyLabel.Position = UDim2.fromScale(0.5, 0.5)
 emptyLabel.BackgroundTransparency = 1
-emptyLabel.Font                   = Enum.Font.LuckiestGuy
-emptyLabel.TextSize               = 24
-emptyLabel.TextScaled             = true
-emptyLabel.TextXAlignment         = Enum.TextXAlignment.Center
-emptyLabel.TextYAlignment         = Enum.TextYAlignment.Center
-emptyLabel.TextColor3             = THEME.subtext
-emptyLabel.Text                   = "Nothing here yet!"
-emptyLabel.Visible                = false
-emptyLabel.Active                 = false
-emptyLabel.TextWrapped            = true
+emptyLabel.Font = Enum.Font.LuckiestGuy
+emptyLabel.TextSize = 24
+emptyLabel.TextScaled = true
+emptyLabel.TextXAlignment = Enum.TextXAlignment.Center
+emptyLabel.TextYAlignment = Enum.TextYAlignment.Center
+emptyLabel.TextColor3 = THEME.subtext
+emptyLabel.Text = "Nothing here yet!"
+emptyLabel.Visible = false
+emptyLabel.Active = false
+emptyLabel.TextWrapped = true
 emptyLabel:SetAttribute("NoTextGlow", true)
-emptyLabel.ZIndex                 = 46
-emptyLabel.Parent                 = emptyLayer
+emptyLabel.ZIndex = 46
+emptyLabel.Parent = emptyLayer
 local emptyTextConstraint = Instance.new("UITextSizeConstraint")
 emptyTextConstraint.MaxTextSize = 30
 emptyTextConstraint.Parent = emptyLabel
@@ -760,8 +761,7 @@ local function isFeatureUnlocked(featureName)
 		return unlocked and unlocked:IsA("BoolValue") and unlocked.Value == true
 	end
 
-	local requiredIndex = GameBalance.getFeatureUnlockWorldIndex
-		and GameBalance.getFeatureUnlockWorldIndex(featureName)
+	local requiredIndex = GameBalance.getFeatureUnlockWorldIndex and GameBalance.getFeatureUnlockWorldIndex(featureName)
 		or 1
 	return getHighestUnlockedWorldIndex() >= requiredIndex
 end
@@ -777,66 +777,67 @@ end
 --   FEEDBACK POPUP (defined FIRST so card builders can use it)
 -- ========================
 local function showItemFeedback(success, message, color)
-	local popColor = color
-		or (success and Color3.fromRGB(100,210,130) or Color3.fromRGB(255,130,150))
+	local popColor = color or (success and Color3.fromRGB(100, 210, 130) or Color3.fromRGB(255, 130, 150))
 
 	local popup = Instance.new("Frame")
-	popup.Size             = UDim2.new(0, 340, 0, 68)
-	popup.Position         = UDim2.new(0.5, -170, 0, -80)
-	popup.BackgroundColor3 = Color3.fromRGB(255,248,252)
-	popup.BorderSizePixel  = 0
-	popup.ZIndex           = 300
-	popup.Parent           = screenGui
+	popup.Size = UDim2.new(0, 340, 0, 68)
+	popup.Position = UDim2.new(0.5, -170, 0, -80)
+	popup.BackgroundColor3 = Color3.fromRGB(255, 248, 252)
+	popup.BorderSizePixel = 0
+	popup.ZIndex = 300
+	popup.Parent = screenGui
 	local popCorner = Instance.new("UICorner")
 	popCorner.CornerRadius = UDim.new(0, 16)
-	popCorner.Parent       = popup
+	popCorner.Parent = popup
 	local popStroke = Instance.new("UIStroke")
-	popStroke.Color     = popColor
+	popStroke.Color = popColor
 	popStroke.Thickness = 3
-	popStroke.Parent    = popup
+	popStroke.Parent = popup
 
 	local strip = Instance.new("Frame")
-	strip.Size             = UDim2.new(0, 58, 1, 0)
+	strip.Size = UDim2.new(0, 58, 1, 0)
 	strip.BackgroundColor3 = popColor
-	strip.BorderSizePixel  = 0
-	strip.ZIndex           = 301
-	strip.Parent           = popup
+	strip.BorderSizePixel = 0
+	strip.ZIndex = 301
+	strip.Parent = popup
 	local sCorner = Instance.new("UICorner")
 	sCorner.CornerRadius = UDim.new(0, 16)
-	sCorner.Parent       = strip
+	sCorner.Parent = strip
 
 	local iconL = Instance.new("TextLabel")
-	iconL.Size                   = UDim2.new(0, 58, 1, 0)
+	iconL.Size = UDim2.new(0, 58, 1, 0)
 	iconL.BackgroundTransparency = 1
-	iconL.Font                   = Enum.Font.LuckiestGuy
-	iconL.TextSize               = 28
-	iconL.TextColor3             = Color3.new(1,1,1)
-	iconL.Text                   = success and "OK" or "NO"
-	iconL.ZIndex                 = 302
-	iconL.Parent                 = popup
+	iconL.Font = Enum.Font.LuckiestGuy
+	iconL.TextSize = 28
+	iconL.TextColor3 = Color3.new(1, 1, 1)
+	iconL.Text = success and "OK" or "NO"
+	iconL.ZIndex = 302
+	iconL.Parent = popup
 
 	local msgL = Instance.new("TextLabel")
-	msgL.Size                   = UDim2.new(1,-68,1,0)
-	msgL.Position               = UDim2.new(0,64,0,0)
+	msgL.Size = UDim2.new(1, -68, 1, 0)
+	msgL.Position = UDim2.new(0, 64, 0, 0)
 	msgL.BackgroundTransparency = 1
-	msgL.Font                   = Enum.Font.GothamBold
-	msgL.TextSize               = 13
-	msgL.TextWrapped            = true
-	msgL.TextXAlignment         = Enum.TextXAlignment.Left
-	msgL.TextColor3             = THEME.titleText
-	msgL.Text                   = message
-	msgL.ZIndex                 = 302
-	msgL.Parent                 = popup
+	msgL.Font = Enum.Font.GothamBold
+	msgL.TextSize = 13
+	msgL.TextWrapped = true
+	msgL.TextXAlignment = Enum.TextXAlignment.Left
+	msgL.TextColor3 = THEME.titleText
+	msgL.Text = message
+	msgL.ZIndex = 302
+	msgL.Parent = popup
 
 	TweenService:Create(popup, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-		Position = UDim2.new(0.5,-170,0,80)
+		Position = UDim2.new(0.5, -170, 0, 80),
 	}):Play()
 	task.wait(2.5)
 	TweenService:Create(popup, TweenInfo.new(0.2), {
-		Position = UDim2.new(0.5,-170,0,-80)
+		Position = UDim2.new(0.5, -170, 0, -80),
 	}):Play()
 	task.wait(0.2)
-	if popup and popup.Parent then popup:Destroy() end
+	if popup and popup.Parent then
+		popup:Destroy()
+	end
 end
 
 -- ========================
@@ -926,7 +927,9 @@ local function applyPetState(inventory, equipped)
 	equipped = equipped or {}
 
 	if #inventory == 0 and #allPets > 0 and os.clock() - lastPetStateAt < 1.5 then
-		if isOpen then refreshContent() end
+		if isOpen then
+			refreshContent()
+		end
 		warn("InventoryUI: ignored a transient empty Color inventory update.")
 		return
 	end
@@ -953,7 +956,9 @@ local function applyPetState(inventory, equipped)
 		resetHiddenColorFiltersForNewItems()
 	end
 
-	if isOpen then refreshContent() end
+	if isOpen then
+		refreshContent()
+	end
 	if detailPanel.Visible and selectedDetailEntry then
 		local selectedKey = getEntryKey(selectedDetailEntry)
 		for _, entry in ipairs(allPets) do
@@ -983,13 +988,19 @@ end
 local function isEquipped(entryOrKey)
 	local key = getEntryKey(entryOrKey)
 	for _, id in ipairs(equippedPets) do
-		if id == key then return true end
+		if id == key then
+			return true
+		end
 		if typeof(entryOrKey) == "table" and type(id) == "string" then
 			local parts = string.split(id, "|")
 			if #parts >= 3 and parts[1] == entryOrKey.petId then
-				local mutationMatches = PetData.normalizeMutationId(parts[3]) == PetData.normalizeMutationId(entryOrKey.mutationId)
+				local mutationMatches = PetData.normalizeMutationId(parts[3])
+					== PetData.normalizeMutationId(entryOrKey.mutationId)
 				local traitMatches = PetData.normalizeTraitId(parts[2]) == PetData.normalizeTraitId(entryOrKey.traitId)
-					or (PetData.normalizeTraitId(parts[2]) == "Neutral" and PetData.normalizeTraitId(entryOrKey.traitId) == "Neutral")
+					or (
+						PetData.normalizeTraitId(parts[2]) == "Neutral"
+						and PetData.normalizeTraitId(entryOrKey.traitId) == "Neutral"
+					)
 				if mutationMatches and traitMatches then
 					return true
 				end
@@ -1013,7 +1024,9 @@ local function getMaxSlots()
 	local pf = player:FindFirstChild("PetData")
 	if pf then
 		local v = pf:FindFirstChild("MaxSlots")
-		if v then return v.Value end
+		if v then
+			return v.Value
+		end
 	end
 	return 3
 end
@@ -1030,7 +1043,8 @@ local function getOwnedPaintToolSet()
 end
 
 local function getEquippedPaintToolId()
-	return equippedPaintToolValue and equippedPaintToolValue.Value ~= "" and equippedPaintToolValue.Value or "StarterBrush"
+	return equippedPaintToolValue and equippedPaintToolValue.Value ~= "" and equippedPaintToolValue.Value
+		or "StarterBrush"
 end
 
 local function setItemQuantity(itemId, quantity)
@@ -1067,11 +1081,12 @@ function showColorDetails(entry)
 	end
 
 	selectedDetailEntry = entry
-	local pet = PetData.Pets[entry.petId] or {
-		displayName = "Unknown Color",
-		rarity = "Unknown",
-		color = entry.baseColor or entry.auraColor or Color3.fromRGB(170, 180, 205),
-	}
+	local pet = PetData.Pets[entry.petId]
+		or {
+			displayName = "Unknown Color",
+			rarity = "Unknown",
+			color = entry.baseColor or entry.auraColor or Color3.fromRGB(170, 180, 205),
+		}
 	local rarityColor = RARITY_COLOR[entry.rarity] or THEME.titleText
 	local hasMutation = entry.hasMutation == true
 	local definition = PetDefinitions.Get(entry.petId)
@@ -1098,18 +1113,25 @@ function showColorDetails(entry)
 	if isFeatureUnlocked("Traits") then
 		detailTrait.Visible = true
 		detailTrait.Text = "TRAIT: " .. traitName .. "\n" .. traitDescription
-		detailTrait.BackgroundColor3 = (entry.traitTextColor or entry.personalityColor or UITheme.Colors.PrimaryBlue):Lerp(Color3.new(1, 1, 1), 0.72)
+		detailTrait.BackgroundColor3 = (entry.traitTextColor or entry.personalityColor or UITheme.Colors.PrimaryBlue):Lerp(
+			Color3.new(1, 1, 1),
+			0.72
+		)
 	else
 		detailTrait.Visible = false
 	end
 
 	local mutationName = hasMutation and tostring(entry.mutationName or "Mutation") or "Normal"
-	local mutationDescription = hasMutation and tostring(entry.mutationDescription or "Special mutation bonus.") or "No mutation on this Color."
+	local mutationDescription = hasMutation and tostring(entry.mutationDescription or "Special mutation bonus.")
+		or "No mutation on this Color."
 	if hasMutation then
 		detailMutation.Visible = true
-		detailMutation.Text = tostring(entry.mutationType or "Mutation") .. " MUTATION: " .. mutationName .. "\n" .. mutationDescription
-		detailMutation.BackgroundColor3 = hasMutation
-			and auraColor:Lerp(Color3.new(1, 1, 1), 0.68)
+		detailMutation.Text = tostring(entry.mutationType or "Mutation")
+			.. " MUTATION: "
+			.. mutationName
+			.. "\n"
+			.. mutationDescription
+		detailMutation.BackgroundColor3 = hasMutation and auraColor:Lerp(Color3.new(1, 1, 1), 0.68)
 			or UITheme.Colors.PanelLavender
 	else
 		detailMutation.Visible = false
@@ -1162,55 +1184,54 @@ end)
 --   BUILD PET CARD
 -- ========================
 local function buildPetCard(entry)
-	local pet = PetData.Pets[entry.petId] or {
-		displayName = "Unknown Color",
-		rarity = "Unknown",
-		color = entry.baseColor or entry.auraColor or Color3.fromRGB(170, 180, 205),
-	}
-	local tierName    = entry.currentStackTier or "Normal"
-	local tierColor   = TIER_COLOR[tierName]   or Color3.fromRGB(200,200,200)
-	local rarityColor = RARITY_COLOR[entry.rarity] or Color3.fromRGB(160,160,160)
-	local isTierUp    = tierName ~= "Normal"
-	local variantKey  = getEntryKey(entry)
+	local pet = PetData.Pets[entry.petId]
+		or {
+			displayName = "Unknown Color",
+			rarity = "Unknown",
+			color = entry.baseColor or entry.auraColor or Color3.fromRGB(170, 180, 205),
+		}
+	local tierName = entry.currentStackTier or "Normal"
+	local tierColor = TIER_COLOR[tierName] or Color3.fromRGB(200, 200, 200)
+	local rarityColor = RARITY_COLOR[entry.rarity] or Color3.fromRGB(160, 160, 160)
+	local isTierUp = tierName ~= "Normal"
+	local variantKey = getEntryKey(entry)
 	local hasMutation = entry.hasMutation == true
 	local definition = PetDefinitions.Get(entry.petId)
 	local iconColor = definition and definition.IconColor or pet.color
 	local cardColor = definition and definition.CardColor or THEME.cardBg
 	local accentColor = definition and definition.AccentColor or rarityColor
 	local useRainbowGradient = definition and definition.UseRainbowGradient == true
-	local mainColor   = hasMutation and (entry.auraColor or rarityColor) or (isTierUp and tierColor or accentColor)
-	local equipped    = isEquipped(entry)
-	local mergeInfo   = PetData.getMergeInfo(entry.stackAmount)
-	local canMerge    = mergeInfo.canMerge == true
+	local mainColor = hasMutation and (entry.auraColor or rarityColor) or (isTierUp and tierColor or accentColor)
+	local equipped = isEquipped(entry)
+	local mergeInfo = PetData.getMergeInfo(entry.stackAmount)
+	local canMerge = mergeInfo.canMerge == true
 	local mergeUnlocked = isFeatureUnlocked("Merge")
 	local showMergeButton = mergeUnlocked and canMerge
 	local traitsUnlocked = isFeatureUnlocked("Traits")
 	local mutationsUnlocked = isFeatureUnlocked("Mutations")
 
 	local card = Instance.new("TextButton")
-	card.Size             = UDim2.new(0,148,0,190)
-	card.BackgroundColor3 = (isTierUp or hasMutation)
-		and entry.auraColor:Lerp(Color3.new(1,1,1),0.85)
-		or  cardColor
-	card.AutoButtonColor  = false
-	card.Text             = ""
-	card.BorderSizePixel  = 0
-	card.ZIndex           = 44
-	card.Parent           = contentScroll
+	card.Size = UDim2.new(0, 148, 0, 190)
+	card.BackgroundColor3 = (isTierUp or hasMutation) and entry.auraColor:Lerp(Color3.new(1, 1, 1), 0.85) or cardColor
+	card.AutoButtonColor = false
+	card.Text = ""
+	card.BorderSizePixel = 0
+	card.ZIndex = 44
+	card.Parent = contentScroll
 	local cc = Instance.new("UICorner")
-	cc.CornerRadius = UDim.new(0,16)
-	cc.Parent       = card
+	cc.CornerRadius = UDim.new(0, 16)
+	cc.Parent = card
 	local cs = Instance.new("UIStroke")
-	cs.Color     = equipped and mainColor or THEME.stroke
+	cs.Color = equipped and mainColor or THEME.stroke
 	cs.Thickness = equipped and 5 or 3
-	cs.Parent    = card
+	cs.Parent = card
 
 	local cardH = Instance.new("Frame")
-	cardH.Size             = UDim2.new(1,0,0,70)
-	cardH.BackgroundColor3 = mainColor:Lerp(Color3.new(1,1,1),0.35)
-	cardH.BorderSizePixel  = 0
-	cardH.ZIndex           = 45
-	cardH.Parent           = card
+	cardH.Size = UDim2.new(1, 0, 0, 70)
+	cardH.BackgroundColor3 = mainColor:Lerp(Color3.new(1, 1, 1), 0.35)
+	cardH.BorderSizePixel = 0
+	cardH.ZIndex = 45
+	cardH.Parent = card
 	Instance.new("UICorner").Parent = cardH
 	if useRainbowGradient then
 		local headerGradient = Instance.new("UIGradient")
@@ -1228,20 +1249,20 @@ local function buildPetCard(entry)
 	end
 
 	local petBall = Instance.new("Frame")
-	petBall.Size             = UDim2.new(0,62,0,62)
-	petBall.Position         = UDim2.new(0.5,-31,0.5,-31)
+	petBall.Size = UDim2.new(0, 62, 0, 62)
+	petBall.Position = UDim2.new(0.5, -31, 0.5, -31)
 	petBall.BackgroundColor3 = (hasMutation or entry.isShiny) and (entry.auraColor or iconColor) or iconColor
-	petBall.BorderSizePixel  = 0
+	petBall.BorderSizePixel = 0
 	petBall.BackgroundTransparency = 0
-	petBall.ZIndex           = 46
-	petBall.Parent           = cardH
+	petBall.ZIndex = 46
+	petBall.Parent = cardH
 	local pbc = Instance.new("UICorner")
-	pbc.CornerRadius = UDim.new(0.5,0)
-	pbc.Parent       = petBall
+	pbc.CornerRadius = UDim.new(0.5, 0)
+	pbc.Parent = petBall
 	local pbs = Instance.new("UIStroke")
-	pbs.Color     = Color3.new(1,1,1)
+	pbs.Color = Color3.new(1, 1, 1)
 	pbs.Thickness = 2.5
-	pbs.Parent    = petBall
+	pbs.Parent = petBall
 
 	local preview = Instance.new("ViewportFrame")
 	preview.Name = "PetModelPreview"
@@ -1266,32 +1287,32 @@ local function buildPetCard(entry)
 
 	if TIER_ICON[tierName] ~= "" then
 		local ti = Instance.new("TextLabel")
-		ti.Size                   = UDim2.new(1,0,1,0)
+		ti.Size = UDim2.new(1, 0, 1, 0)
 		ti.BackgroundTransparency = 1
-		ti.Font                   = Enum.Font.LuckiestGuy
-		ti.TextSize               = 22
-		ti.TextColor3             = tierColor
+		ti.Font = Enum.Font.LuckiestGuy
+		ti.TextSize = 22
+		ti.TextColor3 = tierColor
 		ti.TextStrokeTransparency = 0.2
-		ti.TextStrokeColor3       = Color3.new(0,0,0)
-		ti.Text                   = TIER_ICON[tierName]
-		ti.ZIndex                 = 47
-		ti.Parent                 = petBall
+		ti.TextStrokeColor3 = Color3.new(0, 0, 0)
+		ti.Text = TIER_ICON[tierName]
+		ti.ZIndex = 47
+		ti.Parent = petBall
 	end
 
 	if equipped then
 		local eb = Instance.new("TextLabel")
-		eb.Size             = UDim2.new(0,44,0,18)
-		eb.Position         = UDim2.new(0,4,0,4)
+		eb.Size = UDim2.new(0, 44, 0, 18)
+		eb.Position = UDim2.new(0, 4, 0, 4)
 		eb.BackgroundColor3 = THEME.green
-		eb.BorderSizePixel  = 0
-		eb.Font             = Enum.Font.LuckiestGuy
-		eb.TextSize         = 10
-		eb.TextColor3       = Color3.new(1,1,1)
+		eb.BorderSizePixel = 0
+		eb.Font = Enum.Font.LuckiestGuy
+		eb.TextSize = 10
+		eb.TextColor3 = Color3.new(1, 1, 1)
 		eb.TextStrokeTransparency = 0
 		eb.TextStrokeColor3 = THEME.stroke
-		eb.Text             = "ON"
-		eb.ZIndex           = 47
-		eb.Parent           = card
+		eb.Text = "ON"
+		eb.ZIndex = 47
+		eb.Parent = card
 		Instance.new("UICorner").Parent = eb
 	end
 
@@ -1319,159 +1340,160 @@ local function buildPetCard(entry)
 
 	if newItems[variantKey] then
 		local nb = Instance.new("TextLabel")
-		nb.Size             = UDim2.new(0,36,0,18)
-		nb.Position         = UDim2.new(1,-40,0,4)
-		nb.BackgroundColor3 = Color3.fromRGB(255,80,80)
-		nb.BorderSizePixel  = 0
-		nb.Font             = Enum.Font.LuckiestGuy
-		nb.TextSize         = 10
-		nb.TextColor3       = Color3.new(1,1,1)
-		nb.Text             = "NEW"
-		nb.ZIndex           = 48
-		nb.Parent           = card
+		nb.Size = UDim2.new(0, 36, 0, 18)
+		nb.Position = UDim2.new(1, -40, 0, 4)
+		nb.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+		nb.BorderSizePixel = 0
+		nb.Font = Enum.Font.LuckiestGuy
+		nb.TextSize = 10
+		nb.TextColor3 = Color3.new(1, 1, 1)
+		nb.Text = "NEW"
+		nb.ZIndex = 48
+		nb.Parent = card
 		Instance.new("UICorner").Parent = nb
 	end
 
 	local sb = Instance.new("TextLabel")
-	sb.Size             = UDim2.new(0,52,0,20)
-	sb.Position         = UDim2.new(1,-58,0,46)
+	sb.Size = UDim2.new(0, 52, 0, 20)
+	sb.Position = UDim2.new(1, -58, 0, 46)
 	sb.BackgroundColor3 = isTierUp and tierColor or rarityColor
-	sb.BorderSizePixel  = 0
-	sb.Font             = Enum.Font.LuckiestGuy
-	sb.TextSize         = 12
-	sb.TextColor3       = Color3.new(1,1,1)
+	sb.BorderSizePixel = 0
+	sb.Font = Enum.Font.LuckiestGuy
+	sb.TextSize = 12
+	sb.TextColor3 = Color3.new(1, 1, 1)
 	sb.TextStrokeTransparency = 0.4
-	sb.TextStrokeColor3 = Color3.new(0,0,0)
-	sb.Text             = "x"..PetData.formatStack(entry.stackAmount or 1)
-	sb.ZIndex           = 47
-	sb.Parent           = card
+	sb.TextStrokeColor3 = Color3.new(0, 0, 0)
+	sb.Text = "x" .. PetData.formatStack(entry.stackAmount or 1)
+	sb.ZIndex = 47
+	sb.Parent = card
 	Instance.new("UICorner").Parent = sb
 
 	local nl = Instance.new("TextLabel")
-	nl.Size                   = UDim2.new(1,-8,0,20)
-	nl.Position               = UDim2.new(0,4,0,74)
+	nl.Size = UDim2.new(1, -8, 0, 20)
+	nl.Position = UDim2.new(0, 4, 0, 74)
 	nl.BackgroundTransparency = 1
-	nl.Font                   = Enum.Font.LuckiestGuy
-	nl.TextSize               = 12
-	nl.TextScaled             = true
-	nl.TextColor3             = isTierUp and tierColor or THEME.titleText
-	nl.Text                   = entry.displayName or pet.displayName
-	nl.ZIndex                 = 45
-	nl.Parent                 = card
+	nl.Font = Enum.Font.LuckiestGuy
+	nl.TextSize = 12
+	nl.TextScaled = true
+	nl.TextColor3 = isTierUp and tierColor or THEME.titleText
+	nl.Text = entry.displayName or pet.displayName
+	nl.ZIndex = 45
+	nl.Parent = card
 	UITheme.ApplyTextSizeConstraint(nl, 10, 14)
 
 	local rl = Instance.new("TextLabel")
-	rl.Size                   = UDim2.new(1,-8,0,13)
-	rl.Position               = UDim2.new(0,4,0,95)
+	rl.Size = UDim2.new(1, -8, 0, 13)
+	rl.Position = UDim2.new(0, 4, 0, 95)
 	rl.BackgroundTransparency = 1
-	rl.Font                   = Enum.Font.GothamBold
-	rl.TextSize               = 10
-	rl.TextColor3             = rarityColor
-	rl.Text                   = entry.rarity
-	rl.ZIndex                 = 45
-	rl.Parent                 = card
+	rl.Font = Enum.Font.GothamBold
+	rl.TextSize = 10
+	rl.TextColor3 = rarityColor
+	rl.Text = entry.rarity
+	rl.ZIndex = 45
+	rl.Parent = card
 
 	local pl = Instance.new("TextLabel")
-	pl.Size                   = UDim2.new(1,-8,0,13)
-	pl.Position               = UDim2.new(0,4,0,109)
+	pl.Size = UDim2.new(1, -8, 0, 13)
+	pl.Position = UDim2.new(0, 4, 0, 109)
 	pl.BackgroundTransparency = 1
-	pl.Font                   = Enum.Font.GothamBold
-	pl.TextSize               = 10
-	pl.TextColor3             = THEME.subtext
-	pl.Text                   = "Power "..getEntryPower(entry)
-	pl.ZIndex                 = 45
-	pl.Parent                 = card
+	pl.Font = Enum.Font.GothamBold
+	pl.TextSize = 10
+	pl.TextColor3 = THEME.subtext
+	pl.Text = "Power " .. getEntryPower(entry)
+	pl.ZIndex = 45
+	pl.Parent = card
 
 	if traitsUnlocked then
 		local traitL = Instance.new("TextLabel")
-		traitL.Size                   = UDim2.new(1,-8,0,13)
-		traitL.Position               = UDim2.new(0,4,0,123)
+		traitL.Size = UDim2.new(1, -8, 0, 13)
+		traitL.Position = UDim2.new(0, 4, 0, 123)
 		traitL.BackgroundTransparency = 1
-		traitL.Font                   = Enum.Font.GothamBold
-		traitL.TextSize               = 10
-		traitL.TextColor3             = entry.traitTextColor or entry.personalityColor or THEME.titleText
-		traitL.Text                   = "Trait: " .. tostring(entry.traitName or entry.personalityName or "Neutral")
-		traitL.ZIndex                 = 45
-		traitL.Parent                 = card
+		traitL.Font = Enum.Font.GothamBold
+		traitL.TextSize = 10
+		traitL.TextColor3 = entry.traitTextColor or entry.personalityColor or THEME.titleText
+		traitL.Text = "Trait: " .. tostring(entry.traitName or entry.personalityName or "Neutral")
+		traitL.ZIndex = 45
+		traitL.Parent = card
 	end
 
 	if hasMutation then
 		local mutationL = Instance.new("TextLabel")
-		mutationL.Size                   = UDim2.new(1,-8,0,13)
-		mutationL.Position               = UDim2.new(0,4,0,137)
+		mutationL.Size = UDim2.new(1, -8, 0, 13)
+		mutationL.Position = UDim2.new(0, 4, 0, 137)
 		mutationL.BackgroundTransparency = 1
-		mutationL.Font                   = Enum.Font.GothamBold
-		mutationL.TextSize               = 10
-		mutationL.TextColor3             = entry.auraColor or THEME.yellow
-		mutationL.Text                   = tostring(entry.mutationName or "Mutation")
-		mutationL.ZIndex                 = 45
-		mutationL.Parent                 = card
+		mutationL.Font = Enum.Font.GothamBold
+		mutationL.TextSize = 10
+		mutationL.TextColor3 = entry.auraColor or THEME.yellow
+		mutationL.Text = tostring(entry.mutationName or "Mutation")
+		mutationL.ZIndex = 45
+		mutationL.Parent = card
 	end
 
 	-- Progress bar to next tier
 	local nextTierIdx = nil
 	for i, tier in ipairs(PetData.StackTiers) do
 		if tier.name == tierName and i < #PetData.StackTiers then
-			nextTierIdx = i + 1 break
+			nextTierIdx = i + 1
+			break
 		end
 	end
 	if nextTierIdx then
-		local nt   = PetData.StackTiers[nextTierIdx]
-		local pt   = PetData.StackTiers[nextTierIdx-1]
-		local prog = math.clamp(((entry.stackAmount or 1)-pt.minStack)/(nt.minStack-pt.minStack),0,1)
+		local nt = PetData.StackTiers[nextTierIdx]
+		local pt = PetData.StackTiers[nextTierIdx - 1]
+		local prog = math.clamp(((entry.stackAmount or 1) - pt.minStack) / (nt.minStack - pt.minStack), 0, 1)
 		local pgBg = Instance.new("Frame")
-		pgBg.Size             = UDim2.new(1,-10,0,6)
-		pgBg.Position         = UDim2.new(0,5,0,153)
-		pgBg.BackgroundColor3 = Color3.new(1,1,1)
+		pgBg.Size = UDim2.new(1, -10, 0, 6)
+		pgBg.Position = UDim2.new(0, 5, 0, 153)
+		pgBg.BackgroundColor3 = Color3.new(1, 1, 1)
 		pgBg.BackgroundTransparency = 0.4
-		pgBg.BorderSizePixel  = 0
-		pgBg.ZIndex           = 45
-		pgBg.Parent           = card
+		pgBg.BorderSizePixel = 0
+		pgBg.ZIndex = 45
+		pgBg.Parent = card
 		Instance.new("UICorner").Parent = pgBg
 		local pgF = Instance.new("Frame")
-		pgF.Size             = UDim2.new(prog,0,1,0)
+		pgF.Size = UDim2.new(prog, 0, 1, 0)
 		pgF.BackgroundColor3 = TIER_COLOR[nt.name] or rarityColor
-		pgF.BorderSizePixel  = 0
-		pgF.ZIndex           = 46
-		pgF.Parent           = pgBg
+		pgF.BorderSizePixel = 0
+		pgF.ZIndex = 46
+		pgF.Parent = pgBg
 		Instance.new("UICorner").Parent = pgF
 		local pgL = Instance.new("TextLabel")
-		pgL.Size                   = UDim2.new(1,-8,0,12)
-		pgL.Position               = UDim2.new(0,4,0,161)
+		pgL.Size = UDim2.new(1, -8, 0, 12)
+		pgL.Position = UDim2.new(0, 4, 0, 161)
 		pgL.BackgroundTransparency = 1
-		pgL.Font                   = Enum.Font.Gotham
-		pgL.TextSize               = 9
-		pgL.TextColor3             = TIER_COLOR[nt.name] or rarityColor
-		pgL.TextXAlignment         = Enum.TextXAlignment.Left
-		pgL.Text                   = nt.name.." @ x"..PetData.formatStack(nt.minStack)
-		pgL.ZIndex                 = 45
-		pgL.Parent                 = card
+		pgL.Font = Enum.Font.Gotham
+		pgL.TextSize = 9
+		pgL.TextColor3 = TIER_COLOR[nt.name] or rarityColor
+		pgL.TextXAlignment = Enum.TextXAlignment.Left
+		pgL.Text = nt.name .. " @ x" .. PetData.formatStack(nt.minStack)
+		pgL.ZIndex = 45
+		pgL.Parent = card
 	end
 
 	local btnBg = equipped and THEME.red or THEME.green
-	local btnTc = equipped and Color3.fromRGB(140,20,40)   or Color3.fromRGB(15,90,30)
+	local btnTc = equipped and Color3.fromRGB(140, 20, 40) or Color3.fromRGB(15, 90, 30)
 
 	if showMergeButton then
 		local mergeBtn = Instance.new("TextButton")
-		mergeBtn.Size             = UDim2.new(0.5, -7, 0, 22)
-		mergeBtn.Position         = UDim2.new(0, 5, 1, -26)
+		mergeBtn.Size = UDim2.new(0.5, -7, 0, 22)
+		mergeBtn.Position = UDim2.new(0, 5, 1, -26)
 		mergeBtn.BackgroundColor3 = THEME.yellow
-		mergeBtn.AutoButtonColor  = false
-		mergeBtn.Font             = Enum.Font.LuckiestGuy
-		mergeBtn.TextSize         = 12
-		mergeBtn.TextColor3       = Color3.new(1,1,1)
+		mergeBtn.AutoButtonColor = false
+		mergeBtn.Font = Enum.Font.LuckiestGuy
+		mergeBtn.TextSize = 12
+		mergeBtn.TextColor3 = Color3.new(1, 1, 1)
 		mergeBtn.TextStrokeTransparency = 0
 		mergeBtn.TextStrokeColor3 = THEME.stroke
-		mergeBtn.Text             = "MERGE"
-		mergeBtn.ZIndex           = 46
-		mergeBtn.Parent           = card
+		mergeBtn.Text = "MERGE"
+		mergeBtn.ZIndex = 46
+		mergeBtn.Parent = card
 		local mergeCorner = Instance.new("UICorner")
-		mergeCorner.CornerRadius = UDim.new(0,8)
-		mergeCorner.Parent       = mergeBtn
+		mergeCorner.CornerRadius = UDim.new(0, 8)
+		mergeCorner.Parent = mergeBtn
 		local mergeStroke = Instance.new("UIStroke")
-		mergeStroke.Color     = THEME.stroke
+		mergeStroke.Color = THEME.stroke
 		mergeStroke.Thickness = 3
-		mergeStroke.Parent    = mergeBtn
+		mergeStroke.Parent = mergeBtn
 
 		mergeBtn.MouseButton1Click:Connect(function()
 			newItems[variantKey] = nil
@@ -1480,25 +1502,25 @@ local function buildPetCard(entry)
 	end
 
 	local eqBtn = Instance.new("TextButton")
-	eqBtn.Size             = showMergeButton and UDim2.new(0.5,-7,0,22) or UDim2.new(1,-10,0,22)
-	eqBtn.Position         = showMergeButton and UDim2.new(0.5,2,1,-26) or UDim2.new(0,5,1,-26)
+	eqBtn.Size = showMergeButton and UDim2.new(0.5, -7, 0, 22) or UDim2.new(1, -10, 0, 22)
+	eqBtn.Position = showMergeButton and UDim2.new(0.5, 2, 1, -26) or UDim2.new(0, 5, 1, -26)
 	eqBtn.BackgroundColor3 = btnBg
-	eqBtn.AutoButtonColor  = false
-	eqBtn.Font             = Enum.Font.LuckiestGuy
-	eqBtn.TextSize         = 12
-	eqBtn.TextColor3       = Color3.new(1,1,1)
+	eqBtn.AutoButtonColor = false
+	eqBtn.Font = Enum.Font.LuckiestGuy
+	eqBtn.TextSize = 12
+	eqBtn.TextColor3 = Color3.new(1, 1, 1)
 	eqBtn.TextStrokeTransparency = 0
 	eqBtn.TextStrokeColor3 = THEME.stroke
-	eqBtn.Text             = equipped and "UNEQUIP" or "EQUIP"
-	eqBtn.ZIndex           = 46
-	eqBtn.Parent           = card
+	eqBtn.Text = equipped and "UNEQUIP" or "EQUIP"
+	eqBtn.ZIndex = 46
+	eqBtn.Parent = card
 	local eqc = Instance.new("UICorner")
-	eqc.CornerRadius = UDim.new(0,8)
-	eqc.Parent       = eqBtn
+	eqc.CornerRadius = UDim.new(0, 8)
+	eqc.Parent = eqBtn
 	local eqs = Instance.new("UIStroke")
-	eqs.Color     = THEME.stroke
+	eqs.Color = THEME.stroke
 	eqs.Thickness = 3
-	eqs.Parent    = eqBtn
+	eqs.Parent = eqBtn
 
 	eqBtn.MouseButton1Click:Connect(function()
 		newItems[variantKey] = nil
@@ -1512,14 +1534,13 @@ local function buildPetCard(entry)
 
 	card.MouseEnter:Connect(function()
 		TweenService:Create(card, TweenInfo.new(0.12, Enum.EasingStyle.Back), {
-			BackgroundColor3 = card.BackgroundColor3:Lerp(Color3.new(1, 1, 1), 0.08)
+			BackgroundColor3 = card.BackgroundColor3:Lerp(Color3.new(1, 1, 1), 0.08),
 		}):Play()
 	end)
 	card.MouseLeave:Connect(function()
 		TweenService:Create(card, TweenInfo.new(0.12), {
-			BackgroundColor3 = (isTierUp or hasMutation)
-				and entry.auraColor:Lerp(Color3.new(1,1,1),0.85)
-				or THEME.cardBg
+			BackgroundColor3 = (isTierUp or hasMutation) and entry.auraColor:Lerp(Color3.new(1, 1, 1), 0.85)
+				or THEME.cardBg,
 		}):Play()
 	end)
 	card.MouseButton1Click:Connect(function()
@@ -1532,133 +1553,131 @@ end
 -- ========================
 local function buildItemCard(itemId, quantity)
 	local item = ItemsData.Items[itemId]
-	if not item then return end
-	local rarityColor = RARITY_COLOR[item.rarity] or Color3.fromRGB(160,160,160)
+	if not item then
+		return
+	end
+	local rarityColor = RARITY_COLOR[item.rarity] or Color3.fromRGB(160, 160, 160)
 
 	local card = Instance.new("Frame")
-	card.Size             = UDim2.new(0,140,0,165)
+	card.Size = UDim2.new(0, 140, 0, 165)
 	card.BackgroundColor3 = THEME.cardBg
-	card.BorderSizePixel  = 0
-	card.ZIndex           = 44
-	card.Parent           = contentScroll
+	card.BorderSizePixel = 0
+	card.ZIndex = 44
+	card.Parent = contentScroll
 	local cc = Instance.new("UICorner")
-	cc.CornerRadius = UDim.new(0,16)
-	cc.Parent       = card
+	cc.CornerRadius = UDim.new(0, 16)
+	cc.Parent = card
 	local cs = Instance.new("UIStroke")
-	cs.Color     = THEME.stroke
+	cs.Color = THEME.stroke
 	cs.Thickness = 3
-	cs.Parent    = card
+	cs.Parent = card
 
 	local cardH = Instance.new("Frame")
-	cardH.Size             = UDim2.new(1,0,0,70)
-	cardH.BackgroundColor3 = rarityColor:Lerp(Color3.new(1,1,1),0.4)
-	cardH.BorderSizePixel  = 0
-	cardH.ZIndex           = 45
-	cardH.Parent           = card
+	cardH.Size = UDim2.new(1, 0, 0, 70)
+	cardH.BackgroundColor3 = rarityColor:Lerp(Color3.new(1, 1, 1), 0.4)
+	cardH.BorderSizePixel = 0
+	cardH.ZIndex = 45
+	cardH.Parent = card
 	Instance.new("UICorner").Parent = cardH
 
 	local iconL = Instance.new("TextLabel")
-	iconL.Size                   = UDim2.new(1,0,1,0)
+	iconL.Size = UDim2.new(1, 0, 1, 0)
 	iconL.BackgroundTransparency = 1
-	iconL.Font                   = Enum.Font.LuckiestGuy
-	iconL.TextSize               = 38
-	iconL.TextColor3             = Color3.new(1,1,1)
+	iconL.Font = Enum.Font.LuckiestGuy
+	iconL.TextSize = 38
+	iconL.TextColor3 = Color3.new(1, 1, 1)
 	iconL.TextStrokeTransparency = 0.2
-	iconL.Text                   = item.icon
-	iconL.ZIndex                 = 46
-	iconL.Parent                 = cardH
+	iconL.Text = item.icon
+	iconL.ZIndex = 46
+	iconL.Parent = cardH
 
 	local qb = Instance.new("TextLabel")
-	qb.Size             = UDim2.new(0,52,0,20)
-	qb.Position         = UDim2.new(0,4,0,4)
+	qb.Size = UDim2.new(0, 52, 0, 20)
+	qb.Position = UDim2.new(0, 4, 0, 4)
 	qb.BackgroundColor3 = rarityColor
-	qb.BorderSizePixel  = 0
-	qb.Font             = Enum.Font.LuckiestGuy
-	qb.TextSize         = 12
-	qb.TextColor3       = Color3.new(1,1,1)
+	qb.BorderSizePixel = 0
+	qb.Font = Enum.Font.LuckiestGuy
+	qb.TextSize = 12
+	qb.TextColor3 = Color3.new(1, 1, 1)
 	qb.TextStrokeTransparency = 0.4
-	qb.Text             = "x"..ItemsData.formatNum(quantity)
-	qb.ZIndex           = 47
-	qb.Name             = "QtyBadge"
-	qb.Parent           = card
+	qb.Text = "x" .. ItemsData.formatNum(quantity)
+	qb.ZIndex = 47
+	qb.Name = "QtyBadge"
+	qb.Parent = card
 	Instance.new("UICorner").Parent = qb
 
 	local nl = Instance.new("TextLabel")
-	nl.Size                   = UDim2.new(1,-8,0,20)
-	nl.Position               = UDim2.new(0,4,0,74)
+	nl.Size = UDim2.new(1, -8, 0, 20)
+	nl.Position = UDim2.new(0, 4, 0, 74)
 	nl.BackgroundTransparency = 1
-	nl.Font                   = Enum.Font.LuckiestGuy
-	nl.TextSize               = 12
-	nl.TextScaled             = true
-	nl.TextColor3             = THEME.titleText
-	nl.Text                   = item.displayName
-	nl.ZIndex                 = 45
-	nl.Parent                 = card
+	nl.Font = Enum.Font.LuckiestGuy
+	nl.TextSize = 12
+	nl.TextScaled = true
+	nl.TextColor3 = THEME.titleText
+	nl.Text = item.displayName
+	nl.ZIndex = 45
+	nl.Parent = card
 	UITheme.ApplyTextSizeConstraint(nl, 10, 14)
 
 	local rl = Instance.new("TextLabel")
-	rl.Size                   = UDim2.new(1,-8,0,13)
-	rl.Position               = UDim2.new(0,4,0,95)
+	rl.Size = UDim2.new(1, -8, 0, 13)
+	rl.Position = UDim2.new(0, 4, 0, 95)
 	rl.BackgroundTransparency = 1
-	rl.Font                   = Enum.Font.GothamBold
-	rl.TextSize               = 10
-	rl.TextColor3             = rarityColor
-	rl.Text                   = item.rarity
-	rl.ZIndex                 = 45
-	rl.Parent                 = card
+	rl.Font = Enum.Font.GothamBold
+	rl.TextSize = 10
+	rl.TextColor3 = rarityColor
+	rl.Text = item.rarity
+	rl.ZIndex = 45
+	rl.Parent = card
 
 	local dl = Instance.new("TextLabel")
-	dl.Size                   = UDim2.new(1,-8,0,30)
-	dl.Position               = UDim2.new(0,4,0,109)
+	dl.Size = UDim2.new(1, -8, 0, 30)
+	dl.Position = UDim2.new(0, 4, 0, 109)
 	dl.BackgroundTransparency = 1
-	dl.Font                   = Enum.Font.Gotham
-	dl.TextSize               = 9
-	dl.TextWrapped            = true
-	dl.TextColor3             = THEME.subtext
-	dl.TextXAlignment         = Enum.TextXAlignment.Left
-	dl.TextYAlignment         = Enum.TextYAlignment.Top
-	dl.Text                   = item.description
-	dl.ZIndex                 = 45
-	dl.Parent                 = card
+	dl.Font = Enum.Font.Gotham
+	dl.TextSize = 9
+	dl.TextWrapped = true
+	dl.TextColor3 = THEME.subtext
+	dl.TextXAlignment = Enum.TextXAlignment.Left
+	dl.TextYAlignment = Enum.TextYAlignment.Top
+	dl.Text = item.description
+	dl.ZIndex = 45
+	dl.Parent = card
 
-	local btnBg = item.usable
-		and THEME.green
-		or  THEME.lavender
-	local btnTc = item.usable
-		and Color3.fromRGB(15,90,30)
-		or  Color3.fromRGB(130,130,150)
+	local btnBg = item.usable and THEME.green or THEME.lavender
+	local btnTc = item.usable and Color3.fromRGB(15, 90, 30) or Color3.fromRGB(130, 130, 150)
 
 	local useBtn = Instance.new("TextButton")
-	useBtn.Size             = item.boostType and UDim2.new(0,40,0,22) or UDim2.new(1,-10,0,22)
-	useBtn.Position         = UDim2.new(0,5,1,-26)
+	useBtn.Size = item.boostType and UDim2.new(0, 40, 0, 22) or UDim2.new(1, -10, 0, 22)
+	useBtn.Position = UDim2.new(0, 5, 1, -26)
 	useBtn.BackgroundColor3 = btnBg
-	useBtn.AutoButtonColor  = false
-	useBtn.Font             = Enum.Font.LuckiestGuy
-	useBtn.TextSize         = 12
-	useBtn.TextColor3       = Color3.new(1,1,1)
+	useBtn.AutoButtonColor = false
+	useBtn.Font = Enum.Font.LuckiestGuy
+	useBtn.TextSize = 12
+	useBtn.TextColor3 = Color3.new(1, 1, 1)
 	useBtn.TextStrokeTransparency = 0
 	useBtn.TextStrokeColor3 = THEME.stroke
-	useBtn.Text             = item.usable and "USE" or "LOCKED"
-	useBtn.ZIndex           = 46
-	useBtn.Parent           = card
+	useBtn.Text = item.usable and "USE" or "LOCKED"
+	useBtn.ZIndex = 46
+	useBtn.Parent = card
 	local ubc = Instance.new("UICorner")
-	ubc.CornerRadius = UDim.new(0,8)
-	ubc.Parent       = useBtn
+	ubc.CornerRadius = UDim.new(0, 8)
+	ubc.Parent = useBtn
 	local ubs = Instance.new("UIStroke")
-	ubs.Color     = THEME.stroke
+	ubs.Color = THEME.stroke
 	ubs.Thickness = 3
-	ubs.Parent    = useBtn
+	ubs.Parent = useBtn
 
 	if item.usable then
 		local function requestUse(amount)
 			local qty = playerItems[itemId] or 0
 			if qty <= 0 then
-				showItemFeedback(false, "No "..item.displayName.." left!")
+				showItemFeedback(false, "No " .. item.displayName .. " left!")
 				return
 			end
 			amount = math.clamp(math.floor(tonumber(amount) or 1), 1, qty)
 			setItemQuantity(itemId, qty - amount)
-			qb.Text = "x"..ItemsData.formatNum(playerItems[itemId] or 0)
+			qb.Text = "x" .. ItemsData.formatNum(playerItems[itemId] or 0)
 			useEvent:FireServer(itemId, amount)
 			if (playerItems[itemId] or 0) <= 0 and isOpen then
 				refreshContent()
@@ -1671,49 +1690,49 @@ local function buildItemCard(itemId, quantity)
 
 		useBtn.MouseEnter:Connect(function()
 			TweenService:Create(useBtn, TweenInfo.new(0.1), {
-				BackgroundColor3 = Color3.fromRGB(160,235,175)
+				BackgroundColor3 = Color3.fromRGB(160, 235, 175),
 			}):Play()
 		end)
 		useBtn.MouseLeave:Connect(function()
 			TweenService:Create(useBtn, TweenInfo.new(0.1), {
-				BackgroundColor3 = btnBg
+				BackgroundColor3 = btnBg,
 			}):Play()
 		end)
 
 		if item.boostType then
 			local function makeSmallUseButton(text, x, amountGetter)
 				local button = Instance.new("TextButton")
-				button.Size             = UDim2.new(0,40,0,22)
-				button.Position         = UDim2.new(0,x,1,-26)
+				button.Size = UDim2.new(0, 40, 0, 22)
+				button.Position = UDim2.new(0, x, 1, -26)
 				button.BackgroundColor3 = THEME.green
-				button.AutoButtonColor  = false
-				button.Font             = Enum.Font.LuckiestGuy
-				button.TextSize         = 11
-				button.TextColor3       = Color3.new(1,1,1)
+				button.AutoButtonColor = false
+				button.Font = Enum.Font.LuckiestGuy
+				button.TextSize = 11
+				button.TextColor3 = Color3.new(1, 1, 1)
 				button.TextStrokeTransparency = 0
 				button.TextStrokeColor3 = THEME.stroke
-				button.Text             = text
-				button.ZIndex           = 46
-				button.Parent           = card
+				button.Text = text
+				button.ZIndex = 46
+				button.Parent = card
 				local corner = Instance.new("UICorner")
-				corner.CornerRadius = UDim.new(0,8)
-				corner.Parent       = button
+				corner.CornerRadius = UDim.new(0, 8)
+				corner.Parent = button
 				local stroke = Instance.new("UIStroke")
-				stroke.Color     = THEME.stroke
+				stroke.Color = THEME.stroke
 				stroke.Thickness = 3
-				stroke.Parent    = button
+				stroke.Parent = button
 
 				button.MouseButton1Click:Connect(function()
 					requestUse(amountGetter())
 				end)
 				button.MouseEnter:Connect(function()
 					TweenService:Create(button, TweenInfo.new(0.1), {
-						BackgroundColor3 = Color3.fromRGB(160,235,175)
+						BackgroundColor3 = Color3.fromRGB(160, 235, 175),
 					}):Play()
 				end)
 				button.MouseLeave:Connect(function()
 					TweenService:Create(button, TweenInfo.new(0.1), {
-						BackgroundColor3 = THEME.green
+						BackgroundColor3 = THEME.green,
 					}):Play()
 				end)
 			end
@@ -1733,106 +1752,106 @@ local function buildPaintToolCard(tool)
 	local rarityColor = ToolData.RarityColors[tool.Rarity or "Common"] or Color3.fromRGB(120, 245, 255)
 
 	local card = Instance.new("Frame")
-	card.Size             = UDim2.new(0,300,0,190)
+	card.Size = UDim2.new(0, 300, 0, 190)
 	card.BackgroundColor3 = equipped and Color3.fromRGB(232, 255, 252) or THEME.cardBg
-	card.BorderSizePixel  = 0
-	card.ZIndex           = 44
-	card.Parent           = contentScroll
+	card.BorderSizePixel = 0
+	card.ZIndex = 44
+	card.Parent = contentScroll
 	local cardCorner = Instance.new("UICorner")
-	cardCorner.CornerRadius = UDim.new(0,16)
+	cardCorner.CornerRadius = UDim.new(0, 16)
 	cardCorner.Parent = card
 	local cs = Instance.new("UIStroke")
-	cs.Color     = equipped and rarityColor or THEME.stroke
+	cs.Color = equipped and rarityColor or THEME.stroke
 	cs.Thickness = equipped and 5 or 3
-	cs.Parent    = card
+	cs.Parent = card
 
 	local cardH = Instance.new("Frame")
-	cardH.Size             = UDim2.new(0,94,1,0)
-	cardH.BackgroundColor3 = rarityColor:Lerp(Color3.new(1,1,1),0.28)
-	cardH.BorderSizePixel  = 0
-	cardH.ZIndex           = 45
-	cardH.Parent           = card
+	cardH.Size = UDim2.new(0, 94, 1, 0)
+	cardH.BackgroundColor3 = rarityColor:Lerp(Color3.new(1, 1, 1), 0.28)
+	cardH.BorderSizePixel = 0
+	cardH.ZIndex = 45
+	cardH.Parent = card
 	Instance.new("UICorner").Parent = cardH
 
 	local iconL = Instance.new("TextLabel")
-	iconL.Size                   = UDim2.new(1,0,1,0)
+	iconL.Size = UDim2.new(1, 0, 1, 0)
 	iconL.BackgroundTransparency = 1
-	iconL.Font                   = Enum.Font.LuckiestGuy
-	iconL.TextSize               = 38
-	iconL.TextColor3             = Color3.fromRGB(255, 255, 255)
+	iconL.Font = Enum.Font.LuckiestGuy
+	iconL.TextSize = 38
+	iconL.TextColor3 = Color3.fromRGB(255, 255, 255)
 	iconL.TextStrokeTransparency = 0
-	iconL.TextStrokeColor3       = THEME.stroke
-	iconL.Text                   = tool.ShortName or "BR"
-	iconL.ZIndex                 = 46
-	iconL.Parent                 = cardH
+	iconL.TextStrokeColor3 = THEME.stroke
+	iconL.Text = tool.ShortName or "BR"
+	iconL.ZIndex = 46
+	iconL.Parent = cardH
 
 	local equippedBadge = Instance.new("TextLabel")
-	equippedBadge.Size             = UDim2.new(0,64,0,20)
-	equippedBadge.Position         = UDim2.new(0,104,0,10)
+	equippedBadge.Size = UDim2.new(0, 64, 0, 20)
+	equippedBadge.Position = UDim2.new(0, 104, 0, 10)
 	equippedBadge.BackgroundColor3 = equipped and THEME.green or THEME.lavender
-	equippedBadge.BorderSizePixel  = 0
-	equippedBadge.Font             = Enum.Font.LuckiestGuy
-	equippedBadge.TextSize         = 11
-	equippedBadge.TextColor3       = Color3.new(1,1,1)
+	equippedBadge.BorderSizePixel = 0
+	equippedBadge.Font = Enum.Font.LuckiestGuy
+	equippedBadge.TextSize = 11
+	equippedBadge.TextColor3 = Color3.new(1, 1, 1)
 	equippedBadge.TextStrokeTransparency = 0.4
-	equippedBadge.Text             = equipped and "EQUIPPED" or "OWNED"
-	equippedBadge.ZIndex           = 47
-	equippedBadge.Parent           = card
+	equippedBadge.Text = equipped and "EQUIPPED" or "OWNED"
+	equippedBadge.ZIndex = 47
+	equippedBadge.Parent = card
 	Instance.new("UICorner").Parent = equippedBadge
 
 	local nl = Instance.new("TextLabel")
-	nl.Size                   = UDim2.new(1,-112,0,24)
-	nl.Position               = UDim2.new(0,104,0,36)
+	nl.Size = UDim2.new(1, -112, 0, 24)
+	nl.Position = UDim2.new(0, 104, 0, 36)
 	nl.BackgroundTransparency = 1
-	nl.Font                   = Enum.Font.LuckiestGuy
-	nl.TextSize               = 18
-	nl.TextScaled             = true
-	nl.TextColor3             = THEME.titleText
-	nl.Text                   = tool.DisplayName or tool.Id
-	nl.ZIndex                 = 45
-	nl.Parent                 = card
+	nl.Font = Enum.Font.LuckiestGuy
+	nl.TextSize = 18
+	nl.TextScaled = true
+	nl.TextColor3 = THEME.titleText
+	nl.Text = tool.DisplayName or tool.Id
+	nl.ZIndex = 45
+	nl.Parent = card
 	UITheme.ApplyTextSizeConstraint(nl, 11, 18)
 
 	local rl = Instance.new("TextLabel")
-	rl.Size                   = UDim2.new(1,-112,0,16)
-	rl.Position               = UDim2.new(0,104,0,62)
+	rl.Size = UDim2.new(1, -112, 0, 16)
+	rl.Position = UDim2.new(0, 104, 0, 62)
 	rl.BackgroundTransparency = 1
-	rl.Font                   = Enum.Font.GothamBold
-	rl.TextSize               = 10
-	rl.TextColor3             = rarityColor
-	rl.Text                   = tostring(tool.Rarity or "Tool") .. " Tool"
-	rl.ZIndex                 = 45
-	rl.Parent                 = card
+	rl.Font = Enum.Font.GothamBold
+	rl.TextSize = 10
+	rl.TextColor3 = rarityColor
+	rl.Text = tostring(tool.Rarity or "Tool") .. " Tool"
+	rl.ZIndex = 45
+	rl.Parent = card
 
 	local dl = Instance.new("TextLabel")
-	dl.Size                   = UDim2.new(1,-112,0,54)
-	dl.Position               = UDim2.new(0,104,0,84)
+	dl.Size = UDim2.new(1, -112, 0, 54)
+	dl.Position = UDim2.new(0, 104, 0, 84)
 	dl.BackgroundTransparency = 1
-	dl.Font                   = Enum.Font.Gotham
-	dl.TextSize               = 12
-	dl.TextWrapped            = true
-	dl.TextColor3             = THEME.subtext
-	dl.TextXAlignment         = Enum.TextXAlignment.Left
-	dl.TextYAlignment         = Enum.TextYAlignment.Top
-	dl.Text                   = tool.Description or "Collects Color from paint."
-	dl.ZIndex                 = 45
-	dl.Parent                 = card
+	dl.Font = Enum.Font.Gotham
+	dl.TextSize = 12
+	dl.TextWrapped = true
+	dl.TextColor3 = THEME.subtext
+	dl.TextXAlignment = Enum.TextXAlignment.Left
+	dl.TextYAlignment = Enum.TextYAlignment.Top
+	dl.Text = tool.Description or "Collects Color from paint."
+	dl.ZIndex = 45
+	dl.Parent = card
 
 	local equipBtn = Instance.new("TextButton")
-	equipBtn.Size             = UDim2.new(0,170,0,30)
-	equipBtn.Position         = UDim2.new(0,104,1,-42)
+	equipBtn.Size = UDim2.new(0, 170, 0, 30)
+	equipBtn.Position = UDim2.new(0, 104, 1, -42)
 	equipBtn.BackgroundColor3 = equipped and THEME.red or THEME.green
-	equipBtn.AutoButtonColor  = false
-	equipBtn.Font             = Enum.Font.LuckiestGuy
-	equipBtn.TextSize         = 14
-	equipBtn.TextColor3       = Color3.new(1,1,1)
+	equipBtn.AutoButtonColor = false
+	equipBtn.Font = Enum.Font.LuckiestGuy
+	equipBtn.TextSize = 14
+	equipBtn.TextColor3 = Color3.new(1, 1, 1)
 	equipBtn.TextStrokeTransparency = 0
 	equipBtn.TextStrokeColor3 = THEME.stroke
-	equipBtn.Text             = equipped and "UNEQUIP" or "EQUIP"
-	equipBtn.ZIndex           = 46
-	equipBtn.Parent           = card
+	equipBtn.Text = equipped and "UNEQUIP" or "EQUIP"
+	equipBtn.ZIndex = 46
+	equipBtn.Parent = card
 	local equipCorner = Instance.new("UICorner")
-	equipCorner.CornerRadius = UDim.new(0,8)
+	equipCorner.CornerRadius = UDim.new(0, 8)
 	equipCorner.Parent = equipBtn
 	local equipStroke = Instance.new("UIStroke")
 	equipStroke.Color = THEME.stroke
@@ -1858,8 +1877,8 @@ end
 -- ========================
 local function sortPets(pets)
 	local sorted = table.clone(pets)
-	local tO = {Celestial=1,Royal=2,Gilded=3,Normal=4}
-	local rO = {Legendary=1,Epic=2,Rare=3,Uncommon=4,Common=5}
+	local tO = { Celestial = 1, Royal = 2, Gilded = 3, Normal = 4 }
+	local rO = { Legendary = 1, Epic = 2, Rare = 3, Uncommon = 4, Common = 5 }
 	table.sort(sorted, function(a, b)
 		if currentSort == "Power" then
 			return getEntryPower(a) > getEntryPower(b)
@@ -1880,18 +1899,36 @@ local function filterPets(pets)
 	local result = {}
 	for _, entry in ipairs(pets) do
 		local pass = true
-		if searchText ~= "" and not (entry.displayName or ""):lower():find(searchText,1,true) then
+		if searchText ~= "" and not (entry.displayName or ""):lower():find(searchText, 1, true) then
 			pass = false
 		end
-		if currentFilter == "Equipped"   and not isEquipped(entry)        then pass = false end
-		if currentFilter == "Unequipped" and isEquipped(entry)            then pass = false end
-		if currentFilter == "Favorites"  and not favorites[getEntryKey(entry)] then pass = false end
-		if currentFilter == "Common"     and entry.rarity ~= "Common"     then pass = false end
-		if currentFilter == "Uncommon"   and entry.rarity ~= "Uncommon"   then pass = false end
-		if currentFilter == "Rare"       and entry.rarity ~= "Rare"       then pass = false end
-		if currentFilter == "Epic"       and entry.rarity ~= "Epic"       then pass = false end
-		if currentFilter == "Legendary"  and entry.rarity ~= "Legendary"  then pass = false end
-		if pass then table.insert(result, entry) end
+		if currentFilter == "Equipped" and not isEquipped(entry) then
+			pass = false
+		end
+		if currentFilter == "Unequipped" and isEquipped(entry) then
+			pass = false
+		end
+		if currentFilter == "Favorites" and not favorites[getEntryKey(entry)] then
+			pass = false
+		end
+		if currentFilter == "Common" and entry.rarity ~= "Common" then
+			pass = false
+		end
+		if currentFilter == "Uncommon" and entry.rarity ~= "Uncommon" then
+			pass = false
+		end
+		if currentFilter == "Rare" and entry.rarity ~= "Rare" then
+			pass = false
+		end
+		if currentFilter == "Epic" and entry.rarity ~= "Epic" then
+			pass = false
+		end
+		if currentFilter == "Legendary" and entry.rarity ~= "Legendary" then
+			pass = false
+		end
+		if pass then
+			table.insert(result, entry)
+		end
 	end
 	return result
 end
@@ -1919,9 +1956,11 @@ function refreshContent()
 
 	if currentTab == "Colors" then
 		local filtered = filterPets(allPets)
-		local sorted   = sortPets(filtered)
-		for _, e in ipairs(sorted) do buildPetCard(e) count=count+1 end
-
+		local sorted = sortPets(filtered)
+		for _, e in ipairs(sorted) do
+			buildPetCard(e)
+			count = count + 1
+		end
 	elseif currentTab == "Brushes" then
 		local ownedTools = getOwnedPaintToolSet()
 		for _, toolId in ipairs(ToolData.Order) do
@@ -1933,13 +1972,13 @@ function refreshContent()
 				end
 			end
 		end
-
 	else
 		for id, qty in pairs(playerItems) do
 			local item = ItemsData.Items[id]
 			if item and qty > 0 and item.category == currentTab then
-				if searchText=="" or item.displayName:lower():find(searchText,1,true) then
-					buildItemCard(id, qty) count=count+1
+				if searchText == "" or item.displayName:lower():find(searchText, 1, true) then
+					buildItemCard(id, qty)
+					count = count + 1
 				end
 			end
 		end
@@ -1956,10 +1995,13 @@ function refreshContent()
 	local padY = contentGrid.CellPadding.Y.Offset
 	local cellX = math.max(1, contentGrid.CellSize.X.Offset)
 	local cellY = math.max(1, contentGrid.CellSize.Y.Offset)
-	local availableX = math.max(1, contentScroll.AbsoluteSize.X - contentPad.PaddingLeft.Offset - contentPad.PaddingRight.Offset)
+	local availableX =
+		math.max(1, contentScroll.AbsoluteSize.X - contentPad.PaddingLeft.Offset - contentPad.PaddingRight.Offset)
 	local columns = math.max(1, math.floor((availableX + padX) / (cellX + padX)))
 	local rows = math.ceil(count / columns)
-	local canvasHeight = rows > 0 and (rows * cellY + math.max(0, rows - 1) * padY + contentPad.PaddingTop.Offset + contentPad.PaddingBottom.Offset) or 50
+	local canvasHeight = rows > 0
+			and (rows * cellY + math.max(0, rows - 1) * padY + contentPad.PaddingTop.Offset + contentPad.PaddingBottom.Offset)
+		or 50
 	contentScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(canvasHeight, 50))
 	applyModalLayer()
 end
@@ -2026,12 +2068,12 @@ local function setTab(name)
 	for n, b in pairs(tabBtns) do
 		if n == name then
 			b.BackgroundColor3 = THEME.tabActive
-			b.TextColor3       = THEME.buttonText
+			b.TextColor3 = THEME.buttonText
 			b.TextStrokeColor3 = THEME.stroke
 			b.TextStrokeTransparency = 0.18
 		else
 			b.BackgroundColor3 = THEME.tabInact
-			b.TextColor3       = THEME.buttonText
+			b.TextColor3 = THEME.buttonText
 			b.TextStrokeColor3 = THEME.stroke
 			b.TextStrokeTransparency = 0.18
 		end
@@ -2042,27 +2084,29 @@ end
 
 for _, tabName in ipairs(TABS) do
 	local b = Instance.new("TextButton")
-	b.Size             = UDim2.new(0,118,0,32)
+	b.Size = UDim2.new(0, 118, 0, 32)
 	b.BackgroundColor3 = THEME.tabInact
-	b.AutoButtonColor  = false
-	b.Font             = Enum.Font.GothamBold
-	b.TextSize         = 14
-	b.TextColor3       = THEME.buttonText
+	b.AutoButtonColor = false
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 14
+	b.TextColor3 = THEME.buttonText
 	b.TextStrokeTransparency = 0.18
 	b.TextStrokeColor3 = THEME.stroke
-	b.Text             = TAB_ICONS[tabName] or tabName:upper()
+	b.Text = TAB_ICONS[tabName] or tabName:upper()
 	b:SetAttribute("NoTextGlow", true)
-	b.ZIndex           = 43
-	b.Parent           = tabBar
+	b.ZIndex = 43
+	b.Parent = tabBar
 	local bc = Instance.new("UICorner")
-	bc.CornerRadius = UDim.new(0,10)
-	bc.Parent       = b
+	bc.CornerRadius = UDim.new(0, 10)
+	bc.Parent = b
 	local bs = Instance.new("UIStroke")
-	bs.Color     = THEME.stroke
+	bs.Color = THEME.stroke
 	bs.Thickness = 3
-	bs.Parent    = b
+	bs.Parent = b
 	tabBtns[tabName] = b
-	b.MouseButton1Click:Connect(function() setTab(tabName) end)
+	b.MouseButton1Click:Connect(function()
+		setTab(tabName)
+	end)
 end
 
 -- ========================
@@ -2076,14 +2120,14 @@ end)
 sortBtn.MouseButton1Click:Connect(function()
 	sortIdx = (sortIdx % #SORT_OPTIONS) + 1
 	currentSort = SORT_OPTIONS[sortIdx]
-	sortBtn.Text = "Sort: "..currentSort.." V"
+	sortBtn.Text = "Sort: " .. currentSort .. " V"
 	refreshContent()
 end)
 
 filterBtn.MouseButton1Click:Connect(function()
 	filterIdx = (filterIdx % #FILTER_OPTIONS) + 1
 	currentFilter = FILTER_OPTIONS[filterIdx]
-	filterBtn.Text = "Filter: "..currentFilter.." V"
+	filterBtn.Text = "Filter: " .. currentFilter .. " V"
 	refreshContent()
 end)
 
@@ -2143,16 +2187,16 @@ function toggleInventory(open, context)
 		backBtn.Visible = openedFromMenu
 		titleL.Position = openedFromMenu and UDim2.new(0, 66, 0, 0) or UDim2.new(0, 22, 0, 0)
 		titleL.Size = openedFromMenu and UDim2.new(1, -170, 1, 0) or UDim2.new(1, -116, 1, 0)
-		overlay.Visible          = true
-		panel.Visible            = true
+		overlay.Visible = true
+		panel.Visible = true
 		overlay.BackgroundTransparency = 1
-		panel.Size     = UDim2.new(0,80,0,80)
+		panel.Size = UDim2.new(0, 80, 0, 80)
 		panel.Position = UDim2.fromScale(0.5, 0.5)
 		TweenService:Create(overlay, TweenInfo.new(0.25), {
-			BackgroundTransparency = 0.4
+			BackgroundTransparency = 0.4,
 		}):Play()
 		TweenService:Create(panel, TweenInfo.new(0.35, Enum.EasingStyle.Back), {
-			Size     = UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT),
+			Size = UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT),
 			Position = UDim2.fromScale(0.5, 0.5),
 		}):Play()
 		setTab(currentTab)
@@ -2168,14 +2212,14 @@ function toggleInventory(open, context)
 			return
 		end
 		TweenService:Create(overlay, TweenInfo.new(0.2), {
-			BackgroundTransparency = 1
+			BackgroundTransparency = 1,
 		}):Play()
 		TweenService:Create(panel, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-			Size     = UDim2.new(0,60,0,60),
+			Size = UDim2.new(0, 60, 0, 60),
 			Position = UDim2.fromScale(0.5, 0.5),
 		}):Play()
 		task.wait(0.2)
-		panel.Visible   = false
+		panel.Visible = false
 		overlay.Visible = false
 	end
 end
@@ -2227,38 +2271,43 @@ useEvent.OnClientEvent:Connect(function(resultType, arg1, arg2, extra)
 				end
 			end
 		end
-		if isOpen then refreshContent() end
-
+		if isOpen then
+			refreshContent()
+		end
 	elseif resultType == "update" then
 		setItemQuantity(arg1, arg2)
-		if isOpen then refreshContent() end
-
+		if isOpen then
+			refreshContent()
+		end
 	elseif resultType == "used" then
 		setItemQuantity(arg1, arg2)
 		showItemFeedback(true, (extra and extra.message) or "Item used!")
-		if isOpen then refreshContent() end
-
+		if isOpen then
+			refreshContent()
+		end
 	elseif resultType == "boosted" then
 		setItemQuantity(arg1, arg2)
 		if extra then
 			local remaining = (extra.expiresAt or 0) - os.time()
-			local mins = math.floor(remaining/60)
+			local mins = math.floor(remaining / 60)
 			local secs = remaining % 60
-			local ts   = mins > 0 and (mins.."m "..secs.."s") or (secs.."s")
+			local ts = mins > 0 and (mins .. "m " .. secs .. "s") or (secs .. "s")
 			local item = ItemsData.Items[arg1]
-			showItemFeedback(true,
-				(item and item.displayName or "Boost").." active for "..ts.."!",
-				Color3.fromRGB(100,200,255)
+			showItemFeedback(
+				true,
+				(item and item.displayName or "Boost") .. " active for " .. ts .. "!",
+				Color3.fromRGB(100, 200, 255)
 			)
 		end
-		if isOpen then refreshContent() end
-
+		if isOpen then
+			refreshContent()
+		end
 	elseif resultType == "boostExpired" then
-		showItemFeedback(false,
-			tostring(arg1):gsub("(%l)(%u)","%1 %2").." boost expired!",
-			Color3.fromRGB(255,160,100)
+		showItemFeedback(
+			false,
+			tostring(arg1):gsub("(%l)(%u)", "%1 %2") .. " boost expired!",
+			Color3.fromRGB(255, 160, 100)
 		)
-
 	elseif resultType == "error" then
 		showItemFeedback(false, arg2 or "Something went wrong!")
 	end
@@ -2279,13 +2328,13 @@ task.defer(refreshPetsFromReplicatedValues)
 -- ========================
 --   HOOK INVENTORY BUTTON
 -- ========================
-UIManager.register("Inventory",
-	function(context)
-		toggleInventory(true, context)
-	end,
-	function(context) toggleInventory(false, context) end,
-	function() return isOpen end
-)
+UIManager.register("Inventory", function(context)
+	toggleInventory(true, context)
+end, function(context)
+	toggleInventory(false, context)
+end, function()
+	return isOpen
+end)
 
 local function warnLegacyInventoryBlocked()
 	if warnedLegacyInventoryOpen then
@@ -2296,14 +2345,14 @@ local function warnLegacyInventoryBlocked()
 end
 
 for _, legacyKey in ipairs({ "Pets", "PetInventory", "Bag", "Colors" }) do
-	UIManager.register(legacyKey,
-		function()
-			warnLegacyInventoryBlocked()
-			toggleInventory(true)
-		end,
-		function() toggleInventory(false) end,
-		function() return isOpen end
-	)
+	UIManager.register(legacyKey, function()
+		warnLegacyInventoryBlocked()
+		toggleInventory(true)
+	end, function()
+		toggleInventory(false)
+	end, function()
+		return isOpen
+	end)
 end
 
 local _invBtn = ReplicatedStorage:WaitForChild("HudButton_INVENTORY", 10)

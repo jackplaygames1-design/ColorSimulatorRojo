@@ -18,8 +18,8 @@ end
 
 function UIManager.register(name, openFn, closeFn, isOpenFn)
 	registry[name] = {
-		open   = openFn,
-		close  = closeFn,
+		open = openFn,
+		close = closeFn,
 		isOpen = isOpenFn,
 	}
 end
@@ -28,12 +28,18 @@ function UIManager.closeAll(except)
 	for name, entry in pairs(registry) do
 		if name ~= except then
 			local ok, err = pcall(function()
-				if entry.isOpen() then entry.close({ immediate = true }) end
+				if entry.isOpen() then
+					entry.close({ immediate = true })
+				end
 			end)
-			if not ok then warn("UIManager closeAll error on "..name..": "..tostring(err)) end
+			if not ok then
+				warn("UIManager closeAll error on " .. name .. ": " .. tostring(err))
+			end
 		end
 	end
-	if currentOpen == except then return end
+	if currentOpen == except then
+		return
+	end
 	currentOpen = nil
 	currentContext = nil
 end
@@ -44,7 +50,7 @@ function UIManager.open(name, context)
 	if not entry then
 		if not warnedMissing[name] then
 			warnedMissing[name] = true
-			warn("UIManager: no window registered as '"..name.."'. Registered: " .. getRegisteredNamesText())
+			warn("UIManager: no window registered as '" .. name .. "'. Registered: " .. getRegisteredNamesText())
 		end
 		return false
 	end
@@ -76,7 +82,9 @@ UIManager.OpenWindow = UIManager.open
 
 function UIManager.close(name)
 	local entry = registry[name]
-	if not entry then return end
+	if not entry then
+		return
+	end
 	entry.close()
 	if currentOpen == name then
 		currentOpen = nil
@@ -92,7 +100,7 @@ function UIManager.toggle(name, context)
 	if not entry then
 		if not warnedMissing[name] then
 			warnedMissing[name] = true
-			warn("UIManager: no window registered as '"..name.."'. Registered: " .. getRegisteredNamesText())
+			warn("UIManager: no window registered as '" .. name .. "'. Registered: " .. getRegisteredNamesText())
 		end
 		return false
 	end
@@ -110,7 +118,9 @@ end
 
 function UIManager.isOpen(name)
 	local entry = registry[name]
-	if not entry then return false end
+	if not entry then
+		return false
+	end
 	local ok, result = pcall(entry.isOpen)
 	return ok and result or false
 end

@@ -39,7 +39,8 @@ local function inferEggInfo(obj)
 		for _, world in ipairs(ColorData.Worlds or {}) do
 			local colorType = world.primaryColor
 			local expectedEggId = getEggIdForColor(colorType)
-			if lowered == compactName(expectedEggId)
+			if
+				lowered == compactName(expectedEggId)
 				or lowered == compactName(colorType .. "Egg")
 				or (string.find(lowered, string.lower(colorType), 1, true) and string.find(lowered, "egg", 1, true))
 			then
@@ -101,7 +102,10 @@ end
 
 local function removeBadEggLabels(holder)
 	for _, child in ipairs(holder:GetChildren()) do
-		if child:IsA("BillboardGui") and (child.Name == "WorldEggLabel" or child.Name == "PreviewLabel" or child.Name == "EggStationLabel") then
+		if
+			child:IsA("BillboardGui")
+			and (child.Name == "WorldEggLabel" or child.Name == "PreviewLabel" or child.Name == "EggStationLabel")
+		then
 			child:Destroy()
 		end
 	end

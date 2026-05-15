@@ -244,6 +244,292 @@
       }
     },
 
+    "StarterGui": {
+      "$className": "StarterGui",
+      "$ignoreUnknownInstances": true,
+
+      "LoadingGui": {
+        "$className": "ScreenGui",
+        "$properties": {
+          "DisplayOrder": 100000,
+          "Enabled": true,
+          "IgnoreGuiInset": true,
+          "ResetOnSpawn": false,
+          "ZIndexBehavior": "Sibling",
+          "Attributes": {
+            "ColorSimulatorLoadingGui": {
+              "Bool": true
+            }
+          }
+        },
+
+        "LoadingRoot": {
+          "$className": "Frame",
+          "$properties": {
+            "BackgroundColor3": [0.011765, 0.015686, 0.027451],
+            "BorderSizePixel": 0,
+            "Position": {
+              "UDim2": [[0, 0], [0, 0]]
+            },
+            "Size": {
+              "UDim2": [[1, 0], [1, 0]]
+            },
+            "ZIndex": 1
+          },
+
+          "TopGlow": {
+            "$className": "Frame",
+            "$properties": {
+              "BackgroundColor3": [0.098039, 0.870588, 1],
+              "BackgroundTransparency": 0.35,
+              "BorderSizePixel": 0,
+              "Position": {
+                "UDim2": [[0, 0], [0, 0]]
+              },
+              "Size": {
+                "UDim2": [[1, 0], [0, 4]]
+              },
+              "ZIndex": 2
+            }
+          },
+
+          "BottomGlow": {
+            "$className": "Frame",
+            "$properties": {
+              "BackgroundColor3": [1, 0.215686, 0.517647],
+              "BackgroundTransparency": 0.4,
+              "BorderSizePixel": 0,
+              "Position": {
+                "UDim2": [[0, 0], [1, -5]]
+              },
+              "Size": {
+                "UDim2": [[1, 0], [0, 5]]
+              },
+              "ZIndex": 2
+            }
+          },
+
+          "Panel": {
+            "$className": "Frame",
+            "$properties": {
+              "AnchorPoint": [0.5, 0.5],
+              "BackgroundColor3": [0.027451, 0.035294, 0.058824],
+              "BorderSizePixel": 0,
+              "Position": {
+                "UDim2": [[0.5, 0], [0.5, 0]]
+              },
+              "Size": {
+                "UDim2": [[0.62, 0], [0, 230]]
+              },
+              "ZIndex": 10
+            },
+
+            "PanelSizeLimit": {
+              "$className": "UISizeConstraint",
+              "$properties": {
+                "MaxSize": [680, 260],
+                "MinSize": [320, 210]
+              }
+            },
+
+            "Corner": {
+              "$className": "UICorner",
+              "$properties": {
+                "CornerRadius": {
+                  "UDim": [0, 8]
+                }
+              }
+            },
+
+            "Stroke": {
+              "$className": "UIStroke",
+              "$properties": {
+                "Color": [0.098039, 0.870588, 1],
+                "Thickness": 2,
+                "Transparency": 0.1
+              }
+            },
+
+            "AccentLeft": {
+              "$className": "Frame",
+              "$properties": {
+                "BackgroundColor3": [1, 0.215686, 0.517647],
+                "BorderSizePixel": 0,
+                "Position": {
+                  "UDim2": [[0, 0], [0, 0]]
+                },
+                "Size": {
+                  "UDim2": [[0, 5], [1, 0]]
+                },
+                "ZIndex": 12
+              }
+            },
+
+            "AccentRight": {
+              "$className": "Frame",
+              "$properties": {
+                "BackgroundColor3": [0.521569, 1, 0.231373],
+                "BorderSizePixel": 0,
+                "Position": {
+                  "UDim2": [[1, -5], [0, 0]]
+                },
+                "Size": {
+                  "UDim2": [[0, 5], [1, 0]]
+                },
+                "ZIndex": 12
+              }
+            },
+
+            "Title": {
+              "$className": "TextLabel",
+              "$properties": {
+                "BackgroundTransparency": 1,
+                "Font": "GothamBlack",
+                "Position": {
+                  "UDim2": [[0, 28], [0, 34]]
+                },
+                "Size": {
+                  "UDim2": [[1, -56], [0, 54]]
+                },
+                "Text": "Loading Color Simulator...",
+                "TextColor3": [1, 1, 1],
+                "TextScaled": true,
+                "TextXAlignment": "Center",
+                "TextYAlignment": "Center",
+                "ZIndex": 14
+              },
+
+              "TextSizeLimit": {
+                "$className": "UITextSizeConstraint",
+                "$properties": {
+                  "MaxTextSize": 34,
+                  "MinTextSize": 18
+                }
+              }
+            },
+
+            "StatusText": {
+              "$className": "TextLabel",
+              "$properties": {
+                "BackgroundTransparency": 1,
+                "Font": "GothamBold",
+                "Position": {
+                  "UDim2": [[0, 34], [0, 104]]
+                },
+                "Size": {
+                  "UDim2": [[1, -68], [0, 34]]
+                },
+                "Text": "Loading data...",
+                "TextColor3": [0.760784, 0.878431, 1],
+                "TextScaled": true,
+                "TextXAlignment": "Center",
+                "TextYAlignment": "Center",
+                "ZIndex": 14
+              },
+
+              "TextSizeLimit": {
+                "$className": "UITextSizeConstraint",
+                "$properties": {
+                  "MaxTextSize": 20,
+                  "MinTextSize": 12
+                }
+              }
+            },
+
+            "ProgressBack": {
+              "$className": "Frame",
+              "$properties": {
+                "BackgroundColor3": [0.007843, 0.011765, 0.019608],
+                "BorderSizePixel": 0,
+                "Position": {
+                  "UDim2": [[0, 44], [1, -70]]
+                },
+                "Size": {
+                  "UDim2": [[1, -88], [0, 12]]
+                },
+                "ZIndex": 14
+              },
+
+              "Corner": {
+                "$className": "UICorner",
+                "$properties": {
+                  "CornerRadius": {
+                    "UDim": [1, 0]
+                  }
+                }
+              },
+
+              "Stroke": {
+                "$className": "UIStroke",
+                "$properties": {
+                  "Color": [0.196078, 0.266667, 0.403922],
+                  "Thickness": 1,
+                  "Transparency": 0.15
+                }
+              },
+
+              "ProgressFill": {
+                "$className": "Frame",
+                "$properties": {
+                  "BackgroundColor3": [0.098039, 0.870588, 1],
+                  "BorderSizePixel": 0,
+                  "Position": {
+                    "UDim2": [[0, 0], [0, 0]]
+                  },
+                  "Size": {
+                    "UDim2": [[0.1, 0], [1, 0]]
+                  },
+                  "ZIndex": 15
+                },
+
+                "Corner": {
+                  "$className": "UICorner",
+                  "$properties": {
+                    "CornerRadius": {
+                      "UDim": [1, 0]
+                    }
+                  }
+                }
+              }
+            },
+
+            "SectorText": {
+              "$className": "TextLabel",
+              "$properties": {
+                "BackgroundTransparency": 1,
+                "Font": "Gotham",
+                "Position": {
+                  "UDim2": [[0, 34], [1, -44]]
+                },
+                "Size": {
+                  "UDim2": [[1, -68], [0, 22]]
+                },
+                "Text": "Sector systems online",
+                "TextColor3": [0.521569, 1, 0.231373],
+                "TextScaled": true,
+                "TextTransparency": 0.25,
+                "TextXAlignment": "Center",
+                "TextYAlignment": "Center",
+                "ZIndex": 14
+              },
+
+              "TextSizeLimit": {
+                "$className": "UITextSizeConstraint",
+                "$properties": {
+                  "MaxTextSize": 14,
+                  "MinTextSize": 10
+                }
+              }
+            }
+          }
+        }
+      },
+
+      "TutorialGui": {
+        "$path": "src/startergui/TutorialGui.model.json"
+      }
+    },
+
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "Client": {

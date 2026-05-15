@@ -9,9 +9,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
 local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
-local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local redeemEvent = Events:WaitForChild("RedeemCode", 10)
@@ -250,7 +250,13 @@ if redeemEvent then
 	end)
 end
 
-UIManager.register("Codes", function() toggleCodes(true) end, function() toggleCodes(false) end, function() return isOpen end)
+UIManager.register("Codes", function()
+	toggleCodes(true)
+end, function()
+	toggleCodes(false)
+end, function()
+	return isOpen
+end)
 
 local codesBtn = ReplicatedStorage:WaitForChild("HudButton_CODES", 10)
 if codesBtn then

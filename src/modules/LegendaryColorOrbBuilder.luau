@@ -331,7 +331,15 @@ function LegendaryColorOrbBuilder.BuildModel(definition)
 
 	if def.HasRainbowShell then
 		for index, color in ipairs(RAINBOW_COLORS) do
-			makeHalo(model, def, "RainbowStackedHalo" .. tostring(index), -1.08 + index * 0.36, 2.55 + (index % 3) * 0.16, color, index % 2 == 0 and 8 or -8)
+			makeHalo(
+				model,
+				def,
+				"RainbowStackedHalo" .. tostring(index),
+				-1.08 + index * 0.36,
+				2.55 + (index % 3) * 0.16,
+				color,
+				index % 2 == 0 and 8 or -8
+			)
 		end
 	end
 

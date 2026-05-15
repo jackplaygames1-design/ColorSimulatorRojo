@@ -1,10 +1,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
-local ColorTraitData = require(ReplicatedStorage:WaitForChild("ColorTraitData"))
-local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
-local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local BuffService = require(script.Parent:WaitForChild("BuffService"))
+local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
+local ColorTraitData = require(ReplicatedStorage:WaitForChild("ColorTraitData"))
+local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 
 local ColorEffectHandler = {}
 
@@ -112,9 +112,14 @@ local function getPlayerInventoryData(player)
 		else
 			local legacyParts = string.split(rawKey, "|")
 			for variantKey, data in pairs(inventory) do
-				if rawKey == data.petId
+				if
+					rawKey == data.petId
 					or rawKey == variantKey
-					or (#legacyParts >= 3 and legacyParts[1] == data.petId and PetData.normalizeMutationId(legacyParts[3]) == data.mutationId)
+					or (
+						#legacyParts >= 3
+						and legacyParts[1] == data.petId
+						and PetData.normalizeMutationId(legacyParts[3]) == data.mutationId
+					)
 				then
 					table.insert(equipped, variantKey)
 					break
@@ -157,8 +162,7 @@ local function mergeEffects(result, effects)
 	addEffect(result, "LightningProcChance", effects.LightningProcChance)
 	result.LightningTargets += math.floor(tonumber(effects.LightningTargets) or 0)
 	result.LightningRange = math.max(result.LightningRange, tonumber(effects.LightningRange) or 0)
-	result.LightningCooldown = result.LightningCooldown == 0
-		and (tonumber(effects.LightningCooldown) or 0)
+	result.LightningCooldown = result.LightningCooldown == 0 and (tonumber(effects.LightningCooldown) or 0)
 		or math.min(result.LightningCooldown, tonumber(effects.LightningCooldown) or result.LightningCooldown)
 	addEffect(result, "MagnetProcChance", effects.MagnetProcChance)
 	result.MagnetRange = math.max(result.MagnetRange, tonumber(effects.MagnetRange) or 0)
@@ -177,51 +181,20 @@ local function mergeEffects(result, effects)
 end
 
 local function clampEffects(result)
-	result.WalkSpeedBonus = math.clamp(
-		result.WalkSpeedBonus,
-		0,
-		CAPS.MaxWalkSpeedFromColors or 8
-	)
+	result.WalkSpeedBonus = math.clamp(result.WalkSpeedBonus, 0, CAPS.MaxWalkSpeedFromColors or 8)
 	result.WalkSpeedMultiplier = math.clamp(result.WalkSpeedMultiplier, 1, CAPS.MaxWalkSpeedMultiplierFromBuffs or 1.6)
-	result.JumpPowerBonus = math.clamp(
-		result.JumpPowerBonus,
-		0,
-		CAPS.MaxJumpPowerFromColors or 30
-	)
-	result.BrushRangeMultiplier = math.clamp(
-		result.BrushRangeMultiplier,
-		1,
-		CAPS.MaxBrushRangeMultiplier or 1.75
-	)
-	result.ColorGainMultiplier = math.clamp(
-		result.ColorGainMultiplier,
-		1,
-		CAPS.MaxColorGainMultiplierFromColors or 3
-	)
-	result.SellCoinsMultiplier = math.clamp(
-		result.SellCoinsMultiplier,
-		1,
-		CAPS.MaxSellMultiplierFromColors or 3
-	)
-	result.HatchLuckBonus = math.clamp(
-		result.HatchLuckBonus,
-		0,
-		CAPS.MaxHatchLuckBonusFromColors or 0.5
-	)
+	result.JumpPowerBonus = math.clamp(result.JumpPowerBonus, 0, CAPS.MaxJumpPowerFromColors or 30)
+	result.BrushRangeMultiplier = math.clamp(result.BrushRangeMultiplier, 1, CAPS.MaxBrushRangeMultiplier or 1.75)
+	result.ColorGainMultiplier = math.clamp(result.ColorGainMultiplier, 1, CAPS.MaxColorGainMultiplierFromColors or 3)
+	result.SellCoinsMultiplier = math.clamp(result.SellCoinsMultiplier, 1, CAPS.MaxSellMultiplierFromColors or 3)
+	result.HatchLuckBonus = math.clamp(result.HatchLuckBonus, 0, CAPS.MaxHatchLuckBonusFromColors or 0.5)
 	result.HatchLuckMultiplier = math.clamp(result.HatchLuckMultiplier, 1, CAPS.MaxHatchLuckMultiplierFromBuffs or 2)
 	result.LightningProcChance = math.clamp(result.LightningProcChance, 0, 0.75)
-	result.LightningTargets = math.clamp(
-		result.LightningTargets,
-		0,
-		CAPS.LightningMaxTargetsPerProc or 4
-	)
+	result.LightningTargets = math.clamp(result.LightningTargets, 0, CAPS.LightningMaxTargetsPerProc or 4)
 	result.LightningRange = math.clamp(result.LightningRange, 0, CAPS.LightningMaxRange or 55)
 	result.MagnetProcChance = math.clamp(result.MagnetProcChance, 0, 0.75)
-	result.MagnetTargets = math.clamp(
-		result.MagnetTargets > 0 and result.MagnetTargets or 2,
-		0,
-		CAPS.MagnetMaxTargetsPerProc or 5
-	)
+	result.MagnetTargets =
+		math.clamp(result.MagnetTargets > 0 and result.MagnetTargets or 2, 0, CAPS.MagnetMaxTargetsPerProc or 5)
 	result.MagnetRange = math.clamp(result.MagnetRange, 0, CAPS.MagnetMaxRange or 55)
 	result.GemRewardMultiplier = math.clamp(result.GemRewardMultiplier, 1, 5)
 	result.GemDamageMultiplier = math.clamp(result.GemDamageMultiplier, 1, 6)
@@ -312,10 +285,7 @@ function ColorEffectHandler.ApplyCharacterEffects(player)
 
 	humanoid.UseJumpPower = true
 	local baseJumpPower = CAPS.BaseJumpPower or 50
-	local jumpPower = math.min(
-		baseJumpPower + effects.JumpPowerBonus,
-		CAPS.AbsoluteMaxJumpPower or 85
-	)
+	local jumpPower = math.min(baseJumpPower + effects.JumpPowerBonus, CAPS.AbsoluteMaxJumpPower or 85)
 	humanoid.JumpPower = jumpPower
 end
 

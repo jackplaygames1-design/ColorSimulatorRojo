@@ -224,7 +224,9 @@ end
 local function getRemote(name)
 	local events = ReplicatedStorage:FindFirstChild("Events")
 	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-	return (events and events:FindFirstChild(name)) or (remotes and remotes:FindFirstChild(name)) or ReplicatedStorage:FindFirstChild(name)
+	return (events and events:FindFirstChild(name))
+		or (remotes and remotes:FindFirstChild(name))
+		or ReplicatedStorage:FindFirstChild(name)
 end
 
 local function fireRemote(name, ...)
@@ -241,12 +243,32 @@ local function populateInventory(window)
 	local content = findContent(window)
 	local folder = clearAutoContent(content)
 
-	local grid = makeFrame(folder, "InventoryGrid", UDim2.fromOffset(12, 12), UDim2.new(0.62, -20, 1, -24), Color3.fromRGB(246, 249, 255))
-	local details = makeFrame(folder, "DetailsPanel", UDim2.new(0.64, 0, 0, 12), UDim2.new(0.36, -12, 1, -24), Color3.fromRGB(239, 246, 255))
+	local grid = makeFrame(
+		folder,
+		"InventoryGrid",
+		UDim2.fromOffset(12, 12),
+		UDim2.new(0.62, -20, 1, -24),
+		Color3.fromRGB(246, 249, 255)
+	)
+	local details = makeFrame(
+		folder,
+		"DetailsPanel",
+		UDim2.new(0.64, 0, 0, 12),
+		UDim2.new(0.36, -12, 1, -24),
+		Color3.fromRGB(239, 246, 255)
+	)
 
-	local nameLabel = makeText(details, "SelectedName", "Rainbow Color", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 34), 22)
+	local nameLabel =
+		makeText(details, "SelectedName", "Rainbow Color", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 34), 22)
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Center
-	local stats = makeText(details, "Stats", "Power: 25\nRarity: Rare\nMutation: Rainbow\nEquipped: No", UDim2.fromOffset(18, 54), UDim2.new(1, -36, 0, 118), 16)
+	local stats = makeText(
+		details,
+		"Stats",
+		"Power: 25\nRarity: Rare\nMutation: Rainbow\nEquipped: No",
+		UDim2.fromOffset(18, 54),
+		UDim2.new(1, -36, 0, 118),
+		16
+	)
 	stats.TextYAlignment = Enum.TextYAlignment.Top
 
 	local items = {
@@ -261,21 +283,55 @@ local function populateInventory(window)
 	for index, item in ipairs(items) do
 		local x = ((index - 1) % 3) * 116 + 16
 		local y = math.floor((index - 1) / 3) * 116 + 16
-		local slot = makeButton(grid, "Slot" .. index, item.name, UDim2.fromOffset(x, y), UDim2.fromOffset(104, 104), Color3.fromRGB(225, 244, 255))
+		local slot = makeButton(
+			grid,
+			"Slot" .. index,
+			item.name,
+			UDim2.fromOffset(x, y),
+			UDim2.fromOffset(104, 104),
+			Color3.fromRGB(225, 244, 255)
+		)
 		slot.TextColor3 = Color3.fromRGB(38, 36, 52)
 		slot.Activated:Connect(function()
 			nameLabel.Text = item.name
-			stats.Text = "Power: " .. item.power .. "\nRarity: " .. item.rarity .. "\nMutation: " .. item.mutation .. "\nEquipped: No"
+			stats.Text = "Power: "
+				.. item.power
+				.. "\nRarity: "
+				.. item.rarity
+				.. "\nMutation: "
+				.. item.mutation
+				.. "\nEquipped: No"
 		end)
 	end
 
-	makeButton(details, "EquipButton", "EQUIP", UDim2.new(0, 14, 1, -132), UDim2.new(1, -28, 0, 34), Color3.fromRGB(84, 225, 112)).Activated:Connect(function()
+	makeButton(
+		details,
+		"EquipButton",
+		"EQUIP",
+		UDim2.new(0, 14, 1, -132),
+		UDim2.new(1, -28, 0, 34),
+		Color3.fromRGB(84, 225, 112)
+	).Activated:Connect(function()
 		fireRemote("EquipPet", nameLabel.Text)
 	end)
-	makeButton(details, "LockButton", "LOCK", UDim2.new(0, 14, 1, -90), UDim2.new(1, -28, 0, 34), Color3.fromRGB(88, 174, 255)).Activated:Connect(function()
+	makeButton(
+		details,
+		"LockButton",
+		"LOCK",
+		UDim2.new(0, 14, 1, -90),
+		UDim2.new(1, -28, 0, 34),
+		Color3.fromRGB(88, 174, 255)
+	).Activated:Connect(function()
 		fireRemote("LockPet", nameLabel.Text)
 	end)
-	makeButton(details, "DeleteButton", "DELETE", UDim2.new(0, 14, 1, -48), UDim2.new(1, -28, 0, 34), Color3.fromRGB(220, 46, 58)).Activated:Connect(function()
+	makeButton(
+		details,
+		"DeleteButton",
+		"DELETE",
+		UDim2.new(0, 14, 1, -48),
+		UDim2.new(1, -28, 0, 34),
+		Color3.fromRGB(220, 46, 58)
+	).Activated:Connect(function()
 		fireRemote("DeletePet", nameLabel.Text)
 	end)
 end
@@ -286,70 +342,120 @@ local function populateCardWindow(window, cards, actionText, actionCallback)
 	for index, cardData in ipairs(cards) do
 		local x = ((index - 1) % 3) * 238 + 14
 		local y = math.floor((index - 1) / 3) * 132 + 14
-		local card = makeFrame(folder, cardData.key .. "Card", UDim2.fromOffset(x, y), UDim2.fromOffset(222, 118), Color3.fromRGB(255, 255, 255))
+		local card = makeFrame(
+			folder,
+			cardData.key .. "Card",
+			UDim2.fromOffset(x, y),
+			UDim2.fromOffset(222, 118),
+			Color3.fromRGB(255, 255, 255)
+		)
 		makeText(card, "Name", cardData.name, UDim2.fromOffset(12, 8), UDim2.new(1, -24, 0, 28), 17)
-		makeText(card, "Description", cardData.description or "Placeholder card.", UDim2.fromOffset(12, 36), UDim2.new(1, -24, 0, 38), 12)
+		makeText(
+			card,
+			"Description",
+			cardData.description or "Placeholder card.",
+			UDim2.fromOffset(12, 36),
+			UDim2.new(1, -24, 0, 38),
+			12
+		)
 		makeText(card, "Price", cardData.price or "", UDim2.fromOffset(12, 76), UDim2.fromOffset(90, 28), 13)
-		makeButton(card, "ActionButton", actionText or "USE", UDim2.new(1, -104, 1, -42), UDim2.fromOffset(90, 32), cardData.color or Color3.fromRGB(84, 225, 112)).Activated:Connect(function()
+		makeButton(
+			card,
+			"ActionButton",
+			actionText or "USE",
+			UDim2.new(1, -104, 1, -42),
+			UDim2.fromOffset(90, 32),
+			cardData.color or Color3.fromRGB(84, 225, 112)
+		).Activated:Connect(function()
 			actionCallback(cardData)
 		end)
 	end
 end
 
 local function populateShop(window)
-	populateCardWindow(window, {
-		{ key = "VIP", name = "VIP Pass", description = "Better rewards placeholder.", price = "R$ ?" },
-		{ key = "Luck", name = "Luck Boost", description = "Boosts color hatch luck.", price = "R$ ?" },
-		{ key = "Coins", name = "Coin Pack", description = "Coins/Gems product slot.", price = "R$ ?" },
-	}, "BUY", function(card)
-		warn("Shop purchase not hooked yet: " .. card.name)
-	end)
+	populateCardWindow(
+		window,
+		{
+			{ key = "VIP", name = "VIP Pass", description = "Better rewards placeholder.", price = "R$ ?" },
+			{ key = "Luck", name = "Luck Boost", description = "Boosts color hatch luck.", price = "R$ ?" },
+			{ key = "Coins", name = "Coin Pack", description = "Coins/Gems product slot.", price = "R$ ?" },
+		},
+		"BUY",
+		function(card)
+			warn("Shop purchase not hooked yet: " .. card.name)
+		end
+	)
 end
 
 local function populateWorlds(window)
-	populateCardWindow(window, {
-		{ key = "Spawn", name = "Spawn World", description = "Main color world.", price = "Unlocked" },
-		{ key = "Red", name = "Red Wastelands", description = "Tutorial red zone.", price = "Unlocked" },
-		{ key = "Pipes", name = "Inside the Pipes", description = "Mutation unlock zone.", price = "Locked" },
-		{ key = "Orange", name = "Orange Sector", description = "Current ready sector.", price = "Unlocked" },
-	}, "GO", function(card)
-		if card.price == "Locked" then
-			warn(card.name .. " is locked.")
-			return
+	populateCardWindow(
+		window,
+		{
+			{ key = "Spawn", name = "Spawn World", description = "Main color world.", price = "Unlocked" },
+			{ key = "Red", name = "Red Wastelands", description = "Tutorial red zone.", price = "Unlocked" },
+			{ key = "Pipes", name = "Inside the Pipes", description = "Mutation unlock zone.", price = "Locked" },
+			{ key = "Orange", name = "Orange Sector", description = "Current ready sector.", price = "Unlocked" },
+		},
+		"GO",
+		function(card)
+			if card.price == "Locked" then
+				warn(card.name .. " is locked.")
+				return
+			end
+			fireRemote("RequestTravelToSector", card.key)
 		end
-		fireRemote("RequestTravelToSector", card.key)
-	end)
+	)
 end
 
 local function populateUpgrades(window)
-	populateCardWindow(window, {
-		{ key = "BrushPower", name = "Brush Power", description = "Break colors faster.", price = "Gems" },
-		{ key = "WalkSpeed", name = "Walk Speed", description = "Move around quicker.", price = "Gems" },
-		{ key = "ColorLuck", name = "Color Luck", description = "Better hatch chances.", price = "Gems" },
-		{ key = "GemBoost", name = "Gem Boost", description = "More gem rewards.", price = "Gems" },
-	}, "UPGRADE", function(card)
-		fireRemote("PurchaseUpgrade", card.key)
-	end)
+	populateCardWindow(
+		window,
+		{
+			{ key = "BrushPower", name = "Brush Power", description = "Break colors faster.", price = "Gems" },
+			{ key = "WalkSpeed", name = "Walk Speed", description = "Move around quicker.", price = "Gems" },
+			{ key = "ColorLuck", name = "Color Luck", description = "Better hatch chances.", price = "Gems" },
+			{ key = "GemBoost", name = "Gem Boost", description = "More gem rewards.", price = "Gems" },
+		},
+		"UPGRADE",
+		function(card)
+			fireRemote("PurchaseUpgrade", card.key)
+		end
+	)
 end
 
 local function populateRanks(window)
-	populateCardWindow(window, {
-		{ key = "Beginner", name = "Beginner", description = "Starting rank.", price = "Free" },
-		{ key = "Painter", name = "Painter", description = "Requires early progress.", price = "Coins" },
-		{ key = "Collector", name = "Color Collector", description = "Requires more colors.", price = "Coins" },
-		{ key = "Master", name = "Master Artist", description = "Late-game placeholder.", price = "Coins" },
-	}, "RANK UP", function(card)
-		warn("Rank system not hooked yet: " .. card.name)
-	end)
+	populateCardWindow(
+		window,
+		{
+			{ key = "Beginner", name = "Beginner", description = "Starting rank.", price = "Free" },
+			{ key = "Painter", name = "Painter", description = "Requires early progress.", price = "Coins" },
+			{ key = "Collector", name = "Color Collector", description = "Requires more colors.", price = "Coins" },
+			{ key = "Master", name = "Master Artist", description = "Late-game placeholder.", price = "Coins" },
+		},
+		"RANK UP",
+		function(card)
+			warn("Rank system not hooked yet: " .. card.name)
+		end
+	)
 end
 
 local function populateTrades(window)
-	populateCardWindow(window, {
-		{ key = "PlayerList", name = "Player List", description = "Select nearby players here.", price = "Placeholder" },
-		{ key = "Selected", name = "Selected Player", description = "Trade details show here.", price = "None" },
-	}, "SEND", function()
-		warn("Trade system not hooked yet.")
-	end)
+	populateCardWindow(
+		window,
+		{
+			{
+				key = "PlayerList",
+				name = "Player List",
+				description = "Select nearby players here.",
+				price = "Placeholder",
+			},
+			{ key = "Selected", name = "Selected Player", description = "Trade details show here.", price = "None" },
+		},
+		"SEND",
+		function()
+			warn("Trade system not hooked yet.")
+		end
+	)
 end
 
 local function populateCodes(window)
@@ -374,7 +480,14 @@ local function populateCodes(window)
 
 	local status = makeText(folder, "Status", "", UDim2.fromOffset(24, 188), UDim2.new(1, -48, 0, 36), 18)
 	status.TextXAlignment = Enum.TextXAlignment.Center
-	makeButton(folder, "RedeemButton", "REDEEM", UDim2.fromOffset(24, 138), UDim2.new(1, -48, 0, 42), Color3.fromRGB(84, 225, 112)).Activated:Connect(function()
+	makeButton(
+		folder,
+		"RedeemButton",
+		"REDEEM",
+		UDim2.fromOffset(24, 138),
+		UDim2.new(1, -48, 0, 42),
+		Color3.fromRGB(84, 225, 112)
+	).Activated:Connect(function()
 		if box.Text == "" then
 			status.Text = "Type a code first."
 			return
@@ -457,7 +570,13 @@ end
 
 local function tweenScale(button, value, duration)
 	local scale = getOrCreateScale(button)
-	TweenService:Create(scale, TweenInfo.new(duration or 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = value }):Play()
+	TweenService
+		:Create(
+			scale,
+			TweenInfo.new(duration or 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Scale = value }
+		)
+		:Play()
 end
 
 local function prepareButton(button)
@@ -484,7 +603,12 @@ local function openWindowForButton(buttonName)
 	local wantedWindow = BUTTON_TO_WINDOW[buttonName]
 	local window = wantedWindow and getWindow(mainHud, wantedWindow)
 	if not window then
-		warnOnce("missing-window-" .. tostring(wantedWindow), "StudioHUDHookup: missing editable window " .. tostring(wantedWindow) .. ". Run StudioMenuWindowsBuilder.Build() in edit mode or create the Frame in Studio.")
+		warnOnce(
+			"missing-window-" .. tostring(wantedWindow),
+			"StudioHUDHookup: missing editable window "
+				.. tostring(wantedWindow)
+				.. ". Run StudioMenuWindowsBuilder.Build() in edit mode or create the Frame in Studio."
+		)
 		return
 	end
 
@@ -529,13 +653,19 @@ local function hookButton(button, buttonName)
 		end
 	end)
 	button.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if
+			input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
 			isPressed = true
 			tweenScale(button, 0.92, 0.06)
 		end
 	end)
 	button.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if
+			input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
 			isPressed = false
 			tweenScale(button, isHovering and 1.06 or 1, 0.12)
 		end
@@ -623,7 +753,13 @@ task.defer(function()
 end)
 
 playerGui.DescendantAdded:Connect(function(descendant)
-	if descendant.Name == "MainHUD" or descendant.Name == "LeftButtons" or descendant.Name == "BottomRow" or descendant.Name:match("Window$") or BUTTON_TO_WINDOW[descendant.Name] then
+	if
+		descendant.Name == "MainHUD"
+		or descendant.Name == "LeftButtons"
+		or descendant.Name == "BottomRow"
+		or descendant.Name:match("Window$")
+		or BUTTON_TO_WINDOW[descendant.Name]
+	then
 		task.defer(hookHandmadeHud)
 	end
 end)

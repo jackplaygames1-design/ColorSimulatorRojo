@@ -49,6 +49,10 @@ local GREEN = Color3.fromRGB(84, 225, 112)
 local MUTED = Color3.fromRGB(92, 98, 116)
 local DISABLED = Color3.fromRGB(170, 180, 205)
 local PANEL = Color3.fromRGB(244, 248, 252)
+local STANDARD_WINDOW_POSITION = UDim2.fromScale(0.5, 0.47)
+local STANDARD_WINDOW_SIZE = UDim2.fromScale(0.76, 0.68)
+local STANDARD_CLOSE_POSITION = UDim2.new(1, -78, 0, -42)
+local STANDARD_CLOSE_SIZE = UDim2.fromOffset(70, 70)
 
 local function formatNumber(value)
 	if GameBalance and GameBalance.formatNumber then
@@ -215,24 +219,33 @@ local function applyBigXText(guiObject, zIndex)
 		if runtimeText and runtimeText:IsA("GuiObject") then
 			runtimeText.Visible = false
 		end
+		local closeIcon = guiObject:FindFirstChild("CloseIcon")
+		if closeIcon and closeIcon:IsA("GuiObject") then
+			closeIcon.Visible = false
+		end
 		return
 	end
 
 	local runtimeText = guiObject:FindFirstChild("RuntimeText")
-	if not runtimeText or not runtimeText:IsA("TextLabel") then
-		if runtimeText then
-			runtimeText:Destroy()
-		end
-		runtimeText = Instance.new("TextLabel")
-		runtimeText.Name = "RuntimeText"
-		runtimeText.BackgroundTransparency = 1
-		runtimeText.BorderSizePixel = 0
-		runtimeText.Position = UDim2.fromScale(0, 0)
-		runtimeText.Size = UDim2.fromScale(1, 1)
-		runtimeText.Parent = guiObject
+	if runtimeText and runtimeText:IsA("GuiObject") then
+		runtimeText:Destroy()
 	end
-	runtimeText.Visible = true
-	styleText(runtimeText)
+
+	local closeIcon = guiObject:FindFirstChild("CloseIcon")
+	if not closeIcon or not closeIcon:IsA("TextLabel") then
+		if closeIcon then
+			closeIcon:Destroy()
+		end
+		closeIcon = Instance.new("TextLabel")
+		closeIcon.Name = "CloseIcon"
+		closeIcon.BackgroundTransparency = 1
+		closeIcon.BorderSizePixel = 0
+		closeIcon.Position = UDim2.fromScale(0, 0)
+		closeIcon.Size = UDim2.fromScale(1, 1)
+		closeIcon.Parent = guiObject
+	end
+	closeIcon.Visible = true
+	styleText(closeIcon)
 end
 
 local function styleCloseButton(closeButton, position, size, zIndex)
@@ -322,13 +335,8 @@ local function makeTabs(window, names)
 end
 
 local function makeWindow(windowsFolder, name, title, tabs)
-	local window = frame(
-		windowsFolder,
-		name,
-		UDim2.fromScale(0.5, 0.43),
-		UDim2.fromOffset(780, 470),
-		Color3.fromRGB(255, 255, 255)
-	)
+	local window =
+		frame(windowsFolder, name, STANDARD_WINDOW_POSITION, STANDARD_WINDOW_SIZE, Color3.fromRGB(255, 255, 255))
 	window.AnchorPoint = Vector2.new(0.5, 0.5)
 	window.Visible = false
 	window.ClipsDescendants = false
@@ -337,16 +345,9 @@ local function makeWindow(windowsFolder, name, title, tabs)
 
 	text(window, "Title", title, UDim2.fromOffset(24, 14), UDim2.new(1, -112, 0, 42), 30)
 	styleCloseButton(
-		button(
-			window,
-			"CloseButton",
-			"X",
-			UDim2.new(1, -70, 0, 14),
-			UDim2.fromOffset(52, 48),
-			Color3.fromRGB(188, 21, 28)
-		),
-		UDim2.new(1, -70, 0, 14),
-		UDim2.fromOffset(52, 48),
+		button(window, "CloseButton", "X", STANDARD_CLOSE_POSITION, STANDARD_CLOSE_SIZE, Color3.fromRGB(188, 21, 28)),
+		STANDARD_CLOSE_POSITION,
+		STANDARD_CLOSE_SIZE,
 		window.ZIndex + 3
 	)
 	if tabs and #tabs > 0 then
@@ -367,8 +368,8 @@ end
 local function makeInventory(windowsFolder)
 	local window, content =
 		makeWindow(windowsFolder, "InventoryWindow", "INVENTORY", { "Colors", "Brushes", "Potions", "Items" })
-	window.Size = UDim2.fromOffset(860, 560)
-	window.Position = UDim2.fromScale(0.5, 0.46)
+	window.Size = STANDARD_WINDOW_SIZE
+	window.Position = STANDARD_WINDOW_POSITION
 	content.Size = UDim2.new(1, -44, 1, -148)
 	local tabs = window:FindFirstChild("Tabs")
 	if tabs then
@@ -1119,8 +1120,8 @@ end
 
 local function prepShopWindow(shopWindow)
 	shopWindow.AnchorPoint = Vector2.new(0.5, 0.5)
-	shopWindow.Position = UDim2.fromScale(0.5, 0.5)
-	shopWindow.Size = UDim2.fromOffset(820, 500)
+	shopWindow.Position = STANDARD_WINDOW_POSITION
+	shopWindow.Size = STANDARD_WINDOW_SIZE
 	shopWindow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	shopWindow.BorderSizePixel = 0
 	shopWindow.ClipsDescendants = false
@@ -1142,12 +1143,12 @@ local function prepShopWindow(shopWindow)
 			shopWindow,
 			"CloseButton",
 			"X",
-			UDim2.new(1, -72, 0, 16),
-			UDim2.fromOffset(54, 54),
+			STANDARD_CLOSE_POSITION,
+			STANDARD_CLOSE_SIZE,
 			Color3.fromRGB(188, 21, 28)
 		)
 	end
-	styleCloseButton(closeButton, UDim2.new(1, -72, 0, 16), UDim2.fromOffset(54, 54), 1003)
+	styleCloseButton(closeButton, STANDARD_CLOSE_POSITION, STANDARD_CLOSE_SIZE, 1003)
 
 	return shopWindow
 end
@@ -2031,8 +2032,8 @@ end
 
 local function prepWorldsWindow(worldsWindow)
 	worldsWindow.AnchorPoint = Vector2.new(0.5, 0.5)
-	worldsWindow.Position = UDim2.fromScale(0.5, 0.46)
-	worldsWindow.Size = UDim2.fromOffset(860, 540)
+	worldsWindow.Position = STANDARD_WINDOW_POSITION
+	worldsWindow.Size = STANDARD_WINDOW_SIZE
 	worldsWindow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	worldsWindow.BorderSizePixel = 0
 	worldsWindow.ClipsDescendants = false
@@ -2050,12 +2051,12 @@ local function prepWorldsWindow(worldsWindow)
 			worldsWindow,
 			"CloseButton",
 			"X",
-			UDim2.new(1, -74, 0, 16),
-			UDim2.fromOffset(56, 54),
+			STANDARD_CLOSE_POSITION,
+			STANDARD_CLOSE_SIZE,
 			Color3.fromRGB(188, 21, 28)
 		),
-		UDim2.new(1, -74, 0, 16),
-		UDim2.fromOffset(56, 54),
+		STANDARD_CLOSE_POSITION,
+		STANDARD_CLOSE_SIZE,
 		1004
 	)
 end
@@ -3108,8 +3109,8 @@ local function conceptWindow(modalWindows, name, title)
 	local window = ensureClass(modalWindows, "Frame", name)
 	clearChildren(window)
 	window.AnchorPoint = Vector2.new(0.5, 0.5)
-	window.Position = UDim2.fromScale(0.5, 0.48)
-	window.Size = UDim2.fromScale(0.82, 0.78)
+	window.Position = STANDARD_WINDOW_POSITION
+	window.Size = STANDARD_WINDOW_SIZE
 	window.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	window.BorderSizePixel = 0
 	window.ClipsDescendants = false
@@ -3130,12 +3131,12 @@ local function conceptWindow(modalWindows, name, title)
 			window,
 			"CloseButton",
 			"X",
-			UDim2.new(1, -78, 0, -42),
-			UDim2.fromOffset(70, 70),
+			STANDARD_CLOSE_POSITION,
+			STANDARD_CLOSE_SIZE,
 			Color3.fromRGB(216, 24, 32)
 		),
-		UDim2.new(1, -78, 0, -42),
-		UDim2.fromOffset(70, 70),
+		STANDARD_CLOSE_POSITION,
+		STANDARD_CLOSE_SIZE,
 		window.ZIndex + 3
 	)
 
@@ -3154,14 +3155,26 @@ end
 
 local function makeCurrencySlot(parent, name, icon, order)
 	local slot =
-		conceptPanel(parent, name, UDim2.fromOffset(0, 0), UDim2.fromOffset(150, 42), Color3.fromRGB(31, 41, 58), 12, 0)
+		conceptPanel(parent, name, UDim2.fromOffset(0, 0), UDim2.fromOffset(128, 42), Color3.fromRGB(31, 41, 58), 12, 0)
 	slot.LayoutOrder = order
 	slot.BackgroundTransparency = 0.08
-	conceptLabel(slot, "Icon", icon, UDim2.fromOffset(8, 0), UDim2.fromOffset(38, 42), 24, Enum.TextXAlignment.Center)
-	local amount = conceptLabel(slot, "Amount", "0", UDim2.fromOffset(48, 0), UDim2.new(1, -54, 1, 0), 20)
+	local iconLabel = conceptLabel(slot, "Icon", icon, UDim2.fromOffset(8, 0), UDim2.fromOffset(66, 42), 22)
+	iconLabel.TextScaled = true
+	iconLabel.TextXAlignment = Enum.TextXAlignment.Left
+	local iconLimit = iconLabel:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	iconLimit.MinTextSize = 12
+	iconLimit.MaxTextSize = 22
+	iconLimit.Parent = iconLabel
+	local amount = conceptLabel(slot, "Amount", "0", UDim2.fromOffset(80, 0), UDim2.new(1, -86, 1, 0), 20)
+	amount.TextScaled = true
+	amount.TextXAlignment = Enum.TextXAlignment.Left
 	amount.TextColor3 = Color3.fromRGB(255, 255, 255)
 	amount.TextStrokeColor3 = OUTLINE
 	amount.TextStrokeTransparency = 0
+	local amountLimit = amount:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	amountLimit.MinTextSize = 12
+	amountLimit.MaxTextSize = 20
+	amountLimit.Parent = amount
 	return slot
 end
 
@@ -3169,8 +3182,8 @@ local function buildCurrencyBar(mainHud)
 	local currencyBar = ensureClass(mainHud, "Frame", "CurrencyBar")
 	clearChildren(currencyBar)
 	currencyBar.AnchorPoint = Vector2.new(0, 0)
-	currencyBar.Position = UDim2.new(0, 20, 0.5, 8)
-	currencyBar.Size = UDim2.fromOffset(160, 150)
+	currencyBar.Position = UDim2.new(0, 8, 0.5, 8)
+	currencyBar.Size = UDim2.fromOffset(136, 150)
 	currencyBar.BackgroundTransparency = 1
 	currencyBar.Visible = true
 
@@ -3246,6 +3259,7 @@ end
 local function makeBottomButton(parent, name, label, order, color)
 	local btn = imageButton(parent, name, UDim2.fromOffset(0, 0), UDim2.fromOffset(68, 68), color)
 	btn.LayoutOrder = order
+	btn.ZIndex = 5001
 	local textLabel = btn:FindFirstChild("Label")
 	if not textLabel or not textLabel:IsA("TextLabel") then
 		if textLabel then
@@ -3266,6 +3280,7 @@ local function makeBottomButton(parent, name, label, order, color)
 	textLabel.TextWrapped = true
 	textLabel.Size = UDim2.new(1, -8, 1, -8)
 	textLabel.Position = UDim2.fromOffset(4, 4)
+	textLabel.ZIndex = btn.ZIndex + 1
 	applyBottomButtonIcon(btn, name, label)
 	return btn
 end
@@ -3278,6 +3293,7 @@ local function buildBottomButtons(mainHud)
 	bottomButtons.Size = UDim2.fromOffset(540, 78)
 	bottomButtons.BackgroundTransparency = 1
 	bottomButtons.Visible = true
+	bottomButtons.ZIndex = 5000
 
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
@@ -3663,7 +3679,7 @@ end
 
 local function buildSettingsWindow(modalWindows)
 	local window, content = conceptWindow(modalWindows, "SettingsWindow", "SETTINGS")
-	window.Size = UDim2.fromScale(0.76, 0.68)
+	window.Size = STANDARD_WINDOW_SIZE
 	content.ClipsDescendants = true
 
 	local rows = conceptScrollingPanel(
@@ -3764,8 +3780,8 @@ end
 
 local function buildTradeWindow(modalWindows)
 	local window, content = conceptWindow(modalWindows, "TradeWindow", "TRADING")
-	window.Size = UDim2.fromScale(0.78, 0.64)
-	window.Position = UDim2.fromScale(0.5, 0.46)
+	window.Size = STANDARD_WINDOW_SIZE
+	window.Position = STANDARD_WINDOW_POSITION
 	content.ClipsDescendants = true
 	conceptLabel(
 		content,
@@ -4468,7 +4484,12 @@ function Builder.UpdateCloseButtons()
 	local updated = 0
 	for _, descendant in ipairs(StarterGui:GetDescendants()) do
 		if descendant.Name == "CloseButton" and descendant:IsA("GuiButton") then
-			styleCloseButton(descendant, descendant.Position, descendant.Size, math.max(descendant.ZIndex, 1003))
+			styleCloseButton(
+				descendant,
+				STANDARD_CLOSE_POSITION,
+				STANDARD_CLOSE_SIZE,
+				math.max(descendant.ZIndex, 1003)
+			)
 			updated += 1
 		end
 	end
@@ -4476,6 +4497,158 @@ function Builder.UpdateCloseButtons()
 end
 
 Builder.FixCloseButtons = Builder.UpdateCloseButtons
+
+local function tutorialText(parent, name, value, position, size, textSize, color, alignment)
+	local label = text(parent, name, value, position, size, textSize)
+	label.TextColor3 = color or Color3.fromRGB(255, 255, 255)
+	label.TextStrokeTransparency = 1
+	label.TextScaled = true
+	label.TextWrapped = true
+	label.TextXAlignment = alignment or Enum.TextXAlignment.Left
+	local sizeLimit = label:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	sizeLimit.MinTextSize = 10
+	sizeLimit.MaxTextSize = textSize or 18
+	sizeLimit.Parent = label
+	return label
+end
+
+function Builder.BuildTutorialGui()
+	if not canBuildConceptMenus("BuildTutorialGui") then
+		return
+	end
+
+	local tutorialGui = findOrCreate(StarterGui, "ScreenGui", "TutorialGui")
+	clearChildren(tutorialGui)
+	tutorialGui.ResetOnSpawn = false
+	tutorialGui.IgnoreGuiInset = true
+	tutorialGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	tutorialGui.DisplayOrder = 99950
+	tutorialGui.Enabled = false
+
+	local root =
+		frame(tutorialGui, "TutorialRoot", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Color3.fromRGB(3, 4, 7))
+	root.Active = false
+	root.BackgroundTransparency = 1
+	root.BorderSizePixel = 0
+	root.ZIndex = 1
+
+	local topGlow = frame(root, "TopGlow", UDim2.fromScale(0, 0), UDim2.new(1, 0, 0, 4), CYAN)
+	topGlow.BackgroundTransparency = 0.72
+	topGlow.BorderSizePixel = 0
+	topGlow.ZIndex = 4
+
+	local panel =
+		frame(root, "QuestPanel", UDim2.new(0, 24, 0.38, -95), UDim2.fromOffset(370, 210), Color3.fromRGB(7, 9, 15))
+	panel.BackgroundTransparency = 0.06
+	panel.BorderSizePixel = 0
+	panel.ZIndex = 20
+	applyCorner(panel, 8)
+	applyStroke(panel, CYAN, 2)
+
+	local accent = frame(panel, "AccentBar", UDim2.fromScale(0, 0), UDim2.new(0, 7, 1, 0), CYAN)
+	accent.BorderSizePixel = 0
+	accent.ZIndex = 21
+	applyCorner(accent, 8)
+
+	tutorialText(panel, "Header", "TUTORIAL QUEST", UDim2.fromOffset(22, 14), UDim2.new(1, -116, 0, 24), 16, CYAN).ZIndex =
+		22
+	tutorialText(
+		panel,
+		"QuestTitle",
+		"Quest 1: Paint a color spill",
+		UDim2.fromOffset(22, 44),
+		UDim2.new(1, -44, 0, 34),
+		24,
+		Color3.fromRGB(255, 255, 255)
+	).ZIndex =
+		22
+	local body = tutorialText(
+		panel,
+		"QuestBody",
+		"Walk to a glowing color spill and paint it down with your brush.",
+		UDim2.fromOffset(22, 84),
+		UDim2.new(1, -44, 0, 52),
+		16,
+		Color3.fromRGB(214, 230, 255)
+	)
+	body.TextYAlignment = Enum.TextYAlignment.Top
+	body.ZIndex = 22
+
+	local objective = tutorialText(
+		panel,
+		"ObjectiveLabel",
+		"Paint 1 color spill",
+		UDim2.new(0, 22, 1, -62),
+		UDim2.new(1, -168, 0, 32),
+		14,
+		GREEN,
+		Enum.TextXAlignment.Center
+	)
+	objective.BackgroundColor3 = Color3.fromRGB(3, 4, 7)
+	objective.BackgroundTransparency = 0.05
+	objective.BorderSizePixel = 0
+	objective.TextYAlignment = Enum.TextYAlignment.Center
+	objective.ZIndex = 22
+	applyCorner(objective, 8)
+
+	tutorialText(
+		panel,
+		"ProgressLabel",
+		"0 / 1  -  1/6",
+		UDim2.new(0, 22, 1, -26),
+		UDim2.new(1, -44, 0, 18),
+		12,
+		Color3.fromRGB(194, 224, 255)
+	).ZIndex =
+		22
+	tutorialText(
+		panel,
+		"StatusLabel",
+		"Active tutorial quest",
+		UDim2.new(1, -126, 0, 15),
+		UDim2.fromOffset(102, 20),
+		11,
+		Color3.fromRGB(194, 224, 255),
+		Enum.TextXAlignment.Right
+	).ZIndex =
+		22
+
+	button(panel, "SkipButton", "SKIP", UDim2.new(1, -124, 1, -62), UDim2.fromOffset(100, 32), DISABLED).ZIndex = 23
+
+	local spotlight =
+		frame(root, "Spotlight", UDim2.fromOffset(0, 0), UDim2.fromOffset(120, 120), Color3.fromRGB(5, 9, 16))
+	spotlight.BackgroundTransparency = 1
+	spotlight.Visible = false
+	spotlight.ZIndex = 80
+	local ring = frame(spotlight, "TargetRing", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), CYAN)
+	ring.BackgroundTransparency = 0.84
+	ring.ZIndex = 81
+	applyCorner(ring, 10)
+	applyStroke(ring, CYAN, 3)
+	local hint = tutorialText(
+		spotlight,
+		"Hint",
+		"",
+		UDim2.new(0.5, -170, 1, 10),
+		UDim2.fromOffset(340, 38),
+		14,
+		Color3.fromRGB(232, 244, 255),
+		Enum.TextXAlignment.Center
+	)
+	hint.BackgroundColor3 = Color3.fromRGB(7, 9, 15)
+	hint.BackgroundTransparency = 0.08
+	hint.BorderSizePixel = 0
+	hint.TextYAlignment = Enum.TextYAlignment.Center
+	hint.ZIndex = 82
+	applyCorner(hint, 10)
+	applyStroke(hint, CYAN, 2)
+
+	print("StudioMenuWindowsBuilder: built editable quest-style StarterGui.TutorialGui.")
+	print("Edit path: StarterGui > TutorialGui > TutorialRoot > QuestPanel")
+end
+
+Builder.UpdateTutorialGui = Builder.BuildTutorialGui
+Builder.BuildTutorialUI = Builder.BuildTutorialGui
 
 function Builder.BuildConceptMenus()
 	if not canBuildConceptMenus("BuildConceptMenus") then

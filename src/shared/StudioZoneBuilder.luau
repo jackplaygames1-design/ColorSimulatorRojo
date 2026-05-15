@@ -6,14 +6,14 @@
 -- require(game.ReplicatedStorage.StudioZoneBuilder).build()
 --
 -- This creates editable Workspace parts for each world. It does not run by itself.
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Lighting = game:GetService("Lighting")
 
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
+local GroupRewardsConfig = require(ReplicatedStorage:WaitForChild("GroupRewardsConfig"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local UpdateLogData = require(ReplicatedStorage:WaitForChild("UpdateLogData"))
-local GroupRewardsConfig = require(ReplicatedStorage:WaitForChild("GroupRewardsConfig"))
 
 local StudioZoneBuilder = {}
 
@@ -187,7 +187,8 @@ local function makeWallPanels(parent, colorType, center, theme)
 			local height = 16 + ((i + wallIndex) % 4) * 8
 			local width = 14 + ((i * 3 + wallIndex) % 5) * 7
 			local y = 20 + ((i * 17 + wallIndex * 11) % 115)
-			local paletteColor = WALL_PANEL_COLORS[((i + wallIndex + (ColorData.getWorldIndex(colorType) or 1)) - 1) % #WALL_PANEL_COLORS + 1]
+			local paletteColor =
+				WALL_PANEL_COLORS[((i + wallIndex + (ColorData.getWorldIndex(colorType) or 1)) - 1) % #WALL_PANEL_COLORS + 1]
 			local color = paletteColor:Lerp(theme.color, 0.25)
 			local size
 			local position
@@ -211,10 +212,38 @@ local function makeZoneDecor(parent, colorType, center, theme)
 	local halfZ = ZONE_SIZE.Z / 2
 
 	local wallColor = ringColor:Lerp(Color3.fromRGB(245, 248, 255), 0.28)
-	local north = makePart(parent, colorType .. "NorthWall", Vector3.new(ZONE_SIZE.X + WALL_THICKNESS * 2, WALL_HEIGHT, WALL_THICKNESS), center + Vector3.new(0, WALL_HEIGHT / 2, -halfZ - WALL_THICKNESS / 2), wallColor, Enum.Material.SmoothPlastic)
-	local south = makePart(parent, colorType .. "SouthWall", Vector3.new(ZONE_SIZE.X + WALL_THICKNESS * 2, WALL_HEIGHT, WALL_THICKNESS), center + Vector3.new(0, WALL_HEIGHT / 2, halfZ + WALL_THICKNESS / 2), wallColor, Enum.Material.SmoothPlastic)
-	local west = makePart(parent, colorType .. "WestWall", Vector3.new(WALL_THICKNESS, WALL_HEIGHT, ZONE_SIZE.Z + WALL_THICKNESS * 2), center + Vector3.new(-halfX - WALL_THICKNESS / 2, WALL_HEIGHT / 2, 0), wallColor, Enum.Material.SmoothPlastic)
-	local east = makePart(parent, colorType .. "EastWall", Vector3.new(WALL_THICKNESS, WALL_HEIGHT, ZONE_SIZE.Z + WALL_THICKNESS * 2), center + Vector3.new(halfX + WALL_THICKNESS / 2, WALL_HEIGHT / 2, 0), wallColor, Enum.Material.SmoothPlastic)
+	local north = makePart(
+		parent,
+		colorType .. "NorthWall",
+		Vector3.new(ZONE_SIZE.X + WALL_THICKNESS * 2, WALL_HEIGHT, WALL_THICKNESS),
+		center + Vector3.new(0, WALL_HEIGHT / 2, -halfZ - WALL_THICKNESS / 2),
+		wallColor,
+		Enum.Material.SmoothPlastic
+	)
+	local south = makePart(
+		parent,
+		colorType .. "SouthWall",
+		Vector3.new(ZONE_SIZE.X + WALL_THICKNESS * 2, WALL_HEIGHT, WALL_THICKNESS),
+		center + Vector3.new(0, WALL_HEIGHT / 2, halfZ + WALL_THICKNESS / 2),
+		wallColor,
+		Enum.Material.SmoothPlastic
+	)
+	local west = makePart(
+		parent,
+		colorType .. "WestWall",
+		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, ZONE_SIZE.Z + WALL_THICKNESS * 2),
+		center + Vector3.new(-halfX - WALL_THICKNESS / 2, WALL_HEIGHT / 2, 0),
+		wallColor,
+		Enum.Material.SmoothPlastic
+	)
+	local east = makePart(
+		parent,
+		colorType .. "EastWall",
+		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, ZONE_SIZE.Z + WALL_THICKNESS * 2),
+		center + Vector3.new(halfX + WALL_THICKNESS / 2, WALL_HEIGHT / 2, 0),
+		wallColor,
+		Enum.Material.SmoothPlastic
+	)
 	for _, wall in ipairs({ north, south, west, east }) do
 		wall.Transparency = 0
 		wall.CastShadow = false
@@ -222,10 +251,42 @@ local function makeZoneDecor(parent, colorType, center, theme)
 		wall:SetAttribute("ColorType", colorType)
 	end
 
-	makePart(parent, colorType .. "NorthTrim", Vector3.new(ZONE_SIZE.X, 3, 4), center + Vector3.new(0, 2.5, -halfZ), ringColor, Enum.Material.SmoothPlastic).Transparency = 0.08
-	makePart(parent, colorType .. "SouthTrim", Vector3.new(ZONE_SIZE.X, 3, 4), center + Vector3.new(0, 2.5, halfZ), ringColor, Enum.Material.SmoothPlastic).Transparency = 0.08
-	makePart(parent, colorType .. "WestTrim", Vector3.new(4, 3, ZONE_SIZE.Z), center + Vector3.new(-halfX, 2.5, 0), ringColor, Enum.Material.SmoothPlastic).Transparency = 0.08
-	makePart(parent, colorType .. "EastTrim", Vector3.new(4, 3, ZONE_SIZE.Z), center + Vector3.new(halfX, 2.5, 0), ringColor, Enum.Material.SmoothPlastic).Transparency = 0.08
+	makePart(
+		parent,
+		colorType .. "NorthTrim",
+		Vector3.new(ZONE_SIZE.X, 3, 4),
+		center + Vector3.new(0, 2.5, -halfZ),
+		ringColor,
+		Enum.Material.SmoothPlastic
+	).Transparency =
+		0.08
+	makePart(
+		parent,
+		colorType .. "SouthTrim",
+		Vector3.new(ZONE_SIZE.X, 3, 4),
+		center + Vector3.new(0, 2.5, halfZ),
+		ringColor,
+		Enum.Material.SmoothPlastic
+	).Transparency =
+		0.08
+	makePart(
+		parent,
+		colorType .. "WestTrim",
+		Vector3.new(4, 3, ZONE_SIZE.Z),
+		center + Vector3.new(-halfX, 2.5, 0),
+		ringColor,
+		Enum.Material.SmoothPlastic
+	).Transparency =
+		0.08
+	makePart(
+		parent,
+		colorType .. "EastTrim",
+		Vector3.new(4, 3, ZONE_SIZE.Z),
+		center + Vector3.new(halfX, 2.5, 0),
+		ringColor,
+		Enum.Material.SmoothPlastic
+	).Transparency =
+		0.08
 
 	makeWallPanels(parent, colorType, center, theme)
 end
@@ -238,7 +299,14 @@ local function makeEgg(parent, world, center, theme)
 	end
 
 	local eggOffset = world.primaryColor == "Red" and Vector3.new(62, 8.5, 82) or Vector3.new(88, 7.5, -96)
-	local egg = makePart(parent, eggId, Vector3.new(12, 15, 12), center + eggOffset, eggData.color or theme.accent, Enum.Material.SmoothPlastic)
+	local egg = makePart(
+		parent,
+		eggId,
+		Vector3.new(12, 15, 12),
+		center + eggOffset,
+		eggData.color or theme.accent,
+		Enum.Material.SmoothPlastic
+	)
 	egg.Shape = Enum.PartType.Ball
 	egg:SetAttribute("EggId", eggId)
 	egg:SetAttribute("ColorType", world.primaryColor)
@@ -361,7 +429,14 @@ local function ensureGatePrompt(gate, world, gateWidth, gateHeight, gateDepth)
 end
 
 local function makeSpawn(parent, world, center, theme)
-	local spawn = makePart(parent, world.primaryColor .. "Spawn", Vector3.new(18, 1, 18), center + Vector3.new(-105, 1, -105), theme.accent, Enum.Material.SmoothPlastic)
+	local spawn = makePart(
+		parent,
+		world.primaryColor .. "Spawn",
+		Vector3.new(18, 1, 18),
+		center + Vector3.new(-105, 1, -105),
+		theme.accent,
+		Enum.Material.SmoothPlastic
+	)
 	spawn:SetAttribute("AreaSpawn", true)
 	spawn:SetAttribute("AreaSpawnColor", world.primaryColor)
 	spawn:SetAttribute("SpawnColor", world.primaryColor)
@@ -372,11 +447,19 @@ local function makeSpawn(parent, world, center, theme)
 end
 
 local function makeGate(parent, world, previousCenter, currentCenter, previousZone, currentZone)
-	local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color or Color3.fromRGB(120, 220, 255)
+	local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color
+		or Color3.fromRGB(120, 220, 255)
 	local fallbackPreviousZone = previousZone or { Position = previousCenter, Size = ZONE_SIZE }
 	local fallbackCurrentZone = currentZone or { Position = currentCenter, Size = ZONE_SIZE }
 	local gateCFrame = getWallGateCFrame(fallbackPreviousZone, fallbackCurrentZone, GATE_HEIGHT, GATE_DEPTH)
-	local gate = makePart(parent, world.primaryColor .. "Gate", Vector3.new(GATE_WIDTH, GATE_HEIGHT, GATE_DEPTH), gateCFrame.Position, worldColor:Lerp(Color3.fromRGB(35, 38, 45), 0.45), Enum.Material.SmoothPlastic)
+	local gate = makePart(
+		parent,
+		world.primaryColor .. "Gate",
+		Vector3.new(GATE_WIDTH, GATE_HEIGHT, GATE_DEPTH),
+		gateCFrame.Position,
+		worldColor:Lerp(Color3.fromRGB(35, 38, 45), 0.45),
+		Enum.Material.SmoothPlastic
+	)
 	gate.CFrame = gateCFrame
 	gate.Transparency = 0.18
 	gate:SetAttribute("AreaGate", true)
@@ -387,12 +470,54 @@ local function makeGate(parent, world, previousCenter, currentCenter, previousZo
 	ensureGatePrompt(gate, world, GATE_WIDTH, GATE_HEIGHT, GATE_DEPTH)
 
 	local frameColor = Color3.fromRGB(35, 38, 65)
-	local leftPost = makePart(parent, world.primaryColor .. "GateLeftPost", Vector3.new(7, GATE_HEIGHT + 8, GATE_DEPTH + 2), gateCFrame.Position, frameColor, Enum.Material.SmoothPlastic)
-	local rightPost = makePart(parent, world.primaryColor .. "GateRightPost", Vector3.new(7, GATE_HEIGHT + 8, GATE_DEPTH + 2), gateCFrame.Position, frameColor, Enum.Material.SmoothPlastic)
-	local topBeam = makePart(parent, world.primaryColor .. "GateTopBeam", Vector3.new(GATE_WIDTH + 10, 7, GATE_DEPTH + 2), gateCFrame.Position, frameColor, Enum.Material.SmoothPlastic)
-	setPartLocal(leftPost, gateCFrame, leftPost.Size, Vector3.new(-GATE_WIDTH / 2 - 3.5, 0, 0), frameColor, Enum.Material.SmoothPlastic)
-	setPartLocal(rightPost, gateCFrame, rightPost.Size, Vector3.new(GATE_WIDTH / 2 + 3.5, 0, 0), frameColor, Enum.Material.SmoothPlastic)
-	setPartLocal(topBeam, gateCFrame, topBeam.Size, Vector3.new(0, GATE_HEIGHT / 2 + 3.5, 0), frameColor, Enum.Material.SmoothPlastic)
+	local leftPost = makePart(
+		parent,
+		world.primaryColor .. "GateLeftPost",
+		Vector3.new(7, GATE_HEIGHT + 8, GATE_DEPTH + 2),
+		gateCFrame.Position,
+		frameColor,
+		Enum.Material.SmoothPlastic
+	)
+	local rightPost = makePart(
+		parent,
+		world.primaryColor .. "GateRightPost",
+		Vector3.new(7, GATE_HEIGHT + 8, GATE_DEPTH + 2),
+		gateCFrame.Position,
+		frameColor,
+		Enum.Material.SmoothPlastic
+	)
+	local topBeam = makePart(
+		parent,
+		world.primaryColor .. "GateTopBeam",
+		Vector3.new(GATE_WIDTH + 10, 7, GATE_DEPTH + 2),
+		gateCFrame.Position,
+		frameColor,
+		Enum.Material.SmoothPlastic
+	)
+	setPartLocal(
+		leftPost,
+		gateCFrame,
+		leftPost.Size,
+		Vector3.new(-GATE_WIDTH / 2 - 3.5, 0, 0),
+		frameColor,
+		Enum.Material.SmoothPlastic
+	)
+	setPartLocal(
+		rightPost,
+		gateCFrame,
+		rightPost.Size,
+		Vector3.new(GATE_WIDTH / 2 + 3.5, 0, 0),
+		frameColor,
+		Enum.Material.SmoothPlastic
+	)
+	setPartLocal(
+		topBeam,
+		gateCFrame,
+		topBeam.Size,
+		Vector3.new(0, GATE_HEIGHT / 2 + 3.5, 0),
+		frameColor,
+		Enum.Material.SmoothPlastic
+	)
 	for _, part in ipairs({ leftPost, rightPost, topBeam }) do
 		part:SetAttribute("GateDecor", true)
 		part:SetAttribute("ColorType", world.primaryColor)
@@ -401,8 +526,22 @@ local function makeGate(parent, world, previousCenter, currentCenter, previousZo
 	for i = 1, 3 do
 		local stripeSize = Vector3.new(2, 30 - i * 4, GATE_DEPTH + 1)
 		local stripeOffset = Vector3.new((i - 2) * 11, 0, -GATE_DEPTH / 2 - 0.45)
-		local stripe = makePart(parent, world.primaryColor .. "GateGlow" .. i, stripeSize, gateCFrame.Position, worldColor:Lerp(Color3.fromRGB(255, 255, 255), i * 0.18), Enum.Material.Neon)
-		setPartLocal(stripe, gateCFrame, stripeSize, stripeOffset, worldColor:Lerp(Color3.fromRGB(255, 255, 255), i * 0.18), Enum.Material.Neon)
+		local stripe = makePart(
+			parent,
+			world.primaryColor .. "GateGlow" .. i,
+			stripeSize,
+			gateCFrame.Position,
+			worldColor:Lerp(Color3.fromRGB(255, 255, 255), i * 0.18),
+			Enum.Material.Neon
+		)
+		setPartLocal(
+			stripe,
+			gateCFrame,
+			stripeSize,
+			stripeOffset,
+			worldColor:Lerp(Color3.fromRGB(255, 255, 255), i * 0.18),
+			Enum.Material.Neon
+		)
 		stripe.Transparency = 0.35 + i * 0.12
 		stripe.CanCollide = false
 		stripe:SetAttribute("GateDecor", true)
@@ -414,7 +553,14 @@ end
 
 local function makeSellZone(parent, world, center, index)
 	local colorType = world.primaryColor
-	local sell = makePart(parent, "World" .. tostring(index) .. "_Sell", Vector3.new(24, 1, 24), center + Vector3.new(-34, 1, 74), Color3.fromRGB(88, 190, 72), Enum.Material.SmoothPlastic)
+	local sell = makePart(
+		parent,
+		"World" .. tostring(index) .. "_Sell",
+		Vector3.new(24, 1, 24),
+		center + Vector3.new(-34, 1, 74),
+		Color3.fromRGB(88, 190, 72),
+		Enum.Material.SmoothPlastic
+	)
 	sell:SetAttribute("SellZone", true)
 	sell:SetAttribute("SellLocation", true)
 	sell:SetAttribute("ColorType", colorType)
@@ -528,11 +674,12 @@ function StudioZoneBuilder.build(options)
 	local previousZone = nil
 	for index, world in ipairs(ColorData.Worlds) do
 		local colorType = world.primaryColor
-		local theme = THEME[colorType] or {
-			color = ColorData.Colors[colorType] and ColorData.Colors[colorType].color or Color3.new(1, 1, 1),
-			material = Enum.Material.SmoothPlastic,
-			accent = Color3.new(1, 1, 1),
-		}
+		local theme = THEME[colorType]
+			or {
+				color = ColorData.Colors[colorType] and ColorData.Colors[colorType].color or Color3.new(1, 1, 1),
+				material = Enum.Material.SmoothPlastic,
+				accent = Color3.new(1, 1, 1),
+			}
 
 		local buildSpacing = tonumber(options.spacing) or ZONE_SPACING
 		local center = Vector3.new((index - 1) * buildSpacing, 0, 0)
@@ -600,7 +747,11 @@ function StudioZoneBuilder.toneDownExisting()
 				obj.Color = theme.accent:Lerp(Color3.fromRGB(245, 248, 255), 0.28)
 				obj.Material = Enum.Material.SmoothPlastic
 				obj.Transparency = 0
-			elseif string.find(obj.Name, "Border") or string.find(obj.Name, "Trim") or string.find(obj.Name, "BuildMarker") then
+			elseif
+				string.find(obj.Name, "Border")
+				or string.find(obj.Name, "Trim")
+				or string.find(obj.Name, "BuildMarker")
+			then
 				if theme then
 					obj.Color = theme.accent
 				end
@@ -637,11 +788,12 @@ function StudioZoneBuilder.coolifyExisting()
 	for _, zone in ipairs(map:GetDescendants()) do
 		if zone:IsA("BasePart") and zone:GetAttribute("ColorZone") then
 			local colorType = zone:GetAttribute("ColorType") or "Red"
-			local theme = THEME[colorType] or {
-				color = ColorData.Colors[colorType] and ColorData.Colors[colorType].color or Color3.new(1, 1, 1),
-				material = Enum.Material.SmoothPlastic,
-				accent = Color3.new(1, 1, 1),
-			}
+			local theme = THEME[colorType]
+				or {
+					color = ColorData.Colors[colorType] and ColorData.Colors[colorType].color or Color3.new(1, 1, 1),
+					material = Enum.Material.SmoothPlastic,
+					accent = Color3.new(1, 1, 1),
+				}
 			makeWallPanels(decor, colorType, zone.Position, theme)
 		end
 	end
@@ -710,11 +862,32 @@ end
 
 local function makeTree(parent, name, position, scale)
 	scale = scale or 1
-	local trunk = makeBlock(parent, name .. "Trunk", Vector3.new(4 * scale, 18 * scale, 4 * scale), CFrame.new(position + Vector3.new(0, 9 * scale, 0)), Color3.fromRGB(132, 86, 45), Enum.Material.Wood)
+	local trunk = makeBlock(
+		parent,
+		name .. "Trunk",
+		Vector3.new(4 * scale, 18 * scale, 4 * scale),
+		CFrame.new(position + Vector3.new(0, 9 * scale, 0)),
+		Color3.fromRGB(132, 86, 45),
+		Enum.Material.Wood
+	)
 	trunk:SetAttribute("TestPlazaDecor", true)
-	local leaves = makeBlock(parent, name .. "Leaves", Vector3.new(18 * scale, 14 * scale, 18 * scale), CFrame.new(position + Vector3.new(0, 24 * scale, 0)), TEST_PLAZA_COLORS.grassDark, Enum.Material.SmoothPlastic)
+	local leaves = makeBlock(
+		parent,
+		name .. "Leaves",
+		Vector3.new(18 * scale, 14 * scale, 18 * scale),
+		CFrame.new(position + Vector3.new(0, 24 * scale, 0)),
+		TEST_PLAZA_COLORS.grassDark,
+		Enum.Material.SmoothPlastic
+	)
 	leaves:SetAttribute("TestPlazaDecor", true)
-	local top = makeBlock(parent, name .. "TopLeaves", Vector3.new(14 * scale, 10 * scale, 14 * scale), CFrame.new(position + Vector3.new(0, 34 * scale, 0)), TEST_PLAZA_COLORS.green, Enum.Material.SmoothPlastic)
+	local top = makeBlock(
+		parent,
+		name .. "TopLeaves",
+		Vector3.new(14 * scale, 10 * scale, 14 * scale),
+		CFrame.new(position + Vector3.new(0, 34 * scale, 0)),
+		TEST_PLAZA_COLORS.green,
+		Enum.Material.SmoothPlastic
+	)
 	top:SetAttribute("TestPlazaDecor", true)
 	return leaves
 end
@@ -726,26 +899,91 @@ end
 
 local function makeShopBlockout(parent, origin, colorType, spread)
 	colorType = colorType or "Test"
-	local base = makeBlock(parent, "ShopBuildingBase", Vector3.new(78, 7, 46), CFrame.new(plazaOffset(origin, spread, 92, 3.5, -42)), TEST_PLAZA_COLORS.blue, Enum.Material.SmoothPlastic)
+	local base = makeBlock(
+		parent,
+		"ShopBuildingBase",
+		Vector3.new(78, 7, 46),
+		CFrame.new(plazaOffset(origin, spread, 92, 3.5, -42)),
+		TEST_PLAZA_COLORS.blue,
+		Enum.Material.SmoothPlastic
+	)
 	base:SetAttribute("BrushShop", true)
 	base:SetAttribute("ColorType", colorType)
-	makeBlock(parent, "ShopCounter", Vector3.new(66, 9, 8), CFrame.new(plazaOffset(origin, spread, 92, 11, -62)), TEST_PLAZA_COLORS.dark, Enum.Material.SmoothPlastic)
-	makeBlock(parent, "ShopBackWall", Vector3.new(72, 30, 6), CFrame.new(plazaOffset(origin, spread, 92, 21, -24)), TEST_PLAZA_COLORS.dark, Enum.Material.SmoothPlastic)
-	makeBlock(parent, "ShopAwning", Vector3.new(84, 7, 24), CFrame.new(plazaOffset(origin, spread, 92, 32, -46)), Color3.fromRGB(70, 170, 255), Enum.Material.SmoothPlastic)
+	makeBlock(
+		parent,
+		"ShopCounter",
+		Vector3.new(66, 9, 8),
+		CFrame.new(plazaOffset(origin, spread, 92, 11, -62)),
+		TEST_PLAZA_COLORS.dark,
+		Enum.Material.SmoothPlastic
+	)
+	makeBlock(
+		parent,
+		"ShopBackWall",
+		Vector3.new(72, 30, 6),
+		CFrame.new(plazaOffset(origin, spread, 92, 21, -24)),
+		TEST_PLAZA_COLORS.dark,
+		Enum.Material.SmoothPlastic
+	)
+	makeBlock(
+		parent,
+		"ShopAwning",
+		Vector3.new(84, 7, 24),
+		CFrame.new(plazaOffset(origin, spread, 92, 32, -46)),
+		Color3.fromRGB(70, 170, 255),
+		Enum.Material.SmoothPlastic
+	)
 	for i = -2, 2 do
-		makeBlock(parent, "ShopAwningStripe" .. tostring(i), Vector3.new(10, 7.5, 25), CFrame.new(plazaOffset(origin, spread, 92 + i * 16, 32.2, -46)), i % 2 == 0 and TEST_PLAZA_COLORS.white or TEST_PLAZA_COLORS.blue, Enum.Material.SmoothPlastic)
+		makeBlock(
+			parent,
+			"ShopAwningStripe" .. tostring(i),
+			Vector3.new(10, 7.5, 25),
+			CFrame.new(plazaOffset(origin, spread, 92 + i * 16, 32.2, -46)),
+			i % 2 == 0 and TEST_PLAZA_COLORS.white or TEST_PLAZA_COLORS.blue,
+			Enum.Material.SmoothPlastic
+		)
 	end
-	local sign = makeBlock(parent, "ShopSign", Vector3.new(58, 16, 4), CFrame.new(plazaOffset(origin, spread, 92, 48, -58)), TEST_PLAZA_COLORS.dark, Enum.Material.SmoothPlastic)
+	local sign = makeBlock(
+		parent,
+		"ShopSign",
+		Vector3.new(58, 16, 4),
+		CFrame.new(plazaOffset(origin, spread, 92, 48, -58)),
+		TEST_PLAZA_COLORS.dark,
+		Enum.Material.SmoothPlastic
+	)
 	makeTestLabel(sign, "SHOP", "UPGRADES & MORE", Vector3.new(0, 3, 0), UDim2.new(0, 240, 0, 76))
 	return base
 end
 
 local function makeEggAreaBlockout(parent, origin, colorType, spread)
 	colorType = colorType or "Test"
-	local base = makeCylinder(parent, "EggAreaRoundBase", 46, 5, CFrame.new(plazaOffset(origin, spread, -28, 2.5, -54)), TEST_PLAZA_COLORS.purple, Enum.Material.SmoothPlastic)
+	local base = makeCylinder(
+		parent,
+		"EggAreaRoundBase",
+		46,
+		5,
+		CFrame.new(plazaOffset(origin, spread, -28, 2.5, -54)),
+		TEST_PLAZA_COLORS.purple,
+		Enum.Material.SmoothPlastic
+	)
 	base:SetAttribute("ColorType", colorType)
-	local pedestal = makeCylinder(parent, "StarterTestEggPedestal", 18, 6, CFrame.new(plazaOffset(origin, spread, -28, 8, -54)), Color3.fromRGB(205, 160, 255), Enum.Material.SmoothPlastic)
-	local egg = makeBlock(parent, "TestPlazaStarterEgg", Vector3.new(22, 30, 22), CFrame.new(plazaOffset(origin, spread, -28, 28, -54)), Color3.fromRGB(180, 100, 255), Enum.Material.SmoothPlastic)
+	local pedestal = makeCylinder(
+		parent,
+		"StarterTestEggPedestal",
+		18,
+		6,
+		CFrame.new(plazaOffset(origin, spread, -28, 8, -54)),
+		Color3.fromRGB(205, 160, 255),
+		Enum.Material.SmoothPlastic
+	)
+	local egg = makeBlock(
+		parent,
+		"TestPlazaStarterEgg",
+		Vector3.new(22, 30, 22),
+		CFrame.new(plazaOffset(origin, spread, -28, 28, -54)),
+		Color3.fromRGB(180, 100, 255),
+		Enum.Material.SmoothPlastic
+	)
 	egg.Shape = Enum.PartType.Ball
 	egg:SetAttribute("EggId", "ColorEgg")
 	egg:SetAttribute("ColorType", colorType)
@@ -763,26 +1001,77 @@ local function makeEggAreaBlockout(parent, origin, colorType, spread)
 	prompt:SetAttribute("EggShopPrompt", true)
 	prompt.Parent = egg
 	makeTestLabel(egg, "EGG AREA", "HATCH COLORS", Vector3.new(0, 21, 0), UDim2.new(0, 260, 0, 80))
-	makeBlock(parent, "EggAreaArchLeft", Vector3.new(6, 34, 6), CFrame.new(plazaOffset(origin, spread, -55, 20, -54)), TEST_PLAZA_COLORS.purple, Enum.Material.SmoothPlastic)
-	makeBlock(parent, "EggAreaArchRight", Vector3.new(6, 34, 6), CFrame.new(plazaOffset(origin, spread, -1, 20, -54)), TEST_PLAZA_COLORS.purple, Enum.Material.SmoothPlastic)
-	makeBlock(parent, "EggAreaArchTop", Vector3.new(60, 8, 7), CFrame.new(plazaOffset(origin, spread, -28, 39, -54)), TEST_PLAZA_COLORS.purple, Enum.Material.SmoothPlastic)
+	makeBlock(
+		parent,
+		"EggAreaArchLeft",
+		Vector3.new(6, 34, 6),
+		CFrame.new(plazaOffset(origin, spread, -55, 20, -54)),
+		TEST_PLAZA_COLORS.purple,
+		Enum.Material.SmoothPlastic
+	)
+	makeBlock(
+		parent,
+		"EggAreaArchRight",
+		Vector3.new(6, 34, 6),
+		CFrame.new(plazaOffset(origin, spread, -1, 20, -54)),
+		TEST_PLAZA_COLORS.purple,
+		Enum.Material.SmoothPlastic
+	)
+	makeBlock(
+		parent,
+		"EggAreaArchTop",
+		Vector3.new(60, 8, 7),
+		CFrame.new(plazaOffset(origin, spread, -28, 39, -54)),
+		TEST_PLAZA_COLORS.purple,
+		Enum.Material.SmoothPlastic
+	)
 	return egg
 end
 
 local function makeSellBlockout(parent, origin, colorType, spread)
 	colorType = colorType or "Test"
-	local pad = makeCylinder(parent, "TestSellZone", 34, 4, CFrame.new(plazaOffset(origin, spread, -120, 3, -10)), TEST_PLAZA_COLORS.yellow, Enum.Material.Neon)
+	local pad = makeCylinder(
+		parent,
+		"TestSellZone",
+		34,
+		4,
+		CFrame.new(plazaOffset(origin, spread, -120, 3, -10)),
+		TEST_PLAZA_COLORS.yellow,
+		Enum.Material.Neon
+	)
 	pad:SetAttribute("SellZone", true)
 	pad:SetAttribute("SellLocation", true)
 	pad:SetAttribute("ColorType", colorType)
 	pad:SetAttribute("AreaColor", colorType)
 	pad:SetAttribute("SellColor", colorType)
 	pad:SetAttribute("ColorType", colorType)
-	makeBlock(parent, "SellSignPosts", Vector3.new(54, 6, 5), CFrame.new(plazaOffset(origin, spread, -120, 22, -32)), TEST_PLAZA_COLORS.orange, Enum.Material.SmoothPlastic)
-	local sign = makeBlock(parent, "SellColorSign", Vector3.new(70, 18, 5), CFrame.new(plazaOffset(origin, spread, -120, 35, -32)), TEST_PLAZA_COLORS.orange, Enum.Material.SmoothPlastic)
+	makeBlock(
+		parent,
+		"SellSignPosts",
+		Vector3.new(54, 6, 5),
+		CFrame.new(plazaOffset(origin, spread, -120, 22, -32)),
+		TEST_PLAZA_COLORS.orange,
+		Enum.Material.SmoothPlastic
+	)
+	local sign = makeBlock(
+		parent,
+		"SellColorSign",
+		Vector3.new(70, 18, 5),
+		CFrame.new(plazaOffset(origin, spread, -120, 35, -32)),
+		TEST_PLAZA_COLORS.orange,
+		Enum.Material.SmoothPlastic
+	)
 	makeTestLabel(sign, "SELL COLOR", nil, Vector3.new(0, 3, 0), UDim2.new(0, 260, 0, 62))
 	for i = 1, 5 do
-		makeCylinder(parent, "CoinStack" .. i, 5, 4 + i * 2, CFrame.new(plazaOffset(origin, spread, -158 + i * 8, 3 + i, 15)), TEST_PLAZA_COLORS.yellow, Enum.Material.SmoothPlastic)
+		makeCylinder(
+			parent,
+			"CoinStack" .. i,
+			5,
+			4 + i * 2,
+			CFrame.new(plazaOffset(origin, spread, -158 + i * 8, 3 + i, 15)),
+			TEST_PLAZA_COLORS.yellow,
+			Enum.Material.SmoothPlastic
+		)
 	end
 	return pad
 end
@@ -792,22 +1081,92 @@ local function makePortalBlockout(parent, origin, colorType, spread)
 	local currentIndex = ColorData.getWorldIndex(colorType) or 1
 	local targetWorld = ColorData.Worlds[currentIndex + 1] or ColorData.Worlds[currentIndex] or ColorData.Worlds[1]
 	local targetColorType = targetWorld and targetWorld.primaryColor or colorType
-	local targetColor = ColorData.Colors[targetColorType] and ColorData.Colors[targetColorType].color or TEST_PLAZA_COLORS.cyan
-	local floor = makeBlock(parent, "NextWorldStairs", Vector3.new(80, 5, 38), CFrame.new(plazaOffset(origin, spread, 154, 2.5, 34)), TEST_PLAZA_COLORS.stone, Enum.Material.SmoothPlastic)
+	local targetColor = ColorData.Colors[targetColorType] and ColorData.Colors[targetColorType].color
+		or TEST_PLAZA_COLORS.cyan
+	local floor = makeBlock(
+		parent,
+		"NextWorldStairs",
+		Vector3.new(80, 5, 38),
+		CFrame.new(plazaOffset(origin, spread, 154, 2.5, 34)),
+		TEST_PLAZA_COLORS.stone,
+		Enum.Material.SmoothPlastic
+	)
 	floor:SetAttribute("AreaGate", true)
 	floor:SetAttribute("GateColor", targetColorType)
 	floor:SetAttribute("UnlockColor", targetColorType)
 	floor:SetAttribute("ColorType", targetColorType)
-	local portal = makeBlock(parent, "RainbowRealmPortal", Vector3.new(48, 60, 7), CFrame.new(plazaOffset(origin, spread, 154, 35, 56)), targetColor:Lerp(TEST_PLAZA_COLORS.white, 0.16), Enum.Material.Neon)
+	local portal = makeBlock(
+		parent,
+		"RainbowRealmPortal",
+		Vector3.new(48, 60, 7),
+		CFrame.new(plazaOffset(origin, spread, 154, 35, 56)),
+		targetColor:Lerp(TEST_PLAZA_COLORS.white, 0.16),
+		Enum.Material.Neon
+	)
 	portal.Transparency = 0.28
-	makeBlock(parent, "PortalLeftStackRed", Vector3.new(13, 22, 13), CFrame.new(plazaOffset(origin, spread, 119, 13, 56)), TEST_PLAZA_COLORS.red, Enum.Material.SmoothPlastic)
-	makeBlock(parent, "PortalLeftStackYellow", Vector3.new(13, 22, 13), CFrame.new(plazaOffset(origin, spread, 119, 35, 56)), TEST_PLAZA_COLORS.yellow, Enum.Material.SmoothPlastic)
-	makeBlock(parent, "PortalLeftStackGreen", Vector3.new(13, 22, 13), CFrame.new(plazaOffset(origin, spread, 119, 57, 56)), TEST_PLAZA_COLORS.green, Enum.Material.SmoothPlastic)
-	makeBlock(parent, "PortalRightStackBlue", Vector3.new(13, 22, 13), CFrame.new(plazaOffset(origin, spread, 189, 13, 56)), TEST_PLAZA_COLORS.blue, Enum.Material.SmoothPlastic)
-	makeBlock(parent, "PortalRightStackPurple", Vector3.new(13, 22, 13), CFrame.new(plazaOffset(origin, spread, 189, 35, 56)), TEST_PLAZA_COLORS.purple, Enum.Material.SmoothPlastic)
-	makeBlock(parent, "PortalRightStackWhite", Vector3.new(13, 22, 13), CFrame.new(plazaOffset(origin, spread, 189, 57, 56)), TEST_PLAZA_COLORS.white, Enum.Material.SmoothPlastic)
-	local sign = makeBlock(parent, "NextWorldSign", Vector3.new(74, 20, 5), CFrame.new(plazaOffset(origin, spread, 154, 81, 56)), TEST_PLAZA_COLORS.dark, Enum.Material.SmoothPlastic)
-	makeTestLabel(sign, "NEXT SECTOR", targetWorld and string.upper(targetWorld.name) or "SOON", Vector3.new(0, 2, 0), UDim2.new(0, 280, 0, 80))
+	makeBlock(
+		parent,
+		"PortalLeftStackRed",
+		Vector3.new(13, 22, 13),
+		CFrame.new(plazaOffset(origin, spread, 119, 13, 56)),
+		TEST_PLAZA_COLORS.red,
+		Enum.Material.SmoothPlastic
+	)
+	makeBlock(
+		parent,
+		"PortalLeftStackYellow",
+		Vector3.new(13, 22, 13),
+		CFrame.new(plazaOffset(origin, spread, 119, 35, 56)),
+		TEST_PLAZA_COLORS.yellow,
+		Enum.Material.SmoothPlastic
+	)
+	makeBlock(
+		parent,
+		"PortalLeftStackGreen",
+		Vector3.new(13, 22, 13),
+		CFrame.new(plazaOffset(origin, spread, 119, 57, 56)),
+		TEST_PLAZA_COLORS.green,
+		Enum.Material.SmoothPlastic
+	)
+	makeBlock(
+		parent,
+		"PortalRightStackBlue",
+		Vector3.new(13, 22, 13),
+		CFrame.new(plazaOffset(origin, spread, 189, 13, 56)),
+		TEST_PLAZA_COLORS.blue,
+		Enum.Material.SmoothPlastic
+	)
+	makeBlock(
+		parent,
+		"PortalRightStackPurple",
+		Vector3.new(13, 22, 13),
+		CFrame.new(plazaOffset(origin, spread, 189, 35, 56)),
+		TEST_PLAZA_COLORS.purple,
+		Enum.Material.SmoothPlastic
+	)
+	makeBlock(
+		parent,
+		"PortalRightStackWhite",
+		Vector3.new(13, 22, 13),
+		CFrame.new(plazaOffset(origin, spread, 189, 57, 56)),
+		TEST_PLAZA_COLORS.white,
+		Enum.Material.SmoothPlastic
+	)
+	local sign = makeBlock(
+		parent,
+		"NextWorldSign",
+		Vector3.new(74, 20, 5),
+		CFrame.new(plazaOffset(origin, spread, 154, 81, 56)),
+		TEST_PLAZA_COLORS.dark,
+		Enum.Material.SmoothPlastic
+	)
+	makeTestLabel(
+		sign,
+		"NEXT SECTOR",
+		targetWorld and string.upper(targetWorld.name) or "SOON",
+		Vector3.new(0, 2, 0),
+		UDim2.new(0, 280, 0, 80)
+	)
 	return portal
 end
 
@@ -822,15 +1181,38 @@ local function makeRainbowSlide(parent, origin, spread)
 		TEST_PLAZA_COLORS.purple,
 	}
 	for i, color in ipairs(colors) do
-		local stripe = makeBlock(parent, "RainbowSlideStripe" .. i, Vector3.new(7, 3, 92), CFrame.new(plazaOffset(origin, spread, -179 + i * 7, 18 + i * 0.4, -92)) * CFrame.Angles(math.rad(-16), 0, 0), color, Enum.Material.SmoothPlastic)
+		local stripe = makeBlock(
+			parent,
+			"RainbowSlideStripe" .. i,
+			Vector3.new(7, 3, 92),
+			CFrame.new(plazaOffset(origin, spread, -179 + i * 7, 18 + i * 0.4, -92))
+				* CFrame.Angles(math.rad(-16), 0, 0),
+			color,
+			Enum.Material.SmoothPlastic
+		)
 		stripe:SetAttribute("TestPlazaDecor", true)
 	end
-	makeBlock(parent, "RainbowSlideLeftWall", Vector3.new(8, 18, 98), CFrame.new(plazaOffset(origin, spread, -178, 23, -92)) * CFrame.Angles(math.rad(-16), 0, 0), TEST_PLAZA_COLORS.white, Enum.Material.SmoothPlastic)
-	makeBlock(parent, "RainbowSlideRightWall", Vector3.new(8, 18, 98), CFrame.new(plazaOffset(origin, spread, -124, 23, -92)) * CFrame.Angles(math.rad(-16), 0, 0), TEST_PLAZA_COLORS.white, Enum.Material.SmoothPlastic)
+	makeBlock(
+		parent,
+		"RainbowSlideLeftWall",
+		Vector3.new(8, 18, 98),
+		CFrame.new(plazaOffset(origin, spread, -178, 23, -92)) * CFrame.Angles(math.rad(-16), 0, 0),
+		TEST_PLAZA_COLORS.white,
+		Enum.Material.SmoothPlastic
+	)
+	makeBlock(
+		parent,
+		"RainbowSlideRightWall",
+		Vector3.new(8, 18, 98),
+		CFrame.new(plazaOffset(origin, spread, -124, 23, -92)) * CFrame.Angles(math.rad(-16), 0, 0),
+		TEST_PLAZA_COLORS.white,
+		Enum.Material.SmoothPlastic
+	)
 end
 
 local function makePaintPuddle(parent, name, position, color, size, colorType)
-	local puddle = makeBlock(parent, name, Vector3.new(size.X, 1.1, size.Z), CFrame.new(position), color, Enum.Material.Neon)
+	local puddle =
+		makeBlock(parent, name, Vector3.new(size.X, 1.1, size.Z), CFrame.new(position), color, Enum.Material.Neon)
 	puddle.Shape = Enum.PartType.Ball
 	puddle:SetAttribute("BreakableType", "PaintBlob")
 	puddle:SetAttribute("ColorType", colorType or "Test")
@@ -841,12 +1223,40 @@ end
 
 local function makeFence(parent, origin, spread)
 	for i = -5, 5 do
-		makeBlock(parent, "FrontFencePost" .. i, Vector3.new(4, 9, 4), CFrame.new(plazaOffset(origin, spread, i * 32, 5, 155)), TEST_PLAZA_COLORS.white, Enum.Material.SmoothPlastic)
-		makeBlock(parent, "BackFencePost" .. i, Vector3.new(4, 9, 4), CFrame.new(plazaOffset(origin, spread, i * 32, 5, -155)), TEST_PLAZA_COLORS.white, Enum.Material.SmoothPlastic)
+		makeBlock(
+			parent,
+			"FrontFencePost" .. i,
+			Vector3.new(4, 9, 4),
+			CFrame.new(plazaOffset(origin, spread, i * 32, 5, 155)),
+			TEST_PLAZA_COLORS.white,
+			Enum.Material.SmoothPlastic
+		)
+		makeBlock(
+			parent,
+			"BackFencePost" .. i,
+			Vector3.new(4, 9, 4),
+			CFrame.new(plazaOffset(origin, spread, i * 32, 5, -155)),
+			TEST_PLAZA_COLORS.white,
+			Enum.Material.SmoothPlastic
+		)
 	end
 	for i = -4, 4 do
-		makeBlock(parent, "LeftFencePost" .. i, Vector3.new(4, 9, 4), CFrame.new(plazaOffset(origin, spread, -205, 5, i * 32)), TEST_PLAZA_COLORS.white, Enum.Material.SmoothPlastic)
-		makeBlock(parent, "RightFencePost" .. i, Vector3.new(4, 9, 4), CFrame.new(plazaOffset(origin, spread, 205, 5, i * 32)), TEST_PLAZA_COLORS.white, Enum.Material.SmoothPlastic)
+		makeBlock(
+			parent,
+			"LeftFencePost" .. i,
+			Vector3.new(4, 9, 4),
+			CFrame.new(plazaOffset(origin, spread, -205, 5, i * 32)),
+			TEST_PLAZA_COLORS.white,
+			Enum.Material.SmoothPlastic
+		)
+		makeBlock(
+			parent,
+			"RightFencePost" .. i,
+			Vector3.new(4, 9, 4),
+			CFrame.new(plazaOffset(origin, spread, 205, 5, i * 32)),
+			TEST_PLAZA_COLORS.white,
+			Enum.Material.SmoothPlastic
+		)
 	end
 end
 
@@ -891,7 +1301,14 @@ local function buildPlazaBlockout(options)
 	local zoneName = options.zoneName or "TestZone"
 	local spread = tonumber(options.spread) or 1
 	local origin = Vector3.new(tonumber(options.xOffset) or 0, 0, tonumber(options.zOffset) or 520)
-	local zone = makeBlock(root, zoneName, Vector3.new(430 * spread, 2, 330 * spread), CFrame.new(origin), TEST_PLAZA_COLORS.grass, Enum.Material.Grass)
+	local zone = makeBlock(
+		root,
+		zoneName,
+		Vector3.new(430 * spread, 2, 330 * spread),
+		CFrame.new(origin),
+		TEST_PLAZA_COLORS.grass,
+		Enum.Material.Grass
+	)
 	zone:SetAttribute("ColorZone", true)
 	zone:SetAttribute("ColorType", colorType)
 	zone:SetAttribute("WorldId", worldId)
@@ -899,7 +1316,14 @@ local function buildPlazaBlockout(options)
 	zone:SetAttribute("RewardMultiplier", 1)
 	zone:SetAttribute("BlobCount", options.blobCount or 36)
 
-	local spawn = makeBlock(root, spawnName, Vector3.new(54, 2, 46), CFrame.new(plazaOffset(origin, spread, 0, 2, 118)), TEST_PLAZA_COLORS.stone, Enum.Material.SmoothPlastic)
+	local spawn = makeBlock(
+		root,
+		spawnName,
+		Vector3.new(54, 2, 46),
+		CFrame.new(plazaOffset(origin, spread, 0, 2, 118)),
+		TEST_PLAZA_COLORS.stone,
+		Enum.Material.SmoothPlastic
+	)
 	spawn:SetAttribute("AreaSpawn", true)
 	spawn:SetAttribute("AreaSpawnColor", colorType)
 	spawn:SetAttribute("TeleportColor", colorType)
@@ -913,13 +1337,42 @@ local function buildPlazaBlockout(options)
 		{ name = "PathCenterToShop", size = Vector3.new(30, 0.6, 120), pos = Vector3.new(46, 1.38, -20), rot = 38 },
 		{ name = "PathCenterToPortal", size = Vector3.new(30, 0.6, 130), pos = Vector3.new(92, 1.39, 44), rot = -52 },
 	}) do
-		makeBlock(root, path.name, path.size, CFrame.new(plazaOffset(origin, spread, path.pos.X, path.pos.Y, path.pos.Z)) * CFrame.Angles(0, math.rad(path.rot), 0), TEST_PLAZA_COLORS.path, Enum.Material.SmoothPlastic)
+		makeBlock(
+			root,
+			path.name,
+			path.size,
+			CFrame.new(plazaOffset(origin, spread, path.pos.X, path.pos.Y, path.pos.Z))
+				* CFrame.Angles(0, math.rad(path.rot), 0),
+			TEST_PLAZA_COLORS.path,
+			Enum.Material.SmoothPlastic
+		)
 	end
 
-	local centerSign = makeBlock(root, "WelcomeArchSign", Vector3.new(92, 18, 5), CFrame.new(plazaOffset(origin, spread, 0, 31, 82)), TEST_PLAZA_COLORS.blue, Enum.Material.SmoothPlastic)
+	local centerSign = makeBlock(
+		root,
+		"WelcomeArchSign",
+		Vector3.new(92, 18, 5),
+		CFrame.new(plazaOffset(origin, spread, 0, 31, 82)),
+		TEST_PLAZA_COLORS.blue,
+		Enum.Material.SmoothPlastic
+	)
 	makeTestLabel(centerSign, "WELCOME TO", "COLOR PLAZA!", Vector3.new(0, 1, 0), UDim2.new(0, 330, 0, 88))
-	makeBlock(root, "WelcomeArchLeftPost", Vector3.new(6, 34, 6), CFrame.new(plazaOffset(origin, spread, -49, 17, 82)), TEST_PLAZA_COLORS.purple, Enum.Material.SmoothPlastic)
-	makeBlock(root, "WelcomeArchRightPost", Vector3.new(6, 34, 6), CFrame.new(plazaOffset(origin, spread, 49, 17, 82)), TEST_PLAZA_COLORS.purple, Enum.Material.SmoothPlastic)
+	makeBlock(
+		root,
+		"WelcomeArchLeftPost",
+		Vector3.new(6, 34, 6),
+		CFrame.new(plazaOffset(origin, spread, -49, 17, 82)),
+		TEST_PLAZA_COLORS.purple,
+		Enum.Material.SmoothPlastic
+	)
+	makeBlock(
+		root,
+		"WelcomeArchRightPost",
+		Vector3.new(6, 34, 6),
+		CFrame.new(plazaOffset(origin, spread, 49, 17, 82)),
+		TEST_PLAZA_COLORS.purple,
+		Enum.Material.SmoothPlastic
+	)
 
 	makeSellBlockout(root, origin, colorType, spread)
 	makeEggAreaBlockout(root, origin, colorType, spread)
@@ -928,33 +1381,82 @@ local function buildPlazaBlockout(options)
 	makeRainbowSlide(root, origin, spread)
 	makeFence(root, origin, spread)
 
-	local howTo = makeBlock(root, "HowToPlaySign", Vector3.new(44, 30, 5), CFrame.new(plazaOffset(origin, spread, 135, 18, 118)) * CFrame.Angles(0, math.rad(-20), 0), Color3.fromRGB(120, 78, 42), Enum.Material.Wood)
+	local howTo = makeBlock(
+		root,
+		"HowToPlaySign",
+		Vector3.new(44, 30, 5),
+		CFrame.new(plazaOffset(origin, spread, 135, 18, 118)) * CFrame.Angles(0, math.rad(-20), 0),
+		Color3.fromRGB(120, 78, 42),
+		Enum.Material.Wood
+	)
 	makeTestLabel(howTo, "HOW TO PLAY", "COLLECT  SELL  HATCH  UPGRADE", Vector3.new(0, 2, 0), UDim2.new(0, 260, 0, 86))
 
 	for i, pos in ipairs({
-		Vector3.new(-180, 0, 110), Vector3.new(-168, 0, 58), Vector3.new(-192, 0, -22), Vector3.new(-104, 0, -128),
-		Vector3.new(-70, 0, -128), Vector3.new(2, 0, -136), Vector3.new(64, 0, -122), Vector3.new(132, 0, -108),
-		Vector3.new(188, 0, -42), Vector3.new(196, 0, 100), Vector3.new(102, 0, 134), Vector3.new(-112, 0, 136),
+		Vector3.new(-180, 0, 110),
+		Vector3.new(-168, 0, 58),
+		Vector3.new(-192, 0, -22),
+		Vector3.new(-104, 0, -128),
+		Vector3.new(-70, 0, -128),
+		Vector3.new(2, 0, -136),
+		Vector3.new(64, 0, -122),
+		Vector3.new(132, 0, -108),
+		Vector3.new(188, 0, -42),
+		Vector3.new(196, 0, 100),
+		Vector3.new(102, 0, 134),
+		Vector3.new(-112, 0, 136),
 	}) do
 		makeTree(root, "BlockoutTree" .. i, plazaOffset(origin, spread, pos.X, pos.Y, pos.Z), i % 3 == 0 and 1.2 or 1)
 	end
 
-	local puddleColors = { TEST_PLAZA_COLORS.red, TEST_PLAZA_COLORS.cyan, TEST_PLAZA_COLORS.yellow, TEST_PLAZA_COLORS.purple, TEST_PLAZA_COLORS.pink }
+	local puddleColors = {
+		TEST_PLAZA_COLORS.red,
+		TEST_PLAZA_COLORS.cyan,
+		TEST_PLAZA_COLORS.yellow,
+		TEST_PLAZA_COLORS.purple,
+		TEST_PLAZA_COLORS.pink,
+	}
 	for i = 1, 28 do
 		local angle = math.rad(i * 47)
 		local radius = 30 + (i % 5) * 18
 		local x = math.cos(angle) * radius + ((i % 4) - 2) * 18
 		local z = math.sin(angle) * radius + ((i % 3) - 1) * 16
 		local pos = plazaOffset(origin, spread, x, 2.3, z)
-		makePaintPuddle(root, "EditableColorPuddle" .. i, pos, puddleColors[((i - 1) % #puddleColors) + 1], Vector3.new(7 + (i % 3) * 2, 1, 6 + (i % 4)), colorType)
+		makePaintPuddle(
+			root,
+			"EditableColorPuddle" .. i,
+			pos,
+			puddleColors[((i - 1) % #puddleColors) + 1],
+			Vector3.new(7 + (i % 3) * 2, 1, 6 + (i % 4)),
+			colorType
+		)
 	end
 
 	for i, pos in ipairs({ Vector3.new(-72, 2.5, 134), Vector3.new(76, 2.5, 137) }) do
-		makeBlock(root, "BenchSeat" .. i, Vector3.new(34, 3, 8), CFrame.new(plazaOffset(origin, spread, pos.X, pos.Y, pos.Z)), Color3.fromRGB(156, 92, 48), Enum.Material.Wood)
-		makeBlock(root, "BenchBack" .. i, Vector3.new(34, 10, 3), CFrame.new(plazaOffset(origin, spread, pos.X, pos.Y + 5, pos.Z + 6)), Color3.fromRGB(120, 72, 42), Enum.Material.Wood)
+		makeBlock(
+			root,
+			"BenchSeat" .. i,
+			Vector3.new(34, 3, 8),
+			CFrame.new(plazaOffset(origin, spread, pos.X, pos.Y, pos.Z)),
+			Color3.fromRGB(156, 92, 48),
+			Enum.Material.Wood
+		)
+		makeBlock(
+			root,
+			"BenchBack" .. i,
+			Vector3.new(34, 10, 3),
+			CFrame.new(plazaOffset(origin, spread, pos.X, pos.Y + 5, pos.Z + 6)),
+			Color3.fromRGB(120, 72, 42),
+			Enum.Material.Wood
+		)
 	end
 
-	print("StudioZoneBuilder: created editable " .. folderName .. ". Refine it under Workspace > ColorSimulatorMap > " .. folderName .. ".")
+	print(
+		"StudioZoneBuilder: created editable "
+			.. folderName
+			.. ". Refine it under Workspace > ColorSimulatorMap > "
+			.. folderName
+			.. "."
+	)
 	return root
 end
 
@@ -1025,11 +1527,12 @@ function StudioZoneBuilder.restoreMissingWorlds(options)
 			return part:GetAttribute("ColorZone") and part:GetAttribute("ColorType") == colorType
 		end)
 		local center = existingZone and existingZone.Position or (origin + direction * ((index - 1) * spacing))
-		local theme = THEME[colorType] or {
-			color = ColorData.Colors[colorType] and ColorData.Colors[colorType].color or Color3.new(1, 1, 1),
-			material = Enum.Material.SmoothPlastic,
-			accent = Color3.new(1, 1, 1),
-		}
+		local theme = THEME[colorType]
+			or {
+				color = ColorData.Colors[colorType] and ColorData.Colors[colorType].color or Color3.new(1, 1, 1),
+				material = Enum.Material.SmoothPlastic,
+				accent = Color3.new(1, 1, 1),
+			}
 
 		if index > 1 then
 			if not existingZone then
@@ -1052,7 +1555,9 @@ function StudioZoneBuilder.restoreMissingWorlds(options)
 			if not (part:GetAttribute("SellZone") or part:GetAttribute("SellLocation")) then
 				return false
 			end
-			local sellColor = part:GetAttribute("ColorType") or part:GetAttribute("AreaColor") or part:GetAttribute("SellColor")
+			local sellColor = part:GetAttribute("ColorType")
+				or part:GetAttribute("AreaColor")
+				or part:GetAttribute("SellColor")
 			return sellColor == colorType or (colorType == "Red" and sellColor == nil)
 		end)
 		if not existingSell and existingZone then
@@ -1071,7 +1576,8 @@ function StudioZoneBuilder.restoreMissingWorlds(options)
 			if not existingGate then
 				local previousWorld = ColorData.Worlds[index - 1]
 				local previousZone = findFirstPart(map, function(part)
-					return part:GetAttribute("ColorZone") and part:GetAttribute("ColorType") == previousWorld.primaryColor
+					return part:GetAttribute("ColorZone")
+						and part:GetAttribute("ColorType") == previousWorld.primaryColor
 				end)
 				local currentZone = findFirstPart(map, function(part)
 					return part:GetAttribute("ColorZone") and part:GetAttribute("ColorType") == world.primaryColor
@@ -1109,15 +1615,36 @@ local function makeFlatPath(parent, name, fromPosition, toPosition, width, color
 		math.max(fromPosition.Y, toPosition.Y) + 0.35,
 		(fromPosition.Z + toPosition.Z) * 0.5
 	)
-	local path = makeBlock(parent, name, Vector3.new(width, 0.7, length), CFrame.new(midpoint, midpoint + delta), color, Enum.Material.SmoothPlastic)
+	local path = makeBlock(
+		parent,
+		name,
+		Vector3.new(width, 0.7, length),
+		CFrame.new(midpoint, midpoint + delta),
+		color,
+		Enum.Material.SmoothPlastic
+	)
 	path:SetAttribute("SpawnCleanupDecor", true)
 	path.CanCollide = false
 
-	local left = makeBlock(parent, name .. "LeftTrim", Vector3.new(2.5, 1.1, length), path.CFrame * CFrame.new(-(width / 2 + 1.25), 0.25, 0), SOFT_NEON_WHITE, Enum.Material.SmoothPlastic)
+	local left = makeBlock(
+		parent,
+		name .. "LeftTrim",
+		Vector3.new(2.5, 1.1, length),
+		path.CFrame * CFrame.new(-(width / 2 + 1.25), 0.25, 0),
+		SOFT_NEON_WHITE,
+		Enum.Material.SmoothPlastic
+	)
 	left:SetAttribute("SpawnCleanupDecor", true)
 	left.CanCollide = false
 	left.Transparency = 0.18
-	local right = makeBlock(parent, name .. "RightTrim", Vector3.new(2.5, 1.1, length), path.CFrame * CFrame.new(width / 2 + 1.25, 0.25, 0), SOFT_NEON_WHITE, Enum.Material.SmoothPlastic)
+	local right = makeBlock(
+		parent,
+		name .. "RightTrim",
+		Vector3.new(2.5, 1.1, length),
+		path.CFrame * CFrame.new(width / 2 + 1.25, 0.25, 0),
+		SOFT_NEON_WHITE,
+		Enum.Material.SmoothPlastic
+	)
 	right:SetAttribute("SpawnCleanupDecor", true)
 	right.CanCollide = false
 	right.Transparency = 0.18
@@ -1126,7 +1653,13 @@ local function makeFlatPath(parent, name, fromPosition, toPosition, width, color
 end
 
 local function makeQuietStationLabel(parent, title, subtitle, offset)
-	local billboard = makeTestLabel(parent, title, subtitle, offset or Vector3.new(0, 6, 0), UDim2.new(0, 180, 0, subtitle and 54 or 38))
+	local billboard = makeTestLabel(
+		parent,
+		title,
+		subtitle,
+		offset or Vector3.new(0, 6, 0),
+		UDim2.new(0, 180, 0, subtitle and 54 or 38)
+	)
 	billboard.Name = "QuietStationLabel"
 	billboard.MaxDistance = 105
 	billboard.Enabled = false
@@ -1151,7 +1684,9 @@ local function addProximityLabel(target, title, subtitle, offset)
 	end
 
 	for _, child in ipairs(target:GetChildren()) do
-		if child:IsA("BillboardGui") and (child.Name == "ProximityStationLabel" or child.Name == "QuietStationLabel") then
+		if
+			child:IsA("BillboardGui") and (child.Name == "ProximityStationLabel" or child.Name == "QuietStationLabel")
+		then
 			child:Destroy()
 		end
 	end
@@ -1162,11 +1697,25 @@ local function addProximityLabel(target, title, subtitle, offset)
 end
 
 local function makeStationMarker(parent, name, position, color, title, subtitle)
-	local pad = makeBlock(parent, name .. "Pad", Vector3.new(58, 1.2, 38), CFrame.new(position + Vector3.new(0, 0.55, 0)), color, Enum.Material.SmoothPlastic)
+	local pad = makeBlock(
+		parent,
+		name .. "Pad",
+		Vector3.new(58, 1.2, 38),
+		CFrame.new(position + Vector3.new(0, 0.55, 0)),
+		color,
+		Enum.Material.SmoothPlastic
+	)
 	pad:SetAttribute("SpawnCleanupDecor", true)
 	pad.CanCollide = false
 
-	local trim = makeBlock(parent, name .. "GlowTrim", Vector3.new(66, 1.3, 46), CFrame.new(position + Vector3.new(0, 0.4, 0)), color:Lerp(TEST_PLAZA_COLORS.white, 0.2), Enum.Material.SmoothPlastic)
+	local trim = makeBlock(
+		parent,
+		name .. "GlowTrim",
+		Vector3.new(66, 1.3, 46),
+		CFrame.new(position + Vector3.new(0, 0.4, 0)),
+		color:Lerp(TEST_PLAZA_COLORS.white, 0.2),
+		Enum.Material.SmoothPlastic
+	)
 	trim:SetAttribute("SpawnCleanupDecor", true)
 	trim.CanCollide = false
 	trim.Transparency = 0.72
@@ -1178,7 +1727,8 @@ end
 local function moveBreakablesIntoStarterClusters(root, origin, colorType)
 	local blobs = {}
 	for _, obj in ipairs(root:GetDescendants()) do
-		if obj:IsA("BasePart")
+		if
+			obj:IsA("BasePart")
 			and obj:GetAttribute("BreakableType")
 			and (not colorType or obj:GetAttribute("ColorType") == colorType)
 			and not obj:GetAttribute("SpawnCleanupDecor")
@@ -1235,7 +1785,8 @@ function StudioZoneBuilder.cleanStarterSpawn(options)
 
 	if options.hideOldLabels ~= false then
 		for _, obj in ipairs(map:GetDescendants()) do
-			if obj:IsA("BillboardGui")
+			if
+				obj:IsA("BillboardGui")
 				and (obj.Name == "BlockoutLabel" or obj.Name == "ZoneLabel" or obj.Name == "EggLabel" or obj.Name == "SellLabel")
 				and not obj:IsDescendantOf(root)
 			then
@@ -1253,22 +1804,36 @@ function StudioZoneBuilder.cleanStarterSpawn(options)
 		return part:GetAttribute("ColorZone") and part:GetAttribute("ColorType") == "Red"
 	end)
 	local sell = findFirstPart(map, function(part)
-		return part:GetAttribute("SellZone") and (not part:GetAttribute("ColorType") or part:GetAttribute("ColorType") == "Red")
+		return part:GetAttribute("SellZone")
+			and (not part:GetAttribute("ColorType") or part:GetAttribute("ColorType") == "Red")
 	end)
 	local egg = findFirstPart(map, function(part)
-		return part:GetAttribute("EggId") and ((part:GetAttribute("ColorType") or part:GetAttribute("AreaColor")) == "Red" or part:GetAttribute("EggId") == "ColorEgg")
+		return part:GetAttribute("EggId")
+			and (
+				(part:GetAttribute("ColorType") or part:GetAttribute("AreaColor")) == "Red"
+				or part:GetAttribute("EggId") == "ColorEgg"
+			)
 	end)
 	local shop = findFirstPart(map, function(part)
-		return part:GetAttribute("BrushShop") and (not part:GetAttribute("ColorType") or part:GetAttribute("ColorType") == "Red")
+		return part:GetAttribute("BrushShop")
+			and (not part:GetAttribute("ColorType") or part:GetAttribute("ColorType") == "Red")
 	end)
 
 	local origin = spawn and spawn.Position or (zone and zone.Position + Vector3.new(0, 2, 95)) or Vector3.new(0, 2, 95)
 	local center = zone and (zone.Position + Vector3.new(0, 2.2, 0)) or (origin + Vector3.new(0, 0, -82))
 
-	if spawn then addProximityLabel(spawn, "SPAWN", nil) end
-	if sell then addProximityLabel(sell, "SELL", "Cash out") end
-	if egg then addProximityLabel(egg, "EGG", "Hatch") end
-	if shop then addProximityLabel(shop, "SHOP", nil) end
+	if spawn then
+		addProximityLabel(spawn, "SPAWN", nil)
+	end
+	if sell then
+		addProximityLabel(sell, "SELL", "Cash out")
+	end
+	if egg then
+		addProximityLabel(egg, "EGG", "Hatch")
+	end
+	if shop then
+		addProximityLabel(shop, "SHOP", nil)
+	end
 
 	local clustered = 0
 
@@ -1296,20 +1861,34 @@ function StudioZoneBuilder.addProximityStationText(options)
 			or part.Name == "SpawnPad"
 	end)
 	local sell = findFirstPart(map, function(part)
-		return part:GetAttribute("SellZone") and (not part:GetAttribute("ColorType") or part:GetAttribute("ColorType") == "Red")
+		return part:GetAttribute("SellZone")
+			and (not part:GetAttribute("ColorType") or part:GetAttribute("ColorType") == "Red")
 	end)
 	local egg = findFirstPart(map, function(part)
-		return part:GetAttribute("EggId") and ((part:GetAttribute("ColorType") or part:GetAttribute("AreaColor")) == "Red" or part:GetAttribute("EggId") == "ColorEgg")
+		return part:GetAttribute("EggId")
+			and (
+				(part:GetAttribute("ColorType") or part:GetAttribute("AreaColor")) == "Red"
+				or part:GetAttribute("EggId") == "ColorEgg"
+			)
 	end)
 	local shop = findFirstPart(map, function(part)
-		return part:GetAttribute("BrushShop") and (not part:GetAttribute("ColorType") or part:GetAttribute("ColorType") == "Red")
+		return part:GetAttribute("BrushShop")
+			and (not part:GetAttribute("ColorType") or part:GetAttribute("ColorType") == "Red")
 	end)
 
 	local added = 0
-	if spawn and addProximityLabel(spawn, "SPAWN", nil) then added += 1 end
-	if sell and addProximityLabel(sell, "SELL", "Cash out") then added += 1 end
-	if egg and addProximityLabel(egg, "EGG", "Hatch") then added += 1 end
-	if shop and addProximityLabel(shop, "SHOP", nil) then added += 1 end
+	if spawn and addProximityLabel(spawn, "SPAWN", nil) then
+		added += 1
+	end
+	if sell and addProximityLabel(sell, "SELL", "Cash out") then
+		added += 1
+	end
+	if egg and addProximityLabel(egg, "EGG", "Hatch") then
+		added += 1
+	end
+	if shop and addProximityLabel(shop, "SHOP", nil) then
+		added += 1
+	end
 
 	print("StudioZoneBuilder: added " .. tostring(added) .. " proximity station labels.")
 	return added
@@ -1327,7 +1906,8 @@ function StudioZoneBuilder.hideSpawnText(options)
 
 	local hidden = 0
 	for _, obj in ipairs(map:GetDescendants()) do
-		if obj:IsA("BillboardGui")
+		if
+			obj:IsA("BillboardGui")
 			and (obj.Name == "BlockoutLabel" or obj.Name == "ZoneLabel" or obj.Name == "EggLabel" or obj.Name == "SellLabel")
 			and (options.includeCleanupLabels or obj.Name ~= "QuietStationLabel")
 		then
@@ -1351,7 +1931,10 @@ function StudioZoneBuilder.softSpawnColors(options)
 	local softened = 0
 	local cleanupFolder = map:FindFirstChild("StarterSpawnCleanup")
 	for _, obj in ipairs(map:GetDescendants()) do
-		if obj:IsA("BasePart") and (obj:GetAttribute("SpawnCleanupDecor") or (cleanupFolder and obj:IsDescendantOf(cleanupFolder))) then
+		if
+			obj:IsA("BasePart")
+			and (obj:GetAttribute("SpawnCleanupDecor") or (cleanupFolder and obj:IsDescendantOf(cleanupFolder)))
+		then
 			if obj.Material == Enum.Material.Neon then
 				obj.Material = Enum.Material.SmoothPlastic
 				obj.Transparency = math.max(obj.Transparency, 0.12)
@@ -1416,14 +1999,16 @@ function StudioZoneBuilder.removeGeneratedSpawnStuff(options)
 		NextWorldSign = true,
 	}
 	local function isGeneratedDecor(obj)
-		if obj:GetAttribute("SpawnCleanupDecor")
+		if
+			obj:GetAttribute("SpawnCleanupDecor")
 			or obj:GetAttribute("TestPlazaDecor")
 			or obj:GetAttribute("StarterFieldDecor")
 			or obj:GetAttribute("SellZoneDecor")
 		then
 			return true
 		end
-		if obj:GetAttribute("ColorZone")
+		if
+			obj:GetAttribute("ColorZone")
 			or obj:GetAttribute("AreaSpawn")
 			or obj:GetAttribute("SellZone")
 			or obj:GetAttribute("EggId")
@@ -1453,13 +2038,18 @@ function StudioZoneBuilder.removeGeneratedSpawnStuff(options)
 	end
 
 	for _, obj in ipairs(map:GetDescendants()) do
-		if (obj:IsA("BasePart") and isGeneratedDecor(obj))
-			or (obj:IsA("BillboardGui")
-				and (obj.Name == "QuietStationLabel"
-				or obj.Name == "BlockoutLabel"
-				or obj.Name == "ProximityStationLabel"
-				or obj.Name == "SellZoneLabel"
-				or obj:GetAttribute("StarterFieldLabel")))
+		if
+			(obj:IsA("BasePart") and isGeneratedDecor(obj))
+			or (
+				obj:IsA("BillboardGui")
+				and (
+					obj.Name == "QuietStationLabel"
+					or obj.Name == "BlockoutLabel"
+					or obj.Name == "ProximityStationLabel"
+					or obj.Name == "SellZoneLabel"
+					or obj:GetAttribute("StarterFieldLabel")
+				)
+			)
 		then
 			obj:Destroy()
 			removed += 1
@@ -1498,7 +2088,8 @@ function StudioZoneBuilder.keepMainSpawnOnly(options)
 	if main then
 		local seenNames = {}
 		for _, obj in ipairs(main:GetDescendants()) do
-			if (obj:IsA("BasePart") and obj:GetAttribute("SpawnCleanupDecor"))
+			if
+				(obj:IsA("BasePart") and obj:GetAttribute("SpawnCleanupDecor"))
 				or (obj:IsA("BillboardGui") and obj.Name == "QuietStationLabel")
 			then
 				obj:Destroy()
@@ -1508,7 +2099,10 @@ function StudioZoneBuilder.keepMainSpawnOnly(options)
 				local dedupeKey
 				if obj:GetAttribute("ColorZone") and colorType == "Red" then
 					dedupeKey = "RedColorZone"
-				elseif obj:GetAttribute("AreaSpawn") and (obj:GetAttribute("AreaSpawnColor") == "Red" or obj:GetAttribute("TeleportColor") == "Red") then
+				elseif
+					obj:GetAttribute("AreaSpawn")
+					and (obj:GetAttribute("AreaSpawnColor") == "Red" or obj:GetAttribute("TeleportColor") == "Red")
+				then
 					dedupeKey = "RedSpawn"
 				elseif obj:GetAttribute("SellZone") and (not colorType or colorType == "Red") then
 					dedupeKey = "RedSellZone"
@@ -1532,7 +2126,13 @@ function StudioZoneBuilder.keepMainSpawnOnly(options)
 
 	StudioZoneBuilder.hideSpawnText()
 	StudioZoneBuilder.softSpawnColors()
-	print("StudioZoneBuilder: kept " .. keepFolderName .. " as the main spawn and removed " .. tostring(removed) .. " extra generated pieces.")
+	print(
+		"StudioZoneBuilder: kept "
+			.. keepFolderName
+			.. " as the main spawn and removed "
+			.. tostring(removed)
+			.. " extra generated pieces."
+	)
 	return removed
 end
 
@@ -1603,7 +2203,8 @@ local function getObjectWorldColor(obj)
 	end
 
 	for _, world in ipairs(ColorData.Worlds) do
-		if obj.Name == world.primaryColor .. "Zone"
+		if
+			obj.Name == world.primaryColor .. "Zone"
 			or obj.Name == world.primaryColor .. "Spawn"
 			or string.sub(obj.Name, 1, #world.primaryColor) == world.primaryColor
 		then
@@ -1615,11 +2216,12 @@ local function getObjectWorldColor(obj)
 end
 
 local function getTheme(colorType)
-	return THEME[colorType] or {
-		color = ColorData.Colors[colorType] and ColorData.Colors[colorType].color or Color3.new(1, 1, 1),
-		material = Enum.Material.SmoothPlastic,
-		accent = Color3.new(1, 1, 1),
-	}
+	return THEME[colorType]
+		or {
+			color = ColorData.Colors[colorType] and ColorData.Colors[colorType].color or Color3.new(1, 1, 1),
+			material = Enum.Material.SmoothPlastic,
+			accent = Color3.new(1, 1, 1),
+		}
 end
 
 local function getWorldPositionOffset(position, center)
@@ -1737,7 +2339,13 @@ function StudioZoneBuilder.compactExistingWorlds(options)
 	local spacing = tonumber(options.spacing) or COMPACT_ZONE_SPACING
 	local minSpacing = ZONE_SIZE.X + WALL_THICKNESS * 2 + 8
 	if spacing < minSpacing then
-		warn("StudioZoneBuilder: spacing " .. tostring(spacing) .. " is too tight for the zone walls; using " .. tostring(minSpacing) .. " instead.")
+		warn(
+			"StudioZoneBuilder: spacing "
+				.. tostring(spacing)
+				.. " is too tight for the zone walls; using "
+				.. tostring(minSpacing)
+				.. " instead."
+		)
 		spacing = minSpacing
 	end
 	local direction = getLayoutDirection(map)
@@ -1770,7 +2378,13 @@ function StudioZoneBuilder.compactExistingWorlds(options)
 		depth = options.gateDepth,
 	})
 
-	print("StudioZoneBuilder: compacted worlds to " .. tostring(spacing) .. " studs apart and moved " .. tostring(moved) .. " parts.")
+	print(
+		"StudioZoneBuilder: compacted worlds to "
+			.. tostring(spacing)
+			.. " studs apart and moved "
+			.. tostring(moved)
+			.. " parts."
+	)
 	return map
 end
 
@@ -1789,14 +2403,26 @@ function StudioZoneBuilder.makeWorldsBigAndClose(options)
 	local gap = tonumber(options.gap) or BIG_WORLD_GAP
 	local minSize = 320
 	if worldSize < minSize then
-		warn("StudioZoneBuilder: worldSize " .. tostring(worldSize) .. " is small; using " .. tostring(minSize) .. " instead.")
+		warn(
+			"StudioZoneBuilder: worldSize "
+				.. tostring(worldSize)
+				.. " is small; using "
+				.. tostring(minSize)
+				.. " instead."
+		)
 		worldSize = minSize
 	end
 
 	local spacing = tonumber(options.spacing) or (worldSize + WALL_THICKNESS * 2 + gap)
 	local minSpacing = worldSize + WALL_THICKNESS * 2 + 2
 	if spacing < minSpacing then
-		warn("StudioZoneBuilder: spacing " .. tostring(spacing) .. " overlaps world walls; using " .. tostring(minSpacing) .. " instead.")
+		warn(
+			"StudioZoneBuilder: spacing "
+				.. tostring(spacing)
+				.. " overlaps world walls; using "
+				.. tostring(minSpacing)
+				.. " instead."
+		)
 		spacing = minSpacing
 	end
 
@@ -1816,15 +2442,21 @@ function StudioZoneBuilder.makeWorldsBigAndClose(options)
 			local targetCenter = origin + direction * ((index - 1) * spacing)
 
 			for _, obj in ipairs(map:GetDescendants()) do
-				if obj:IsA("BasePart") and getObjectWorldColor(obj) == colorType and not isWorldStructurePart(obj, colorType) then
+				if
+					obj:IsA("BasePart")
+					and getObjectWorldColor(obj) == colorType
+					and not isWorldStructurePart(obj, colorType)
+				then
 					local offset = getWorldPositionOffset(obj.Position, oldCenter)
 					local newOffset = scaleOffset(offset, scale)
 					local y = obj.Position.Y
 					obj.Position = Vector3.new(targetCenter.X + newOffset.X, y, targetCenter.Z + newOffset.Z)
 					if obj:GetAttribute("AreaSpawn") then
-						obj.Size = Vector3.new(math.max(18, obj.Size.X * scale), obj.Size.Y, math.max(18, obj.Size.Z * scale))
+						obj.Size =
+							Vector3.new(math.max(18, obj.Size.X * scale), obj.Size.Y, math.max(18, obj.Size.Z * scale))
 					elseif obj.Name == "SellZone" then
-						obj.Size = Vector3.new(math.max(24, obj.Size.X * scale), obj.Size.Y, math.max(24, obj.Size.Z * scale))
+						obj.Size =
+							Vector3.new(math.max(24, obj.Size.X * scale), obj.Size.Y, math.max(24, obj.Size.Z * scale))
 					end
 					moved += 1
 				end
@@ -1842,7 +2474,15 @@ function StudioZoneBuilder.makeWorldsBigAndClose(options)
 		depth = options.gateDepth,
 	})
 
-	print("StudioZoneBuilder: made worlds " .. tostring(worldSize) .. " studs wide with " .. tostring(spacing) .. " stud center spacing; moved " .. tostring(moved) .. " parts.")
+	print(
+		"StudioZoneBuilder: made worlds "
+			.. tostring(worldSize)
+			.. " studs wide with "
+			.. tostring(spacing)
+			.. " stud center spacing; moved "
+			.. tostring(moved)
+			.. " parts."
+	)
 	return map
 end
 
@@ -1879,7 +2519,8 @@ end
 
 function findZoneForWorld(map, colorType)
 	for _, obj in ipairs(map:GetDescendants()) do
-		if obj:IsA("BasePart")
+		if
+			obj:IsA("BasePart")
 			and obj:GetAttribute("ColorZone")
 			and (obj:GetAttribute("ColorType") == colorType or obj.Name == colorType .. "Zone")
 		then
@@ -1895,7 +2536,10 @@ local function findSpawnForWorld(map, colorType)
 			local spawnColor = obj:GetAttribute("AreaSpawnColor")
 				or obj:GetAttribute("SpawnColor")
 				or obj:GetAttribute("TeleportColor")
-			if obj:GetAttribute("AreaSpawn") and (spawnColor == colorType or obj:GetAttribute("ColorType") == colorType) then
+			if
+				obj:GetAttribute("AreaSpawn")
+				and (spawnColor == colorType or obj:GetAttribute("ColorType") == colorType)
+			then
 				return obj
 			end
 		end
@@ -1916,11 +2560,7 @@ local function clampToZone(zone, position, margin)
 	local minZ = zone.Position.Z - zone.Size.Z / 2 + margin
 	local maxZ = zone.Position.Z + zone.Size.Z / 2 - margin
 
-	return Vector3.new(
-		math.clamp(position.X, minX, maxX),
-		position.Y,
-		math.clamp(position.Z, minZ, maxZ)
-	)
+	return Vector3.new(math.clamp(position.X, minX, maxX), position.Y, math.clamp(position.Z, minZ, maxZ))
 end
 
 local function getNearSpawnGateCFrame(previousZone, currentZone, spawn, distance, sideOffset, height)
@@ -1934,9 +2574,7 @@ local function getNearSpawnGateCFrame(previousZone, currentZone, spawn, distance
 	local lateral = Vector3.new(-direction.Z, 0, direction.X)
 	local anchor = spawn and spawn.Position or previousCenter
 	local groundY = anchor.Y + ((spawn and spawn.Size.Y or ZONE_SIZE.Y) / 2)
-	local position = Vector3.new(anchor.X, groundY + height / 2, anchor.Z)
-		+ direction * distance
-		+ lateral * sideOffset
+	local position = Vector3.new(anchor.X, groundY + height / 2, anchor.Z) + direction * distance + lateral * sideOffset
 
 	position = clampToZone(previousZone, position, 42)
 	return CFrame.lookAt(position, position - direction)
@@ -1949,7 +2587,8 @@ local function findGatePart(gatesFolder, world)
 	end
 
 	for _, obj in ipairs(gatesFolder:GetDescendants()) do
-		if obj:IsA("BasePart")
+		if
+			obj:IsA("BasePart")
 			and not obj:GetAttribute("GateDecor")
 			and not obj:GetAttribute("GateInteraction")
 			and getWorldFromGate(obj) == world
@@ -1967,7 +2606,8 @@ local function findGateDecor(gatesFolder, colorType, suffix)
 end
 
 local function placeGateAssembly(gatesFolder, gate, world, gateCFrame, gateWidth, gateHeight, gateDepth)
-	local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color or Color3.fromRGB(120, 220, 255)
+	local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color
+		or Color3.fromRGB(120, 220, 255)
 	local frameColor = Color3.fromRGB(35, 38, 65)
 
 	gate.Name = world.primaryColor .. "Gate"
@@ -1993,15 +2633,43 @@ local function placeGateAssembly(gatesFolder, gate, world, gateCFrame, gateWidth
 	local leftPost = findGateDecor(gatesFolder, world.primaryColor, "GateLeftPost")
 	local rightPost = findGateDecor(gatesFolder, world.primaryColor, "GateRightPost")
 	local topBeam = findGateDecor(gatesFolder, world.primaryColor, "GateTopBeam")
-	setPartLocal(leftPost, gateCFrame, Vector3.new(7, gateHeight + 8, gateDepth + 2), Vector3.new(-gateWidth / 2 - 3.5, 0, 0), frameColor, Enum.Material.SmoothPlastic)
-	setPartLocal(rightPost, gateCFrame, Vector3.new(7, gateHeight + 8, gateDepth + 2), Vector3.new(gateWidth / 2 + 3.5, 0, 0), frameColor, Enum.Material.SmoothPlastic)
-	setPartLocal(topBeam, gateCFrame, Vector3.new(gateWidth + 10, 7, gateDepth + 2), Vector3.new(0, gateHeight / 2 + 3.5, 0), frameColor, Enum.Material.SmoothPlastic)
+	setPartLocal(
+		leftPost,
+		gateCFrame,
+		Vector3.new(7, gateHeight + 8, gateDepth + 2),
+		Vector3.new(-gateWidth / 2 - 3.5, 0, 0),
+		frameColor,
+		Enum.Material.SmoothPlastic
+	)
+	setPartLocal(
+		rightPost,
+		gateCFrame,
+		Vector3.new(7, gateHeight + 8, gateDepth + 2),
+		Vector3.new(gateWidth / 2 + 3.5, 0, 0),
+		frameColor,
+		Enum.Material.SmoothPlastic
+	)
+	setPartLocal(
+		topBeam,
+		gateCFrame,
+		Vector3.new(gateWidth + 10, 7, gateDepth + 2),
+		Vector3.new(0, gateHeight / 2 + 3.5, 0),
+		frameColor,
+		Enum.Material.SmoothPlastic
+	)
 
 	for i = 1, 3 do
 		local stripe = findGateDecor(gatesFolder, world.primaryColor, "GateGlow" .. i)
 		if stripe then
 			local stripeColor = worldColor:Lerp(Color3.fromRGB(255, 255, 255), i * 0.18)
-			setPartLocal(stripe, gateCFrame, Vector3.new(2, 30 - i * 4, gateDepth + 1), Vector3.new((i - 2) * 11, 0, -gateDepth / 2 - 0.45), stripeColor, Enum.Material.Neon)
+			setPartLocal(
+				stripe,
+				gateCFrame,
+				Vector3.new(2, 30 - i * 4, gateDepth + 1),
+				Vector3.new((i - 2) * 11, 0, -gateDepth / 2 - 0.45),
+				stripeColor,
+				Enum.Material.Neon
+			)
 			stripe.Transparency = 0.35 + i * 0.12
 		end
 	end
@@ -2039,7 +2707,8 @@ function StudioZoneBuilder.alignExistingGatesToWalls(options)
 				local gateHeight = tonumber(options.height) or GATE_HEIGHT
 				local gateDepth = tonumber(options.depth) or GATE_DEPTH
 				local gateCFrame = getWallGateCFrame(previousZone, currentZone, gateHeight, gateDepth)
-				local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color or Color3.fromRGB(120, 220, 255)
+				local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color
+					or Color3.fromRGB(120, 220, 255)
 				local frameColor = Color3.fromRGB(35, 38, 65)
 
 				gate.Name = world.primaryColor .. "Gate"
@@ -2065,15 +2734,43 @@ function StudioZoneBuilder.alignExistingGatesToWalls(options)
 				local leftPost = findGateDecor(gatesFolder, world.primaryColor, "GateLeftPost")
 				local rightPost = findGateDecor(gatesFolder, world.primaryColor, "GateRightPost")
 				local topBeam = findGateDecor(gatesFolder, world.primaryColor, "GateTopBeam")
-				setPartLocal(leftPost, gateCFrame, Vector3.new(7, gateHeight + 8, gateDepth + 2), Vector3.new(-gateWidth / 2 - 3.5, 0, 0), frameColor, Enum.Material.SmoothPlastic)
-				setPartLocal(rightPost, gateCFrame, Vector3.new(7, gateHeight + 8, gateDepth + 2), Vector3.new(gateWidth / 2 + 3.5, 0, 0), frameColor, Enum.Material.SmoothPlastic)
-				setPartLocal(topBeam, gateCFrame, Vector3.new(gateWidth + 10, 7, gateDepth + 2), Vector3.new(0, gateHeight / 2 + 3.5, 0), frameColor, Enum.Material.SmoothPlastic)
+				setPartLocal(
+					leftPost,
+					gateCFrame,
+					Vector3.new(7, gateHeight + 8, gateDepth + 2),
+					Vector3.new(-gateWidth / 2 - 3.5, 0, 0),
+					frameColor,
+					Enum.Material.SmoothPlastic
+				)
+				setPartLocal(
+					rightPost,
+					gateCFrame,
+					Vector3.new(7, gateHeight + 8, gateDepth + 2),
+					Vector3.new(gateWidth / 2 + 3.5, 0, 0),
+					frameColor,
+					Enum.Material.SmoothPlastic
+				)
+				setPartLocal(
+					topBeam,
+					gateCFrame,
+					Vector3.new(gateWidth + 10, 7, gateDepth + 2),
+					Vector3.new(0, gateHeight / 2 + 3.5, 0),
+					frameColor,
+					Enum.Material.SmoothPlastic
+				)
 
 				for i = 1, 3 do
 					local stripe = findGateDecor(gatesFolder, world.primaryColor, "GateGlow" .. i)
 					if stripe then
 						local stripeColor = worldColor:Lerp(Color3.fromRGB(255, 255, 255), i * 0.18)
-						setPartLocal(stripe, gateCFrame, Vector3.new(2, 30 - i * 4, gateDepth + 1), Vector3.new((i - 2) * 11, 0, -gateDepth / 2 - 0.45), stripeColor, Enum.Material.Neon)
+						setPartLocal(
+							stripe,
+							gateCFrame,
+							Vector3.new(2, 30 - i * 4, gateDepth + 1),
+							Vector3.new((i - 2) * 11, 0, -gateDepth / 2 - 0.45),
+							stripeColor,
+							Enum.Material.Neon
+						)
 						stripe.Transparency = 0.35 + i * 0.12
 					end
 				end
@@ -2103,15 +2800,19 @@ function StudioZoneBuilder.refreshWorldPortals(options)
 
 	local refreshed = 0
 	for _, gate in ipairs(map:GetDescendants()) do
-		if gate:IsA("BasePart")
+		if
+			gate:IsA("BasePart")
 			and gate:GetAttribute("AreaGate")
 			and not gate:GetAttribute("GateDecor")
 			and not gate:GetAttribute("GateInteraction")
 		then
-			local targetColor = gate:GetAttribute("GateColor") or gate:GetAttribute("UnlockColor") or gate:GetAttribute("ColorType")
+			local targetColor = gate:GetAttribute("GateColor")
+				or gate:GetAttribute("UnlockColor")
+				or gate:GetAttribute("ColorType")
 			local world = ColorData.getWorldByColor(targetColor)
 			if world then
-				local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color or Color3.fromRGB(120, 220, 255)
+				local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color
+					or Color3.fromRGB(120, 220, 255)
 				gate.Color = worldColor:Lerp(Color3.fromRGB(35, 38, 45), 0.35)
 				gate.Material = Enum.Material.SmoothPlastic
 				gate.Transparency = 0.16
@@ -2159,7 +2860,8 @@ function StudioZoneBuilder.placeExistingGatesNearSpawns(options)
 			elseif not gate then
 				warn("StudioZoneBuilder: missing gate part for " .. world.name .. "; skipped.")
 			else
-				local gateCFrame = getNearSpawnGateCFrame(previousZone, currentZone, previousSpawn, distance, sideOffset, gateHeight)
+				local gateCFrame =
+					getNearSpawnGateCFrame(previousZone, currentZone, previousSpawn, distance, sideOffset, gateHeight)
 				placeGateAssembly(gatesFolder, gate, world, gateCFrame, gateWidth, gateHeight, gateDepth)
 				placed += 1
 				print("StudioZoneBuilder: placed " .. gate.Name .. " near " .. previousWorld.name .. " spawn.")
@@ -2192,7 +2894,8 @@ function StudioZoneBuilder.upgradeExistingGates()
 			local colorType = gate:GetAttribute("GateColor") or gate:GetAttribute("ColorType")
 			local world = ColorData.getWorldByColor(colorType)
 			if world then
-				local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color or Color3.fromRGB(120, 220, 255)
+				local worldColor = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color
+					or Color3.fromRGB(120, 220, 255)
 				gate.Size = Vector3.new(38, 34, 8)
 				gate.Material = Enum.Material.Neon
 				gate.Color = worldColor:Lerp(Color3.fromRGB(255, 255, 255), 0.25)
@@ -2237,7 +2940,11 @@ local function canRunEditableBuilder(actionName)
 		return false
 	end
 	if RunService:IsRunning() then
-		warn("StudioZoneBuilder." .. actionName .. " should be run from the Studio Command Bar in edit mode, not during Play.")
+		warn(
+			"StudioZoneBuilder."
+				.. actionName
+				.. " should be run from the Studio Command Bar in edit mode, not during Play."
+		)
 		return false
 	end
 	return true
@@ -2421,7 +3128,8 @@ local function ensureEditableBillboard(parent, name, title, subtitle, offset, ti
 	titleLabel.Text = title
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Center
 	titleLabel.TextYAlignment = Enum.TextYAlignment.Center
-	local titleConstraint = titleLabel:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	local titleConstraint = titleLabel:FindFirstChildOfClass("UITextSizeConstraint")
+		or Instance.new("UITextSizeConstraint")
 	titleConstraint.MaxTextSize = 26
 	titleConstraint.MinTextSize = 12
 	titleConstraint.Parent = titleLabel
@@ -2481,8 +3189,20 @@ local function makePaintTree(parent, name, baseCFrame, trunkColor, leafColor, zo
 		setAttributes(trunk, { Decoration = true })
 	end
 	makeDecorationOrb(parent, name .. "_BlobTop", baseCFrame * CFrame.new(0, 16, 0), leafColor, zoneId)
-	makeDecorationOrb(parent, name .. "_BlobSideA", baseCFrame * CFrame.new(-4, 14, 1), leafColor:Lerp(EDITABLE_COLORS.white, 0.12), zoneId)
-	makeDecorationOrb(parent, name .. "_BlobSideB", baseCFrame * CFrame.new(4, 14, -1), leafColor:Lerp(EDITABLE_COLORS.dark, 0.08), zoneId)
+	makeDecorationOrb(
+		parent,
+		name .. "_BlobSideA",
+		baseCFrame * CFrame.new(-4, 14, 1),
+		leafColor:Lerp(EDITABLE_COLORS.white, 0.12),
+		zoneId
+	)
+	makeDecorationOrb(
+		parent,
+		name .. "_BlobSideB",
+		baseCFrame * CFrame.new(4, 14, -1),
+		leafColor:Lerp(EDITABLE_COLORS.dark, 0.08),
+		zoneId
+	)
 end
 
 local function makeFlatArrow(parent, name, cframe, length, color, zoneId)
@@ -2581,7 +3301,14 @@ function StudioZoneBuilder.BuildEditableLobby()
 		"Lobby"
 	)
 	if welcome then
-		ensureEditableBillboard(welcome, "WelcomeLabel", "WELCOME", "Start here", Vector3.new(0, 12, 0), EDITABLE_COLORS.cyan)
+		ensureEditableBillboard(
+			welcome,
+			"WelcomeLabel",
+			"WELCOME",
+			"Start here",
+			Vector3.new(0, 12, 0),
+			EDITABLE_COLORS.cyan
+		)
 	end
 
 	local info = getOrCreateEditablePart(
@@ -2595,7 +3322,14 @@ function StudioZoneBuilder.BuildEditableLobby()
 		"Lobby"
 	)
 	if info then
-		ensureEditableBillboard(info, "HowToPlayLabel", "HOW TO PLAY", "Collect, sell, hatch, upgrade", Vector3.new(0, 12, 0), EDITABLE_COLORS.white)
+		ensureEditableBillboard(
+			info,
+			"HowToPlayLabel",
+			"HOW TO PLAY",
+			"Collect, sell, hatch, upgrade",
+			Vector3.new(0, 12, 0),
+			EDITABLE_COLORS.white
+		)
 	end
 
 	local updateBoard = getOrCreateEditablePart(
@@ -2652,7 +3386,14 @@ function StudioZoneBuilder.BuildEditableLobby()
 		if prompt then
 			prompt:SetAttribute("LobbyRedZonePortalPrompt", true)
 		end
-		ensureEditableBillboard(portal, "RedZonePortalLabel", "ENTER RED ZONE", "Start collecting Color", Vector3.new(0, 17, 0), EDITABLE_COLORS.white)
+		ensureEditableBillboard(
+			portal,
+			"RedZonePortalLabel",
+			"ENTER RED ZONE",
+			"Start collecting Color",
+			Vector3.new(0, 17, 0),
+			EDITABLE_COLORS.white
+		)
 	end
 
 	local glow = getOrCreateEditablePart(
@@ -2670,8 +3411,22 @@ function StudioZoneBuilder.BuildEditableLobby()
 		setAttributes(glow, { Decoration = true })
 	end
 
-	makePaintTree(lobbyDecor, "LobbyPaintTree_001", CFrame.new(-306, 1, 42), EDITABLE_COLORS.dark, EDITABLE_COLORS.cyan, "Lobby")
-	makePaintTree(lobbyDecor, "LobbyPaintTree_002", CFrame.new(-176, 1, 36), EDITABLE_COLORS.dark, EDITABLE_COLORS.green, "Lobby")
+	makePaintTree(
+		lobbyDecor,
+		"LobbyPaintTree_001",
+		CFrame.new(-306, 1, 42),
+		EDITABLE_COLORS.dark,
+		EDITABLE_COLORS.cyan,
+		"Lobby"
+	)
+	makePaintTree(
+		lobbyDecor,
+		"LobbyPaintTree_002",
+		CFrame.new(-176, 1, 36),
+		EDITABLE_COLORS.dark,
+		EDITABLE_COLORS.green,
+		"Lobby"
+	)
 	makeDecorationOrb(lobbyDecor, "LobbyPaintOrb_001", CFrame.new(-286, 4, -54), EDITABLE_COLORS.pink, "Lobby")
 	makeDecorationOrb(lobbyDecor, "LobbyPaintOrb_002", CFrame.new(-196, 4, -58), EDITABLE_COLORS.yellow, "Lobby")
 
@@ -2770,7 +3525,14 @@ function StudioZoneBuilder.BuildEditableRedZone()
 			ColorType = "Red",
 			LobbyPortalArrival = true,
 		})
-		ensureEditableBillboard(arrival, "RedZoneArrivalLabel", "RED AREA", "Brush the paint", Vector3.new(0, 6, 0), EDITABLE_COLORS.cyan)
+		ensureEditableBillboard(
+			arrival,
+			"RedZoneArrivalLabel",
+			"RED AREA",
+			"Brush the paint",
+			Vector3.new(0, 6, 0),
+			EDITABLE_COLORS.cyan
+		)
 	end
 
 	local walls = {
@@ -2847,7 +3609,14 @@ function StudioZoneBuilder.BuildEditableRedZone()
 			ColorType = "Orange",
 			PreviousZoneId = "RedZone",
 		})
-		ensureEditableBillboard(orangeGate, "OrangeGateLabel", "NEXT AREA", orangeWorld and orangeWorld.name or "Orange Grove", Vector3.new(0, 23, 0), EDITABLE_COLORS.orange)
+		ensureEditableBillboard(
+			orangeGate,
+			"OrangeGateLabel",
+			"NEXT AREA",
+			orangeWorld and orangeWorld.name or "Orange Grove",
+			Vector3.new(0, 23, 0),
+			EDITABLE_COLORS.orange
+		)
 	end
 
 	local spawnPoints = {
@@ -2899,10 +3668,38 @@ function StudioZoneBuilder.BuildEditableRedZone()
 		markEditable(decorations, "Decorations")
 	end
 
-	makeFlatArrow(redDecor, "RedZoneArrow_ArrivalToCollect", CFrame.new(0, 1.55, 56), 42, EDITABLE_COLORS.cyan, "RedZone")
-	makeFlatArrow(redDecor, "RedZoneArrow_CollectToGate", CFrame.new(0, 1.55, -48), 72, EDITABLE_COLORS.orange, "RedZone")
-	makePaintTree(redDecor, "RedPaintTree_001", CFrame.new(-92, 1, -78), EDITABLE_COLORS.dark, EDITABLE_COLORS.redSoft, "RedZone")
-	makePaintTree(redDecor, "RedPaintTree_002", CFrame.new(92, 1, -72), EDITABLE_COLORS.dark, EDITABLE_COLORS.pink, "RedZone")
+	makeFlatArrow(
+		redDecor,
+		"RedZoneArrow_ArrivalToCollect",
+		CFrame.new(0, 1.55, 56),
+		42,
+		EDITABLE_COLORS.cyan,
+		"RedZone"
+	)
+	makeFlatArrow(
+		redDecor,
+		"RedZoneArrow_CollectToGate",
+		CFrame.new(0, 1.55, -48),
+		72,
+		EDITABLE_COLORS.orange,
+		"RedZone"
+	)
+	makePaintTree(
+		redDecor,
+		"RedPaintTree_001",
+		CFrame.new(-92, 1, -78),
+		EDITABLE_COLORS.dark,
+		EDITABLE_COLORS.redSoft,
+		"RedZone"
+	)
+	makePaintTree(
+		redDecor,
+		"RedPaintTree_002",
+		CFrame.new(92, 1, -72),
+		EDITABLE_COLORS.dark,
+		EDITABLE_COLORS.pink,
+		"RedZone"
+	)
 	makeDecorationOrb(redDecor, "RedCrystal_001", CFrame.new(-92, 5, 70), EDITABLE_COLORS.redSoft, "RedZone")
 	makeDecorationOrb(redDecor, "RedCrystal_002", CFrame.new(92, 5, 72), EDITABLE_COLORS.orange, "RedZone")
 
@@ -2933,7 +3730,9 @@ function StudioZoneBuilder.BuildEditableStarterMap()
 	local map = getOrCreateEditableMap()
 	StudioZoneBuilder.BuildEditableLobby()
 	StudioZoneBuilder.BuildEditableRedZone()
-	print("StudioZoneBuilder: full editable starter map is ready. Move/edit parts in Workspace.ColorSimulatorMap, then save the place.")
+	print(
+		"StudioZoneBuilder: full editable starter map is ready. Move/edit parts in Workspace.ColorSimulatorMap, then save the place."
+	)
 	return map
 end
 
@@ -2950,7 +3749,10 @@ function StudioZoneBuilder.ClearGeneratedPreviewMap()
 
 	local removable = {}
 	for _, obj in ipairs(map:GetDescendants()) do
-		if obj:GetAttribute("GeneratedBy") == EDITABLE_BUILDER_ID and obj:GetAttribute("EditablePlaceholder") == true then
+		if
+			obj:GetAttribute("GeneratedBy") == EDITABLE_BUILDER_ID
+			and obj:GetAttribute("EditablePlaceholder") == true
+		then
 			table.insert(removable, obj)
 		end
 	end
@@ -2967,7 +3769,11 @@ function StudioZoneBuilder.ClearGeneratedPreviewMap()
 		end
 	end
 
-	print("StudioZoneBuilder: cleared " .. tostring(removed) .. " generated editable placeholder objects. Untagged manual objects were left alone.")
+	print(
+		"StudioZoneBuilder: cleared "
+			.. tostring(removed)
+			.. " generated editable placeholder objects. Untagged manual objects were left alone."
+	)
 	return map
 end
 
@@ -3002,7 +3808,11 @@ local function getUpdateBoardCandidates(map)
 	end)
 	if ok and selection then
 		for _, selected in ipairs(selection:Get()) do
-			if selected.Name == "Board" or selected.Name == "UpdateBoard" or selected:GetAttribute("BoardType") == "Updates" then
+			if
+				selected.Name == "Board"
+				or selected.Name == "UpdateBoard"
+				or selected:GetAttribute("BoardType") == "Updates"
+			then
 				add(selected)
 			end
 		end
@@ -3132,12 +3942,16 @@ end
 
 local function removeOldUpdateBoardUi(board)
 	for _, obj in ipairs(board:GetDescendants()) do
-		if (obj:IsA("BillboardGui")
-				and (obj.Name == "UpdateLabel"
-				or obj.Name == "UpdateBoardLabel"
-				or obj.Name == "UpdateBoardBillboard"
-				or obj:GetAttribute("UpdateBoardLabel") == true))
-			or (obj:IsA("SurfaceGui") and obj.Name == "UpdateBoardSurfaceGui")
+		if
+			(
+				obj:IsA("BillboardGui")
+				and (
+					obj.Name == "UpdateLabel"
+					or obj.Name == "UpdateBoardLabel"
+					or obj.Name == "UpdateBoardBillboard"
+					or obj:GetAttribute("UpdateBoardLabel") == true
+				)
+			) or (obj:IsA("SurfaceGui") and obj.Name == "UpdateBoardSurfaceGui")
 		then
 			obj:Destroy()
 		end
@@ -3146,11 +3960,15 @@ end
 
 local function removeOldJoinGroupBoardUi(board)
 	for _, obj in ipairs(board:GetDescendants()) do
-		if (obj:IsA("BillboardGui")
-				and (obj.Name == "JoinGroupLabel"
-				or obj.Name == "JoinGroupBoardLabel"
-				or obj:GetAttribute("JoinGroupBoardLabel") == true))
-			or (obj:IsA("SurfaceGui") and obj.Name == "JoinGroupBoardSurfaceGui")
+		if
+			(
+				obj:IsA("BillboardGui")
+				and (
+					obj.Name == "JoinGroupLabel"
+					or obj.Name == "JoinGroupBoardLabel"
+					or obj:GetAttribute("JoinGroupBoardLabel") == true
+				)
+			) or (obj:IsA("SurfaceGui") and obj.Name == "JoinGroupBoardSurfaceGui")
 		then
 			obj:Destroy()
 		end
@@ -3251,42 +4069,179 @@ local function bakeUpdateBoardSurface(screen)
 	header.Parent = root
 	Instance.new("UICorner", header).CornerRadius = UDim.new(0, 18)
 
-	addBoardText(header, "Title", "COLOR SIMULATOR", UDim2.new(0.035, 0, 0.1, 0), UDim2.new(0.62, 0, 0.72, 0), 50, Color3.fromRGB(255, 255, 255), Enum.Font.LuckiestGuy)
-	local versionText = string.format("%s  |  %s", tostring(UpdateLogData.CurrentVersion), tostring(UpdateLogData.Status))
-	addBoardText(header, "Version", versionText, UDim2.new(0.62, 0, 0.22, 0), UDim2.new(0.34, 0, 0.48, 0), 22, Color3.fromRGB(35, 38, 45), Enum.Font.GothamBlack, Enum.TextXAlignment.Right)
+	addBoardText(
+		header,
+		"Title",
+		"COLOR SIMULATOR",
+		UDim2.new(0.035, 0, 0.1, 0),
+		UDim2.new(0.62, 0, 0.72, 0),
+		50,
+		Color3.fromRGB(255, 255, 255),
+		Enum.Font.LuckiestGuy
+	)
+	local versionText =
+		string.format("%s  |  %s", tostring(UpdateLogData.CurrentVersion), tostring(UpdateLogData.Status))
+	addBoardText(
+		header,
+		"Version",
+		versionText,
+		UDim2.new(0.62, 0, 0.22, 0),
+		UDim2.new(0.34, 0, 0.48, 0),
+		22,
+		Color3.fromRGB(35, 38, 45),
+		Enum.Font.GothamBlack,
+		Enum.TextXAlignment.Right
+	)
 
-	addBoardText(root, "LatestTitle", tostring(UpdateLogData.Latest.Title), UDim2.new(0.06, 0, 0.235, 0), UDim2.new(0.88, 0, 0.07, 0), 32, Color3.fromRGB(255, 235, 105), Enum.Font.GothamBlack)
-	addBoardText(root, "LatestSubtitle", tostring(UpdateLogData.Latest.Subtitle), UDim2.new(0.06, 0, 0.305, 0), UDim2.new(0.88, 0, 0.07, 0), 20, Color3.fromRGB(232, 239, 255), Enum.Font.GothamBold)
+	addBoardText(
+		root,
+		"LatestTitle",
+		tostring(UpdateLogData.Latest.Title),
+		UDim2.new(0.06, 0, 0.235, 0),
+		UDim2.new(0.88, 0, 0.07, 0),
+		32,
+		Color3.fromRGB(255, 235, 105),
+		Enum.Font.GothamBlack
+	)
+	addBoardText(
+		root,
+		"LatestSubtitle",
+		tostring(UpdateLogData.Latest.Subtitle),
+		UDim2.new(0.06, 0, 0.305, 0),
+		UDim2.new(0.88, 0, 0.07, 0),
+		20,
+		Color3.fromRGB(232, 239, 255),
+		Enum.Font.GothamBold
+	)
 
 	local changesText = ""
 	for _, change in ipairs(UpdateLogData.Latest.Changes or {}) do
 		changesText = changesText .. "- " .. tostring(change) .. "\n"
 	end
-	local changesPanel = addBoardPanel(root, "ChangesPanel", UDim2.new(0.05, 0, 0.395, 0), UDim2.new(0.42, 0, 0.32, 0), Color3.fromRGB(31, 33, 48), Color3.fromRGB(118, 238, 244))
-	addBoardText(changesPanel, "ChangesTitle", "WHAT'S LIVE", UDim2.new(0.05, 0, 0.06, 0), UDim2.new(0.9, 0, 0.13, 0), 21, Color3.fromRGB(118, 238, 244), Enum.Font.GothamBlack)
-	addBoardText(changesPanel, "Changes", changesText, UDim2.new(0.05, 0, 0.22, 0), UDim2.new(0.9, 0, 0.72, 0), 17, Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold)
+	local changesPanel = addBoardPanel(
+		root,
+		"ChangesPanel",
+		UDim2.new(0.05, 0, 0.395, 0),
+		UDim2.new(0.42, 0, 0.32, 0),
+		Color3.fromRGB(31, 33, 48),
+		Color3.fromRGB(118, 238, 244)
+	)
+	addBoardText(
+		changesPanel,
+		"ChangesTitle",
+		"WHAT'S LIVE",
+		UDim2.new(0.05, 0, 0.06, 0),
+		UDim2.new(0.9, 0, 0.13, 0),
+		21,
+		Color3.fromRGB(118, 238, 244),
+		Enum.Font.GothamBlack
+	)
+	addBoardText(
+		changesPanel,
+		"Changes",
+		changesText,
+		UDim2.new(0.05, 0, 0.22, 0),
+		UDim2.new(0.9, 0, 0.72, 0),
+		17,
+		Color3.fromRGB(255, 255, 255),
+		Enum.Font.GothamBold
+	)
 
 	local howToText = ""
 	for _, step in ipairs(UpdateLogData.HowToPlay or {}) do
 		howToText = howToText .. "- " .. tostring(step) .. "\n"
 	end
-	local howToPanel = addBoardPanel(root, "HowToPanel", UDim2.new(0.5, 0, 0.395, 0), UDim2.new(0.22, 0, 0.32, 0), Color3.fromRGB(37, 28, 42), Color3.fromRGB(255, 235, 105))
-	addBoardText(howToPanel, "HowToTitle", "HOW TO PLAY", UDim2.new(0.07, 0, 0.06, 0), UDim2.new(0.86, 0, 0.13, 0), 19, Color3.fromRGB(255, 235, 105), Enum.Font.GothamBlack)
-	addBoardText(howToPanel, "HowTo", howToText, UDim2.new(0.07, 0, 0.22, 0), UDim2.new(0.86, 0, 0.72, 0), 15, Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold)
+	local howToPanel = addBoardPanel(
+		root,
+		"HowToPanel",
+		UDim2.new(0.5, 0, 0.395, 0),
+		UDim2.new(0.22, 0, 0.32, 0),
+		Color3.fromRGB(37, 28, 42),
+		Color3.fromRGB(255, 235, 105)
+	)
+	addBoardText(
+		howToPanel,
+		"HowToTitle",
+		"HOW TO PLAY",
+		UDim2.new(0.07, 0, 0.06, 0),
+		UDim2.new(0.86, 0, 0.13, 0),
+		19,
+		Color3.fromRGB(255, 235, 105),
+		Enum.Font.GothamBlack
+	)
+	addBoardText(
+		howToPanel,
+		"HowTo",
+		howToText,
+		UDim2.new(0.07, 0, 0.22, 0),
+		UDim2.new(0.86, 0, 0.72, 0),
+		15,
+		Color3.fromRGB(255, 255, 255),
+		Enum.Font.GothamBold
+	)
 
 	local comingSoonText = "COMING SOON\n"
 	for _, item in ipairs(UpdateLogData.ComingSoon or {}) do
 		comingSoonText = comingSoonText .. "- " .. tostring(item) .. "\n"
 	end
-	local soonPanel = addBoardPanel(root, "ComingSoonPanel", UDim2.new(0.75, 0, 0.395, 0), UDim2.new(0.2, 0, 0.32, 0), Color3.fromRGB(23, 34, 42), Color3.fromRGB(176, 246, 250))
-	addBoardText(soonPanel, "ComingSoon", comingSoonText, UDim2.new(0.08, 0, 0.08, 0), UDim2.new(0.84, 0, 0.86, 0), 15, Color3.fromRGB(176, 246, 250), Enum.Font.GothamBold)
+	local soonPanel = addBoardPanel(
+		root,
+		"ComingSoonPanel",
+		UDim2.new(0.75, 0, 0.395, 0),
+		UDim2.new(0.2, 0, 0.32, 0),
+		Color3.fromRGB(23, 34, 42),
+		Color3.fromRGB(176, 246, 250)
+	)
+	addBoardText(
+		soonPanel,
+		"ComingSoon",
+		comingSoonText,
+		UDim2.new(0.08, 0, 0.08, 0),
+		UDim2.new(0.84, 0, 0.86, 0),
+		15,
+		Color3.fromRGB(176, 246, 250),
+		Enum.Font.GothamBold
+	)
 
-	local codeText = "CODE: " .. tostring(UpdateLogData.FeaturedCode.Code) .. "  -  " .. tostring(UpdateLogData.FeaturedCode.Reward)
-	addBoardText(root, "Code", codeText, UDim2.new(0.06, 0, 0.745, 0), UDim2.new(0.88, 0, 0.055, 0), 24, Color3.fromRGB(116, 245, 42), Enum.Font.GothamBlack, Enum.TextXAlignment.Center)
+	local codeText = "CODE: "
+		.. tostring(UpdateLogData.FeaturedCode.Code)
+		.. "  -  "
+		.. tostring(UpdateLogData.FeaturedCode.Reward)
+	addBoardText(
+		root,
+		"Code",
+		codeText,
+		UDim2.new(0.06, 0, 0.745, 0),
+		UDim2.new(0.88, 0, 0.055, 0),
+		24,
+		Color3.fromRGB(116, 245, 42),
+		Enum.Font.GothamBlack,
+		Enum.TextXAlignment.Center
+	)
 
 	local liveText = "PLAYTEST FOCUS: " .. table.concat(UpdateLogData.PlaytestFocus or {}, "  |  ")
-	addBoardText(root, "PlaytestFocus", liveText, UDim2.new(0.06, 0, 0.81, 0), UDim2.new(0.88, 0, 0.045, 0), 18, Color3.fromRGB(255, 225, 170), Enum.Font.GothamBlack, Enum.TextXAlignment.Center)
-	addBoardText(root, "Footer", tostring(UpdateLogData.Footer) .. "  -  Updated " .. tostring(UpdateLogData.LastUpdated), UDim2.new(0.06, 0, 0.89, 0), UDim2.new(0.88, 0, 0.075, 0), 17, Color3.fromRGB(205, 210, 225), Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+	addBoardText(
+		root,
+		"PlaytestFocus",
+		liveText,
+		UDim2.new(0.06, 0, 0.81, 0),
+		UDim2.new(0.88, 0, 0.045, 0),
+		18,
+		Color3.fromRGB(255, 225, 170),
+		Enum.Font.GothamBlack,
+		Enum.TextXAlignment.Center
+	)
+	addBoardText(
+		root,
+		"Footer",
+		tostring(UpdateLogData.Footer) .. "  -  Updated " .. tostring(UpdateLogData.LastUpdated),
+		UDim2.new(0.06, 0, 0.89, 0),
+		UDim2.new(0.88, 0, 0.075, 0),
+		17,
+		Color3.fromRGB(205, 210, 225),
+		Enum.Font.GothamBold,
+		Enum.TextXAlignment.Center
+	)
 
 	return surface
 end
@@ -3335,10 +4290,37 @@ local function bakeJoinGroupBoardSurface(screen)
 	header.Parent = root
 	Instance.new("UICorner", header).CornerRadius = UDim.new(0, 18)
 
-	addBoardText(header, "Title", "JOIN THE GROUP", UDim2.new(0.04, 0, 0.06, 0), UDim2.new(0.92, 0, 0.52, 0), 46, Color3.fromRGB(255, 255, 255), Enum.Font.LuckiestGuy, Enum.TextXAlignment.Center)
-	addBoardText(header, "Subtitle", tostring(GroupRewardsConfig.GroupName), UDim2.new(0.04, 0, 0.6, 0), UDim2.new(0.92, 0, 0.28, 0), 22, Color3.fromRGB(23, 31, 35), Enum.Font.GothamBlack, Enum.TextXAlignment.Center)
+	addBoardText(
+		header,
+		"Title",
+		"JOIN THE GROUP",
+		UDim2.new(0.04, 0, 0.06, 0),
+		UDim2.new(0.92, 0, 0.52, 0),
+		46,
+		Color3.fromRGB(255, 255, 255),
+		Enum.Font.LuckiestGuy,
+		Enum.TextXAlignment.Center
+	)
+	addBoardText(
+		header,
+		"Subtitle",
+		tostring(GroupRewardsConfig.GroupName),
+		UDim2.new(0.04, 0, 0.6, 0),
+		UDim2.new(0.92, 0, 0.28, 0),
+		22,
+		Color3.fromRGB(23, 31, 35),
+		Enum.Font.GothamBlack,
+		Enum.TextXAlignment.Center
+	)
 
-	local rewardPanel = addBoardPanel(root, "RewardPanel", UDim2.new(0.06, 0, 0.31, 0), UDim2.new(0.42, 0, 0.42, 0), Color3.fromRGB(25, 35, 45), Color3.fromRGB(116, 245, 42))
+	local rewardPanel = addBoardPanel(
+		root,
+		"RewardPanel",
+		UDim2.new(0.06, 0, 0.31, 0),
+		UDim2.new(0.42, 0, 0.42, 0),
+		Color3.fromRGB(25, 35, 45),
+		Color3.fromRGB(116, 245, 42)
+	)
 	local luckPercent = math.floor(((tonumber(GroupRewardsConfig.LuckMultiplier) or 1) - 1) * 100 + 0.5)
 	local coinPercent = math.floor(((tonumber(GroupRewardsConfig.CoinMultiplier) or 1) - 1) * 100 + 0.5)
 	local rewardsText = string.format(
@@ -3347,15 +4329,82 @@ local function bakeJoinGroupBoardSurface(screen)
 		coinPercent,
 		tonumber(GroupRewardsConfig.DailyGemReward) or 100
 	)
-	addBoardText(rewardPanel, "RewardsTitle", "GROUP REWARDS", UDim2.new(0.07, 0, 0.07, 0), UDim2.new(0.86, 0, 0.17, 0), 27, Color3.fromRGB(116, 245, 42), Enum.Font.GothamBlack, Enum.TextXAlignment.Center)
-	addBoardText(rewardPanel, "Rewards", rewardsText, UDim2.new(0.07, 0, 0.31, 0), UDim2.new(0.86, 0, 0.58, 0), 30, Color3.fromRGB(255, 255, 255), Enum.Font.LuckiestGuy, Enum.TextXAlignment.Center)
+	addBoardText(
+		rewardPanel,
+		"RewardsTitle",
+		"GROUP REWARDS",
+		UDim2.new(0.07, 0, 0.07, 0),
+		UDim2.new(0.86, 0, 0.17, 0),
+		27,
+		Color3.fromRGB(116, 245, 42),
+		Enum.Font.GothamBlack,
+		Enum.TextXAlignment.Center
+	)
+	addBoardText(
+		rewardPanel,
+		"Rewards",
+		rewardsText,
+		UDim2.new(0.07, 0, 0.31, 0),
+		UDim2.new(0.86, 0, 0.58, 0),
+		30,
+		Color3.fromRGB(255, 255, 255),
+		Enum.Font.LuckiestGuy,
+		Enum.TextXAlignment.Center
+	)
 
-	local howPanel = addBoardPanel(root, "HowPanel", UDim2.new(0.52, 0, 0.31, 0), UDim2.new(0.42, 0, 0.42, 0), Color3.fromRGB(28, 30, 48), Color3.fromRGB(118, 238, 244))
-	addBoardText(howPanel, "HowTitle", "HOW TO CLAIM", UDim2.new(0.07, 0, 0.07, 0), UDim2.new(0.86, 0, 0.17, 0), 27, Color3.fromRGB(118, 238, 244), Enum.Font.GothamBlack, Enum.TextXAlignment.Center)
-	addBoardText(howPanel, "How", "- Join the Roblox group\n- Rejoin or wait a moment\n- Open Group Rewards\n- Claim your daily Gems", UDim2.new(0.07, 0, 0.3, 0), UDim2.new(0.86, 0, 0.6, 0), 22, Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+	local howPanel = addBoardPanel(
+		root,
+		"HowPanel",
+		UDim2.new(0.52, 0, 0.31, 0),
+		UDim2.new(0.42, 0, 0.42, 0),
+		Color3.fromRGB(28, 30, 48),
+		Color3.fromRGB(118, 238, 244)
+	)
+	addBoardText(
+		howPanel,
+		"HowTitle",
+		"HOW TO CLAIM",
+		UDim2.new(0.07, 0, 0.07, 0),
+		UDim2.new(0.86, 0, 0.17, 0),
+		27,
+		Color3.fromRGB(118, 238, 244),
+		Enum.Font.GothamBlack,
+		Enum.TextXAlignment.Center
+	)
+	addBoardText(
+		howPanel,
+		"How",
+		"- Join the Roblox group\n- Rejoin or wait a moment\n- Open Group Rewards\n- Claim your daily Gems",
+		UDim2.new(0.07, 0, 0.3, 0),
+		UDim2.new(0.86, 0, 0.6, 0),
+		22,
+		Color3.fromRGB(255, 255, 255),
+		Enum.Font.GothamBold,
+		Enum.TextXAlignment.Left
+	)
 
-	addBoardText(root, "Footer", "Group bonuses are real gameplay boosts and stack with other rewards.", UDim2.new(0.06, 0, 0.78, 0), UDim2.new(0.88, 0, 0.07, 0), 22, Color3.fromRGB(255, 235, 105), Enum.Font.GothamBlack, Enum.TextXAlignment.Center)
-	addBoardText(root, "Url", "Community ID: " .. tostring(GroupRewardsConfig.GROUP_ID), UDim2.new(0.06, 0, 0.88, 0), UDim2.new(0.88, 0, 0.055, 0), 17, Color3.fromRGB(205, 235, 245), Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+	addBoardText(
+		root,
+		"Footer",
+		"Group bonuses are real gameplay boosts and stack with other rewards.",
+		UDim2.new(0.06, 0, 0.78, 0),
+		UDim2.new(0.88, 0, 0.07, 0),
+		22,
+		Color3.fromRGB(255, 235, 105),
+		Enum.Font.GothamBlack,
+		Enum.TextXAlignment.Center
+	)
+	addBoardText(
+		root,
+		"Url",
+		"Community ID: " .. tostring(GroupRewardsConfig.GROUP_ID),
+		UDim2.new(0.06, 0, 0.88, 0),
+		UDim2.new(0.88, 0, 0.055, 0),
+		17,
+		Color3.fromRGB(205, 235, 245),
+		Enum.Font.GothamBold,
+		Enum.TextXAlignment.Center
+	)
 
 	return surface
 end
@@ -3390,7 +4439,12 @@ function StudioZoneBuilder.RepairUpdateBoard()
 		for _, duplicate in ipairs(candidates) do
 			table.insert(paths, duplicate:GetFullName())
 		end
-		warn("StudioZoneBuilder: duplicate UpdateBoards found. Kept " .. board:GetFullName() .. ". Duplicates: " .. table.concat(paths, " | "))
+		warn(
+			"StudioZoneBuilder: duplicate UpdateBoards found. Kept "
+				.. board:GetFullName()
+				.. ". Duplicates: "
+				.. table.concat(paths, " | ")
+		)
 	end
 
 	local screen = getUpdateBoardDisplayPart(board)
@@ -3455,7 +4509,12 @@ function StudioZoneBuilder.RepairGroupRewardBoard()
 		for _, duplicate in ipairs(candidates) do
 			table.insert(paths, duplicate:GetFullName())
 		end
-		warn("StudioZoneBuilder: duplicate Join Group boards found. Kept " .. board:GetFullName() .. ". Duplicates: " .. table.concat(paths, " | "))
+		warn(
+			"StudioZoneBuilder: duplicate Join Group boards found. Kept "
+				.. board:GetFullName()
+				.. ". Duplicates: "
+				.. table.concat(paths, " | ")
+		)
 	end
 
 	local screen = getUpdateBoardDisplayPart(board)
@@ -3528,7 +4587,8 @@ end
 local function clearDistantSectorColumnFolder(folder)
 	local removed = 0
 	for _, child in ipairs(folder:GetChildren()) do
-		if child:GetAttribute("GeneratedBy") == EDITABLE_BUILDER_ID
+		if
+			child:GetAttribute("GeneratedBy") == EDITABLE_BUILDER_ID
 			and child:GetAttribute("DistantSectorColumn") == true
 		then
 			child:Destroy()
@@ -3538,7 +4598,17 @@ local function clearDistantSectorColumnFolder(folder)
 	return removed
 end
 
-local function makeDistantSectorColumn(folder, name, position, diameter, topY, bottomY, color, sectorColor, isSectorAnchor)
+local function makeDistantSectorColumn(
+	folder,
+	name,
+	position,
+	diameter,
+	topY,
+	bottomY,
+	color,
+	sectorColor,
+	isSectorAnchor
+)
 	local height = math.max(300, topY - bottomY)
 	local centerY = bottomY + height * 0.5
 	local part = getOrCreateEditablePart(
@@ -3620,8 +4690,20 @@ function StudioZoneBuilder.BuildEditableDistantSectorColumns(options)
 		{ z = -1680, xStart = -2100, count = 15, gap = 340 },
 	}
 	local topOffsets = {
-		-900, -620, -360, -140, 80, 260, 560, 920,
-		1320, 1880, 2550, 3400, 4700, 6200,
+		-900,
+		-620,
+		-360,
+		-140,
+		80,
+		260,
+		560,
+		920,
+		1320,
+		1880,
+		2550,
+		3400,
+		4700,
+		6200,
 	}
 	local diameters = { 150, 190, 240, 290, 360, 440, 520 }
 
@@ -3687,7 +4769,11 @@ function StudioZoneBuilder.BuildEditableDistantSectorColumns(options)
 		end
 	end
 
-	print("StudioZoneBuilder: built " .. tostring(made) .. " editable distant Sector columns in Workspace.ColorSimulatorMap.DistantSectors. Move/scale/recolor them freely, then save the place.")
+	print(
+		"StudioZoneBuilder: built "
+			.. tostring(made)
+			.. " editable distant Sector columns in Workspace.ColorSimulatorMap.DistantSectors. Move/scale/recolor them freely, then save the place."
+	)
 	return folder
 end
 
@@ -3739,7 +4825,13 @@ function StudioZoneBuilder.SetupEditableSectorModel(modelName, config)
 		end
 	end
 
-	print("StudioZoneBuilder: set up " .. modelName .. " as locked " .. config.displayName .. " in Workspace.ColorSimulatorMap.DistantSectors.")
+	print(
+		"StudioZoneBuilder: set up "
+			.. modelName
+			.. " as locked "
+			.. config.displayName
+			.. " in Workspace.ColorSimulatorMap.DistantSectors."
+	)
 	return model
 end
 

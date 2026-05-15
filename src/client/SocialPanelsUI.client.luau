@@ -10,10 +10,10 @@ local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
-local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
-local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
 local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local SettingsData = require(ReplicatedStorage:WaitForChild("SettingsData"))
+local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
+local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
 local Events = ReplicatedStorage:FindFirstChild("Events")
 local requestSetSettingEvent = Events and Events:FindFirstChild("RequestSetSetting") or nil
 local settingsUpdatedEvent = Events and Events:FindFirstChild("SettingsUpdated") or nil
@@ -219,11 +219,11 @@ local function makeLabel(text, size, color)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(1, 0, 0, size + 8)
 	label.BackgroundTransparency = 1
-label.Font = Enum.Font.GothamBold
-label.TextSize = size
-label.TextColor3 = color or Color3.fromRGB(40, 48, 64)
-label.TextStrokeTransparency = 0.7
-label.TextStrokeColor3 = Color3.new(1, 1, 1)
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = size
+	label.TextColor3 = color or Color3.fromRGB(40, 48, 64)
+	label.TextStrokeTransparency = 0.7
+	label.TextStrokeColor3 = Color3.new(1, 1, 1)
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Text = text
 	label.ZIndex = 62
@@ -234,23 +234,23 @@ end
 local function makeButton(text, color, onClick)
 	local button = Instance.new("TextButton")
 	button.Size = UDim2.new(1, 0, 0, 40)
-button.BackgroundColor3 = color
+	button.BackgroundColor3 = color
 	button.AutoButtonColor = true
 	button.Font = Enum.Font.LuckiestGuy
-button.TextSize = 28
-button.TextColor3 = Color3.new(1, 1, 1)
-button.TextStrokeTransparency = 0
+	button.TextSize = 28
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.TextStrokeTransparency = 0
 	button.TextStrokeColor3 = DARK
 	button.Text = text
 	button.ZIndex = 62
 	button.Parent = content
 	local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = button
-local stroke = Instance.new("UIStroke")
-stroke.Color = DARK
-stroke.Thickness = 4
-stroke.Parent = button
+	corner.CornerRadius = UDim.new(0, 10)
+	corner.Parent = button
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = DARK
+	stroke.Thickness = 4
+	stroke.Parent = button
 	if onClick then
 		button.MouseButton1Click:Connect(onClick)
 	end
@@ -259,22 +259,22 @@ end
 
 local function makeRow(left, right)
 	local row = Instance.new("TextLabel")
-row.Size = UDim2.new(1, 0, 0, 34)
-row.BackgroundColor3 = Color3.fromRGB(236, 255, 253)
-row.Font = Enum.Font.GothamBold
-row.TextSize = 21
-row.TextColor3 = Color3.fromRGB(30, 36, 48)
+	row.Size = UDim2.new(1, 0, 0, 34)
+	row.BackgroundColor3 = Color3.fromRGB(236, 255, 253)
+	row.Font = Enum.Font.GothamBold
+	row.TextSize = 21
+	row.TextColor3 = Color3.fromRGB(30, 36, 48)
 	row.TextXAlignment = Enum.TextXAlignment.Left
 	row.Text = "  " .. left .. "    " .. right
 	row.ZIndex = 62
 	row.Parent = content
 	local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = row
-local stroke = Instance.new("UIStroke")
-stroke.Color = DARK
-stroke.Thickness = 3
-stroke.Parent = row
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = row
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = DARK
+	stroke.Thickness = 3
+	stroke.Parent = row
 	return row
 end
 
@@ -292,7 +292,8 @@ local function buildContent(name)
 	elseif name == "Settings" then
 		makeLabel("Options", 24, CYAN)
 		table.clear(settingButtons)
-		settingsStatusLabel = makeLabel(settingsLoaded and "Saved per player." or "Loading settings...", 16, UITheme.Colors.TextMuted)
+		settingsStatusLabel =
+			makeLabel(settingsLoaded and "Saved per player." or "Loading settings...", 16, UITheme.Colors.TextMuted)
 		for _, key in ipairs(SETTING_ORDER) do
 			local button = makeButton((SETTING_LABELS[key] or string.upper(key)) .. ": ...", LAVENDER, function()
 				if not settingsLoaded or not requestSetSettingEvent then
@@ -480,9 +481,11 @@ if not readReplicatedSettings() then
 end
 
 for _, name in ipairs({ "Trading", "Market", "Settings" }) do
-	UIManager.register(name,
-		function(context) openPanel(name, context) end,
-		function(context) closePanel(name, context) end,
-		function() return isOpen and currentName == name end
-	)
+	UIManager.register(name, function(context)
+		openPanel(name, context)
+	end, function(context)
+		closePanel(name, context)
+	end, function()
+		return isOpen and currentName == name
+	end)
 end

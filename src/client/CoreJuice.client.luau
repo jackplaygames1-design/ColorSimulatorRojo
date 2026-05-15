@@ -4,12 +4,12 @@ if true then
 end
 
 -- Client-only feedback layer for the core loop: break Color, hatch, merge, unlock.
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -467,7 +467,12 @@ mergeEvent.OnClientEvent:Connect(function(success, petId, result)
 	playSound("merge", 0.3, 0.82)
 	makeFlash(PURPLE, 0.65)
 	toast("MERGE UPGRADE", PURPLE)
-	burstAt(Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y * 0.35), PURPLE, 18, 96)
+	burstAt(
+		Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y * 0.35),
+		PURPLE,
+		18,
+		96
+	)
 end)
 
 unlockEvent.OnClientEvent:Connect(function(kind, colorType, world)
@@ -478,5 +483,10 @@ unlockEvent.OnClientEvent:Connect(function(kind, colorType, world)
 	playSound("unlock", 0.38, 0.82)
 	makeFlash(GREEN, 0.55)
 	toast((world and string.upper(world.name) or "SECTOR") .. " UNLOCKED", GREEN)
-	burstAt(Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y * 0.28), GREEN, 24, 130)
+	burstAt(
+		Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y * 0.28),
+		GREEN,
+		24,
+		130
+	)
 end)

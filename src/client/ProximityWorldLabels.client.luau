@@ -53,7 +53,12 @@ RunService.RenderStepped:Connect(function()
 			local position = getLabelPosition(label)
 			if position then
 				local parent = label.Parent
-				if parent and parent:IsA("BasePart") and parent:GetAttribute("EggId") and parent:FindFirstChild("EggOptions") then
+				if
+					parent
+					and parent:IsA("BasePart")
+					and parent:GetAttribute("EggId")
+					and parent:FindFirstChild("EggOptions")
+				then
 					label.Enabled = false
 					continue
 				end

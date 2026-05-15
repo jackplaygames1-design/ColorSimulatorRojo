@@ -5,20 +5,20 @@ end
 
 -- Binds editor-built MainHUD.Windows to live player data.
 -- This script does not create ScreenGuis or rebuild top-level window frames.
+local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local MarketplaceService = game:GetService("MarketplaceService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
-local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
-local ItemsData = require(ReplicatedStorage:WaitForChild("ItemsData"))
-local UpgradeData = require(ReplicatedStorage:WaitForChild("UpgradeData"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
-local SettingsData = require(ReplicatedStorage:WaitForChild("SettingsData"))
+local ItemsData = require(ReplicatedStorage:WaitForChild("ItemsData"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
+local SettingsData = require(ReplicatedStorage:WaitForChild("SettingsData"))
+local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
+local UpgradeData = require(ReplicatedStorage:WaitForChild("UpgradeData"))
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local PetDefinitions = require(Modules:WaitForChild("PetDefinitions"))
 local PetModelUtil = require(Modules:WaitForChild("PetModelUtil"))
@@ -260,7 +260,10 @@ local function connectPress(guiObject, callback)
 	else
 		guiObject.Active = true
 		guiObject.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			if
+				input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch
+			then
 				callback()
 			end
 		end)
@@ -403,9 +406,12 @@ local function clearList()
 end
 
 local function ensureInventoryStructure()
-	ui.tabs = findGuiObject(inventoryWindow, "Tabs") or ensureFrame(inventoryWindow, "Tabs", UDim2.fromOffset(22, 68), UDim2.new(1, -44, 0, 40))
-	ui.content = findGuiObject(inventoryWindow, "Content") or ensureFrame(inventoryWindow, "Content", UDim2.fromOffset(22, 122), UDim2.new(1, -44, 1, -148))
-	ui.gridRoot = findGuiObject(ui.content, "ItemGrid") or ensureFrame(ui.content, "ItemGrid", UDim2.fromOffset(12, 12), UDim2.new(0.62, -20, 1, -24))
+	ui.tabs = findGuiObject(inventoryWindow, "Tabs")
+		or ensureFrame(inventoryWindow, "Tabs", UDim2.fromOffset(22, 68), UDim2.new(1, -44, 0, 40))
+	ui.content = findGuiObject(inventoryWindow, "Content")
+		or ensureFrame(inventoryWindow, "Content", UDim2.fromOffset(22, 122), UDim2.new(1, -44, 1, -148))
+	ui.gridRoot = findGuiObject(ui.content, "ItemGrid")
+		or ensureFrame(ui.content, "ItemGrid", UDim2.fromOffset(12, 12), UDim2.new(0.62, -20, 1, -24))
 	ui.details = findGuiObject(inventoryWindow, "DetailsPanel")
 		or findGuiObject(ui.content, "DetailsPanel")
 		or ensureFrame(inventoryWindow, "DetailsPanel", UDim2.new(0.64, 0, 0, 122), UDim2.new(0.36, -34, 1, -148))
@@ -471,7 +477,8 @@ local function ensureInventoryStructure()
 		stroke.Thickness = 2
 		stroke.Parent = template
 
-		ensureLabel(template, "IconText", "IT", UDim2.fromOffset(8, 8), UDim2.fromOffset(40, 28), 18).TextXAlignment = Enum.TextXAlignment.Center
+		ensureLabel(template, "IconText", "IT", UDim2.fromOffset(8, 8), UDim2.fromOffset(40, 28), 18).TextXAlignment =
+			Enum.TextXAlignment.Center
 		ensureLabel(template, "Name", "Item", UDim2.fromOffset(8, 38), UDim2.new(1, -16, 0, 32), 13)
 		ensureLabel(template, "Meta", "Meta", UDim2.fromOffset(8, 72), UDim2.new(1, -16, 0, 28), 11)
 		ui.cardTemplate = template
@@ -479,15 +486,26 @@ local function ensureInventoryStructure()
 		ui.cardTemplate.Visible = false
 	end
 
-	ui.detailTitle = ensureLabel(ui.details, "SelectLabel", "Select an Item", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 36), 22)
+	ui.detailTitle =
+		ensureLabel(ui.details, "SelectLabel", "Select an Item", UDim2.fromOffset(14, 12), UDim2.new(1, -28, 0, 36), 22)
 	ui.detailTitle.TextXAlignment = Enum.TextXAlignment.Center
 	ui.detailName = ensureLabel(ui.details, "NameLabel", "", UDim2.fromOffset(14, 54), UDim2.new(1, -28, 0, 36), 20)
 	ui.detailMeta = ensureLabel(ui.details, "MetaLabel", "", UDim2.fromOffset(14, 92), UDim2.new(1, -28, 0, 38), 14)
-	ui.detailDescription = ensureLabel(ui.details, "DescriptionLabel", "Choose a card to see details.", UDim2.fromOffset(14, 136), UDim2.new(1, -28, 0, 96), 14)
+	ui.detailDescription = ensureLabel(
+		ui.details,
+		"DescriptionLabel",
+		"Choose a card to see details.",
+		UDim2.fromOffset(14, 136),
+		UDim2.new(1, -28, 0, 96),
+		14
+	)
 	ui.detailStats = ensureLabel(ui.details, "StatsLabel", "", UDim2.fromOffset(14, 238), UDim2.new(1, -28, 0, 90), 13)
-	ui.actionButton = ensureButton(ui.details, "EquipButton", "EQUIP", UDim2.new(0, 14, 1, -132), UDim2.new(1, -28, 0, 34))
-	ui.lockButton = ensureButton(ui.details, "LockButton", "COMING SOON", UDim2.new(0, 14, 1, -90), UDim2.new(1, -28, 0, 34))
-	ui.deleteButton = ensureButton(ui.details, "DeleteButton", "COMING SOON", UDim2.new(0, 14, 1, -48), UDim2.new(1, -28, 0, 34))
+	ui.actionButton =
+		ensureButton(ui.details, "EquipButton", "EQUIP", UDim2.new(0, 14, 1, -132), UDim2.new(1, -28, 0, 34))
+	ui.lockButton =
+		ensureButton(ui.details, "LockButton", "COMING SOON", UDim2.new(0, 14, 1, -90), UDim2.new(1, -28, 0, 34))
+	ui.deleteButton =
+		ensureButton(ui.details, "DeleteButton", "COMING SOON", UDim2.new(0, 14, 1, -48), UDim2.new(1, -28, 0, 34))
 
 	connectPress(ui.actionButton, function()
 		if not selectedEntry then
@@ -555,8 +573,12 @@ local function setDetailsForColor(entry)
 
 	ui.detailTitle.Text = "Color Details"
 	ui.detailName.Text = entry.displayName or pet.displayName or entry.petId
-	ui.detailMeta.Text = tostring(entry.rarity or pet.rarity or "Unknown") .. " | x" .. PetData.formatStack(entry.stackAmount or 1)
-	ui.detailDescription.Text = tostring(entry.traitName or "Neutral") .. ": " .. tostring(entry.traitDescription or "No special trait.")
+	ui.detailMeta.Text = tostring(entry.rarity or pet.rarity or "Unknown")
+		.. " | x"
+		.. PetData.formatStack(entry.stackAmount or 1)
+	ui.detailDescription.Text = tostring(entry.traitName or "Neutral")
+		.. ": "
+		.. tostring(entry.traitDescription or "No special trait.")
 	ui.detailStats.Text = table.concat({
 		"Power: " .. tostring(entry.effectivePower or entry.finalPower or 0),
 		"Color Gain: x" .. string.format("%.2f", tonumber(entry.colorMult) or 1),
@@ -601,7 +623,9 @@ local function setDetailsForItem(itemId, item, quantity)
 	ui.detailName.Text = item.displayName or itemId
 	ui.detailMeta.Text = tostring(item.rarity or "Common") .. " | x" .. ItemsData.formatNum(quantity or 0)
 	ui.detailDescription.Text = tostring(item.description or "Inventory item.")
-	ui.detailStats.Text = item.boostType and ("Boost: " .. tostring(item.boostType) .. "\nDuration: " .. tostring(item.boostDuration or 0) .. "s") or ""
+	ui.detailStats.Text = item.boostType
+			and ("Boost: " .. tostring(item.boostType) .. "\nDuration: " .. tostring(item.boostDuration or 0) .. "s")
+		or ""
 	ui.actionButton.Text = usable and "USE" or "INFO"
 	setButtonEnabled(ui.actionButton, usable)
 	ui.lockButton.Text = "LOCKED"
@@ -647,7 +671,10 @@ local function makeCard(layoutOrder, icon, title, meta, color, callback)
 
 	local connection
 	connection = card.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		if
+			input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
 			callback()
 		end
 	end)
@@ -657,7 +684,14 @@ local function makeCard(layoutOrder, icon, title, meta, color, callback)
 end
 
 local function makeEmptyInventoryCard(message)
-	makeCard(1, "--", message or "No items yet", "Come back after you earn one.", Color3.fromRGB(170, 180, 205), function() end)
+	makeCard(
+		1,
+		"--",
+		message or "No items yet",
+		"Come back after you earn one.",
+		Color3.fromRGB(170, 180, 205),
+		function() end
+	)
 end
 
 local function refreshColors()
@@ -675,11 +709,18 @@ local function refreshColors()
 		local pet = PetData.Pets[entry.petId] or {}
 		local definition = PetDefinitions.Get(entry.petId)
 		local displayName = entry.displayName or pet.displayName or entry.petId
-		local color = (definition and definition.IconColor) or entry.baseColor or pet.color or Color3.fromRGB(170, 180, 205)
+		local color = (definition and definition.IconColor)
+			or entry.baseColor
+			or pet.color
+			or Color3.fromRGB(170, 180, 205)
 		local icon = string.upper(string.sub(displayName, 1, 2))
 		local equippedText = isColorEquipped(entry) and " | EQUIPPED" or ""
 		local lockedText = isColorLocked(entry) and " | LOCKED" or ""
-		local meta = tostring(entry.rarity or pet.rarity or "Color") .. " x" .. PetData.formatStack(entry.stackAmount or 1) .. equippedText .. lockedText
+		local meta = tostring(entry.rarity or pet.rarity or "Color")
+			.. " x"
+			.. PetData.formatStack(entry.stackAmount or 1)
+			.. equippedText
+			.. lockedText
 		local card = makeCard(count, icon, displayName, meta, color, function()
 			setDetailsForColor(entry)
 		end)
@@ -701,11 +742,20 @@ local function refreshBrushes()
 		local tool = ToolData.Tools[toolId]
 		if tool and owned[toolId] then
 			count += 1
-			local color = ToolData.RarityColors and ToolData.RarityColors[tool.Rarity or "Common"] or tool.PaintColor or Color3.fromRGB(82, 219, 225)
+			local color = ToolData.RarityColors and ToolData.RarityColors[tool.Rarity or "Common"]
+				or tool.PaintColor
+				or Color3.fromRGB(82, 219, 225)
 			local equippedText = getEquippedPaintToolId() == tool.Id and " | EQUIPPED" or ""
-			makeCard(count, tool.ShortName or "BR", tool.DisplayName or tool.Id, tostring(tool.Rarity or "Brush") .. equippedText, color, function()
-				setDetailsForBrush(tool)
-			end)
+			makeCard(
+				count,
+				tool.ShortName or "BR",
+				tool.DisplayName or tool.Id,
+				tostring(tool.Rarity or "Brush") .. equippedText,
+				color,
+				function()
+					setDetailsForBrush(tool)
+				end
+			)
 		end
 	end
 	return count
@@ -736,9 +786,16 @@ local function refreshItems(wantPotions)
 	local list = getSortedOwnedItems(wantPotions)
 	for index, entry in ipairs(list) do
 		local rarity = ItemsData.Rarities[entry.item.rarity or "Common"]
-		makeCard(index, entry.item.icon or "IT", entry.item.displayName or entry.id, "x" .. ItemsData.formatNum(entry.quantity), rarity and rarity.color or Color3.fromRGB(170, 180, 205), function()
-			setDetailsForItem(entry.id, entry.item, entry.quantity)
-		end)
+		makeCard(
+			index,
+			entry.item.icon or "IT",
+			entry.item.displayName or entry.id,
+			"x" .. ItemsData.formatNum(entry.quantity),
+			rarity and rarity.color or Color3.fromRGB(170, 180, 205),
+			function()
+				setDetailsForItem(entry.id, entry.item, entry.quantity)
+			end
+		)
 	end
 	return #list
 end
@@ -876,7 +933,8 @@ local function getWindowContent(windowName)
 		return nil, nil
 	end
 
-	local content = findGuiObject(window, "Content") or ensureFrame(window, "Content", UDim2.fromOffset(22, 82), UDim2.new(1, -44, 1, -108))
+	local content = findGuiObject(window, "Content")
+		or ensureFrame(window, "Content", UDim2.fromOffset(22, 82), UDim2.new(1, -44, 1, -108))
 	return window, content
 end
 
@@ -949,7 +1007,8 @@ local function makeWindowCard(list, order, title, body, buttonText, callback, co
 	ensureLabel(card, "Body", body, UDim2.fromOffset(14, 40), UDim2.new(1, -150, 0, 48), 13)
 
 	if buttonText then
-		local button = ensureButton(card, "ActionButton", buttonText, UDim2.new(1, -128, 0.5, -17), UDim2.fromOffset(112, 34))
+		local button =
+			ensureButton(card, "ActionButton", buttonText, UDim2.new(1, -128, 0.5, -17), UDim2.fromOffset(112, 34))
 		if callback then
 			connectPress(button, callback)
 		else
@@ -1028,8 +1087,10 @@ local function ensureShopCardTemplate(shopWindow)
 	stroke.Thickness = 2
 	stroke.Parent = template
 
-	local iconFrame = ensureFrame(template, "Icon", UDim2.fromOffset(12, 14), UDim2.fromOffset(72, 72), Color3.fromRGB(244, 248, 252))
-	ensureLabel(iconFrame, "IconText", "VIP", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 20).TextXAlignment = Enum.TextXAlignment.Center
+	local iconFrame =
+		ensureFrame(template, "Icon", UDim2.fromOffset(12, 14), UDim2.fromOffset(72, 72), Color3.fromRGB(244, 248, 252))
+	ensureLabel(iconFrame, "IconText", "VIP", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 20).TextXAlignment =
+		Enum.TextXAlignment.Center
 	local image = Instance.new("ImageLabel")
 	image.Name = "IconImage"
 	image.BackgroundTransparency = 1
@@ -1040,14 +1101,16 @@ local function ensureShopCardTemplate(shopWindow)
 	ensureLabel(template, "Name", "Product", UDim2.fromOffset(96, 10), UDim2.new(1, -238, 0, 26), 18)
 	ensureLabel(template, "Description", "Description", UDim2.fromOffset(96, 38), UDim2.new(1, -238, 0, 40), 13)
 	ensureLabel(template, "Badge", "", UDim2.fromOffset(96, 80), UDim2.new(1, -238, 0, 22), 12)
-	ensureLabel(template, "Price", "R$ 0", UDim2.new(1, -130, 0, 14), UDim2.fromOffset(112, 24), 14).TextXAlignment = Enum.TextXAlignment.Center
+	ensureLabel(template, "Price", "R$ 0", UDim2.new(1, -130, 0, 14), UDim2.fromOffset(112, 24), 14).TextXAlignment =
+		Enum.TextXAlignment.Center
 	ensureButton(template, "BuyButton", "BUY", UDim2.new(1, -130, 1, -48), UDim2.fromOffset(112, 34))
 
 	return template
 end
 
 local function ensureShopTabs(shopWindow)
-	local tabs = findGuiObject(shopWindow, "Tabs") or ensureFrame(shopWindow, "Tabs", UDim2.fromOffset(22, 68), UDim2.new(1, -44, 0, 40))
+	local tabs = findGuiObject(shopWindow, "Tabs")
+		or ensureFrame(shopWindow, "Tabs", UDim2.fromOffset(22, 68), UDim2.new(1, -44, 0, 40))
 	local desiredTabs = { "Bundles", "Gamepasses", "Potions", "Currency" }
 	local desiredSet = {}
 	for index, tabName in ipairs(desiredTabs) do
@@ -1191,24 +1254,19 @@ function renderShop()
 			local gamepassId = tonumber(pass.gamepassId)
 			local owned = ownsGamepass(pass)
 			local canPrompt = gamepassId and gamepassId > 0 and not owned
-			makeShopCard(
-				list,
-				template,
-				order,
-				{
-					icon = pass.icon,
-					image = pass.iconImage,
-					title = pass.displayName or pass.id,
-					description = pass.description or "Gamepass",
-					badge = pass.badge,
-					priceText = pass.price and ("R$ " .. tostring(pass.price)) or "R$ ?",
-					buttonText = owned and "OWNED" or (canPrompt and "BUY" or "SET ID"),
-					callback = canPrompt and function()
-						MarketplaceService:PromptGamePassPurchase(player, gamepassId)
-					end or nil,
-					color = pass.color,
-				}
-			)
+			makeShopCard(list, template, order, {
+				icon = pass.icon,
+				image = pass.iconImage,
+				title = pass.displayName or pass.id,
+				description = pass.description or "Gamepass",
+				badge = pass.badge,
+				priceText = pass.price and ("R$ " .. tostring(pass.price)) or "R$ ?",
+				buttonText = owned and "OWNED" or (canPrompt and "BUY" or "SET ID"),
+				callback = canPrompt and function()
+					MarketplaceService:PromptGamePassPurchase(player, gamepassId)
+				end or nil,
+				color = pass.color,
+			})
 		end
 		if order == 0 then
 			makeShopCard(list, template, 1, {
@@ -1220,7 +1278,6 @@ function renderShop()
 				color = Color3.fromRGB(170, 180, 205),
 			})
 		end
-
 	elseif currentShopTab == "Potions" then
 		local hasPotionProducts = false
 		for _, product in ipairs(RobuxShopConfig.getSortedDevProducts()) do
@@ -1253,7 +1310,6 @@ function renderShop()
 				color = Color3.fromRGB(170, 180, 205),
 			})
 		end
-
 	elseif currentShopTab == "Currency" then
 		local products = RobuxShopConfig.getSortedDevProducts()
 		if #products == 0 then
@@ -1284,7 +1340,6 @@ function renderShop()
 				})
 			end
 		end
-
 	elseif currentShopTab == "Bundles" then
 		makeShopCard(list, template, 1, {
 			icon = "FP",
@@ -1315,16 +1370,31 @@ local function renderUpgrades()
 		local nextLevel = math.min(level + 1, maxLevel)
 		local nextData = upgrade.levels and upgrade.levels[nextLevel]
 		local maxed = level >= maxLevel
-		local body = "Level " .. tostring(level) .. "/" .. tostring(maxLevel)
-			.. "\nCurrent: " .. UpgradeData.getValueDisplay(upgrade.id, level)
-			.. "\n" .. tostring(upgrade.description or "")
+		local body = "Level "
+			.. tostring(level)
+			.. "/"
+			.. tostring(maxLevel)
+			.. "\nCurrent: "
+			.. UpgradeData.getValueDisplay(upgrade.id, level)
+			.. "\n"
+			.. tostring(upgrade.description or "")
 		if nextData then
-			body ..= "\nNext: " .. UpgradeData.getValueDisplay(upgrade.id, nextLevel) .. " | " .. UpgradeData.formatNumber(nextData.cost) .. " Coins"
+			body ..= "\nNext: " .. UpgradeData.getValueDisplay(upgrade.id, nextLevel) .. " | " .. UpgradeData.formatNumber(
+				nextData.cost
+			) .. " Coins"
 		end
 
-		makeWindowCard(list, index, upgrade.displayName or upgrade.id, body, maxed and "MAXED" or "UPGRADE", maxed and nil or function()
-			purchaseUpgradeEvent:FireServer(upgrade.id)
-		end, Color3.fromRGB(116, 232, 158))
+		makeWindowCard(
+			list,
+			index,
+			upgrade.displayName or upgrade.id,
+			body,
+			maxed and "MAXED" or "UPGRADE",
+			maxed and nil or function()
+				purchaseUpgradeEvent:FireServer(upgrade.id)
+			end,
+			Color3.fromRGB(116, 232, 158)
+		)
 	end
 end
 
@@ -1352,13 +1422,37 @@ local function renderSettings()
 
 	for index, setting in ipairs(settings) do
 		local enabled = getSettingValue(setting.key, setting.default)
-		makeWindowCard(list, index, setting.title, "Current: " .. (enabled and "ON" or "OFF"), enabled and "TURN OFF" or "TURN ON", function()
-			requestSetSettingEvent:FireServer(setting.key, not enabled)
-		end, Color3.fromRGB(82, 219, 225))
+		makeWindowCard(
+			list,
+			index,
+			setting.title,
+			"Current: " .. (enabled and "ON" or "OFF"),
+			enabled and "TURN OFF" or "TURN ON",
+			function()
+				requestSetSettingEvent:FireServer(setting.key, not enabled)
+			end,
+			Color3.fromRGB(82, 219, 225)
+		)
 	end
 
-	makeWindowCard(list, 4, "Hide Pets", "This setting is not in the current settings schema yet.", "COMING SOON", nil, Color3.fromRGB(170, 180, 205))
-	makeWindowCard(list, 5, "Auto Delete", "Auto delete configuration is coming soon.", "COMING SOON", nil, Color3.fromRGB(170, 180, 205))
+	makeWindowCard(
+		list,
+		4,
+		"Hide Pets",
+		"This setting is not in the current settings schema yet.",
+		"COMING SOON",
+		nil,
+		Color3.fromRGB(170, 180, 205)
+	)
+	makeWindowCard(
+		list,
+		5,
+		"Auto Delete",
+		"Auto delete configuration is coming soon.",
+		"COMING SOON",
+		nil,
+		Color3.fromRGB(170, 180, 205)
+	)
 end
 
 local codeStatusLabel = nil
@@ -1373,8 +1467,7 @@ local function renderCodes()
 		return
 	end
 
-	local codeBox = codeWindow:FindFirstChild("CodeBox", true)
-		or codeWindow:FindFirstChild("CodeInput", true)
+	local codeBox = codeWindow:FindFirstChild("CodeBox", true) or codeWindow:FindFirstChild("CodeInput", true)
 	local redeemButton = codeWindow:FindFirstChild("RedeemButton", true)
 	local infoText = codeWindow:FindFirstChild("InfoText", true)
 		or codeWindow:FindFirstChild("StatusText", true)
@@ -1383,7 +1476,8 @@ local function renderCodes()
 
 	if not (codeBox and codeBox:IsA("TextBox") and redeemButton and redeemButton:IsA("GuiButton")) then
 		local list = ensureBinderList(content)
-		local card = makeWindowCard(list, 1, "Codes", "Enter a code and redeem it.", nil, nil, Color3.fromRGB(255, 224, 104))
+		local card =
+			makeWindowCard(list, 1, "Codes", "Enter a code and redeem it.", nil, nil, Color3.fromRGB(255, 224, 104))
 		codeBox = Instance.new("TextBox")
 		codeBox.Name = "CodeBox"
 		codeBox.PlaceholderText = "CODE"
@@ -1397,7 +1491,8 @@ local function renderCodes()
 		codeBox.Position = UDim2.new(1, -260, 0.5, -17)
 		codeBox.Size = UDim2.fromOffset(132, 34)
 		codeBox.Parent = card
-		redeemButton = ensureButton(card, "RedeemButton", "REDEEM", UDim2.new(1, -118, 0.5, -17), UDim2.fromOffset(102, 34))
+		redeemButton =
+			ensureButton(card, "RedeemButton", "REDEEM", UDim2.new(1, -118, 0.5, -17), UDim2.fromOffset(102, 34))
 		infoText = card:FindFirstChild("Body")
 	end
 
@@ -1568,7 +1663,12 @@ local function bindWorldCard(content, world, isUnlocked, isCurrent)
 	end
 	button:SetAttribute("WorldColor", colorType)
 
-	local status = card and (card:FindFirstChild("Status", true) or card:FindFirstChild("StatusLabel", true) or card:FindFirstChild("Requirement", true))
+	local status = card
+		and (
+			card:FindFirstChild("Status", true)
+			or card:FindFirstChild("StatusLabel", true)
+			or card:FindFirstChild("Requirement", true)
+		)
 	if status and status:IsA("TextLabel") then
 		status.Text = isUnlocked and (isCurrent and "Current Sector" or "Unlocked")
 			or ("Unlock for " .. UpgradeData.formatNumber(world.UnlockCost or world.unlockCost or 0) .. " Coins")
@@ -1608,7 +1708,14 @@ local function renderWorlds()
 		local colorType = world.primaryColor or world.id
 		local isUnlocked = unlocked[colorType] == true
 		local isCurrent = current == colorType
-		local requirement = isUnlocked and "Unlocked" or ("Requires " .. tostring(world.RequiredZoneId or "previous Sector") .. " | " .. UpgradeData.formatNumber(world.UnlockCost or world.unlockCost or 0) .. " Coins")
+		local requirement = isUnlocked and "Unlocked"
+			or (
+				"Requires "
+				.. tostring(world.RequiredZoneId or "previous Sector")
+				.. " | "
+				.. UpgradeData.formatNumber(world.UnlockCost or world.unlockCost or 0)
+				.. " Coins"
+			)
 		local previous = ColorData.getPreviousWorld(colorType)
 		local canUnlock = not isUnlocked
 			and (not previous or unlocked[previous.primaryColor] == true)
@@ -1616,14 +1723,24 @@ local function renderWorlds()
 		local buttonText = isCurrent and "CURRENT" or (isUnlocked and "GO" or (canUnlock and "UNLOCK" or "LOCKED"))
 		local colorConfig = colorType and ColorData.Colors[colorType]
 		local card
-		card = makeWindowCard(list, index, world.DisplayName or world.name or colorType, requirement, buttonText, (isUnlocked or canUnlock) and function()
-			local button = card and card:FindFirstChild("ActionButton", true)
-			if isUnlocked then
-				teleportToWorld(world, button)
-			else
-				unlockWorld(world, button)
-			end
-		end or nil, colorConfig and colorConfig.color)
+		card = makeWindowCard(
+			list,
+			index,
+			world.DisplayName or world.name or colorType,
+			requirement,
+			buttonText,
+			(isUnlocked or canUnlock)
+					and function()
+						local button = card and card:FindFirstChild("ActionButton", true)
+						if isUnlocked then
+							teleportToWorld(world, button)
+						else
+							unlockWorld(world, button)
+						end
+					end
+				or nil,
+			colorConfig and colorConfig.color
+		)
 	end
 end
 
@@ -1671,7 +1788,15 @@ local function renderDailyQuests()
 
 	local list = ensureBinderList(content)
 	if not dailyQuestRemote then
-		makeWindowCard(list, 1, "Daily Quests", "DailyQuestRemote is missing. Showing progress is unavailable.", nil, nil, Color3.fromRGB(170, 180, 205))
+		makeWindowCard(
+			list,
+			1,
+			"Daily Quests",
+			"DailyQuestRemote is missing. Showing progress is unavailable.",
+			nil,
+			nil,
+			Color3.fromRGB(170, 180, 205)
+		)
 		warn("EditorWindowBinder: DailyQuestRemote missing.")
 		return
 	end
@@ -1707,11 +1832,25 @@ local function renderDailyQuests()
 		local rewardCurrency = tostring(quest.rewardCurrency or "Gems")
 		local iconText = quest.iconText and (tostring(quest.iconText) .. "  ") or ""
 		local body = tostring(quest.description or "")
-			.. "\n" .. tostring(progress) .. "/" .. tostring(required)
-			.. " | Reward: " .. tostring(rewardAmount) .. " " .. rewardCurrency
-		makeWindowCard(list, index, iconText .. tostring(quest.title or ("Quest " .. tostring(index))), body, claimed and "CLAIMED" or (complete and "CLAIM" or "IN PROGRESS"), (complete and not claimed) and function()
-			dailyQuestRemote:FireServer("Claim", index)
-		end or nil, complete and Color3.fromRGB(116, 232, 158) or Color3.fromRGB(82, 219, 225))
+			.. "\n"
+			.. tostring(progress)
+			.. "/"
+			.. tostring(required)
+			.. " | Reward: "
+			.. tostring(rewardAmount)
+			.. " "
+			.. rewardCurrency
+		makeWindowCard(
+			list,
+			index,
+			iconText .. tostring(quest.title or ("Quest " .. tostring(index))),
+			body,
+			claimed and "CLAIMED" or (complete and "CLAIM" or "IN PROGRESS"),
+			(complete and not claimed) and function()
+				dailyQuestRemote:FireServer("Claim", index)
+			end or nil,
+			complete and Color3.fromRGB(116, 232, 158) or Color3.fromRGB(82, 219, 225)
+		)
 	end
 end
 
@@ -1800,7 +1939,15 @@ local function setupAuxiliaryListeners()
 		end
 	end
 
-	for _, windowName in ipairs({ "ShopWindow", "UpgradesWindow", "SettingsWindow", "CodesWindow", "TradeWindow", "WorldsWindow", "DailyQuestsWindow" }) do
+	for _, windowName in ipairs({
+		"ShopWindow",
+		"UpgradesWindow",
+		"SettingsWindow",
+		"CodesWindow",
+		"TradeWindow",
+		"WorldsWindow",
+		"DailyQuestsWindow",
+	}) do
 		local window = windows:FindFirstChild(windowName)
 		if window and window:IsA("GuiObject") then
 			window:GetPropertyChangedSignal("Visible"):Connect(function()

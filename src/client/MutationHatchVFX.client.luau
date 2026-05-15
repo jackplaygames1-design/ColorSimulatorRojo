@@ -6,10 +6,10 @@ end
 -- Adds an extra visual burst whenever a hatched Color has a mutation.
 -- This is intentionally separate from EggShopUI so the existing hatch animation stays editable/stable.
 
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -66,7 +66,10 @@ local function findMutationPayload(...)
 					typeName = value.mutationType or value.MutationType or mutation.Type,
 					rarity = value.mutationRarity or value.MutationRarity or mutation.Rarity,
 					description = value.mutationDescription or value.MutationDescription or mutation.Description,
-					auraColor = value.mutationAuraColor or value.MutationAuraColor or value.auraColor or mutation.AuraColor,
+					auraColor = value.mutationAuraColor
+						or value.MutationAuraColor
+						or value.auraColor
+						or mutation.AuraColor,
 					typeColor = value.mutationTypeColor or value.MutationTypeColor or mutation.TypeColor,
 				}
 			end
@@ -186,7 +189,13 @@ local function showMutationBurst(payload)
 	name.Position = UDim2.new(0, 18, 0, 57)
 	name.BackgroundTransparency = 1
 	name.Font = Enum.Font.GothamBlack
-	name.Text = string.upper(tostring(payload.rarity or "") .. " " .. tostring(payload.typeName or "") .. " • " .. tostring(payload.name or "Mutation"))
+	name.Text = string.upper(
+		tostring(payload.rarity or "")
+			.. " "
+			.. tostring(payload.typeName or "")
+			.. " • "
+			.. tostring(payload.name or "Mutation")
+	)
 	name.TextScaled = true
 	name.TextColor3 = Color3.new(1, 1, 1)
 	name.TextStrokeTransparency = 0.45
@@ -208,7 +217,13 @@ local function showMutationBurst(payload)
 	desc.Parent = banner
 
 	TweenService:Create(flash, TweenInfo.new(0.12), { BackgroundTransparency = 0.28 }):Play()
-	TweenService:Create(flash, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
+	TweenService
+		:Create(
+			flash,
+			TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ BackgroundTransparency = 1 }
+		)
+		:Play()
 	TweenService:Create(burst, TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 		Size = UDim2.fromOffset(390, 390),
 		BackgroundTransparency = 0.82,
@@ -236,11 +251,17 @@ local function showMutationBurst(payload)
 		local dist = math.random(145, 310)
 		local x = math.cos(angle) * dist
 		local y = math.sin(angle) * dist
-		TweenService:Create(particle, TweenInfo.new(math.random(52, 88) / 100, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Position = UDim2.new(0.5, x, 0.46, y),
-			BackgroundTransparency = 1,
-			Rotation = particle.Rotation + math.random(-180, 180),
-		}):Play()
+		TweenService
+			:Create(
+				particle,
+				TweenInfo.new(math.random(52, 88) / 100, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{
+					Position = UDim2.new(0.5, x, 0.46, y),
+					BackgroundTransparency = 1,
+					Rotation = particle.Rotation + math.random(-180, 180),
+				}
+			)
+			:Play()
 	end
 
 	Debris:AddItem(holder, 2.8)

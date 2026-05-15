@@ -9,11 +9,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
 local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
-local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local unlockEvent = Events:WaitForChild("UnlockArea")
@@ -145,9 +145,18 @@ local function getSectorSummary(world)
 	local eggName = world.EggIds and world.EggIds[1] and tostring(world.EggIds[1]:gsub("Egg", " Egg")) or "new Egg"
 	local brushText = world.BrushIds and #world.BrushIds > 0 and "new brushes" or "new gear"
 	if world.primaryColor == "Orange" then
-		return "Orange Sector: stronger orange spills, better Coin rewards, " .. eggName .. ", " .. brushText .. ", and the Mutation Core."
+		return "Orange Sector: stronger orange spills, better Coin rewards, "
+			.. eggName
+			.. ", "
+			.. brushText
+			.. ", and the Mutation Core."
 	end
-	return tostring(world.name or "Sector") .. ": new color spills, better rewards, " .. eggName .. ", and " .. brushText .. "."
+	return tostring(world.name or "Sector")
+		.. ": new color spills, better rewards, "
+		.. eggName
+		.. ", and "
+		.. brushText
+		.. "."
 end
 
 local function previewSector(world)
@@ -285,7 +294,8 @@ local function applyGateVisualState(gate, world, open)
 				child.LocalTransparencyModifier = open and 0.12 or 0
 				updateGateSign(child, world, open)
 			elseif string.find(role, "Glow") then
-				child.Color = open and worldColor:Lerp(Color3.fromRGB(255, 255, 255), 0.2) or Color3.fromRGB(255, 96, 116)
+				child.Color = open and worldColor:Lerp(Color3.fromRGB(255, 255, 255), 0.2)
+					or Color3.fromRGB(255, 96, 116)
 				child.LocalTransparencyModifier = open and 0.12 or 0.2
 			elseif role == "GateVisualStatusLight" then
 				child.Color = open and Color3.fromRGB(125, 255, 150) or Color3.fromRGB(255, 104, 118)
@@ -318,7 +328,9 @@ local function refreshGates()
 					if prompt and prompt:IsA("ProximityPrompt") then
 						prompt.Enabled = playable and not tutorialLocked
 						prompt.ActionText = open and ("Go to " .. world.name) or ("Unlock " .. world.name)
-						prompt.ObjectText = playable and (open and "Unlocked" or (formatNum(world.unlockCost) .. " Coins")) or "Locked for now"
+						prompt.ObjectText = playable
+								and (open and "Unlocked" or (formatNum(world.unlockCost) .. " Coins"))
+							or "Locked for now"
 						prompt.MaxActivationDistance = 30
 						prompt.HoldDuration = 0.1
 						prompt.RequiresLineOfSight = false
@@ -330,7 +342,9 @@ local function refreshGates()
 					if prompt and prompt:IsA("ProximityPrompt") then
 						prompt.Enabled = playable and not tutorialLocked
 						prompt.ActionText = open and ("Go to " .. world.name) or ("Unlock " .. world.name)
-						prompt.ObjectText = playable and (open and "Unlocked" or (formatNum(world.unlockCost) .. " Coins")) or "Locked for now"
+						prompt.ObjectText = playable
+								and (open and "Unlocked" or (formatNum(world.unlockCost) .. " Coins"))
+							or "Locked for now"
 					end
 
 					local billboard = obj:FindFirstChild("GateBillboard")
@@ -369,7 +383,8 @@ local function refreshRows()
 		local previous = ColorData.getPreviousWorld(world.primaryColor)
 		local playable = isSectorPlayable(world.primaryColor)
 
-		row.frame.BackgroundColor3 = current and Color3.fromRGB(236, 255, 252) or (unlocked and Color3.fromRGB(250, 255, 255) or Color3.fromRGB(244, 246, 252))
+		row.frame.BackgroundColor3 = current and Color3.fromRGB(236, 255, 252)
+			or (unlocked and Color3.fromRGB(250, 255, 255) or Color3.fromRGB(244, 246, 252))
 		if row.stroke then
 			row.stroke.Color = tutorialPreview and UI_YELLOW or (current and UI_GREEN or UI_DARK)
 			row.stroke.Thickness = (current or tutorialPreview) and 4 or 3
@@ -392,7 +407,8 @@ local function refreshRows()
 		row.status.TextColor3 = unlocked and Color3.fromRGB(35, 130, 55) or Color3.fromRGB(120, 90, 30)
 		row.button.Visible = not unlocked
 		row.button.Active = true
-		row.button.BackgroundColor3 = tutorialPreview and UI_YELLOW or (canPreview and UI_CYAN or (canUnlock and UI_GREEN or Color3.fromRGB(210, 214, 225)))
+		row.button.BackgroundColor3 = tutorialPreview and UI_YELLOW
+			or (canPreview and UI_CYAN or (canUnlock and UI_GREEN or Color3.fromRGB(210, 214, 225)))
 		row.button.Text = (tutorialPreview or canPreview) and "PREVIEW" or (canUnlock and "UNLOCK" or "LOCKED")
 		row.teleport.Visible = unlocked
 		row.teleport.Active = tutorialPreview or unlocked
@@ -437,7 +453,8 @@ local function buildRows()
 		local swatch = Instance.new("Frame")
 		swatch.Size = UDim2.new(0, 44, 0, 44)
 		swatch.Position = UDim2.new(0, 14, 0.5, -22)
-		swatch.BackgroundColor3 = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color or UI_CYAN
+		swatch.BackgroundColor3 = ColorData.Colors[world.primaryColor] and ColorData.Colors[world.primaryColor].color
+			or UI_CYAN
 		swatch.BorderSizePixel = 0
 		swatch.Parent = row
 		local swatchCorner = Instance.new("UICorner")
@@ -546,12 +563,22 @@ local function buildRows()
 		end)
 
 		row.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			if
+				input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch
+			then
 				previewSector(world)
 			end
 		end)
 
-		rows[world.primaryColor] = { world = world, frame = row, stroke = rowStroke, status = status, button = button, teleport = teleportButton }
+		rows[world.primaryColor] = {
+			world = world,
+			frame = row,
+			stroke = rowStroke,
+			status = status,
+			button = button,
+			teleport = teleportButton,
+		}
 	end
 
 	soonRow = Instance.new("Frame")
@@ -768,9 +795,17 @@ end)
 buildRows()
 refreshRows()
 
-UIManager.register("World", function() toggleWorld(true) end, function() toggleWorld(false) end, function() return isOpen end)
+UIManager.register("World", function()
+	toggleWorld(true)
+end, function()
+	toggleWorld(false)
+end, function()
+	return isOpen
+end)
 
 local worldBtn = ReplicatedStorage:WaitForChild("HudButton_WORLD", 10)
 if worldBtn then
-	worldBtn.Event:Connect(function() UIManager.toggle("World") end)
+	worldBtn.Event:Connect(function()
+		UIManager.toggle("World")
+	end)
 end

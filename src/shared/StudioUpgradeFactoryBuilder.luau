@@ -113,7 +113,13 @@ end
 
 local function makeCrystal(parent, basePos, name, color, scale)
 	scale = scale or 1
-	local core = neon(parent, name .. "Crystal", Vector3.new(5 * scale, 10 * scale, 5 * scale), basePos + Vector3.new(0, 7 * scale, 0), color)
+	local core = neon(
+		parent,
+		name .. "Crystal",
+		Vector3.new(5 * scale, 10 * scale, 5 * scale),
+		basePos + Vector3.new(0, 7 * scale, 0),
+		color
+	)
 	core.Shape = Enum.PartType.Ball
 	core:SetAttribute("UpgradeFactoryDecor", true)
 	local light = Instance.new("PointLight")
@@ -128,11 +134,25 @@ end
 
 local function makeMachine(parent, center)
 	local machine = folder(parent, "UpgradeStation")
-	local base = part(machine, "UpgradeStationBase", Vector3.new(42, 5, 28), center + Vector3.new(0, 2.5, 0), COLORS.dark, Enum.Material.Metal)
+	local base = part(
+		machine,
+		"UpgradeStationBase",
+		Vector3.new(42, 5, 28),
+		center + Vector3.new(0, 2.5, 0),
+		COLORS.dark,
+		Enum.Material.Metal
+	)
 	base:SetAttribute("UpgradeStation", true)
 	base:SetAttribute("SectorId", SECTOR_ID)
 
-	local console = part(machine, "UpgradeConsole", Vector3.new(16, 10, 10), center + Vector3.new(0, 9, -8), COLORS.panel, Enum.Material.Metal)
+	local console = part(
+		machine,
+		"UpgradeConsole",
+		Vector3.new(16, 10, 10),
+		center + Vector3.new(0, 9, -8),
+		COLORS.panel,
+		Enum.Material.Metal
+	)
 	console:SetAttribute("UpgradeStation", true)
 	console:SetAttribute("SectorId", SECTOR_ID)
 	label(console, "UPGRADE\nSTATION", Vector3.new(0, 8, 0), 210, 80)
@@ -147,7 +167,13 @@ local function makeMachine(parent, center)
 		{ "Gem Boost", 22, COLORS.gem },
 	}
 	for _, data in ipairs(tubes) do
-		local tube = neon(machine, data[1]:gsub("%s+", "") .. "Tube", Vector3.new(4, 16, 4), center + Vector3.new(data[2], 9, 13), data[3])
+		local tube = neon(
+			machine,
+			data[1]:gsub("%s+", "") .. "Tube",
+			Vector3.new(4, 16, 4),
+			center + Vector3.new(data[2], 9, 13),
+			data[3]
+		)
 		tube.Shape = Enum.PartType.Cylinder
 		tube.CFrame = CFrame.new(tube.Position) * CFrame.Angles(0, 0, math.rad(90))
 		label(tube, data[1], Vector3.new(0, 5, 0), 140, 42)
@@ -168,17 +194,46 @@ function StudioUpgradeFactoryBuilder.Build()
 	sector:SetAttribute("RequiredPreviousSector", "InsidePipes")
 	sector:SetAttribute("LockedByDefault", true)
 
-	local floor = part(sector, "UpgradeFactoryFloor", Vector3.new(240, 1, 220), ORIGIN, COLORS.floor, Enum.Material.Metal)
+	local floor =
+		part(sector, "UpgradeFactoryFloor", Vector3.new(240, 1, 220), ORIGIN, COLORS.floor, Enum.Material.Metal)
 	floor:SetAttribute("ColorZone", true)
 	floor:SetAttribute("SectorId", SECTOR_ID)
 	floor:SetAttribute("UnlocksFeature", "Upgrades")
 	label(floor, "SECTOR 3\nUPGRADE FACTORY", Vector3.new(0, 12, 0), 320, 88)
 
-	part(sector, "BackWall", Vector3.new(240, 55, 8), ORIGIN + Vector3.new(0, 27.5, 110), COLORS.panel, Enum.Material.Metal)
-	part(sector, "LeftWall", Vector3.new(8, 55, 220), ORIGIN + Vector3.new(-120, 27.5, 0), COLORS.panel, Enum.Material.Metal)
-	part(sector, "RightWall", Vector3.new(8, 55, 220), ORIGIN + Vector3.new(120, 27.5, 0), COLORS.panel, Enum.Material.Metal)
+	part(
+		sector,
+		"BackWall",
+		Vector3.new(240, 55, 8),
+		ORIGIN + Vector3.new(0, 27.5, 110),
+		COLORS.panel,
+		Enum.Material.Metal
+	)
+	part(
+		sector,
+		"LeftWall",
+		Vector3.new(8, 55, 220),
+		ORIGIN + Vector3.new(-120, 27.5, 0),
+		COLORS.panel,
+		Enum.Material.Metal
+	)
+	part(
+		sector,
+		"RightWall",
+		Vector3.new(8, 55, 220),
+		ORIGIN + Vector3.new(120, 27.5, 0),
+		COLORS.panel,
+		Enum.Material.Metal
+	)
 
-	local gate = part(sector, "UpgradeFactoryGate", Vector3.new(64, 42, 8), ORIGIN + Vector3.new(0, 21, -110), COLORS.dark, Enum.Material.Metal)
+	local gate = part(
+		sector,
+		"UpgradeFactoryGate",
+		Vector3.new(64, 42, 8),
+		ORIGIN + Vector3.new(0, 21, -110),
+		COLORS.dark,
+		Enum.Material.Metal
+	)
 	gate.Transparency = 0.08
 	gate:SetAttribute("AreaGate", true)
 	gate:SetAttribute("SectorId", SECTOR_ID)
@@ -187,19 +242,36 @@ function StudioUpgradeFactoryBuilder.Build()
 	addPrompt(gate, "UpgradeFactoryGatePrompt", "Unlock", "Upgrade Factory")
 
 	for i = -2, 2 do
-		neon(sector, "GateGlow" .. tostring(i), Vector3.new(4, 34, 2), ORIGIN + Vector3.new(i * 11, 21, -114), i % 2 == 0 and COLORS.cyan or COLORS.purple)
+		neon(
+			sector,
+			"GateGlow" .. tostring(i),
+			Vector3.new(4, 34, 2),
+			ORIGIN + Vector3.new(i * 11, 21, -114),
+			i % 2 == 0 and COLORS.cyan or COLORS.purple
+		)
 	end
 
 	for i = 1, 10 do
 		local x = -100 + (i - 1) * 22
-		neon(sector, "FloorWire" .. i, Vector3.new(4, 0.25, 170), ORIGIN + Vector3.new(x, 1.1, 8), i % 2 == 0 and COLORS.blue or COLORS.cyan)
+		neon(
+			sector,
+			"FloorWire" .. i,
+			Vector3.new(4, 0.25, 170),
+			ORIGIN + Vector3.new(x, 1.1, 8),
+			i % 2 == 0 and COLORS.blue or COLORS.cyan
+		)
 	end
 
 	makeMachine(sector, ORIGIN + Vector3.new(0, 0, 20))
 	makeCrystal(sector, ORIGIN + Vector3.new(-78, 0, 58), "LeftBattery", COLORS.blue, 0.8)
 	makeCrystal(sector, ORIGIN + Vector3.new(78, 0, 58), "RightBattery", COLORS.purple, 0.8)
 
-	print("StudioUpgradeFactoryBuilder: built Sector 3 Upgrade Factory at Workspace." .. MAP_NAME .. ".Sectors." .. SECTOR_ID)
+	print(
+		"StudioUpgradeFactoryBuilder: built Sector 3 Upgrade Factory at Workspace."
+			.. MAP_NAME
+			.. ".Sectors."
+			.. SECTOR_ID
+	)
 	return sector
 end
 

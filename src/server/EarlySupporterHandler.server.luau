@@ -3,8 +3,8 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
 local AdminConfig = require(ReplicatedStorage:WaitForChild("AdminConfig"))
+local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
 
 local SUPPORT_PASS_ID
 for _, pass in ipairs(RobuxShopConfig.Gamepasses or {}) do

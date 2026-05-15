@@ -9,10 +9,10 @@ local transitionEvent = Events:FindFirstChild("ShopTransition")
 local travelResultEvent = Events:FindFirstChild("TravelToLocationResult")
 local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 
-local COOLDOWN = 1.2
+local COOLDOWN = 3
 local FADE_IN_TIME = 0.18
 local SAFE_LANDING_HEIGHT = 6
-local POST_TELEPORT_TOUCH_GRACE = 2.5
+local POST_TELEPORT_TOUCH_GRACE = 4.5
 local locks = {}
 local teleportTokens = {}
 local hooked = {}
@@ -32,7 +32,7 @@ local function beginTeleportGrace(player)
 	teleportTokens[player] = token
 	player:SetAttribute("IsTeleporting", true)
 
-	task.delay(1, function()
+	task.delay(POST_TELEPORT_TOUCH_GRACE, function()
 		if player.Parent and teleportTokens[player] == token then
 			player:SetAttribute("IsTeleporting", false)
 		end
@@ -481,6 +481,16 @@ local function exitInterior(player, trigger)
 		local ok = setRootCFrame(player, destination.CFrame + Vector3.new(0, 4, 0))
 		if ok then
 			player:SetAttribute("InsideSectorInterior", false)
+			player:SetAttribute("LightingPreset", nil)
+			player:SetAttribute("ActiveWorldColor", "Orange")
+			local storage = player:FindFirstChild("ColorStorage")
+			local currentWorld = storage and storage:FindFirstChild("CurrentWorld")
+			if currentWorld and currentWorld:IsA("StringValue") then
+				currentWorld.Value = "Orange"
+			end
+			if dataDirtyEvent and dataDirtyEvent:IsA("BindableEvent") then
+				dataDirtyEvent:Fire(player, "pipe-current-world")
+			end
 		end
 	end)
 end

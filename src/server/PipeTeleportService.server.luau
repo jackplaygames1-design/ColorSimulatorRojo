@@ -9,9 +9,10 @@ local Events = ReplicatedStorage:WaitForChild("Events")
 local travelResultEvent = Events:FindFirstChild("TravelToLocationResult")
 local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 
-local TELEPORT_COOLDOWN_SECONDS = 2
-local TELEPORT_GRACE_SECONDS = 1.25
+local TELEPORT_COOLDOWN_SECONDS = 4.5
+local TELEPORT_GRACE_SECONDS = 3.5
 local DEFAULT_OFFSET = Vector3.new(0, 5, 0)
+local FORWARD_EXIT_OFFSET = 12
 
 local cooldownByPlayer = {}
 
@@ -39,6 +40,25 @@ local TRIGGER_NAME_DESTINATION = {
 	OrangePipeExit = "OrangeSector",
 }
 
+local function resolveDestinationId(trigger)
+	local destinationId = trigger:GetAttribute("PipeDestination")
+		or trigger:GetAttribute("Destination")
+		or trigger:GetAttribute("TravelLocation")
+		or TRIGGER_NAME_DESTINATION[trigger.Name]
+	if type(destinationId) == "string" and destinationId ~= "" then
+		return destinationId
+	end
+
+	local lowered = string.lower(trigger.Name)
+	if lowered:find("orange") or lowered:find("return") or lowered:find("back") or lowered:find("exit") then
+		return "OrangeSector"
+	end
+	if lowered:find("pipe") or lowered:find("mutation") or lowered:find("inside") then
+		return "InsidePipes"
+	end
+	return nil
+end
+
 local function findSpawnByNames(names)
 	for _, name in ipairs(names or {}) do
 		local found = workspace:FindFirstChild(name, true)
@@ -62,10 +82,7 @@ local function resolveDestinationPart(trigger)
 		return nil
 	end
 
-	local destinationId = trigger:GetAttribute("PipeDestination")
-		or trigger:GetAttribute("Destination")
-		or trigger:GetAttribute("TravelLocation")
-		or TRIGGER_NAME_DESTINATION[trigger.Name]
+	local destinationId = resolveDestinationId(trigger)
 
 	if type(destinationId) == "string" and DESTINATION_ALIASES[destinationId] then
 		return findSpawnByNames(DESTINATION_ALIASES[destinationId])
@@ -102,9 +119,40 @@ local function getPlayerFromHit(hit)
 	return player, character
 end
 
-local function safeTeleport(player, character, destinationPart)
+local function applyDestinationState(player, destinationId)
+	if destinationId == "InsidePipes" then
+		player:SetAttribute("InsideSectorInterior", true)
+		player:SetAttribute("VisitedMutationSectorInterior", true)
+		player:SetAttribute("LightingPreset", "MutationPipes")
+		return
+	end
+
+	if destinationId == "OrangeSector" or destinationId == "OriginSector" or destinationId == "SpawnWorld" then
+		player:SetAttribute("InsideSectorInterior", false)
+		player:SetAttribute("LightingPreset", nil)
+		player:SetAttribute("ActiveWorldColor", "Orange")
+		local storage = player:FindFirstChild("ColorStorage")
+		local currentWorld = storage and storage:FindFirstChild("CurrentWorld")
+		if currentWorld and currentWorld:IsA("StringValue") then
+			currentWorld.Value = "Orange"
+		end
+		if dataDirtyEvent and dataDirtyEvent:IsA("BindableEvent") then
+			dataDirtyEvent:Fire(player, "pipe-current-world")
+		end
+	end
+end
+
+local function getDestinationCFrame(destinationPart)
+	local offset = DEFAULT_OFFSET + destinationPart.CFrame.LookVector * FORWARD_EXIT_OFFSET
+	return CFrame.new(destinationPart.Position + offset) * destinationPart.CFrame.Rotation
+end
+
+local function safeTeleport(player, character, destinationPart, destinationId)
 	local now = os.clock()
 	if cooldownByPlayer[player] and now - cooldownByPlayer[player] < TELEPORT_COOLDOWN_SECONDS then
+		return
+	end
+	if player:GetAttribute("IsTeleporting") == true then
 		return
 	end
 	cooldownByPlayer[player] = now
@@ -117,7 +165,8 @@ local function safeTeleport(player, character, destinationPart)
 	player:SetAttribute("IsTeleporting", true)
 	root.AssemblyLinearVelocity = Vector3.zero
 	root.AssemblyAngularVelocity = Vector3.zero
-	root.CFrame = destinationPart.CFrame + DEFAULT_OFFSET
+	root.CFrame = getDestinationCFrame(destinationPart)
+	applyDestinationState(player, destinationId)
 
 	task.delay(TELEPORT_GRACE_SECONDS, function()
 		if player and player.Parent then
@@ -196,11 +245,8 @@ local function hookPipeTrigger(trigger)
 		end
 		-- Re-resolve each time so moving the spawn marker in Studio updates behavior.
 		local currentDestination = resolveDestinationPart(trigger) or destinationPart
-		safeTeleport(player, character, currentDestination)
-		local destinationId = trigger:GetAttribute("PipeDestination")
-			or trigger:GetAttribute("Destination")
-			or trigger:GetAttribute("TravelLocation")
-			or TRIGGER_NAME_DESTINATION[trigger.Name]
+		local destinationId = resolveDestinationId(trigger)
+		safeTeleport(player, character, currentDestination, destinationId)
 		if destinationId == "InsidePipes" then
 			unlockTeleport(player, "InsidePipes", "Inside the Pipes")
 		end

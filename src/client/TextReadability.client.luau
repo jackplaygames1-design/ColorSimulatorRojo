@@ -90,8 +90,7 @@ local function chooseHoverColor(gui)
 	for i = 1, #SAFE_HOVER_COLORS do
 		local candidate = SAFE_HOVER_COLORS[((seed + i - 1) % #SAFE_HOVER_COLORS) + 1]
 		local lum = luminance(candidate)
-		local score = colorDistance(candidate, bgColor)
-			- math.abs(lum - 0.78) * 0.35
+		local score = colorDistance(candidate, bgColor) - math.abs(lum - 0.78) * 0.35
 		if score > bestScore then
 			bestScore = score
 			bestColor = candidate

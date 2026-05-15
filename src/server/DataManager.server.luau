@@ -85,6 +85,8 @@ local DEFAULT_DATA = {
 	RedeemedCodes = {}, -- [normalizedCode] = uses
 	TutorialCompleted = true,
 	TutorialProgress = {
+		IntroTutorialCompleted = false,
+		IntroTutorialSkipped = false,
 		SeenTraitsTutorial = false,
 		MutationsUnlocked = false,
 		HasSeenMutationTutorial = false,
@@ -998,6 +1000,8 @@ local function migrateData(saved)
 	data.RedeemedCodes = type(data.RedeemedCodes) == "table" and data.RedeemedCodes or {}
 	data.Settings = normalizeSettings(data.Settings)
 	data.TutorialProgress = type(data.TutorialProgress) == "table" and data.TutorialProgress or {}
+	data.TutorialProgress.IntroTutorialCompleted = data.TutorialProgress.IntroTutorialCompleted == true
+	data.TutorialProgress.IntroTutorialSkipped = data.TutorialProgress.IntroTutorialSkipped == true
 	data.TutorialProgress.SeenTraitsTutorial = data.TutorialProgress.SeenTraitsTutorial == true
 	data.TutorialProgress.MutationsUnlocked = data.TutorialProgress.MutationsUnlocked == true
 	data.TutorialProgress.HasSeenMutationTutorial = data.TutorialProgress.HasSeenMutationTutorial == true
@@ -1056,6 +1060,8 @@ local function validateProfileData(player, data, context)
 	data.RedeemedCodes = type(data.RedeemedCodes) == "table" and data.RedeemedCodes or {}
 	data.TutorialCompleted = true
 	data.TutorialProgress = type(data.TutorialProgress) == "table" and data.TutorialProgress or {}
+	data.TutorialProgress.IntroTutorialCompleted = data.TutorialProgress.IntroTutorialCompleted == true
+	data.TutorialProgress.IntroTutorialSkipped = data.TutorialProgress.IntroTutorialSkipped == true
 	data.TutorialProgress.SeenTraitsTutorial = data.TutorialProgress.SeenTraitsTutorial == true
 	data.TutorialProgress.MutationsUnlocked = data.TutorialProgress.MutationsUnlocked == true
 	data.TutorialProgress.HasSeenMutationTutorial = data.TutorialProgress.HasSeenMutationTutorial == true
@@ -1502,32 +1508,23 @@ local function applyData(player, data)
 		tutorialProgress.Name = "TutorialProgress"
 		tutorialProgress.Parent = player
 	end
-	local seenTraits = tutorialProgress:FindFirstChild("SeenTraitsTutorial")
-	if not seenTraits then
-		seenTraits = Instance.new("BoolValue")
-		seenTraits.Name = "SeenTraitsTutorial"
-		seenTraits.Parent = tutorialProgress
-	end
-	seenTraits.Value = data.TutorialProgress and data.TutorialProgress.SeenTraitsTutorial == true
-	watchValueForDirty(player, seenTraits, "tutorial-progress")
 
-	local mutationsUnlocked = tutorialProgress:FindFirstChild("MutationsUnlocked")
-	if not mutationsUnlocked then
-		mutationsUnlocked = Instance.new("BoolValue")
-		mutationsUnlocked.Name = "MutationsUnlocked"
-		mutationsUnlocked.Parent = tutorialProgress
+	local function applyTutorialProgressValue(name)
+		local value = tutorialProgress:FindFirstChild(name)
+		if not value then
+			value = Instance.new("BoolValue")
+			value.Name = name
+			value.Parent = tutorialProgress
+		end
+		value.Value = data.TutorialProgress and data.TutorialProgress[name] == true
+		watchValueForDirty(player, value, "tutorial-progress")
 	end
-	mutationsUnlocked.Value = data.TutorialProgress and data.TutorialProgress.MutationsUnlocked == true
-	watchValueForDirty(player, mutationsUnlocked, "tutorial-progress")
 
-	local hasSeenMutationTutorial = tutorialProgress:FindFirstChild("HasSeenMutationTutorial")
-	if not hasSeenMutationTutorial then
-		hasSeenMutationTutorial = Instance.new("BoolValue")
-		hasSeenMutationTutorial.Name = "HasSeenMutationTutorial"
-		hasSeenMutationTutorial.Parent = tutorialProgress
-	end
-	hasSeenMutationTutorial.Value = data.TutorialProgress and data.TutorialProgress.HasSeenMutationTutorial == true
-	watchValueForDirty(player, hasSeenMutationTutorial, "tutorial-progress")
+	applyTutorialProgressValue("IntroTutorialCompleted")
+	applyTutorialProgressValue("IntroTutorialSkipped")
+	applyTutorialProgressValue("SeenTraitsTutorial")
+	applyTutorialProgressValue("MutationsUnlocked")
+	applyTutorialProgressValue("HasSeenMutationTutorial")
 	sendSettings(player, true, nil, "Settings loaded.")
 end
 
@@ -1671,10 +1668,14 @@ local function collectData(player)
 
 	data.TutorialCompleted = true
 	local tutorialProgress = player:FindFirstChild("TutorialProgress")
+	local introTutorialCompleted = tutorialProgress and tutorialProgress:FindFirstChild("IntroTutorialCompleted")
+	local introTutorialSkipped = tutorialProgress and tutorialProgress:FindFirstChild("IntroTutorialSkipped")
 	local seenTraits = tutorialProgress and tutorialProgress:FindFirstChild("SeenTraitsTutorial")
 	local mutationsUnlocked = tutorialProgress and tutorialProgress:FindFirstChild("MutationsUnlocked")
 	local hasSeenMutationTutorial = tutorialProgress and tutorialProgress:FindFirstChild("HasSeenMutationTutorial")
 	data.TutorialProgress = {
+		IntroTutorialCompleted = introTutorialCompleted and introTutorialCompleted.Value == true or false,
+		IntroTutorialSkipped = introTutorialSkipped and introTutorialSkipped.Value == true or false,
 		SeenTraitsTutorial = seenTraits and seenTraits.Value == true or false,
 		MutationsUnlocked = mutationsUnlocked and mutationsUnlocked.Value == true or false,
 		HasSeenMutationTutorial = hasSeenMutationTutorial and hasSeenMutationTutorial.Value == true or false,
@@ -1974,6 +1975,8 @@ playerDataDirtyEvent.Event:Connect(function(player, reason)
 end)
 
 local ALLOWED_TUTORIAL_PROGRESS_KEYS = {
+	IntroTutorialCompleted = true,
+	IntroTutorialSkipped = true,
 	SeenTraitsTutorial = true,
 	MutationsUnlocked = true,
 	HasSeenMutationTutorial = true,

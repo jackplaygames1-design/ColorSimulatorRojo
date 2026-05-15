@@ -1,25 +1,25 @@
 -- LocalScript in StarterPlayerScripts named "InputHandler"
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
-local mouse  = player:GetMouse()
+local mouse = player:GetMouse()
 
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
-local ColorTraitData = require(ReplicatedStorage:WaitForChild("ColorTraitData"))
-local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
 local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
+local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
+local ColorTraitData = require(ReplicatedStorage:WaitForChild("ColorTraitData"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 
-local Events       = ReplicatedStorage:WaitForChild("Events", 10)
+local Events = ReplicatedStorage:WaitForChild("Events", 10)
 if not Events then
 	warn("Collection remote missing, using touch fallback only.")
 	return
 end
 local collectEvent = Events:WaitForChild("CollectColor", 10)
-local hatchEvent   = Events:WaitForChild("HatchEgg", 10)
+local hatchEvent = Events:WaitForChild("HatchEgg", 10)
 if not collectEvent then
 	warn("Collection remote missing, using touch fallback only.")
 	return
@@ -238,21 +238,25 @@ end
 
 local function addHoverHighlight(adornee)
 	local hl = Instance.new("Highlight")
-	hl.Name             = "HoverHighlight"
-	hl.FillColor        = Color3.fromRGB(255, 255, 255)
-	hl.OutlineColor     = Color3.fromRGB(255, 255, 255)
+	hl.Name = "HoverHighlight"
+	hl.FillColor = Color3.fromRGB(255, 255, 255)
+	hl.OutlineColor = Color3.fromRGB(255, 255, 255)
 	hl.FillTransparency = 0.82
 	hl.OutlineTransparency = 0
-	hl.DepthMode        = Enum.HighlightDepthMode.AlwaysOnTop
-	hl.Adornee          = adornee
-	hl.Parent           = adornee
+	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	hl.Adornee = adornee
+	hl.Parent = adornee
 	table.insert(currentHighlights, hl)
 end
 
 local function setHighlight(part)
-	if currentHover == part then return end
+	if currentHover == part then
+		return
+	end
 	clearHighlight()
-	if not part then return end
+	if not part then
+		return
+	end
 
 	addHoverHighlight(part)
 	for _, child in ipairs(part:GetDescendants()) do
@@ -273,9 +277,13 @@ RunService.Heartbeat:Connect(function()
 	end
 
 	local char = player.Character
-	if not char then return end
+	if not char then
+		return
+	end
 	local root = char:FindFirstChild("HumanoidRootPart")
-	if not root then return end
+	if not root then
+		return
+	end
 
 	-- Only highlight breakables that are in range
 	if target:GetAttribute("BreakableType") then
@@ -294,7 +302,9 @@ end)
 -- ========================
 mouse.Button1Down:Connect(function()
 	local target = mouse.Target
-	if not target then return end
+	if not target then
+		return
+	end
 
 	if target:GetAttribute("BreakableType") then
 		if hasPaintToolEquipped() then

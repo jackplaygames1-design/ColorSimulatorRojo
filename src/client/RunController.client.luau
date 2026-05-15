@@ -1,8 +1,8 @@
 -- Local sprint controller. It boosts the current server-provided WalkSpeed so upgrades
 -- and equipped Color personality bonuses still remain the source of truth.
+local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ContextActionService = game:GetService("ContextActionService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
@@ -100,7 +100,14 @@ local function onRunAction(_, inputState)
 end
 
 if enabled then
-	ContextActionService:BindAction(RUN_ACTION, onRunAction, true, Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift, Enum.KeyCode.ButtonL3)
+	ContextActionService:BindAction(
+		RUN_ACTION,
+		onRunAction,
+		true,
+		Enum.KeyCode.LeftShift,
+		Enum.KeyCode.RightShift,
+		Enum.KeyCode.ButtonL3
+	)
 	ContextActionService:SetTitle(RUN_ACTION, "RUN")
 	ContextActionService:SetPosition(RUN_ACTION, UDim2.new(1, -92, 1, -168))
 end

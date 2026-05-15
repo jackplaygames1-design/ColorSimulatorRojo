@@ -4,54 +4,58 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
-local player    = Players.LocalPlayer
-local PetData   = require(ReplicatedStorage:WaitForChild("PetData"))
+local player = Players.LocalPlayer
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
-local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
-local Modules    = ReplicatedStorage:WaitForChild("Modules")
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local Modules = ReplicatedStorage:WaitForChild("Modules")
 local PetModelUtil = require(Modules:WaitForChild("PetModelUtil"))
-local PetTraits  = Modules:FindFirstChild("PetTraits") and require(Modules:FindFirstChild("PetTraits"))
+local PetTraits = Modules:FindFirstChild("PetTraits") and require(Modules:FindFirstChild("PetTraits"))
 
 local function getClientSetting(key, defaultValue)
 	local value = player:GetAttribute("Setting" .. key)
 	return type(value) == "boolean" and value or defaultValue
 end
 
+local function heavyFxReady()
+	return player:GetAttribute("ClientHeavyVFXReady") == true and not getClientSetting("LowFX", false)
+end
+
 local TRAIT_RARITY_COLOR = {
-	Common    = Color3.fromRGB(160, 210, 255),
-	Uncommon  = Color3.fromRGB(120, 230, 150),
-	Rare      = Color3.fromRGB(120, 220, 120),
-	Epic      = Color3.fromRGB(200, 100, 255),
+	Common = Color3.fromRGB(160, 210, 255),
+	Uncommon = Color3.fromRGB(120, 230, 150),
+	Rare = Color3.fromRGB(120, 220, 120),
+	Epic = Color3.fromRGB(200, 100, 255),
 	Legendary = Color3.fromRGB(255, 200, 40),
 }
 
-local Events          = ReplicatedStorage:WaitForChild("Events")
-local hatchEvent      = Events:WaitForChild("HatchEgg")
-local petAtkEvent     = Events:WaitForChild("PetAttack")
+local Events = ReplicatedStorage:WaitForChild("Events")
+local hatchEvent = Events:WaitForChild("HatchEgg")
+local petAtkEvent = Events:WaitForChild("PetAttack")
 local petsLoadedEvent = Events:WaitForChild("PetsLoaded")
-local equipEvent      = Events:WaitForChild("EquipPet")
-local mergeEvent      = Events:WaitForChild("MergePet")
+local equipEvent = Events:WaitForChild("EquipPet")
+local mergeEvent = Events:WaitForChild("MergePet")
 
 -- Pastel theme
-local PANEL_BG     = Color3.fromRGB(255, 248, 252)
+local PANEL_BG = Color3.fromRGB(255, 248, 252)
 local PANEL_STROKE = Color3.fromRGB(255, 180, 220)
-local TITLE_BG     = Color3.fromRGB(180, 220, 255)
-local TITLE_TEXT   = Color3.fromRGB(80, 60, 130)
-local SUB_BG       = Color3.fromRGB(245, 235, 252)
+local TITLE_BG = Color3.fromRGB(180, 220, 255)
+local TITLE_TEXT = Color3.fromRGB(80, 60, 130)
+local SUB_BG = Color3.fromRGB(245, 235, 252)
 
 local RARITY_COLOR = {
-	Common    = Color3.fromRGB(160, 160, 160),
-	Uncommon  = Color3.fromRGB(60,  180, 80),
-	Rare      = Color3.fromRGB(80,  120, 255),
-	Epic      = Color3.fromRGB(160, 60,  240),
+	Common = Color3.fromRGB(160, 160, 160),
+	Uncommon = Color3.fromRGB(60, 180, 80),
+	Rare = Color3.fromRGB(80, 120, 255),
+	Epic = Color3.fromRGB(160, 60, 240),
 	Legendary = Color3.fromRGB(220, 160, 0),
 }
 
 local TIER_COLOR = {
-	Normal    = Color3.fromRGB(200, 200, 200),
-	Gilded    = Color3.fromRGB(255, 200, 50),
-	Royal     = Color3.fromRGB(180, 60,  255),
+	Normal = Color3.fromRGB(200, 200, 200),
+	Gilded = Color3.fromRGB(255, 200, 50),
+	Royal = Color3.fromRGB(180, 60, 255),
 	Celestial = Color3.fromRGB(100, 220, 255),
 }
 
@@ -79,9 +83,9 @@ local MUTATION_TYPE_COLOR = {
 local PET_APPEARANCE_SOURCE_NAME = "PetAppearanceStudio"
 
 -- State
-local spawnedPets  = {}  -- { { model, variantKey } }
-local allPets      = {}  -- list of buildPetEntry results
-local equippedPets = {}  -- list of variant keys
+local spawnedPets = {} -- { { model, variantKey } }
+local allPets = {} -- list of buildPetEntry results
+local equippedPets = {} -- list of variant keys
 local lastPetStateAt = 0
 local replicatedStateQueued = false
 local warnedEmptyEquippedVisuals = false
@@ -116,7 +120,14 @@ local function parseReplicatedInventory(value)
 			local shinyStr = string.lower(tostring(segments[5] or "normal"))
 			local personalityId = PetData.normalizePersonalityId(segments[6])
 			local mutationId = PetData.normalizeMutationId(segments[7])
-			local entry = PetData.buildPetEntry(petId, stackAmount, shinyStr == "shiny" or shinyStr == "true", personalityId, mutationId, traitId)
+			local entry = PetData.buildPetEntry(
+				petId,
+				stackAmount,
+				shinyStr == "shiny" or shinyStr == "true",
+				personalityId,
+				mutationId,
+				traitId
+			)
 			if entry then
 				entry.variantKey = variantKey ~= "" and variantKey or entry.variantKey
 				entry.effectivePower = entry.finalPower
@@ -148,7 +159,9 @@ local function applyPetState(inventory, equipped, source)
 	equipped = equipped or {}
 
 	if #inventory == 0 and #allPets > 0 and os.clock() - lastPetStateAt < 1.5 then
-		if isOpen then refreshInventoryUI() end
+		if isOpen then
+			refreshInventoryUI()
+		end
 		warn("PetClient: ignored a transient empty Color inventory update.")
 		return
 	end
@@ -159,11 +172,17 @@ local function applyPetState(inventory, equipped, source)
 	rebuildOrbitingPets()
 	if #equippedPets > 0 and #spawnedPets == 0 and not warnedEmptyEquippedVisuals then
 		warnedEmptyEquippedVisuals = true
-		warn("PetClient: equipped Colors were replicated, but no visible models were created from " .. tostring(source or "state") .. ".")
+		warn(
+			"PetClient: equipped Colors were replicated, but no visible models were created from "
+				.. tostring(source or "state")
+				.. "."
+		)
 	elseif #spawnedPets > 0 then
 		warnedEmptyEquippedVisuals = false
 	end
-	if isOpen then refreshInventoryUI() end
+	if isOpen then
+		refreshInventoryUI()
+	end
 end
 
 local function refreshPetsFromReplicatedValues()
@@ -228,7 +247,8 @@ local function getFxColor(petEntry, pet)
 end
 
 local function getColorSequence(petEntry, pet, fxColor)
-	if petEntry.mutationVisualTag == "rainbow"
+	if
+		petEntry.mutationVisualTag == "rainbow"
 		or petEntry.mutationId == "Rainbow"
 		or petEntry.petId == "DevRainbowPet"
 		or petEntry.petId == "RainbowDragon"
@@ -393,7 +413,7 @@ local function createDevRainbowPetModel(petEntry, pet)
 end
 
 local function addPetParticles(model, petEntry, pet)
-	if getClientSetting("LowFX", false) then
+	if not heavyFxReady() then
 		return
 	end
 	if not model.PrimaryPart then
@@ -632,9 +652,11 @@ end
 -- ========================
 local function createPetModel(petEntry)
 	local pet = PetData.Pets[petEntry.petId]
-	if not pet then return nil end
+	if not pet then
+		return nil
+	end
 
-	local tierName  = petEntry.currentStackTier
+	local tierName = petEntry.currentStackTier
 	local auraColor = petEntry.auraColor
 	local model = PetModelUtil.ClonePetModel(petEntry.petId, { anchored = true, removeBillboards = true })
 
@@ -643,7 +665,9 @@ local function createPetModel(petEntry)
 
 		if not model.PrimaryPart then
 			local first = model:FindFirstChild("Core") or model:FindFirstChildOfClass("BasePart")
-			if first then model.PrimaryPart = first end
+			if first then
+				model.PrimaryPart = first
+			end
 		end
 	else
 		model = Instance.new("Model")
@@ -651,49 +675,49 @@ local function createPetModel(petEntry)
 
 		-- Scale body based on tier
 		local sizeScale = tierName == "Celestial" and 2.8
-			or tierName == "Royal"     and 2.2
-			or tierName == "Gilded"    and 1.8
+			or tierName == "Royal" and 2.2
+			or tierName == "Gilded" and 1.8
 			or 1.5
 
 		local body = Instance.new("Part")
-		body.Shape      = Enum.PartType.Ball
-		body.Size       = Vector3.new(sizeScale, sizeScale, sizeScale)
+		body.Shape = Enum.PartType.Ball
+		body.Size = Vector3.new(sizeScale, sizeScale, sizeScale)
 		tonePetPart(body, petEntry.isShiny and pet.color:Lerp(Color3.fromRGB(255, 255, 255), 0.58) or pet.color)
-		body.Parent     = model
+		body.Parent = model
 		model.PrimaryPart = body
 
 		-- Tier-specific soft shell. Particles carry the visible aura.
 		if tierName ~= "Normal" then
 			local aura = Instance.new("Part")
-			aura.Shape        = Enum.PartType.Ball
-			aura.Size         = Vector3.new(sizeScale * 1.18, sizeScale * 1.18, sizeScale * 1.18)
-			aura.Color        = softColor(auraColor)
-			aura.Material     = Enum.Material.ForceField
+			aura.Shape = Enum.PartType.Ball
+			aura.Size = Vector3.new(sizeScale * 1.18, sizeScale * 1.18, sizeScale * 1.18)
+			aura.Color = softColor(auraColor)
+			aura.Material = Enum.Material.ForceField
 			aura.Transparency = tierName == "Celestial" and 0.82 or 0.88
-			aura.CastShadow   = false
-			aura.Anchored     = true
-			aura.CanCollide   = false
-			aura.Parent       = model
+			aura.CastShadow = false
+			aura.Anchored = true
+			aura.CanCollide = false
+			aura.Parent = model
 		end
 
 		if petEntry.isShiny then
 			local shine = Instance.new("Part")
-			shine.Shape        = Enum.PartType.Ball
-			shine.Size         = Vector3.new(sizeScale * 1.32, sizeScale * 1.32, sizeScale * 1.32)
-			shine.Color        = Color3.fromRGB(255, 245, 160)
-			shine.Material     = Enum.Material.ForceField
+			shine.Shape = Enum.PartType.Ball
+			shine.Size = Vector3.new(sizeScale * 1.32, sizeScale * 1.32, sizeScale * 1.32)
+			shine.Color = Color3.fromRGB(255, 245, 160)
+			shine.Material = Enum.Material.ForceField
 			shine.Transparency = 0.74
-			shine.CastShadow   = false
-			shine.Anchored     = true
-			shine.CanCollide   = false
-			shine.Parent       = model
+			shine.CastShadow = false
+			shine.Anchored = true
+			shine.CanCollide = false
+			shine.Parent = model
 		end
 	end
 
 	-- Attachment for drain beams
 	if model.PrimaryPart and not model.PrimaryPart:FindFirstChild("PetAttachment") then
 		local att = Instance.new("Attachment")
-		att.Name   = "PetAttachment"
+		att.Name = "PetAttachment"
 		att.Parent = model.PrimaryPart
 	end
 
@@ -722,7 +746,9 @@ local function createPetModel(petEntry)
 	return model
 end
 local function applyTraitEffect(model, trait)
-	if not model or not model.PrimaryPart or not trait then return end
+	if not model or not model.PrimaryPart or not trait then
+		return
+	end
 	local effect = trait.visualEffect or "none"
 	local primary = model.PrimaryPart
 
@@ -730,19 +756,18 @@ local function applyTraitEffect(model, trait)
 		local existing = primary:FindFirstChildOfClass("PointLight")
 		if not existing then
 			local light = Instance.new("PointLight")
-			light.Color      = softColor(trait.color or Color3.new(1, 1, 1))
-			light.Range      = 5
+			light.Color = softColor(trait.color or Color3.new(1, 1, 1))
+			light.Range = 5
 			light.Brightness = 0.12
-			light.Parent     = primary
+			light.Parent = primary
 		end
-
 	elseif effect == "rainbow" then
 		-- Slow color cycle via Heartbeat
 		local t0 = tick()
 		task.spawn(function()
 			while model and model.Parent do
-				local t   = (tick() - t0) * 0.3
-				local h   = t % 1
+				local t = (tick() - t0) * 0.3
+				local h = t % 1
 				local col = Color3.fromHSV(h, 0.55, 0.82)
 				for _, part in ipairs(model:GetDescendants()) do
 					if part:IsA("BasePart") then
@@ -752,40 +777,37 @@ local function applyTraitEffect(model, trait)
 				task.wait(0.05)
 			end
 		end)
-
 	elseif effect == "giant" then
 		local scale = trait.sizeScale or 1.4
 		model:ScaleTo(scale)
-
 	elseif effect == "spark" or effect == "electric" then
 		local emitter = Instance.new("ParticleEmitter")
-		emitter.Color         = ColorSequence.new(softColor(trait.color or Color3.fromRGB(255, 240, 80)))
-		emitter.Size          = NumberSequence.new({
+		emitter.Color = ColorSequence.new(softColor(trait.color or Color3.fromRGB(255, 240, 80)))
+		emitter.Size = NumberSequence.new({
 			NumberSequenceKeypoint.new(0, 0.08),
 			NumberSequenceKeypoint.new(1, 0),
 		})
-		emitter.Speed         = NumberRange.new(1, 3)
-		emitter.Lifetime      = NumberRange.new(0.2, 0.5)
-		emitter.Rate          = 4
+		emitter.Speed = NumberRange.new(1, 3)
+		emitter.Lifetime = NumberRange.new(0.2, 0.5)
+		emitter.Rate = 4
 		emitter.LightEmission = 0.25
 		emitter.LightInfluence = 0.4
-		emitter.LockedToPart  = true
-		emitter.Parent        = primary
-
+		emitter.LockedToPart = true
+		emitter.Parent = primary
 	elseif effect == "celestial" then
 		local emitter = Instance.new("ParticleEmitter")
-		emitter.Color         = ColorSequence.new(Color3.fromRGB(150, 195, 235))
-		emitter.Size          = NumberSequence.new({
+		emitter.Color = ColorSequence.new(Color3.fromRGB(150, 195, 235))
+		emitter.Size = NumberSequence.new({
 			NumberSequenceKeypoint.new(0, 0.08),
 			NumberSequenceKeypoint.new(1, 0),
 		})
-		emitter.Speed         = NumberRange.new(0.5, 1.5)
-		emitter.Lifetime      = NumberRange.new(0.5, 1.2)
-		emitter.Rate          = 3
+		emitter.Speed = NumberRange.new(0.5, 1.5)
+		emitter.Lifetime = NumberRange.new(0.5, 1.2)
+		emitter.Rate = 3
 		emitter.LightEmission = 0.2
 		emitter.LightInfluence = 0.45
-		emitter.LockedToPart  = false
-		emitter.Parent        = primary
+		emitter.LockedToPart = false
+		emitter.Parent = primary
 	end
 
 	if trait.sizeScale and effect ~= "giant" then
@@ -850,7 +872,7 @@ local function shouldUseRedLightning(petEntry, model)
 end
 
 local function makeRedLightningVisuals(model, petEntry)
-	if getClientSetting("LowFX", false) then
+	if not heavyFxReady() then
 		return nil
 	end
 	if not model or not model.PrimaryPart or not shouldUseRedLightning(petEntry, model) then
@@ -1039,7 +1061,6 @@ function rebuildOrbitingPets()
 					variantKey = variantKey,
 					visuals = buildPetVisualState(model, petEntry),
 				})
-				
 			end
 		end
 	end
@@ -1089,24 +1110,31 @@ local function watchPetAppearanceSource(source)
 		watchPetAppearanceObject(descendant)
 	end
 
-	table.insert(petAppearanceConnections, source.DescendantAdded:Connect(function(descendant)
-		watchPetAppearanceObject(descendant)
-		queuePetAppearanceRefresh()
-	end))
+	table.insert(
+		petAppearanceConnections,
+		source.DescendantAdded:Connect(function(descendant)
+			watchPetAppearanceObject(descendant)
+			queuePetAppearanceRefresh()
+		end)
+	)
 	table.insert(petAppearanceConnections, source.DescendantRemoving:Connect(queuePetAppearanceRefresh))
-	table.insert(petAppearanceConnections, source.AncestryChanged:Connect(function(_, parent)
-		if not parent then
-			disconnectPetAppearanceWatch()
-			return
-		end
-		queuePetAppearanceRefresh()
-	end))
+	table.insert(
+		petAppearanceConnections,
+		source.AncestryChanged:Connect(function(_, parent)
+			if not parent then
+				disconnectPetAppearanceWatch()
+				return
+			end
+			queuePetAppearanceRefresh()
+		end)
+	)
 
 	queuePetAppearanceRefresh()
 end
 
 local function findPetAppearanceSource()
-	return ReplicatedStorage:FindFirstChild(PET_APPEARANCE_SOURCE_NAME) or workspace:FindFirstChild(PET_APPEARANCE_SOURCE_NAME)
+	return ReplicatedStorage:FindFirstChild(PET_APPEARANCE_SOURCE_NAME)
+		or workspace:FindFirstChild(PET_APPEARANCE_SOURCE_NAME)
 end
 
 local function startPetAppearanceWatch()
@@ -1136,15 +1164,23 @@ end
 --   DRAIN BEAM
 -- ========================
 local function createDrainBeam(petModel, targetObj, colorType)
-	if getClientSetting("LowFX", false) then return end
-	if not petModel or not petModel.PrimaryPart then return end
-	if not targetObj or not targetObj.Parent then return end
+	if not heavyFxReady() then
+		return
+	end
+	if not petModel or not petModel.PrimaryPart then
+		return
+	end
+	if not targetObj or not targetObj.Parent then
+		return
+	end
 
 	local petAtt = petModel.PrimaryPart:FindFirstChild("PetAttachment")
-	if not petAtt then return end
+	if not petAtt then
+		return
+	end
 
 	local targetAtt = Instance.new("Attachment")
-	targetAtt.Name   = "DrainAttachment"
+	targetAtt.Name = "DrainAttachment"
 	targetAtt.Parent = targetObj
 
 	-- Get the breakable's current color (drains toward grey so this shifts too)
@@ -1157,57 +1193,63 @@ local function createDrainBeam(petModel, targetObj, colorType)
 	-- and shifts to the pet color at the pet end
 	-- This visually shows the color being "sucked" into the pet
 	local beam = Instance.new("Beam")
-	beam.Attachment0  = targetAtt   -- from object
-	beam.Attachment1  = petAtt      -- to pet
-	beam.Color        = ColorSequence.new({
-		ColorSequenceKeypoint.new(0,    breakColor),                        -- object end: breakable color
-		ColorSequenceKeypoint.new(0.4,  breakColor:Lerp(petColor, 0.4)),   -- blend
-		ColorSequenceKeypoint.new(0.75, petColor:Lerp(Color3.new(1,1,1), 0.2)), -- near pet: pet color slightly brightened
-		ColorSequenceKeypoint.new(1,    petColor),                          -- pet end: pure pet color
+	beam.Attachment0 = targetAtt -- from object
+	beam.Attachment1 = petAtt -- to pet
+	beam.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, breakColor), -- object end: breakable color
+		ColorSequenceKeypoint.new(0.4, breakColor:Lerp(petColor, 0.4)), -- blend
+		ColorSequenceKeypoint.new(0.75, petColor:Lerp(Color3.new(1, 1, 1), 0.2)), -- near pet: pet color slightly brightened
+		ColorSequenceKeypoint.new(1, petColor), -- pet end: pure pet color
 	})
-	beam.Width0        = 0.18
-	beam.Width1        = 0.035
-	beam.TextureSpeed  = 4     -- flows toward the pet
-	beam.Transparency  = NumberSequence.new({
-		NumberSequenceKeypoint.new(0,   0.45),
+	beam.Width0 = 0.18
+	beam.Width1 = 0.035
+	beam.TextureSpeed = 4 -- flows toward the pet
+	beam.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.45),
 		NumberSequenceKeypoint.new(0.5, 0.62),
-		NumberSequenceKeypoint.new(1,   0.88),
+		NumberSequenceKeypoint.new(1, 0.88),
 	})
 	beam.LightEmission = 0.25
-	beam.Segments      = 8
-	beam.CurveSize0    = 0.8
-	beam.CurveSize1    = 0.8
-	beam.FaceCamera    = true
-	beam.Parent        = targetObj
+	beam.Segments = 8
+	beam.CurveSize0 = 0.8
+	beam.CurveSize1 = 0.8
+	beam.FaceCamera = true
+	beam.Parent = targetObj
 
 	-- Particles: spawn at object, colored like the breakable, fly toward pet
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0,   breakColor),
+		ColorSequenceKeypoint.new(0, breakColor),
 		ColorSequenceKeypoint.new(0.5, breakColor:Lerp(petColor, 0.5)),
-		ColorSequenceKeypoint.new(1,   petColor),
+		ColorSequenceKeypoint.new(1, petColor),
 	})
-	emitter.Size          = NumberSequence.new({
-		NumberSequenceKeypoint.new(0,   0.12),
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.12),
 		NumberSequenceKeypoint.new(0.7, 0.06),
-		NumberSequenceKeypoint.new(1,   0),
+		NumberSequenceKeypoint.new(1, 0),
 	})
-	emitter.Speed         = NumberRange.new(2, 4)
-	emitter.Lifetime      = NumberRange.new(0.15, 0.35)
-	emitter.Rate          = 8
+	emitter.Speed = NumberRange.new(2, 4)
+	emitter.Lifetime = NumberRange.new(0.15, 0.35)
+	emitter.Rate = 8
 	emitter.LightEmission = 0.25
 	emitter.LightInfluence = 0.5
-	emitter.LockedToPart  = false
-	emitter.SpreadAngle   = Vector2.new(15, 15)
-	emitter.Parent        = targetObj
+	emitter.LockedToPart = false
+	emitter.SpreadAngle = Vector2.new(15, 15)
+	emitter.Parent = targetObj
 
 	task.delay(0.4, function()
-		if beam    and beam.Parent    then beam:Destroy()    end
-		if targetAtt and targetAtt.Parent then targetAtt:Destroy() end
+		if beam and beam.Parent then
+			beam:Destroy()
+		end
+		if targetAtt and targetAtt.Parent then
+			targetAtt:Destroy()
+		end
 		if emitter and emitter.Parent then
 			emitter.Enabled = false
 			task.delay(0.4, function()
-				if emitter and emitter.Parent then emitter:Destroy() end
+				if emitter and emitter.Parent then
+					emitter:Destroy()
+				end
 			end)
 		end
 	end)
@@ -1256,6 +1298,12 @@ player.CharacterAdded:Connect(function()
 		rebuildOrbitingPets()
 	else
 		refreshPetsFromReplicatedValues()
+	end
+end)
+
+player:GetAttributeChangedSignal("ClientHeavyVFXReady"):Connect(function()
+	if player:GetAttribute("ClientHeavyVFXReady") == true and #equippedPets > 0 then
+		rebuildOrbitingPets()
 	end
 end)
 
@@ -1316,12 +1364,15 @@ mergeEvent.OnClientEvent:Connect(function(success, petId, result)
 	end
 end)
 
-
 petAtkEvent.OnClientEvent:Connect(function(equippedPetIds, targetObj, colorType)
-	if not equippedPetIds or not targetObj then return end
+	if not equippedPetIds or not targetObj then
+		return
+	end
 	for i, petId in ipairs(equippedPetIds) do
 		local petModel = spawnedPets[i] and spawnedPets[i].model
-		if petModel then createDrainBeam(petModel, targetObj, colorType) end
+		if petModel then
+			createDrainBeam(petModel, targetObj, colorType)
+		end
 	end
 end)
 
@@ -1330,13 +1381,19 @@ end)
 -- ========================
 RunService.Heartbeat:Connect(function()
 	local char = player.Character
-	if not char then return end
+	if not char then
+		return
+	end
 	local root = char:FindFirstChild("HumanoidRootPart")
-	if not root then return end
+	if not root then
+		return
+	end
 
-	local t     = tick()
+	local t = tick()
 	local total = #spawnedPets
-	if total == 0 then return end
+	if total == 0 then
+		return
+	end
 
 	for i, entry in ipairs(spawnedPets) do
 		local model = entry.model

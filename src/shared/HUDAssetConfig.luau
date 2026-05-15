@@ -12,7 +12,7 @@ local HUDAssetConfig = {
 		SmallEmptyPill = "",
 		GemCounterBlank = "",
 		CoinCounterBlank = "",
-	}
+	},
 }
 
 -- Physical Studio-made MainHUD.LeftButtons icon mapping.

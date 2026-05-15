@@ -1,8 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
-local PetDefinitions = require(script.Parent:WaitForChild("PetDefinitions"))
 local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
+local PetDefinitions = require(script.Parent:WaitForChild("PetDefinitions"))
 
 local PetModelUtil = {}
 local warned = {}
@@ -118,7 +118,8 @@ end
 
 local function stripPreviewOnly(root)
 	for _, descendant in ipairs(root:GetDescendants()) do
-		if descendant:GetAttribute("PreviewOnly") == true
+		if
+			descendant:GetAttribute("PreviewOnly") == true
 			or descendant:GetAttribute("MutationVisual") == true
 			or (descendant:IsA("BillboardGui") and descendant.Name == "PreviewLabel")
 		then
@@ -145,12 +146,38 @@ function PetModelUtil.CreateFallbackTemplate(definition)
 
 	local coreColor = definition.IconColor or definition.BaseColor or Color3.fromRGB(180, 180, 220)
 	local accent = definition.AccentColor or coreColor:Lerp(Color3.new(1, 1, 1), 0.35)
-	local core = makePart(model, "Core", Enum.PartType.Ball, Vector3.new(1.8, 1.8, 1.8), CFrame.new(), coreColor, definition.UseRainbowGradient and Enum.Material.Neon or Enum.Material.SmoothPlastic)
+	local core = makePart(
+		model,
+		"Core",
+		Enum.PartType.Ball,
+		Vector3.new(1.8, 1.8, 1.8),
+		CFrame.new(),
+		coreColor,
+		definition.UseRainbowGradient and Enum.Material.Neon or Enum.Material.SmoothPlastic
+	)
 	model.PrimaryPart = core
 	addLight(core, accent)
 
-	makePart(model, "Highlight", Enum.PartType.Ball, Vector3.new(0.42, 0.42, 0.16), CFrame.new(-0.46, 0.5, 0.78), Color3.fromRGB(255, 255, 255), Enum.Material.SmoothPlastic, 0.08)
-	makePart(model, "GlowShell", Enum.PartType.Ball, Vector3.new(2.14, 2.14, 2.14), CFrame.new(), accent, Enum.Material.ForceField, definition.UseRainbowGradient and 0.55 or 0.78)
+	makePart(
+		model,
+		"Highlight",
+		Enum.PartType.Ball,
+		Vector3.new(0.42, 0.42, 0.16),
+		CFrame.new(-0.46, 0.5, 0.78),
+		Color3.fromRGB(255, 255, 255),
+		Enum.Material.SmoothPlastic,
+		0.08
+	)
+	makePart(
+		model,
+		"GlowShell",
+		Enum.PartType.Ball,
+		Vector3.new(2.14, 2.14, 2.14),
+		CFrame.new(),
+		accent,
+		Enum.Material.ForceField,
+		definition.UseRainbowGradient and 0.55 or 0.78
+	)
 
 	if definition.UseRainbowGradient then
 		for index, color in ipairs(RAINBOW_COLORS) do
@@ -184,7 +211,13 @@ function PetModelUtil.FindTemplate(petId)
 	if studioTemplate then
 		applyTemplateAttributes(studioTemplate, definition)
 		if not findPrimary(studioTemplate) then
-			warnOnce("missing-primary:" .. definition.Id, "PetModelUtil: " .. studioTemplate:GetFullName() .. " is missing a PrimaryPart/Core for pet " .. definition.Id)
+			warnOnce(
+				"missing-primary:" .. definition.Id,
+				"PetModelUtil: "
+					.. studioTemplate:GetFullName()
+					.. " is missing a PrimaryPart/Core for pet "
+					.. definition.Id
+			)
 		end
 		return studioTemplate, definition
 	end
@@ -212,7 +245,13 @@ function PetModelUtil.FindTemplate(petId)
 			else
 				applyTemplateAttributes(template, definition)
 				if not findPrimary(template) then
-					warnOnce("missing-primary:" .. definition.Id, "PetModelUtil: " .. template:GetFullName() .. " is missing a PrimaryPart/Core for pet " .. definition.Id)
+					warnOnce(
+						"missing-primary:" .. definition.Id,
+						"PetModelUtil: "
+							.. template:GetFullName()
+							.. " is missing a PrimaryPart/Core for pet "
+							.. definition.Id
+					)
 				end
 				return template, definition
 			end
@@ -222,7 +261,13 @@ function PetModelUtil.FindTemplate(petId)
 	if fallbackTemplate then
 		applyTemplateAttributes(fallbackTemplate, definition)
 		if not findPrimary(fallbackTemplate) then
-			warnOnce("missing-primary:" .. definition.Id, "PetModelUtil: " .. fallbackTemplate:GetFullName() .. " is missing a PrimaryPart/Core for pet " .. definition.Id)
+			warnOnce(
+				"missing-primary:" .. definition.Id,
+				"PetModelUtil: "
+					.. fallbackTemplate:GetFullName()
+					.. " is missing a PrimaryPart/Core for pet "
+					.. definition.Id
+			)
 		end
 		return fallbackTemplate, definition
 	end
@@ -280,14 +325,19 @@ local function tintModelForMutation(model, mutation)
 
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("BasePart") and descendant:GetAttribute("NoMutationTint") ~= true then
-			if descendant:GetAttribute("NoTint") == true and descendant.Name ~= "Core" and descendant.Name ~= "GlowShell" then
+			if
+				descendant:GetAttribute("NoTint") == true
+				and descendant.Name ~= "Core"
+				and descendant.Name ~= "GlowShell"
+			then
 				continue
 			end
 			descendant.Color = descendant.Color:Lerp(typeColor, tintStrength)
 			if mutation.Type == "Light" then
 				descendant.Material = Enum.Material.Neon
 			elseif mutation.Type == "Dark" then
-				descendant.Material = descendant.Name == "Core" and Enum.Material.SmoothPlastic or Enum.Material.ForceField
+				descendant.Material = descendant.Name == "Core" and Enum.Material.SmoothPlastic
+					or Enum.Material.ForceField
 			elseif mutation.Type == "Corrupted" then
 				descendant.Material = Enum.Material.Neon
 			end
@@ -331,18 +381,90 @@ function PetModelUtil.ApplyMutationVisuals(model, mutationId)
 	local auraColor = mutation.AuraColor or MUTATION_ACCENTS[mutation.Type] or Color3.fromRGB(255, 255, 255)
 	local typeColor = mutation.TypeColor or auraColor
 
-	makeMutationPart(model, "MutationAura", Enum.PartType.Ball, Vector3.new(2.75, 2.75, 2.75), baseCFrame, auraColor, Enum.Material.ForceField, mutation.Type == "Dark" and 0.45 or 0.62)
+	makeMutationPart(
+		model,
+		"MutationAura",
+		Enum.PartType.Ball,
+		Vector3.new(2.75, 2.75, 2.75),
+		baseCFrame,
+		auraColor,
+		Enum.Material.ForceField,
+		mutation.Type == "Dark" and 0.45 or 0.62
+	)
 
 	if mutation.Type == "Dark" then
-		makeMutationPart(model, "DarkMist", Enum.PartType.Ball, Vector3.new(3.15, 1.2, 3.15), baseCFrame * CFrame.new(0, -0.25, 0), Color3.fromRGB(25, 12, 45), Enum.Material.ForceField, 0.52)
-		makeMutationPart(model, "EclipseRing", Enum.PartType.Cylinder, Vector3.new(0.08, 3.45, 3.45), baseCFrame * CFrame.Angles(0, 0, math.rad(90)), typeColor, Enum.Material.Neon, 0.24)
+		makeMutationPart(
+			model,
+			"DarkMist",
+			Enum.PartType.Ball,
+			Vector3.new(3.15, 1.2, 3.15),
+			baseCFrame * CFrame.new(0, -0.25, 0),
+			Color3.fromRGB(25, 12, 45),
+			Enum.Material.ForceField,
+			0.52
+		)
+		makeMutationPart(
+			model,
+			"EclipseRing",
+			Enum.PartType.Cylinder,
+			Vector3.new(0.08, 3.45, 3.45),
+			baseCFrame * CFrame.Angles(0, 0, math.rad(90)),
+			typeColor,
+			Enum.Material.Neon,
+			0.24
+		)
 	elseif mutation.Type == "Light" then
-		makeMutationPart(model, "LightHalo", Enum.PartType.Cylinder, Vector3.new(0.08, 2.55, 2.55), baseCFrame * CFrame.new(0, 1.65, 0) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(255, 245, 155), Enum.Material.Neon, 0.08)
-		makeMutationPart(model, "RadiantShell", Enum.PartType.Ball, Vector3.new(3.15, 3.15, 3.15), baseCFrame, Color3.fromRGB(255, 255, 210), Enum.Material.ForceField, 0.72)
+		makeMutationPart(
+			model,
+			"LightHalo",
+			Enum.PartType.Cylinder,
+			Vector3.new(0.08, 2.55, 2.55),
+			baseCFrame * CFrame.new(0, 1.65, 0) * CFrame.Angles(0, 0, math.rad(90)),
+			Color3.fromRGB(255, 245, 155),
+			Enum.Material.Neon,
+			0.08
+		)
+		makeMutationPart(
+			model,
+			"RadiantShell",
+			Enum.PartType.Ball,
+			Vector3.new(3.15, 3.15, 3.15),
+			baseCFrame,
+			Color3.fromRGB(255, 255, 210),
+			Enum.Material.ForceField,
+			0.72
+		)
 	elseif mutation.Type == "Corrupted" then
-		makeMutationPart(model, "GlitchShardA", Enum.PartType.Block, Vector3.new(0.22, 0.8, 0.22), baseCFrame * CFrame.new(1.35, 0.45, 0) * CFrame.Angles(math.rad(18), math.rad(35), math.rad(10)), Color3.fromRGB(255, 42, 84), Enum.Material.Neon, 0.05)
-		makeMutationPart(model, "GlitchShardB", Enum.PartType.Block, Vector3.new(0.18, 0.7, 0.18), baseCFrame * CFrame.new(-1.25, -0.15, 0.45) * CFrame.Angles(math.rad(-14), math.rad(-25), math.rad(20)), Color3.fromRGB(70, 230, 255), Enum.Material.Neon, 0.05)
-		makeMutationPart(model, "ErrorRing", Enum.PartType.Cylinder, Vector3.new(0.08, 3.05, 3.05), baseCFrame * CFrame.Angles(math.rad(25), 0, math.rad(90)), Color3.fromRGB(255, 35, 105), Enum.Material.Neon, 0.18)
+		makeMutationPart(
+			model,
+			"GlitchShardA",
+			Enum.PartType.Block,
+			Vector3.new(0.22, 0.8, 0.22),
+			baseCFrame * CFrame.new(1.35, 0.45, 0) * CFrame.Angles(math.rad(18), math.rad(35), math.rad(10)),
+			Color3.fromRGB(255, 42, 84),
+			Enum.Material.Neon,
+			0.05
+		)
+		makeMutationPart(
+			model,
+			"GlitchShardB",
+			Enum.PartType.Block,
+			Vector3.new(0.18, 0.7, 0.18),
+			baseCFrame * CFrame.new(-1.25, -0.15, 0.45) * CFrame.Angles(math.rad(-14), math.rad(-25), math.rad(20)),
+			Color3.fromRGB(70, 230, 255),
+			Enum.Material.Neon,
+			0.05
+		)
+		makeMutationPart(
+			model,
+			"ErrorRing",
+			Enum.PartType.Cylinder,
+			Vector3.new(0.08, 3.05, 3.05),
+			baseCFrame * CFrame.Angles(math.rad(25), 0, math.rad(90)),
+			Color3.fromRGB(255, 35, 105),
+			Enum.Material.Neon,
+			0.18
+		)
 	end
 
 	return model
@@ -364,7 +486,10 @@ function PetModelUtil.PrepareModel(model, options)
 
 	local primary = findPrimary(model)
 	if not primary then
-		warnOnce("clone-missing-primary:" .. model.Name, "PetModelUtil: cloned pet model " .. model.Name .. " has no PrimaryPart/Core.")
+		warnOnce(
+			"clone-missing-primary:" .. model.Name,
+			"PetModelUtil: cloned pet model " .. model.Name .. " has no PrimaryPart/Core."
+		)
 	end
 
 	if options.mutationId then
@@ -400,7 +525,8 @@ function PetModelUtil.MountViewport(viewport, petId, options)
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 
-	local model = PetModelUtil.ClonePetModel(petId, { anchored = true, removeBillboards = true, mutationId = options.mutationId })
+	local model =
+		PetModelUtil.ClonePetModel(petId, { anchored = true, removeBillboards = true, mutationId = options.mutationId })
 	if not model then
 		return nil
 	end
@@ -421,7 +547,8 @@ function PetModelUtil.MountViewport(viewport, petId, options)
 	end
 
 	model:PivotTo(CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(options.yaw or 180), 0))
-	camera.CFrame = CFrame.new(0, options.cameraY or 0.55, options.cameraZ or 7) * CFrame.Angles(math.rad(options.pitch or -5), 0, 0)
+	camera.CFrame = CFrame.new(0, options.cameraY or 0.55, options.cameraZ or 7)
+		* CFrame.Angles(math.rad(options.pitch or -5), 0, 0)
 	return model
 end
 

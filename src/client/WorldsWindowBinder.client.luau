@@ -339,17 +339,49 @@ local function drawWorlds()
 	})
 	applyCorner(thumb, 8)
 	applyStroke(thumb, 4, sector.colorType == "Orange" and Color3.fromRGB(255, 88, 20) or COLORS.Outline)
-	local thumbText = makeLabel(thumb, "ThumbnailText", sector.thumbnailText, UDim2.fromScale(0.08, 0.28), UDim2.fromScale(0.84, 0.26), 22, COLORS.White)
+	local thumbText = makeLabel(
+		thumb,
+		"ThumbnailText",
+		sector.thumbnailText,
+		UDim2.fromScale(0.08, 0.28),
+		UDim2.fromScale(0.84, 0.26),
+		22,
+		COLORS.White
+	)
 	thumbText.TextXAlignment = Enum.TextXAlignment.Center
 	thumbText.TextStrokeColor3 = COLORS.Outline
 	thumbText.TextStrokeTransparency = 0
 
 	local titlePrefix = current and "Current Sector" or (unlocked and "Unlocked Sector" or "Next Sector")
-	makeLabel(card, "TitlePrefix", titlePrefix, UDim2.fromScale(0.38, 0.15), UDim2.fromScale(0.50, 0.10), 18, COLORS.White)
-	local title = makeLabel(card, "Title", sector.title, UDim2.fromScale(0.38, 0.26), UDim2.fromScale(0.52, 0.12), 28, COLORS.White)
+	makeLabel(
+		card,
+		"TitlePrefix",
+		titlePrefix,
+		UDim2.fromScale(0.38, 0.15),
+		UDim2.fromScale(0.50, 0.10),
+		18,
+		COLORS.White
+	)
+	local title = makeLabel(
+		card,
+		"Title",
+		sector.title,
+		UDim2.fromScale(0.38, 0.26),
+		UDim2.fromScale(0.52, 0.12),
+		28,
+		COLORS.White
+	)
 	title.TextStrokeColor3 = COLORS.Outline
 	title.TextStrokeTransparency = 0
-	makeLabel(card, "Description", sector.description, UDim2.fromScale(0.38, 0.40), UDim2.fromScale(0.50, 0.18), 15, COLORS.White)
+	makeLabel(
+		card,
+		"Description",
+		sector.description,
+		UDim2.fromScale(0.38, 0.40),
+		UDim2.fromScale(0.50, 0.18),
+		15,
+		COLORS.White
+	)
 
 	local buttonText
 	local buttonColor
@@ -449,7 +481,15 @@ local function drawZoneCard(parent, zone, index)
 	applyCorner(swatch, 8)
 
 	makeLabel(card, "Title", zone.title, UDim2.fromScale(0.33, 0.12), UDim2.fromScale(0.58, 0.18), 19, COLORS.Text)
-	makeLabel(card, "Description", zone.description, UDim2.fromScale(0.33, 0.33), UDim2.fromScale(0.58, 0.24), 13, COLORS.Muted)
+	makeLabel(
+		card,
+		"Description",
+		zone.description,
+		UDim2.fromScale(0.33, 0.33),
+		UDim2.fromScale(0.58, 0.24),
+		13,
+		COLORS.Muted
+	)
 
 	local statusText = "TELEPORT"
 	local statusColor = COLORS.Green
@@ -485,9 +525,27 @@ local function drawZones()
 	zonesPage:ClearAllChildren()
 	local sector = getPreviewSector()
 	local zones = ZONES[sector.id] or {}
-	makeLabel(zonesPage, "ZonesHeader", "Zones in " .. sector.title, UDim2.fromScale(0.05, 0.04), UDim2.fromScale(0.74, 0.10), 24, COLORS.Text)
-	local subtitle = sector.id == "OrangeSector" and "The Pipes teleport unlocks after you visit it in the Orange Sector." or "Origin Sector teleports are available from the start."
-	makeLabel(zonesPage, "ZonesSubtitle", subtitle, UDim2.fromScale(0.05, 0.13), UDim2.fromScale(0.82, 0.07), 14, COLORS.Muted)
+	makeLabel(
+		zonesPage,
+		"ZonesHeader",
+		"Zones in " .. sector.title,
+		UDim2.fromScale(0.05, 0.04),
+		UDim2.fromScale(0.74, 0.10),
+		24,
+		COLORS.Text
+	)
+	local subtitle = sector.id == "OrangeSector"
+			and "The Pipes teleport unlocks after you visit it in the Orange Sector."
+		or "Origin Sector teleports are available from the start."
+	makeLabel(
+		zonesPage,
+		"ZonesSubtitle",
+		subtitle,
+		UDim2.fromScale(0.05, 0.13),
+		UDim2.fromScale(0.82, 0.07),
+		14,
+		COLORS.Muted
+	)
 	for index, zone in ipairs(zones) do
 		drawZoneCard(zonesPage, zone, index)
 	end

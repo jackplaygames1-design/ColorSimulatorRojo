@@ -1,10 +1,10 @@
 -- Client-side paint brush feel: Tool activation, sweep visuals, and candidate detection.
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
-local Debris = game:GetService("Debris")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -248,22 +248,79 @@ local function ensureBrushVisual(character)
 	local model = Instance.new("Model")
 	model.Name = tostring(toolConfig.Id or "StarterBrush") .. "Visual"
 
-	local handle = makeVisualPart("VisualHandle", Vector3.new(0.22, 0.22, 0.22), toolConfig.HandleColor or Color3.fromRGB(255, 213, 125), Enum.Material.SmoothPlastic)
+	local handle = makeVisualPart(
+		"VisualHandle",
+		Vector3.new(0.22, 0.22, 0.22),
+		toolConfig.HandleColor or Color3.fromRGB(255, 213, 125),
+		Enum.Material.SmoothPlastic
+	)
 	handle.CFrame = hand.CFrame
 	handle.Transparency = 1
 	handle.Parent = model
 	model.PrimaryPart = handle
 
 	local shaftRotation = CFrame.Angles(math.rad(90), 0, 0)
-	weldVisual(handle, makeVisualPart("VisualShaft", Vector3.new(0.22, 1.45, 0.22), toolConfig.HandleColor or Color3.fromRGB(255, 213, 125), Enum.Material.Wood), CFrame.new(0, 0, -0.72) * shaftRotation)
-	weldVisual(handle, makeVisualPart("VisualGrip", Vector3.new(0.34, 0.42, 0.34), Color3.fromRGB(45, 48, 58)), CFrame.new(0, 0, -0.16) * shaftRotation)
-	weldVisual(handle, makeVisualPart("VisualBand", Vector3.new(0.48, 0.22, 0.48), Color3.fromRGB(190, 220, 238), Enum.Material.Metal), CFrame.new(0, 0, -1.28) * shaftRotation)
+	weldVisual(
+		handle,
+		makeVisualPart(
+			"VisualShaft",
+			Vector3.new(0.22, 1.45, 0.22),
+			toolConfig.HandleColor or Color3.fromRGB(255, 213, 125),
+			Enum.Material.Wood
+		),
+		CFrame.new(0, 0, -0.72) * shaftRotation
+	)
+	weldVisual(
+		handle,
+		makeVisualPart("VisualGrip", Vector3.new(0.34, 0.42, 0.34), Color3.fromRGB(45, 48, 58)),
+		CFrame.new(0, 0, -0.16) * shaftRotation
+	)
+	weldVisual(
+		handle,
+		makeVisualPart("VisualBand", Vector3.new(0.48, 0.22, 0.48), Color3.fromRGB(190, 220, 238), Enum.Material.Metal),
+		CFrame.new(0, 0, -1.28) * shaftRotation
+	)
 	if toolConfig.VisualType == "Roller" then
-		weldVisual(handle, makeVisualPart("VisualRollerArm", Vector3.new(0.25, 0.35, 0.9), Color3.fromRGB(190, 220, 238), Enum.Material.Metal), CFrame.new(0, 0, -1.52))
-		weldVisual(handle, makeVisualPart("VisualRoller", Vector3.new(1.2, 0.5, 0.5), toolConfig.PaintColor or Color3.fromRGB(255, 92, 164), Enum.Material.Neon), CFrame.new(0, -0.28, -1.7))
+		weldVisual(
+			handle,
+			makeVisualPart(
+				"VisualRollerArm",
+				Vector3.new(0.25, 0.35, 0.9),
+				Color3.fromRGB(190, 220, 238),
+				Enum.Material.Metal
+			),
+			CFrame.new(0, 0, -1.52)
+		)
+		weldVisual(
+			handle,
+			makeVisualPart(
+				"VisualRoller",
+				Vector3.new(1.2, 0.5, 0.5),
+				toolConfig.PaintColor or Color3.fromRGB(255, 92, 164),
+				Enum.Material.Neon
+			),
+			CFrame.new(0, -0.28, -1.7)
+		)
 	else
-		weldVisual(handle, makeVisualPart("VisualHead", Vector3.new(0.78, 0.42, 0.34), toolConfig.HeadColor or Color3.fromRGB(110, 235, 245)), CFrame.new(0, 0, -1.52))
-		weldVisual(handle, makeVisualPart("VisualPaint", Vector3.new(0.76, 0.16, 0.38), toolConfig.PaintColor or Color3.fromRGB(255, 92, 164), Enum.Material.Neon), CFrame.new(0, -0.24, -1.55))
+		weldVisual(
+			handle,
+			makeVisualPart(
+				"VisualHead",
+				Vector3.new(0.78, 0.42, 0.34),
+				toolConfig.HeadColor or Color3.fromRGB(110, 235, 245)
+			),
+			CFrame.new(0, 0, -1.52)
+		)
+		weldVisual(
+			handle,
+			makeVisualPart(
+				"VisualPaint",
+				Vector3.new(0.76, 0.16, 0.38),
+				toolConfig.PaintColor or Color3.fromRGB(255, 92, 164),
+				Enum.Material.Neon
+			),
+			CFrame.new(0, -0.24, -1.55)
+		)
 	end
 
 	model.Parent = character
@@ -328,14 +385,16 @@ local function animateTool(tool)
 		local outC0 = originalC0 * CFrame.Angles(math.rad(-28), 0, math.rad(36))
 		local backC0 = originalC0 * CFrame.Angles(math.rad(16), 0, math.rad(-22))
 
-		local first = TweenService:Create(brushMotor, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			C0 = outC0,
-		})
+		local first =
+			TweenService:Create(brushMotor, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				C0 = outC0,
+			})
 		first:Play()
 		first.Completed:Wait()
-		local second = TweenService:Create(brushMotor, TweenInfo.new(0.13, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			C0 = backC0,
-		})
+		local second =
+			TweenService:Create(brushMotor, TweenInfo.new(0.13, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+				C0 = backC0,
+			})
 		second:Play()
 		second.Completed:Wait()
 		if brushMotor and brushMotor.Parent then
@@ -411,7 +470,8 @@ local function findSweepCandidates(root, toolConfig)
 	local found = {}
 	local parts = workspace:GetPartBoundsInRadius(center, range, params)
 	for _, part in ipairs(parts) do
-		if part:IsA("BasePart")
+		if
+			part:IsA("BasePart")
 			and (part:GetAttribute("BreakableType") or part:GetAttribute("GemDeposit"))
 			and not part:GetAttribute("IsCollected")
 			and part.Transparency < 1
@@ -450,7 +510,8 @@ local function findWalkoverCandidates(root, toolConfig)
 
 	local found = {}
 	for _, part in ipairs(workspace:GetPartBoundsInRadius(root.Position, range, params)) do
-		if part:IsA("BasePart")
+		if
+			part:IsA("BasePart")
 			and (part:GetAttribute("BreakableType") or part:GetAttribute("GemDeposit"))
 			and not part:GetAttribute("IsCollected")
 			and part.Transparency < 1

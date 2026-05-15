@@ -1,13 +1,13 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
 
 local Events = ReplicatedStorage:WaitForChild("Events")
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
-local ColorTraitData = require(ReplicatedStorage:WaitForChild("ColorTraitData"))
-local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
-local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
 local AdminConfig = require(ReplicatedStorage:WaitForChild("AdminConfig"))
+local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
+local ColorTraitData = require(ReplicatedStorage:WaitForChild("ColorTraitData"))
+local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local grantCoinsEvent = Events:WaitForChild("DevGrantCoins")
 local resetProfileRemote = Events:FindFirstChild("DevResetProfile")
 if not resetProfileRemote then
@@ -341,9 +341,16 @@ Players.PlayerAdded:Connect(function(player)
 			local grantPetFunction = ReplicatedStorage:FindFirstChild("ServerGrantPet")
 			if grantPetFunction and grantPetFunction:IsA("BindableFunction") then
 				local ok, entry = grantPetFunction:Invoke(player, petId, 1, traitId, mutationId)
-				print("DevTools: givecolor " .. tostring(ok) .. " " .. tostring(entry and entry.displayName or petId)
-					.. " trait=" .. tostring(ColorTraitData.get(traitId).DisplayName)
-					.. " mutation=" .. tostring(ColorMutationData.get(mutationId).DisplayName))
+				print(
+					"DevTools: givecolor "
+						.. tostring(ok)
+						.. " "
+						.. tostring(entry and entry.displayName or petId)
+						.. " trait="
+						.. tostring(ColorTraitData.get(traitId).DisplayName)
+						.. " mutation="
+						.. tostring(ColorMutationData.get(mutationId).DisplayName)
+				)
 			end
 		elseif command == "/giverainbow" or command == "/giverainbowcolor" then
 			grantRainbowColor(player)

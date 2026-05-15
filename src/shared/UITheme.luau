@@ -199,7 +199,11 @@ function Theme.ApplyShadow(parent)
 	shadow.BorderSizePixel = 0
 	shadow.ZIndex = math.max((parent.ZIndex or 1) - 1, 0)
 	shadow.Parent = parent.Parent
-	Theme.ApplyCorner(shadow, parent:FindFirstChildOfClass("UICorner") and parent:FindFirstChildOfClass("UICorner").CornerRadius or Theme.Sizes.CornerLarge)
+	Theme.ApplyCorner(
+		shadow,
+		parent:FindFirstChildOfClass("UICorner") and parent:FindFirstChildOfClass("UICorner").CornerRadius
+			or Theme.Sizes.CornerLarge
+	)
 	return shadow
 end
 

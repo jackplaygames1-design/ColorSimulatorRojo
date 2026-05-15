@@ -14,7 +14,9 @@ local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 
 local function getRequiredWorldIndex()
 	if GameBalance.getFeatureUnlockWorldIndex then
-		return tonumber(GameBalance.getFeatureUnlockWorldIndex("Mutations")) or tonumber(GameBalance.MutationsUnlockWorldIndex) or 2
+		return tonumber(GameBalance.getFeatureUnlockWorldIndex("Mutations"))
+			or tonumber(GameBalance.MutationsUnlockWorldIndex)
+			or 2
 	end
 	return tonumber(GameBalance.MutationsUnlockWorldIndex) or 2
 end
@@ -87,7 +89,9 @@ local function syncPlayer(player)
 	player:SetAttribute("MutationsUnlocked", finalUnlocked)
 
 	if finalUnlocked and not hadUnlocked then
-		print("MutationUnlockSync: mutations unlocked for " .. player.Name .. " at world index " .. tostring(highestIndex))
+		print(
+			"MutationUnlockSync: mutations unlocked for " .. player.Name .. " at world index " .. tostring(highestIndex)
+		)
 		markDirty(player, "mutations-unlocked")
 	end
 end

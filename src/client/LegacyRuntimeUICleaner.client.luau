@@ -1,5 +1,5 @@
 -- Kills old duplicate runtime UI roots so only the editable Studio UI stays on screen.
--- Runtime tutorial UI is also removed; tutorial panels should be Studio-authored.
+-- Runtime tutorial UI is also removed; the current TutorialGui is Studio-authored.
 local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
@@ -31,7 +31,6 @@ local LEGACY_SCREEN_GUI_NAMES = {
 	SocialPanelsUI = true,
 	MutationHatchVFX = true,
 	TutorialUI = true,
-	TutorialGui = true,
 }
 
 local ALLOWED_RUNTIME_SCREEN_GUI_NAMES = {
@@ -39,6 +38,7 @@ local ALLOWED_RUNTIME_SCREEN_GUI_NAMES = {
 	Chat = true,
 	BubbleChat = true,
 	Freecam = true,
+	TutorialGui = true,
 }
 
 local RUNTIME_LAYER_NAMES = {

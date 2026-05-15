@@ -87,7 +87,10 @@ local function connectPress(guiObject, callback, label)
 	elseif guiObject:IsA("GuiObject") then
 		guiObject.Active = true
 		guiObject.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			if
+				input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch
+			then
 				run()
 			end
 		end)
@@ -190,7 +193,14 @@ local function setDockOpen(open)
 	print("[UIController] dock visual state:", open)
 	for _, child in ipairs(buttonsRow:GetChildren()) do
 		if child:IsA("GuiObject") then
-			print("[UIController] ButtonsRow child:", child.Name, child.ClassName, "visible=" .. tostring(child.Visible), "position=" .. tostring(child.Position), "size=" .. tostring(child.Size))
+			print(
+				"[UIController] ButtonsRow child:",
+				child.Name,
+				child.ClassName,
+				"visible=" .. tostring(child.Visible),
+				"position=" .. tostring(child.Position),
+				"size=" .. tostring(child.Size)
+			)
 		else
 			print("[UIController] ButtonsRow child:", child.Name, child.ClassName)
 		end
@@ -228,7 +238,10 @@ end
 local function openWindow(key)
 	local window = windows[key]
 	if not window then
-		warnOnce("missing-window-open-" .. key, "UIController: missing window for " .. key .. ". Add it under MainHUD.Windows.")
+		warnOnce(
+			"missing-window-open-" .. key,
+			"UIController: missing window for " .. key .. ". Add it under MainHUD.Windows."
+		)
 		return
 	end
 	closeAllWindows()
@@ -306,13 +319,18 @@ end
 
 local windowsFolder = findWindowsFolder(mainHud)
 if not windowsFolder then
-	warn("UIController: missing PlayerGui.ClientUIRoot.MainHUD.ModalWindows.Windows. Add physical window Frames in Studio.")
+	warn(
+		"UIController: missing PlayerGui.ClientUIRoot.MainHUD.ModalWindows.Windows. Add physical window Frames in Studio."
+	)
 	return
 end
 
 dimBackground = mainHud:FindFirstChild("DimBackground")
 if not dimBackground then
-	warnOnce("missing-dim", "UIController: missing MainHUD.DimBackground. Windows will still toggle, but no dim will show.")
+	warnOnce(
+		"missing-dim",
+		"UIController: missing MainHUD.DimBackground. Windows will still toggle, but no dim will show."
+	)
 elseif not dimBackground:IsA("GuiObject") then
 	warnOnce("bad-dim", "UIController: MainHUD.DimBackground is not a GuiObject.")
 	dimBackground = nil
@@ -386,12 +404,20 @@ UserInputService.InputBegan:Connect(function(input)
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
 		return
 	end
-	local position = input.UserInputType == Enum.UserInputType.MouseButton1 and UserInputService:GetMouseLocation() or input.Position
+	local position = input.UserInputType == Enum.UserInputType.MouseButton1 and UserInputService:GetMouseLocation()
+		or input.Position
 	local objects = playerGui:GetGuiObjectsAtPosition(position.X, position.Y)
 	print("[UIController] click at", position.X, position.Y, "objects:", #objects)
 	for index = 1, math.min(#objects, 8) do
 		local object = objects[index]
-		print("[UIController] under click", index, object:GetFullName(), object.ClassName, "visible=" .. tostring(object.Visible), "z=" .. tostring(object.ZIndex))
+		print(
+			"[UIController] under click",
+			index,
+			object:GetFullName(),
+			object.ClassName,
+			"visible=" .. tostring(object.Visible),
+			"z=" .. tostring(object.ZIndex)
+		)
 	end
 end)
 

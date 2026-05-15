@@ -229,6 +229,8 @@ local function configureEggPrompt(prompt)
 		return
 	end
 
+	local holder = prompt.Parent
+	local hasEditableOptions = holder and findEggOptionsGui and findEggOptionsGui(holder) ~= nil
 	prompt.ActionText = "Hatch"
 	prompt.ObjectText = "Egg"
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
@@ -236,8 +238,7 @@ local function configureEggPrompt(prompt)
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance, 18)
 	prompt.RequiresLineOfSight = false
-	prompt.Style = findEggOptionsGui and findEggOptionsGui(prompt.Parent) and Enum.ProximityPromptStyle.Custom
-		or Enum.ProximityPromptStyle.Default
+	prompt.Style = hasEditableOptions and Enum.ProximityPromptStyle.Custom or Enum.ProximityPromptStyle.Default
 	prompt:SetAttribute("EggShopPrompt", true)
 end
 
@@ -267,14 +268,33 @@ function findEggOptionsGui(eggPart)
 	return nil
 end
 
+local function resolveEggHolder(instance)
+	local current = instance
+	while current and current ~= workspace do
+		if current:IsA("BasePart") and getEggIdFromPart(current) then
+			return current
+		end
+		current = current.Parent
+	end
+
+	local model = instance and instance:FindFirstAncestorWhichIsA("Model")
+	local primary = model and model.PrimaryPart
+	if primary and getEggIdFromPart(primary) then
+		return primary
+	end
+
+	return nil
+end
+
 local function bindEggOptionsGui(eggPart)
-	if not eggPart or not eggPart:IsA("BasePart") then
+	local holder = resolveEggHolder(eggPart)
+	if not holder then
 		return nil
 	end
 
-	local gui = findEggOptionsGui(eggPart)
+	local gui = findEggOptionsGui(holder)
 	if not gui then
-		local eggId = getEggIdFromPart(eggPart)
+		local eggId = getEggIdFromPart(holder)
 		if eggId and not missingEggPromptWarnings[eggId] then
 			missingEggPromptWarnings[eggId] = true
 			warn(
@@ -286,9 +306,9 @@ local function bindEggOptionsGui(eggPart)
 		return nil
 	end
 
-	local holder = gui.Parent
-	if not holder or not holder:IsA("BasePart") then
-		holder = eggPart
+	local guiHolder = gui.Parent
+	if guiHolder and guiHolder:IsA("BasePart") then
+		holder = guiHolder
 	end
 
 	eggParts[holder] = true
@@ -305,6 +325,18 @@ local function bindEggOptionsGui(eggPart)
 	setPromptText(gui, "Cost", getEggCostText(eggId))
 	gui.Enabled = false
 	gui:SetAttribute("EggOptionGui", true)
+	return gui
+end
+
+local function bindEggStation(instance)
+	local gui = bindEggOptionsGui(instance)
+	local holder = resolveEggHolder(instance)
+	if holder then
+		local prompt = holder:FindFirstChildWhichIsA("ProximityPrompt", true)
+		if prompt then
+			configureEggPrompt(prompt)
+		end
+	end
 	return gui
 end
 
@@ -665,157 +697,209 @@ petGridLayout.CellPadding = UDim2.new(0, 8, 0, 8)
 petGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 petGridLayout.Parent = petGrid
 
-hatchOverlay = Instance.new("Frame")
-hatchOverlay.Name = "HatchOverlay"
-hatchOverlay.Size = UDim2.fromScale(1, 1)
-hatchOverlay.BackgroundColor3 = Color3.fromRGB(12, 16, 24)
-hatchOverlay.BackgroundTransparency = 0.02
-hatchOverlay.BorderSizePixel = 0
+local function getEditableChild(parent, className, name)
+	local child = parent:FindFirstChild(name)
+	if child and child:IsA(className) then
+		return child, false
+	end
+	if child then
+		if child:IsA("GuiObject") then
+			child.Visible = false
+		end
+		child.Name = name .. "_Legacy"
+	end
+
+	local instance = Instance.new(className)
+	instance.Name = name
+	instance.Parent = parent
+	return instance, true
+end
+
+local function ensureCorner(instance, radius)
+	local corner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, radius)
+	corner.Parent = instance
+	return corner
+end
+
+local function ensureStroke(instance, color, thickness)
+	local stroke = instance:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	stroke.Color = color
+	stroke.Thickness = thickness
+	stroke.Parent = instance
+	return stroke
+end
+
+local function ensureTextSizeLimit(label, minSize, maxSize)
+	local sizeLimit = label:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	sizeLimit.MinTextSize = minSize
+	sizeLimit.MaxTextSize = maxSize
+	sizeLimit.Parent = label
+	return sizeLimit
+end
+
+hatchOverlay = getEditableChild(screenGui, "Frame", "HatchOverlay")
 hatchOverlay.Visible = false
-hatchOverlay.ZIndex = 850
-hatchOverlay.Parent = screenGui
+hatchOverlay:SetAttribute("EditableHatchAnimation", true)
+if hatchOverlay:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	hatchOverlay.Size = UDim2.fromScale(1, 1)
+	hatchOverlay.BackgroundColor3 = Color3.fromRGB(12, 16, 24)
+	hatchOverlay.BackgroundTransparency = 0.02
+	hatchOverlay.BorderSizePixel = 0
+	hatchOverlay.ZIndex = 850
+	hatchOverlay:SetAttribute("UsesDefaultHatchLayout", true)
+end
 
-local hatchEgg = Instance.new("Frame")
-hatchEgg.Size = UDim2.new(0, 140, 0, 180)
-hatchEgg.AnchorPoint = Vector2.new(0.5, 0.5)
-hatchEgg.Position = UDim2.new(0.5, 0, 0.46, 0)
-hatchEgg.BackgroundColor3 = Color3.fromRGB(255, 236, 220)
-hatchEgg.BorderSizePixel = 0
-hatchEgg.ZIndex = 900
-hatchEgg.Parent = hatchOverlay
-local hatchEggCorner = Instance.new("UICorner")
-hatchEggCorner.CornerRadius = UDim.new(1, 0)
-hatchEggCorner.Parent = hatchEgg
-local hatchEggStroke = Instance.new("UIStroke")
-hatchEggStroke.Color = WHITE
-hatchEggStroke.Thickness = 5
-hatchEggStroke.Parent = hatchEgg
+local hatchEgg = getEditableChild(hatchOverlay, "Frame", "HatchEgg")
+hatchEgg.Visible = false
+if hatchEgg:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	hatchEgg.Size = UDim2.new(0, 140, 0, 180)
+	hatchEgg.AnchorPoint = Vector2.new(0.5, 0.5)
+	hatchEgg.Position = UDim2.new(0.5, 0, 0.46, 0)
+	hatchEgg.BackgroundColor3 = Color3.fromRGB(255, 236, 220)
+	hatchEgg.BorderSizePixel = 0
+	hatchEgg.ZIndex = 900
+	ensureCorner(hatchEgg, 999)
+	ensureStroke(hatchEgg, WHITE, 5)
+	hatchEgg:SetAttribute("UsesDefaultHatchLayout", true)
+end
 
-local hatchViewport = Instance.new("ViewportFrame")
-hatchViewport.Name = "HatchViewport"
-hatchViewport.Size = UDim2.new(0, 360, 0, 300)
-hatchViewport.AnchorPoint = Vector2.new(0.5, 0.5)
-hatchViewport.Position = UDim2.new(0.5, 0, 0.45, 0)
-hatchViewport.BackgroundTransparency = 1
+local hatchViewport = getEditableChild(hatchOverlay, "ViewportFrame", "HatchViewport")
 hatchViewport.Visible = false
-hatchViewport.ZIndex = 900
-hatchViewport.Parent = hatchOverlay
+if hatchViewport:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	hatchViewport.Size = UDim2.new(0, 360, 0, 300)
+	hatchViewport.AnchorPoint = Vector2.new(0.5, 0.5)
+	hatchViewport.Position = UDim2.new(0.5, 0, 0.45, 0)
+	hatchViewport.BackgroundTransparency = 1
+	hatchViewport.ZIndex = 900
+	hatchViewport:SetAttribute("UsesDefaultHatchLayout", true)
+end
 
-local hatchWorld = Instance.new("WorldModel")
-hatchWorld.Name = "HatchWorld"
-hatchWorld.Parent = hatchViewport
+local hatchWorld = hatchViewport:FindFirstChild("HatchWorld")
+if not hatchWorld or not hatchWorld:IsA("WorldModel") then
+	if hatchWorld then
+		hatchWorld:Destroy()
+	end
+	hatchWorld = Instance.new("WorldModel")
+	hatchWorld.Name = "HatchWorld"
+	hatchWorld.Parent = hatchViewport
+end
 
-local hatchCamera = Instance.new("Camera")
+local hatchCamera = hatchViewport:FindFirstChild("HatchCamera")
+if not hatchCamera or not hatchCamera:IsA("Camera") then
+	if hatchCamera then
+		hatchCamera:Destroy()
+	end
+	hatchCamera = Instance.new("Camera")
+	hatchCamera.Name = "HatchCamera"
+	hatchCamera.Parent = hatchViewport
+end
 hatchCamera.CFrame = CFrame.new(0, 1.2, 8) * CFrame.Angles(math.rad(-7), 0, 0)
 hatchCamera.FieldOfView = 34
-hatchCamera.Parent = hatchViewport
 hatchViewport.CurrentCamera = hatchCamera
 
-local hatchText = Instance.new("TextLabel")
-hatchText.Size = UDim2.new(0, 420, 0, 64)
-hatchText.AnchorPoint = Vector2.new(0.5, 0.5)
-hatchText.Position = UDim2.new(0.5, 0, 0.65, 0)
-hatchText.BackgroundTransparency = 1
-hatchText.Font = Enum.Font.LuckiestGuy
-hatchText.TextSize = 34
-hatchText.TextScaled = true
-hatchText.TextColor3 = WHITE
-hatchText.TextStrokeTransparency = 0
-hatchText.TextStrokeColor3 = DARK
-hatchText.Text = "HATCHING..."
-hatchText.ZIndex = 905
-hatchText.Parent = hatchOverlay
-local hatchTextSize = Instance.new("UITextSizeConstraint")
-hatchTextSize.MinTextSize = 18
-hatchTextSize.MaxTextSize = 34
-hatchTextSize.Parent = hatchText
+local hatchText = getEditableChild(hatchOverlay, "TextLabel", "HatchText")
+if hatchText:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	hatchText.Size = UDim2.new(0, 420, 0, 64)
+	hatchText.AnchorPoint = Vector2.new(0.5, 0.5)
+	hatchText.Position = UDim2.new(0.5, 0, 0.65, 0)
+	hatchText.BackgroundTransparency = 1
+	hatchText.Font = Enum.Font.LuckiestGuy
+	hatchText.TextSize = 34
+	hatchText.TextScaled = true
+	hatchText.TextColor3 = WHITE
+	hatchText.TextStrokeTransparency = 0
+	hatchText.TextStrokeColor3 = DARK
+	hatchText.Text = "HATCHING..."
+	hatchText.ZIndex = 905
+	ensureTextSizeLimit(hatchText, 18, 34)
+	hatchText:SetAttribute("UsesDefaultHatchLayout", true)
+end
 
-stopAutoButton = Instance.new("TextButton")
-stopAutoButton.Name = "StopAutoHatch"
-stopAutoButton.AnchorPoint = Vector2.new(0.5, 0.5)
-stopAutoButton.Size = UDim2.new(0, 170, 0, 44)
-stopAutoButton.Position = UDim2.new(0.5, 0, 0.76, 0)
-stopAutoButton.BackgroundColor3 = Color3.fromRGB(255, 120, 145)
-stopAutoButton.BorderSizePixel = 0
-stopAutoButton.AutoButtonColor = false
-stopAutoButton.Font = Enum.Font.LuckiestGuy
-stopAutoButton.TextSize = 17
-stopAutoButton.TextColor3 = WHITE
-stopAutoButton.TextStrokeTransparency = 0
-stopAutoButton.TextStrokeColor3 = DARK
-stopAutoButton.Text = "STOP AUTO"
+stopAutoButton = getEditableChild(hatchOverlay, "TextButton", "StopAutoHatch")
 stopAutoButton.Visible = false
-stopAutoButton.ZIndex = 920
-stopAutoButton.Parent = hatchOverlay
-local stopAutoCorner = Instance.new("UICorner")
-stopAutoCorner.CornerRadius = UDim.new(0, 14)
-stopAutoCorner.Parent = stopAutoButton
-local stopAutoStroke = Instance.new("UIStroke")
-stopAutoStroke.Color = DARK
-stopAutoStroke.Thickness = 3
-stopAutoStroke.Parent = stopAutoButton
+if stopAutoButton:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	stopAutoButton.AnchorPoint = Vector2.new(0.5, 0.5)
+	stopAutoButton.Size = UDim2.new(0, 170, 0, 44)
+	stopAutoButton.Position = UDim2.new(0.5, 0, 0.76, 0)
+	stopAutoButton.BackgroundColor3 = Color3.fromRGB(255, 120, 145)
+	stopAutoButton.BorderSizePixel = 0
+	stopAutoButton.AutoButtonColor = false
+	stopAutoButton.Font = Enum.Font.LuckiestGuy
+	stopAutoButton.TextSize = 17
+	stopAutoButton.TextColor3 = WHITE
+	stopAutoButton.TextStrokeTransparency = 0
+	stopAutoButton.TextStrokeColor3 = DARK
+	stopAutoButton.Text = "STOP AUTO"
+	stopAutoButton.ZIndex = 920
+	ensureCorner(stopAutoButton, 14)
+	ensureStroke(stopAutoButton, DARK, 3)
+	stopAutoButton:SetAttribute("UsesDefaultHatchLayout", true)
+end
 
-local resultCard = Instance.new("Frame")
-resultCard.Name = "HatchResultCard"
-resultCard.Size = UDim2.new(0, 380, 0, 160)
-resultCard.AnchorPoint = Vector2.new(0.5, 0.5)
-resultCard.Position = UDim2.new(0.5, 0, 0.82, 0)
-resultCard.BackgroundColor3 = Color3.fromRGB(255, 248, 252)
-resultCard.BorderSizePixel = 0
+local resultCard = getEditableChild(hatchOverlay, "Frame", "HatchResultCard")
 resultCard.Visible = false
-resultCard.ZIndex = 910
-resultCard.Parent = hatchOverlay
-local resultCorner = Instance.new("UICorner")
-resultCorner.CornerRadius = UDim.new(0, 18)
-resultCorner.Parent = resultCard
-local resultStroke = Instance.new("UIStroke")
-resultStroke.Color = WHITE
-resultStroke.Thickness = 3
-resultStroke.Parent = resultCard
+if resultCard:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	resultCard.Size = UDim2.new(0, 380, 0, 160)
+	resultCard.AnchorPoint = Vector2.new(0.5, 0.5)
+	resultCard.Position = UDim2.new(0.5, 0, 0.82, 0)
+	resultCard.BackgroundColor3 = Color3.fromRGB(255, 248, 252)
+	resultCard.BorderSizePixel = 0
+	resultCard.ZIndex = 910
+	ensureCorner(resultCard, 18)
+	resultCard:SetAttribute("UsesDefaultHatchLayout", true)
+end
+local resultStroke = ensureStroke(resultCard, WHITE, 3)
 
-local resultName = Instance.new("TextLabel")
-resultName.Size = UDim2.new(1, -28, 0, 38)
-resultName.Position = UDim2.new(0, 14, 0, 12)
-resultName.BackgroundTransparency = 1
-resultName.Font = Enum.Font.LuckiestGuy
-resultName.TextSize = 24
-resultName.TextColor3 = TITLE_TEXT
-resultName.TextXAlignment = Enum.TextXAlignment.Left
-resultName.Text = "Color"
+local resultName = getEditableChild(resultCard, "TextLabel", "ResultName")
+if resultName:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	resultName.Size = UDim2.new(1, -28, 0, 38)
+	resultName.Position = UDim2.new(0, 14, 0, 12)
+	resultName.BackgroundTransparency = 1
+	resultName.Font = Enum.Font.LuckiestGuy
+	resultName.TextSize = 24
+	resultName.TextColor3 = TITLE_TEXT
+	resultName.TextXAlignment = Enum.TextXAlignment.Left
+	resultName.Text = "Color"
+	resultName.ZIndex = 911
+	resultName:SetAttribute("UsesDefaultHatchLayout", true)
+end
 resultName.Visible = false
-resultName.ZIndex = 911
-resultName.Parent = resultCard
 
-local resultRarity = Instance.new("TextLabel")
-resultRarity.Size = UDim2.new(1, -28, 0, 26)
-resultRarity.Position = UDim2.new(0, 14, 0, 48)
-resultRarity.BackgroundTransparency = 1
-resultRarity.Font = Enum.Font.GothamBold
-resultRarity.TextSize = 16
-resultRarity.TextColor3 = TITLE_TEXT
-resultRarity.TextXAlignment = Enum.TextXAlignment.Left
-resultRarity.TextWrapped = true
-resultRarity.Text = "Common"
+local resultRarity = getEditableChild(resultCard, "TextLabel", "ResultRarity")
+if resultRarity:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	resultRarity.Size = UDim2.new(1, -28, 0, 26)
+	resultRarity.Position = UDim2.new(0, 14, 0, 48)
+	resultRarity.BackgroundTransparency = 1
+	resultRarity.Font = Enum.Font.GothamBold
+	resultRarity.TextSize = 16
+	resultRarity.TextColor3 = TITLE_TEXT
+	resultRarity.TextXAlignment = Enum.TextXAlignment.Left
+	resultRarity.TextWrapped = true
+	resultRarity.Text = "Common"
+	resultRarity.ZIndex = 911
+	resultRarity:SetAttribute("UsesDefaultHatchLayout", true)
+end
 resultRarity.Visible = false
-resultRarity.ZIndex = 911
-resultRarity.Parent = resultCard
 
-local resultStats = Instance.new("TextLabel")
-resultStats.Size = UDim2.new(1, -28, 0, 32)
-resultStats.Position = UDim2.new(0, 14, 0, 80)
-resultStats.BackgroundTransparency = 1
-resultStats.Font = Enum.Font.LuckiestGuy
-resultStats.TextSize = 24
-resultStats.TextColor3 = Color3.fromRGB(235, 54, 54)
-resultStats.TextStrokeTransparency = 0
-resultStats.TextStrokeColor3 = DARK
-resultStats.TextWrapped = false
-resultStats.TextXAlignment = Enum.TextXAlignment.Left
-resultStats.TextYAlignment = Enum.TextYAlignment.Center
-resultStats.Text = "0  FIST"
+local resultStats = getEditableChild(resultCard, "TextLabel", "ResultStats")
+if resultStats:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	resultStats.Size = UDim2.new(1, -28, 0, 32)
+	resultStats.Position = UDim2.new(0, 14, 0, 80)
+	resultStats.BackgroundTransparency = 1
+	resultStats.Font = Enum.Font.LuckiestGuy
+	resultStats.TextSize = 24
+	resultStats.TextColor3 = Color3.fromRGB(235, 54, 54)
+	resultStats.TextStrokeTransparency = 0
+	resultStats.TextStrokeColor3 = DARK
+	resultStats.TextWrapped = false
+	resultStats.TextXAlignment = Enum.TextXAlignment.Left
+	resultStats.TextYAlignment = Enum.TextYAlignment.Center
+	resultStats.Text = "0  FIST"
+	resultStats.ZIndex = 911
+	resultStats:SetAttribute("UsesDefaultHatchLayout", true)
+end
 resultStats.Visible = false
-resultStats.ZIndex = 911
-resultStats.Parent = resultCard
 
 local function hideHatchResult()
 	resultCard:SetAttribute("LargeReveal", false)
@@ -1831,6 +1915,7 @@ local function hookProximityPrompt(obj)
 		obj:SetAttribute("EggShopClientHooked", true)
 		eggPrompts[obj] = true
 		obj.Enabled = not isHatching
+		bindEggStation(obj.Parent)
 		configureEggPrompt(obj)
 		obj.Triggered:Connect(function(triggeringPlayer)
 			if triggeringPlayer ~= player then
@@ -1847,24 +1932,38 @@ local function hookProximityPrompt(obj)
 	end
 end
 
-for _, obj in ipairs(workspace:GetDescendants()) do
-	hookProximityPrompt(obj)
-	if obj:IsA("BasePart") and obj:GetAttribute("EggId") then
-		bindEggOptionsGui(obj)
-	elseif obj:IsA("BillboardGui") and obj.Name == "EggOptions" and obj.Parent and obj.Parent:IsA("BasePart") then
-		bindEggOptionsGui(obj.Parent)
+local function scanEggStations()
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		hookProximityPrompt(obj)
+		if obj:IsA("BasePart") and obj:GetAttribute("EggId") then
+			bindEggStation(obj)
+		elseif obj:IsA("BillboardGui") and obj.Name == "EggOptions" then
+			bindEggStation(obj.Parent)
+		end
 	end
 end
+
+scanEggStations()
 workspace.DescendantAdded:Connect(function(obj)
 	hookProximityPrompt(obj)
 	if obj:IsA("BasePart") and obj:GetAttribute("EggId") then
-		bindEggOptionsGui(obj)
-	elseif obj:IsA("BillboardGui") and obj.Name == "EggOptions" and obj.Parent and obj.Parent:IsA("BasePart") then
-		bindEggOptionsGui(obj.Parent)
+		bindEggStation(obj)
+		obj:GetAttributeChangedSignal("EggId"):Connect(function()
+			bindEggStation(obj)
+		end)
+	elseif obj:IsA("BillboardGui") and obj.Name == "EggOptions" then
+		bindEggStation(obj.Parent)
 	end
 	if isOpen and (obj:IsA("BillboardGui") or obj:IsA("SurfaceGui")) and obj.Enabled then
 		hiddenWorldGuis[obj] = true
 		obj.Enabled = false
+	end
+end)
+
+task.spawn(function()
+	for _ = 1, 12 do
+		task.wait(0.5)
+		scanEggStations()
 	end
 end)
 

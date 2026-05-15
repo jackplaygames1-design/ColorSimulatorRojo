@@ -3,8 +3,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
-local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
+local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local purchaseEvent = Events:WaitForChild("PurchasePaintTool")

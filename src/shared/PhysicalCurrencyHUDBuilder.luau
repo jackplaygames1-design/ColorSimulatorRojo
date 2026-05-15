@@ -22,7 +22,13 @@ local function findOrCreate(parent, className, name)
 		return child
 	end
 	if child then
-		warn("PhysicalCurrencyHUDBuilder: " .. child:GetFullName() .. " is not a " .. className .. ". Leaving it untouched.")
+		warn(
+			"PhysicalCurrencyHUDBuilder: "
+				.. child:GetFullName()
+				.. " is not a "
+				.. className
+				.. ". Leaving it untouched."
+		)
 		return nil
 	end
 
@@ -89,7 +95,8 @@ local function setupCurrencyFrame(parent, name, strokeColor, layoutOrder)
 		amount.TextStrokeTransparency = 0
 		amount.ZIndex = frame.ZIndex + 1
 
-		local sizeConstraint = amount:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+		local sizeConstraint = amount:FindFirstChildOfClass("UITextSizeConstraint")
+			or Instance.new("UITextSizeConstraint")
 		sizeConstraint.MinTextSize = 12
 		sizeConstraint.MaxTextSize = 26
 		sizeConstraint.Parent = amount

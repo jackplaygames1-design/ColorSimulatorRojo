@@ -169,7 +169,10 @@ UpgradeData.Upgrades = {
 		description = "Increase your Coin storage cap.",
 		baseValue = 10000,
 		valueFormat = "number",
-		levels = makeLevels({ 15000, 22500, 34000, 50000, 75000, 110000, 165000, 250000, 375000, 550000 }, economyCosts),
+		levels = makeLevels(
+			{ 15000, 22500, 34000, 50000, 75000, 110000, 165000, 250000, 375000, 550000 },
+			economyCosts
+		),
 	},
 	{
 		id = "SellValue",

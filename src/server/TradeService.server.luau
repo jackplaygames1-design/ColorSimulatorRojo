@@ -94,7 +94,9 @@ local function getPetValues(player)
 	if not petFolder then
 		return nil
 	end
-	return petFolder:FindFirstChild("Inventory"), petFolder:FindFirstChild("Equipped"), petFolder:FindFirstChild("Locked")
+	return petFolder:FindFirstChild("Inventory"),
+		petFolder:FindFirstChild("Equipped"),
+		petFolder:FindFirstChild("Locked")
 end
 
 local function makeSet(csv)

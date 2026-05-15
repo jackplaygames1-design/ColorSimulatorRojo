@@ -1,9 +1,11 @@
 local Debris = game:GetService("Debris")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local VFXConfig = require(ReplicatedStorage:WaitForChild("VFXConfig"))
+local player = Players.LocalPlayer
 
 local vfxFolder = Workspace:FindFirstChild(VFXConfig.FolderName)
 if not vfxFolder then
@@ -16,6 +18,9 @@ local activeEffects = 0
 
 local function canPlay()
 	if VFXConfig.Enabled == false then
+		return false
+	end
+	if player:GetAttribute("ClientHeavyVFXReady") ~= true then
 		return false
 	end
 	return activeEffects < (VFXConfig.MaxActiveEffects or 36)

@@ -137,22 +137,121 @@ local function addUniqueColorAccent(model, primary)
 	local style = (h % 6) + 1
 
 	if style == 1 then
-		makePart(model, "UniqueOrbitRing", Enum.PartType.Cylinder, Vector3.new(0.045, 2.65, 2.65), cf * CFrame.Angles(0, 0, math.rad(90)), accent, Enum.Material.Neon, 0.22)
+		makePart(
+			model,
+			"UniqueOrbitRing",
+			Enum.PartType.Cylinder,
+			Vector3.new(0.045, 2.65, 2.65),
+			cf * CFrame.Angles(0, 0, math.rad(90)),
+			accent,
+			Enum.Material.Neon,
+			0.22
+		)
 	elseif style == 2 then
-		makePart(model, "UniqueCrownA", Enum.PartType.Block, Vector3.new(0.2, 0.48, 0.2), cf * CFrame.new(-0.45, 1.05, 0), accent, Enum.Material.Neon, 0.04)
-		makePart(model, "UniqueCrownB", Enum.PartType.Block, Vector3.new(0.2, 0.66, 0.2), cf * CFrame.new(0, 1.22, 0), accent, Enum.Material.Neon, 0.04)
-		makePart(model, "UniqueCrownC", Enum.PartType.Block, Vector3.new(0.2, 0.48, 0.2), cf * CFrame.new(0.45, 1.05, 0), accent, Enum.Material.Neon, 0.04)
+		makePart(
+			model,
+			"UniqueCrownA",
+			Enum.PartType.Block,
+			Vector3.new(0.2, 0.48, 0.2),
+			cf * CFrame.new(-0.45, 1.05, 0),
+			accent,
+			Enum.Material.Neon,
+			0.04
+		)
+		makePart(
+			model,
+			"UniqueCrownB",
+			Enum.PartType.Block,
+			Vector3.new(0.2, 0.66, 0.2),
+			cf * CFrame.new(0, 1.22, 0),
+			accent,
+			Enum.Material.Neon,
+			0.04
+		)
+		makePart(
+			model,
+			"UniqueCrownC",
+			Enum.PartType.Block,
+			Vector3.new(0.2, 0.48, 0.2),
+			cf * CFrame.new(0.45, 1.05, 0),
+			accent,
+			Enum.Material.Neon,
+			0.04
+		)
 	elseif style == 3 then
-		makePart(model, "UniqueSideGemL", Enum.PartType.Ball, Vector3.new(0.34, 0.34, 0.34), cf * CFrame.new(-1.2, 0.12, 0), accent, Enum.Material.Neon, 0.04)
-		makePart(model, "UniqueSideGemR", Enum.PartType.Ball, Vector3.new(0.34, 0.34, 0.34), cf * CFrame.new(1.2, 0.12, 0), accent, Enum.Material.Neon, 0.04)
+		makePart(
+			model,
+			"UniqueSideGemL",
+			Enum.PartType.Ball,
+			Vector3.new(0.34, 0.34, 0.34),
+			cf * CFrame.new(-1.2, 0.12, 0),
+			accent,
+			Enum.Material.Neon,
+			0.04
+		)
+		makePart(
+			model,
+			"UniqueSideGemR",
+			Enum.PartType.Ball,
+			Vector3.new(0.34, 0.34, 0.34),
+			cf * CFrame.new(1.2, 0.12, 0),
+			accent,
+			Enum.Material.Neon,
+			0.04
+		)
 	elseif style == 4 then
-		makePart(model, "UniqueSlashA", Enum.PartType.Block, Vector3.new(0.08, 1.8, 0.08), cf * CFrame.new(-0.35, 0, -0.9) * CFrame.Angles(0, 0, math.rad(-24)), accent, Enum.Material.Neon, 0.1)
-		makePart(model, "UniqueSlashB", Enum.PartType.Block, Vector3.new(0.08, 1.3, 0.08), cf * CFrame.new(0.42, 0, -0.9) * CFrame.Angles(0, 0, math.rad(-24)), accent, Enum.Material.Neon, 0.1)
+		makePart(
+			model,
+			"UniqueSlashA",
+			Enum.PartType.Block,
+			Vector3.new(0.08, 1.8, 0.08),
+			cf * CFrame.new(-0.35, 0, -0.9) * CFrame.Angles(0, 0, math.rad(-24)),
+			accent,
+			Enum.Material.Neon,
+			0.1
+		)
+		makePart(
+			model,
+			"UniqueSlashB",
+			Enum.PartType.Block,
+			Vector3.new(0.08, 1.3, 0.08),
+			cf * CFrame.new(0.42, 0, -0.9) * CFrame.Angles(0, 0, math.rad(-24)),
+			accent,
+			Enum.Material.Neon,
+			0.1
+		)
 	elseif style == 5 then
-		makePart(model, "UniqueBottomGlow", Enum.PartType.Cylinder, Vector3.new(0.045, 2.35, 2.35), cf * CFrame.new(0, -0.95, 0) * CFrame.Angles(0, 0, math.rad(90)), accent, Enum.Material.Neon, 0.3)
+		makePart(
+			model,
+			"UniqueBottomGlow",
+			Enum.PartType.Cylinder,
+			Vector3.new(0.045, 2.35, 2.35),
+			cf * CFrame.new(0, -0.95, 0) * CFrame.Angles(0, 0, math.rad(90)),
+			accent,
+			Enum.Material.Neon,
+			0.3
+		)
 	else
-		makePart(model, "UniqueSparkA", Enum.PartType.Ball, Vector3.new(0.22, 0.22, 0.22), cf * CFrame.new(-0.72, 0.72, 0.82), Color3.fromRGB(255, 255, 255), Enum.Material.Neon, 0.04)
-		makePart(model, "UniqueSparkB", Enum.PartType.Ball, Vector3.new(0.18, 0.18, 0.18), cf * CFrame.new(0.82, -0.2, 0.88), accent, Enum.Material.Neon, 0.04)
+		makePart(
+			model,
+			"UniqueSparkA",
+			Enum.PartType.Ball,
+			Vector3.new(0.22, 0.22, 0.22),
+			cf * CFrame.new(-0.72, 0.72, 0.82),
+			Color3.fromRGB(255, 255, 255),
+			Enum.Material.Neon,
+			0.04
+		)
+		makePart(
+			model,
+			"UniqueSparkB",
+			Enum.PartType.Ball,
+			Vector3.new(0.18, 0.18, 0.18),
+			cf * CFrame.new(0.82, -0.2, 0.88),
+			accent,
+			Enum.Material.Neon,
+			0.04
+		)
 	end
 end
 
@@ -183,18 +282,37 @@ local function addCorruptedPolish(model, primary)
 			"FloatingGlitchPixel" .. i,
 			Enum.PartType.Block,
 			Vector3.new(0.12 + i * 0.008, 0.35 + (i % 2) * 0.18, 0.08),
-			cf * CFrame.new(math.cos(angle) * radius, -0.55 + i * 0.18, math.sin(angle) * radius) * CFrame.Angles(math.rad(i * 17), math.rad(i * 31), math.rad(i * 11)),
+			cf
+				* CFrame.new(math.cos(angle) * radius, -0.55 + i * 0.18, math.sin(angle) * radius)
+				* CFrame.Angles(math.rad(i * 17), math.rad(i * 31), math.rad(i * 11)),
 			color,
 			Enum.Material.Neon,
 			0.03
 		)
 	end
 
-	makePart(model, "PolishOffsetErrorRing", Enum.PartType.Cylinder, Vector3.new(0.05, 2.55, 2.55), cf * CFrame.Angles(math.rad(-18), math.rad(40), math.rad(90)), GLITCH_COLORS[2], Enum.Material.Neon, 0.24)
+	makePart(
+		model,
+		"PolishOffsetErrorRing",
+		Enum.PartType.Cylinder,
+		Vector3.new(0.05, 2.55, 2.55),
+		cf * CFrame.Angles(math.rad(-18), math.rad(40), math.rad(90)),
+		GLITCH_COLORS[2],
+		Enum.Material.Neon,
+		0.24
+	)
 end
 
 local function addLightPolish(primary)
-	makeEmitter(primary, "SoftSparklePolish", Color3.fromRGB(255, 255, 210), Color3.fromRGB(255, 230, 105), 14, 0.7, 2.8)
+	makeEmitter(
+		primary,
+		"SoftSparklePolish",
+		Color3.fromRGB(255, 255, 210),
+		Color3.fromRGB(255, 230, 105),
+		14,
+		0.7,
+		2.8
+	)
 end
 
 local function addDarkPolish(primary)
@@ -217,11 +335,28 @@ local function polishModel(model)
 	local mutationType = tostring(model:GetAttribute("MutationType") or "")
 	local lower = string.lower(mutationId .. " " .. mutationType .. " " .. model.Name)
 
-	if string.find(lower, "glitch") or string.find(lower, "corrupt") or string.find(lower, "error") or string.find(lower, "virus") or string.find(lower, "rift") or string.find(lower, "anomaly") then
+	if
+		string.find(lower, "glitch")
+		or string.find(lower, "corrupt")
+		or string.find(lower, "error")
+		or string.find(lower, "virus")
+		or string.find(lower, "rift")
+		or string.find(lower, "anomaly")
+	then
 		addCorruptedPolish(model, primary)
-	elseif string.find(lower, "glimmer") or string.find(lower, "light") or string.find(lower, "angel") or string.find(lower, "prism") then
+	elseif
+		string.find(lower, "glimmer")
+		or string.find(lower, "light")
+		or string.find(lower, "angel")
+		or string.find(lower, "prism")
+	then
 		addLightPolish(primary)
-	elseif string.find(lower, "shadow") or string.find(lower, "dark") or string.find(lower, "void") or string.find(lower, "abyss") then
+	elseif
+		string.find(lower, "shadow")
+		or string.find(lower, "dark")
+		or string.find(lower, "void")
+		or string.find(lower, "abyss")
+	then
 		addDarkPolish(primary)
 	end
 
@@ -231,7 +366,11 @@ end
 function StudioMutationVisualPass.Apply()
 	local source = Workspace:FindFirstChild(SOURCE_NAME)
 	if not source then
-		warn("StudioMutationVisualPass: Workspace." .. SOURCE_NAME .. " was not found. Run StudioPetAppearanceBuilder.Build() first.")
+		warn(
+			"StudioMutationVisualPass: Workspace."
+				.. SOURCE_NAME
+				.. " was not found. Run StudioPetAppearanceBuilder.Build() first."
+		)
 		return 0
 	end
 
@@ -244,7 +383,11 @@ function StudioMutationVisualPass.Apply()
 		end
 	end
 
-	print("StudioMutationVisualPass: polished " .. tostring(count) .. " Studio color models with unique accents and mutation particles.")
+	print(
+		"StudioMutationVisualPass: polished "
+			.. tostring(count)
+			.. " Studio color models with unique accents and mutation particles."
+	)
 	return count
 end
 

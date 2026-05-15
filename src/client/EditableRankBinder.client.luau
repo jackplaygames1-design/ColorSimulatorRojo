@@ -1,6 +1,8 @@
 -- Binds the Studio-authored RankWindow bones. This script never creates UI.
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -64,6 +66,70 @@ local ui = {
 	PerkLuck = findDescendant(content, "PerkLuck", "TextLabel", ROOT_PATH .. ".Content.PerkLuck"),
 	PerkSlots = findDescendant(content, "PerkSlots", "TextLabel", ROOT_PATH .. ".Content.PerkSlots"),
 }
+
+local originalLayouts = {}
+
+local function getViewportSize()
+	local camera = Workspace.CurrentCamera
+	return camera and camera.ViewportSize or Vector2.new(1280, 720)
+end
+
+local function isMobileLayout()
+	local viewport = getViewportSize()
+	return UserInputService.TouchEnabled
+		and not UserInputService.KeyboardEnabled
+		and math.min(viewport.X, viewport.Y) <= 900
+end
+
+local function captureOriginalLayout(object)
+	if not object or originalLayouts[object] then
+		return
+	end
+	originalLayouts[object] = {
+		Position = object.Position,
+		Size = object.Size,
+		TextSize = object:IsA("TextLabel") and object.TextSize or nil,
+		TextScaled = object:IsA("TextLabel") and object.TextScaled or nil,
+	}
+end
+
+local function restoreOriginalLayout(object)
+	local original = object and originalLayouts[object]
+	if not original then
+		return
+	end
+	object.Position = original.Position
+	object.Size = original.Size
+	if object:IsA("TextLabel") then
+		object.TextScaled = original.TextScaled
+		object.TextSize = original.TextSize
+	end
+end
+
+local function applyMobileRankLayout()
+	for _, object in ipairs({ ui.PerkCoins, ui.PerkLuck, ui.PerkSlots }) do
+		captureOriginalLayout(object)
+	end
+
+	if not isMobileLayout() then
+		for _, object in ipairs({ ui.PerkCoins, ui.PerkLuck, ui.PerkSlots }) do
+			restoreOriginalLayout(object)
+		end
+		return
+	end
+
+	local perkWidth = 0.31
+	local yOffset = -72
+	for index, object in ipairs({ ui.PerkCoins, ui.PerkLuck, ui.PerkSlots }) do
+		if object then
+			object.Size = UDim2.new(perkWidth, -8, 0, 54)
+			object.Position = UDim2.new(0.025 + (index - 1) * 0.325, 0, 1, yOffset)
+			if object:IsA("TextLabel") then
+				object.TextScaled = true
+			end
+		end
+	end
+end
 
 local function setText(object, value)
 	if object and (object:IsA("TextLabel") or object:IsA("TextButton")) then
@@ -133,6 +199,7 @@ local function setProgressFill(progress, replayFromStart)
 end
 
 local function update(replayProgress)
+	applyMobileRankLayout()
 	local rankName = findValue({ "RankName", "Rank", "CurrentRank" }) or "RANK I"
 	local rankLevel = tonumber(findValue({ "RankLevel", "Level" })) or 1
 	local xp = tonumber(findValue({ "RankXP", "XP", "Experience" })) or 0
@@ -225,6 +292,18 @@ end
 
 rankWindow:GetPropertyChangedSignal("Visible"):Connect(function()
 	update(rankWindow.Visible)
+end)
+rankWindow:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyMobileRankLayout)
+local camera = Workspace.CurrentCamera
+if camera then
+	camera:GetPropertyChangedSignal("ViewportSize"):Connect(applyMobileRankLayout)
+end
+Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+	local currentCamera = Workspace.CurrentCamera
+	if currentCamera then
+		currentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(applyMobileRankLayout)
+	end
+	applyMobileRankLayout()
 end)
 
 connectLeaderstats()

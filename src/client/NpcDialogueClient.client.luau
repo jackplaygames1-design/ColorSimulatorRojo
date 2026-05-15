@@ -23,6 +23,8 @@ local RED = Color3.fromRGB(236, 72, 92)
 
 local TYPE_INTERVAL = 0.021
 local CAMERA_TWEEN_TIME = 0.32
+local DIALOGUE_UI_TIMEOUT = 1.25
+local DIALOGUE_RANGE_PADDING = 18
 
 local mainHud = playerGui:WaitForChild("MainHUD", 30)
 if not mainHud then
@@ -210,6 +212,7 @@ local typing = false
 local fullLine = ""
 local savedCamera = nil
 local cameraTween = nil
+local cameraLockToken = 0
 local optionsVisible = false
 local activeAdornee = nil
 local hiddenNpcBillboards = {}
@@ -570,6 +573,7 @@ local function saveAndFocusCamera(adornee)
 	local cameraPos = rootPos + away.Unit * 8 + Vector3.new(0, 4.5, 0)
 
 	camera.CameraType = Enum.CameraType.Scriptable
+	cameraLockToken += 1
 	cameraTween =
 		TweenService:Create(camera, TweenInfo.new(CAMERA_TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			CFrame = CFrame.lookAt(cameraPos, between),
@@ -580,14 +584,28 @@ end
 
 local function restoreCamera()
 	local camera = getCamera()
-	if not camera or not savedCamera then
+	if not camera then
 		return
 	end
 	if cameraTween then
 		cameraTween:Cancel()
+		cameraTween = nil
 	end
+	cameraLockToken += 1
 	local restore = savedCamera
 	savedCamera = nil
+	if not restore then
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		camera.CameraType = Enum.CameraType.Custom
+		if humanoid then
+			camera.CameraSubject = humanoid
+		end
+		return
+	end
+	camera.CameraType = restore.CameraType
+	camera.CameraSubject = restore.CameraSubject
+	camera.FieldOfView = restore.FieldOfView
 	cameraTween = TweenService:Create(camera, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		CFrame = restore.CFrame,
 		FieldOfView = restore.FieldOfView,
@@ -598,10 +616,8 @@ local function restoreCamera()
 		if restoreConnection then
 			restoreConnection:Disconnect()
 		end
-		if not savedCamera then
-			camera.CameraType = restore.CameraType
-			camera.CameraSubject = restore.CameraSubject
-		end
+		camera.CameraType = restore.CameraType
+		camera.CameraSubject = restore.CameraSubject
 	end)
 end
 
@@ -745,6 +761,7 @@ end
 
 function closeDialogue(keepNpcChromeHidden)
 	dialogueToken += 1
+	cameraLockToken += 1
 	typing = false
 	clearOptions()
 	bodyText.Text = ""
@@ -757,6 +774,26 @@ function closeDialogue(keepNpcChromeHidden)
 		if activePrompt and activePrompt.Parent and not promptWasTracked then
 			activePrompt.Enabled = true
 		end
+	end
+	activePrompt = nil
+	activeAdornee = nil
+	activeNpc = nil
+	activeNodeId = nil
+	activeContext = {}
+end
+
+local function forceCleanupDialogue()
+	dialogueToken += 1
+	cameraLockToken += 1
+	typing = false
+	clearOptions()
+	bodyText.Text = ""
+	dialogueRoot.Visible = false
+	unlockPlayerMovement()
+	restoreCamera()
+	restoreNpcChrome()
+	if activePrompt and activePrompt.Parent then
+		activePrompt.Enabled = true
 	end
 	activePrompt = nil
 	activeAdornee = nil
@@ -812,11 +849,45 @@ local function openDialogue(prompt)
 	updateDialoguePosition()
 	saveAndFocusCamera(adornee)
 	showNode(getStartNode(npc, activeContext))
+
+	local startToken = cameraLockToken
+	task.delay(DIALOGUE_UI_TIMEOUT, function()
+		if
+			startToken == cameraLockToken
+			and savedCamera
+			and (not dialogueRoot.Visible or not activeNpc or bodyText.Text == "")
+		then
+			warn("NpcDialogueClient: dialogue UI failed after camera lock; restoring camera.")
+			forceCleanupDialogue()
+		end
+	end)
 end
 
 bodyButton.Activated:Connect(advance)
 
-RunService.RenderStepped:Connect(updateDialoguePosition)
+RunService.RenderStepped:Connect(function()
+	updateDialoguePosition()
+	if not savedCamera and not dialogueRoot.Visible then
+		return
+	end
+	if player:GetAttribute("IsTeleporting") == true then
+		forceCleanupDialogue()
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not root or not humanoid or humanoid.Health <= 0 then
+		forceCleanupDialogue()
+		return
+	end
+	if activeAdornee then
+		local maxDistance = activePrompt and activePrompt.MaxActivationDistance or 14
+		if (root.Position - activeAdornee.Position).Magnitude > maxDistance + DIALOGUE_RANGE_PADDING then
+			forceCleanupDialogue()
+		end
+	end
+end)
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if not dialogueRoot.Visible then
@@ -847,10 +918,16 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt, triggeringPlayer
 end)
 
 player.CharacterRemoving:Connect(function()
-	if dialogueRoot.Visible then
-		closeDialogue()
-	else
-		restoreNpcChrome()
+	forceCleanupDialogue()
+end)
+
+player.CharacterAdded:Connect(function()
+	task.defer(forceCleanupDialogue)
+end)
+
+player:GetAttributeChangedSignal("IsTeleporting"):Connect(function()
+	if player:GetAttribute("IsTeleporting") == true then
+		forceCleanupDialogue()
 	end
 end)
 

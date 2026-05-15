@@ -29,6 +29,7 @@ local currentTab = "Colors"
 local inventoryData = { Colors = {}, Brushes = {}, Potions = {}, Items = {}, Count = 0, Capacity = 75 }
 local selectedItem = nil
 local loading = false
+local cardCapacityWarned = false
 local PET_APPEARANCE_SOURCE_NAME = "PetAppearanceStudio"
 local CONTENT_MARGIN = 22
 local PANEL_PADDING = 14
@@ -42,6 +43,10 @@ local TRADE_PICK_ACTIVE_ATTRIBUTE = "TradePickColorActive"
 local TRADE_PICK_RETURN_ATTRIBUTE = "TradePickReturnWindow"
 local TRADE_PICK_REFRESH_ATTRIBUTE = "TradePickRefreshToken"
 local RUNTIME_LAYOUT_ATTRIBUTE = "AllowRuntimeInventoryLayout"
+local TAB_SELECTED_COLOR = Color3.fromRGB(28, 134, 255)
+local TAB_INACTIVE_COLOR = Color3.fromRGB(255, 255, 255)
+local TAB_SELECTED_TEXT_COLOR = Color3.fromRGB(255, 255, 255)
+local TAB_INACTIVE_TEXT_COLOR = Color3.fromRGB(37, 36, 52)
 
 local mainHud = playerGui:WaitForChild("MainHUD", 30)
 local modalWindows = mainHud and mainHud:WaitForChild("ModalWindows", 30)
@@ -187,6 +192,45 @@ local function setButtonVisible(button, visible)
 	if button and button:IsA("GuiObject") then
 		button.Visible = visible == true
 	end
+end
+
+local function styleInventoryTab(tab, selected)
+	if not tab or not tab:IsA("GuiObject") then
+		return
+	end
+
+	tab:SetAttribute("InventoryTabActive", selected == true)
+	tab.BackgroundColor3 = selected and TAB_SELECTED_COLOR or TAB_INACTIVE_COLOR
+	if tab:IsA("GuiButton") then
+		tab.AutoButtonColor = selected ~= true
+	end
+
+	local function styleTextObject(textObject)
+		textObject.TextColor3 = selected and TAB_SELECTED_TEXT_COLOR or TAB_INACTIVE_TEXT_COLOR
+		textObject.TextStrokeTransparency = selected and 0 or 0.55
+	end
+
+	if tab:IsA("TextButton") or tab:IsA("TextLabel") or tab:IsA("TextBox") then
+		styleTextObject(tab)
+	end
+	for _, descendant in ipairs(tab:GetDescendants()) do
+		if descendant:IsA("TextLabel") or descendant:IsA("TextButton") or descendant:IsA("TextBox") then
+			styleTextObject(descendant)
+		end
+	end
+end
+
+local function updateTabHighlights()
+	for _, tabName in ipairs(TAB_NAMES) do
+		styleInventoryTab(ui.tabs and ui.tabs:FindFirstChild(tabName .. "Tab", true), tabName == currentTab)
+	end
+end
+
+local function getEmptyInventoryMessage()
+	if currentTab == "Potions" then
+		return "No boosts left."
+	end
+	return "No " .. string.lower(currentTab) .. " yet."
 end
 
 local function getPaintToolState()
@@ -1138,10 +1182,12 @@ local function makeCard(item, index)
 	local displayedEquipped = isDisplayedEquipped(item)
 	card:SetAttribute("InventoryItemEquipped", displayedEquipped)
 	card:SetAttribute("InventoryItemLocked", item.Locked == true)
+	local amount = math.max(1, math.floor(tonumber(item.Amount) or 1))
+	local stackText = amount > 1 and (" x" .. tostring(amount)) or ""
 	setText(
 		meta,
-		displayedEquipped and "EQUIPPED"
-			or (item.Amount and ("x" .. tostring(item.Amount)) or tostring(item.Rarity or ""))
+		displayedEquipped and ("EQUIPPED" .. stackText)
+			or (amount > 1 and ("x" .. amount) or tostring(item.Rarity or ""))
 	)
 
 	applyCardStroke(card, item)
@@ -1271,18 +1317,25 @@ local function renderInventory()
 		ui.cardTemplate.Visible = false
 	end
 
-	for _, tabName in ipairs(TAB_NAMES) do
-		local tab = ui.tabs and ui.tabs:FindFirstChild(tabName .. "Tab", true)
-		if tab and tab:IsA("GuiButton") then
-			tab:SetAttribute("InventoryTabActive", tabName == currentTab)
-		end
-	end
+	updateTabHighlights()
 
 	local items = getTabItems()
 	ensureItemCards(#items)
+	if #items > #(ui.itemCards or {}) and not cardCapacityWarned then
+		cardCapacityWarned = true
+		warn(
+			"EditableInventoryBinder: inventory has "
+				.. tostring(#items)
+				.. " "
+				.. tostring(currentTab)
+				.. " item(s), but only "
+				.. tostring(#(ui.itemCards or {}))
+				.. " card(s) could be created. Check GridPanel and ItemCardTemplate."
+		)
+	end
 	if ui.emptyText then
 		ui.emptyText.Visible = #items == 0
-		ui.emptyText.Text = "No " .. string.lower(currentTab) .. " yet."
+		ui.emptyText.Text = getEmptyInventoryMessage()
 	end
 	if ui.capacityText then
 		ui.capacityText.Text = "Colors: "
@@ -1455,6 +1508,7 @@ local function wireControls()
 			tab.Activated:Connect(function()
 				currentTab = tabName
 				selectedItem = nil
+				updateTabHighlights()
 				renderInventory()
 			end)
 		end

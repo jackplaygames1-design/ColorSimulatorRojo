@@ -1,14 +1,14 @@
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
 local ServerStorage = game:GetService("ServerStorage")
+local TweenService = game:GetService("TweenService")
 
-local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
-local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
-local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local BuffService = require(script.Parent:WaitForChild("BuffService"))
+local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local ColorEffectHandler = require(script.Parent:WaitForChild("ColorEffectHandler"))
+local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
+local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
 
 local FEATURE_ENABLED = not (GameBalance.FeatureFlags and GameBalance.FeatureFlags.GemDepositsEnabled == false)
 local DEPOSIT_CONFIG = GameBalance.WildGameplay and GameBalance.WildGameplay.GemDeposits or {}
@@ -75,7 +75,9 @@ local function reportDailyQuestProgress(player, questId, amount)
 end
 
 local function inferColorFromMapPart(part)
-	local attrColor = part:GetAttribute("ColorType") or part:GetAttribute("WorldColor") or part:GetAttribute("AreaColor")
+	local attrColor = part:GetAttribute("ColorType")
+		or part:GetAttribute("WorldColor")
+		or part:GetAttribute("AreaColor")
 	local partName = string.lower(part.Name or "")
 	local parentName = part.Parent and string.lower(part.Parent.Name or "") or ""
 	local looksLikeFloor = string.find(partName, "floor")
@@ -97,7 +99,11 @@ local function inferColorFromMapPart(part)
 		or partName == "glowshell"
 		or partName == "highlight"
 		or string.find(partName, "floatcore", 1, true)
-	if ColorData.getWorldByColor(attrColor) and not blockedName and (part:GetAttribute("PlayableSectorFloor") == true or looksLikeFloor or largeFlatSurface) then
+	if
+		ColorData.getWorldByColor(attrColor)
+		and not blockedName
+		and (part:GetAttribute("PlayableSectorFloor") == true or looksLikeFloor or largeFlatSurface)
+	then
 		return attrColor
 	end
 
@@ -115,7 +121,8 @@ end
 local function configureColorZonePart(part)
 	local partName = string.lower(part.Name or "")
 	local parentName = part.Parent and string.lower(part.Parent.Name or "") or ""
-	if part:GetAttribute("BreakableType")
+	if
+		part:GetAttribute("BreakableType")
 		or part:GetAttribute("PaintPuddleVersion")
 		or part:GetAttribute("GemDeposit")
 		or part:GetAttribute("WildColor")
@@ -141,10 +148,14 @@ local function configureColorZonePart(part)
 	end
 
 	local playableSectorFloor = part:GetAttribute("PlayableSectorFloor") == true
-	if not playableSectorFloor and (part:GetAttribute("DistantSectorColumn")
-		or part:GetAttribute("SectorAnchor")
-		or part:GetAttribute("DecorativeOnly")
-		or part:FindFirstAncestor("DistantSectors") ~= nil)
+	if
+		not playableSectorFloor
+		and (
+			part:GetAttribute("DistantSectorColumn")
+			or part:GetAttribute("SectorAnchor")
+			or part:GetAttribute("DecorativeOnly")
+			or part:FindFirstAncestor("DistantSectors") ~= nil
+		)
 	then
 		if part:GetAttribute("ColorZone") == true then
 			part:SetAttribute("ColorZone", false)
@@ -182,9 +193,7 @@ end
 local function isPointInside(part, worldPosition, margin)
 	local localPoint = part.CFrame:PointToObjectSpace(worldPosition)
 	local half = part.Size * 0.5 + Vector3.new(margin or 0, margin or 0, margin or 0)
-	return math.abs(localPoint.X) <= half.X
-		and math.abs(localPoint.Y) <= half.Y
-		and math.abs(localPoint.Z) <= half.Z
+	return math.abs(localPoint.X) <= half.X and math.abs(localPoint.Y) <= half.Y and math.abs(localPoint.Z) <= half.Z
 end
 
 local function isPlayerInsideColorZone(player, colorType)
@@ -196,7 +205,11 @@ local function isPlayerInsideColorZone(player, colorType)
 	for _, obj in ipairs(workspace:GetDescendants()) do
 		if obj:IsA("BasePart") then
 			local zoneColor = configureColorZonePart(obj)
-			if zoneColor == colorType and obj:GetAttribute("ColorZone") == true and isPointInside(obj, root.Position, 12) then
+			if
+				zoneColor == colorType
+				and obj:GetAttribute("ColorZone") == true
+				and isPointInside(obj, root.Position, 12)
+			then
 				return true
 			end
 		end
@@ -279,7 +292,8 @@ local function isBadSpawnNeighbor(part, zone)
 	if part == zone or part:GetAttribute("PlayableSectorFloor") == true or part:GetAttribute("ColorZone") == true then
 		return false
 	end
-	if part:GetAttribute("SellZone")
+	if
+		part:GetAttribute("SellZone")
 		or part:GetAttribute("SellLocation")
 		or part:GetAttribute("BrushShop")
 		or part:GetAttribute("CombinedShop")
@@ -428,9 +442,10 @@ local function makeDeposit(world, position)
 
 	model.Parent = depositsFolder
 
-	local tween = TweenService:Create(core, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-		CFrame = core.CFrame * CFrame.new(0, 0.35, 0),
-	})
+	local tween =
+		TweenService:Create(core, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+			CFrame = core.CFrame * CFrame.new(0, 0.35, 0),
+		})
 	tween:Play()
 
 	return model
@@ -506,7 +521,8 @@ local function breakDeposit(player, model)
 	local reward = math.random(5, 10)
 	reward = math.floor(reward * BuffService.GetMultiplier(player, "GemRewardMultiplier"))
 	if player then
-		reward = math.floor(reward * (ColorEffectHandler.CalculateEquippedColorEffects(player).GemRewardMultiplier or 1))
+		reward =
+			math.floor(reward * (ColorEffectHandler.CalculateEquippedColorEffects(player).GemRewardMultiplier or 1))
 		local upgrades = player:FindFirstChild("Upgrades")
 		local gemMultiplier = upgrades and upgrades:FindFirstChild("GemMultiplier")
 		if gemMultiplier then
@@ -581,7 +597,10 @@ local function damageDeposit(player, core, amount, shouldMarkPriority)
 	end
 	model:SetAttribute("Health", health)
 	syncHealthAttributes(model)
-	core.Color = Color3.fromRGB(50, 255, 90):Lerp(Color3.fromRGB(255, 255, 255), math.clamp(1 - health / math.max(1, tonumber(model:GetAttribute("MaxHealth")) or 1), 0, 0.35))
+	core.Color = Color3.fromRGB(50, 255, 90):Lerp(
+		Color3.fromRGB(255, 255, 255),
+		math.clamp(1 - health / math.max(1, tonumber(model:GetAttribute("MaxHealth")) or 1), 0, 0.35)
+	)
 	if health <= 0 then
 		breakDeposit(player, model)
 	end
@@ -621,7 +640,12 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode)
 		if hits >= 4 then
 			break
 		end
-		if typeof(part) == "Instance" and part:IsA("BasePart") and part:GetAttribute("GemDeposit") and not seen[part] then
+		if
+			typeof(part) == "Instance"
+			and part:IsA("BasePart")
+			and part:GetAttribute("GemDeposit")
+			and not seen[part]
+		then
 			seen[part] = true
 			if damageDeposit(player, part, damage, true) then
 				hits += 1
@@ -656,7 +680,8 @@ local function findPriorityDeposit(player)
 	for _, list in pairs(activeByColor) do
 		for _, model in ipairs(list) do
 			local core = model and model.PrimaryPart
-			if core
+			if
+				core
 				and model.Parent
 				and model:GetAttribute("Broken") ~= true
 				and model:GetAttribute("PetPriorityOwnerUserId") == player.UserId
@@ -682,7 +707,10 @@ local function passiveDamageTick()
 		end
 
 		local effects = ColorEffectHandler.CalculateEquippedColorEffects(player)
-		local damage = math.min(PASSIVE_DAMAGE_CAP * (effects.GemDamageMultiplier or 1), count * PASSIVE_DAMAGE_PER_COLOR * (effects.GemDamageMultiplier or 1))
+		local damage = math.min(
+			PASSIVE_DAMAGE_CAP * (effects.GemDamageMultiplier or 1),
+			count * PASSIVE_DAMAGE_PER_COLOR * (effects.GemDamageMultiplier or 1)
+		)
 		local priority = findPriorityDeposit(player)
 		local priorityCore = priority and priority.PrimaryPart
 		if priorityCore and (root.Position - priorityCore.Position).Magnitude <= PASSIVE_RANGE then
@@ -693,7 +721,8 @@ local function passiveDamageTick()
 		for _, list in pairs(activeByColor) do
 			for _, model in ipairs(list) do
 				local core = model and model.PrimaryPart
-				if core
+				if
+					core
 					and model.Parent
 					and model:GetAttribute("Broken") ~= true
 					and (root.Position - core.Position).Magnitude <= PASSIVE_RANGE

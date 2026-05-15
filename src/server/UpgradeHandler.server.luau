@@ -4,8 +4,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UpgradeData = require(ReplicatedStorage:WaitForChild("UpgradeData"))
 
-local Events         = ReplicatedStorage:WaitForChild("Events")
-local purchaseEvent  = Events:WaitForChild("PurchaseUpgrade")
+local Events = ReplicatedStorage:WaitForChild("Events")
+local purchaseEvent = Events:WaitForChild("PurchaseUpgrade")
 local LEGACY_PURCHASE_HANDLER_ENABLED = false
 
 -- Store upgrade levels per player
@@ -53,7 +53,9 @@ end
 -- ========================
 local function applyUpgrades(player)
 	local upgrades = playerUpgrades[player]
-	if not upgrades then return end
+	if not upgrades then
+		return
+	end
 
 	local char = player.Character
 
@@ -73,7 +75,7 @@ local function applyUpgrades(player)
 		local slotVal = petFolder:FindFirstChild("MaxSlots")
 		if not slotVal then
 			slotVal = Instance.new("IntValue")
-			slotVal.Name   = "MaxSlots"
+			slotVal.Name = "MaxSlots"
 			slotVal.Parent = petFolder
 		end
 		slotVal.Value = getUpgradeValue("PetSlots", petSlotsLevel, 3)
@@ -84,7 +86,7 @@ local function applyUpgrades(player)
 	local upgradeFolder = player:FindFirstChild("Upgrades")
 	if not upgradeFolder then
 		upgradeFolder = Instance.new("Folder")
-		upgradeFolder.Name   = "Upgrades"
+		upgradeFolder.Name = "Upgrades"
 		upgradeFolder.Parent = player
 	end
 
@@ -92,18 +94,18 @@ local function applyUpgrades(player)
 		local existing = upgradeFolder:FindFirstChild(id)
 		if not existing then
 			existing = Instance.new("NumberValue")
-			existing.Name   = id
+			existing.Name = id
 			existing.Parent = upgradeFolder
 		end
 		local level = upgrades[id] or 0
 		existing.Value = getUpgradeValue(id, level, default)
 	end
 
-	setUpgradeValue("PickupRange",      8)
-	setUpgradeValue("ColorMultiplier",  1.0)
-	setUpgradeValue("HatchSpeed",       1.0)
-	setUpgradeValue("WalkSpeed",        44)
-	setUpgradeValue("PetSlots",         3)
+	setUpgradeValue("PickupRange", 8)
+	setUpgradeValue("ColorMultiplier", 1.0)
+	setUpgradeValue("HatchSpeed", 1.0)
+	setUpgradeValue("WalkSpeed", 44)
+	setUpgradeValue("PetSlots", 3)
 end
 
 -- ========================
@@ -134,12 +136,14 @@ end
 -- ========================
 local function saveUpgrades(player)
 	local upgrades = playerUpgrades[player]
-	if not upgrades then return end
+	if not upgrades then
+		return
+	end
 
 	local upgradeFolder = player:FindFirstChild("Upgrades")
 	if not upgradeFolder then
 		upgradeFolder = Instance.new("Folder")
-		upgradeFolder.Name   = "Upgrades"
+		upgradeFolder.Name = "Upgrades"
 		upgradeFolder.Parent = player
 	end
 
@@ -147,7 +151,7 @@ local function saveUpgrades(player)
 		local existing = upgradeFolder:FindFirstChild(id .. "_Level")
 		if not existing then
 			existing = Instance.new("IntValue")
-			existing.Name   = id .. "_Level"
+			existing.Name = id .. "_Level"
 			existing.Parent = upgradeFolder
 		end
 		existing.Value = level
@@ -180,7 +184,7 @@ local function handlePurchase(player, upgradeId, ...)
 	end
 
 	local currentLevel = upgrades[upgradeId] or 0
-	local maxLevel     = #upg.levels
+	local maxLevel = #upg.levels
 
 	if currentLevel >= maxLevel then
 		respond(player, false, upgradeId, "Already max level!")
@@ -189,7 +193,7 @@ local function handlePurchase(player, upgradeId, ...)
 	end
 
 	local nextLevel = currentLevel + 1
-	local cost      = upg.levels[nextLevel].cost
+	local cost = upg.levels[nextLevel].cost
 
 	local stats = player:FindFirstChild("leaderstats")
 	if not stats then
@@ -260,5 +264,5 @@ end
 return {
 	getPlayerUpgradeLevel = function(player, id)
 		return playerUpgrades[player] and playerUpgrades[player][id] or 0
-	end
+	end,
 }

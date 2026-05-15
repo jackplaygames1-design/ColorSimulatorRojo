@@ -6,13 +6,41 @@ local StudioMapCleaner = {}
 local MAP_NAME = "ColorSimulatorMap"
 
 local THEME = {
-	Red = { color = Color3.fromRGB(210, 82, 82), accent = Color3.fromRGB(150, 70, 70), material = Enum.Material.SmoothPlastic },
-	Blue = { color = Color3.fromRGB(72, 132, 210), accent = Color3.fromRGB(80, 125, 170), material = Enum.Material.Sand },
-	Yellow = { color = Color3.fromRGB(215, 190, 76), accent = Color3.fromRGB(155, 135, 70), material = Enum.Material.Sand },
-	Green = { color = Color3.fromRGB(82, 175, 95), accent = Color3.fromRGB(70, 125, 78), material = Enum.Material.Grass },
-	Purple = { color = Color3.fromRGB(132, 82, 185), accent = Color3.fromRGB(105, 70, 145), material = Enum.Material.Slate },
-	Neon = { color = Color3.fromRGB(46, 170, 150), accent = Color3.fromRGB(30, 115, 108), material = Enum.Material.SmoothPlastic },
-	Rainbow = { color = Color3.fromRGB(178, 190, 215), accent = Color3.fromRGB(135, 110, 165), material = Enum.Material.SmoothPlastic },
+	Red = {
+		color = Color3.fromRGB(210, 82, 82),
+		accent = Color3.fromRGB(150, 70, 70),
+		material = Enum.Material.SmoothPlastic,
+	},
+	Blue = {
+		color = Color3.fromRGB(72, 132, 210),
+		accent = Color3.fromRGB(80, 125, 170),
+		material = Enum.Material.Sand,
+	},
+	Yellow = {
+		color = Color3.fromRGB(215, 190, 76),
+		accent = Color3.fromRGB(155, 135, 70),
+		material = Enum.Material.Sand,
+	},
+	Green = {
+		color = Color3.fromRGB(82, 175, 95),
+		accent = Color3.fromRGB(70, 125, 78),
+		material = Enum.Material.Grass,
+	},
+	Purple = {
+		color = Color3.fromRGB(132, 82, 185),
+		accent = Color3.fromRGB(105, 70, 145),
+		material = Enum.Material.Slate,
+	},
+	Neon = {
+		color = Color3.fromRGB(46, 170, 150),
+		accent = Color3.fromRGB(30, 115, 108),
+		material = Enum.Material.SmoothPlastic,
+	},
+	Rainbow = {
+		color = Color3.fromRGB(178, 190, 215),
+		accent = Color3.fromRGB(135, 110, 165),
+		material = Enum.Material.SmoothPlastic,
+	},
 }
 
 local function toneBreakable(part)

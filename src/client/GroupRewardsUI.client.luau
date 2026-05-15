@@ -217,7 +217,7 @@ local function render(data)
 		luckLine.Text = "  +5% Luck"
 		coinsLine.Text = "  +5% Coins"
 		dailyLine.Text = "  100 Gems every day"
-		info.Text = "Search for \"Color Simulator!\" by Jacksocks on Roblox Communities, then reopen this panel."
+		info.Text = 'Search for "Color Simulator!" by Jacksocks on Roblox Communities, then reopen this panel.'
 		actionButton.Text = "JOIN GROUP"
 		actionButton.BackgroundColor3 = CYAN
 		actionButton.Active = true
@@ -244,7 +244,8 @@ actionButton.MouseButton1Click:Connect(function()
 			remote:FireServer("ClaimDaily")
 		end
 	else
-		info.Text = "Open Roblox Communities and join \"Color Simulator!\" by Jacksocks. Then press this again after joining."
+		info.Text =
+			'Open Roblox Communities and join "Color Simulator!" by Jacksocks. Then press this again after joining.'
 		remote:FireServer("Refresh")
 	end
 end)

@@ -1284,7 +1284,11 @@ local function tryUnlockWorld(player, world)
 	end
 
 	coins.Value -= world.unlockCost
+	local beforeUnlocked = unlockedValue.Value
 	appendUnlockedColor(unlockedValue, world.primaryColor)
+	if unlockedValue.Value ~= beforeUnlocked then
+		markDataDirty(player, "unlocked-colors")
+	end
 	setCurrentWorld(player, world.primaryColor, "current-world")
 	local teleportLocationId = world.primaryColor == "Orange" and "OrangeSector"
 		or world.primaryColor == "Green" and "GreenSector"

@@ -330,6 +330,152 @@ local function updatePromptTexts(gui, eggId)
 	setPromptText(openOption, "Label", "HATCH")
 end
 
+local function ensureTextSizeLimit(label, minSize, maxSize)
+	local sizeLimit = label:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	sizeLimit.MinTextSize = minSize
+	sizeLimit.MaxTextSize = maxSize
+	sizeLimit.Parent = label
+	return sizeLimit
+end
+
+local function configureHatchText(parent, name, value, position, size, textSize, color)
+	local label = findOrCreate(parent, "TextLabel", name)
+	label.Size = size
+	label.Position = position
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.LuckiestGuy
+	label.TextSize = textSize
+	label.TextScaled = true
+	label.TextColor3 = color or WHITE
+	label.TextStrokeTransparency = 0
+	label.TextStrokeColor3 = DARK
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.Text = value
+	label.ZIndex = math.max(label.ZIndex, 911)
+	ensureTextSizeLimit(label, 10, textSize)
+	return label
+end
+
+local function configureHatchAnimationUi(layer)
+	local overlay = findOrCreate(layer, "Frame", "HatchOverlay")
+	overlay.Size = UDim2.fromScale(1, 1)
+	overlay.Position = UDim2.fromScale(0, 0)
+	overlay.BackgroundColor3 = Color3.fromRGB(12, 16, 24)
+	overlay.BackgroundTransparency = 0.02
+	overlay.BorderSizePixel = 0
+	overlay.Visible = false
+	overlay.ZIndex = 850
+	overlay:SetAttribute("EditableHatchAnimation", true)
+	overlay:SetAttribute("UsesDefaultHatchLayout", true)
+
+	local hatchEgg = findOrCreate(overlay, "Frame", "HatchEgg")
+	hatchEgg.Size = UDim2.fromOffset(140, 180)
+	hatchEgg.AnchorPoint = Vector2.new(0.5, 0.5)
+	hatchEgg.Position = UDim2.fromScale(0.5, 0.46)
+	hatchEgg.BackgroundColor3 = Color3.fromRGB(255, 236, 220)
+	hatchEgg.BorderSizePixel = 0
+	hatchEgg.Visible = false
+	hatchEgg.ZIndex = 900
+	hatchEgg:SetAttribute("UsesDefaultHatchLayout", true)
+	applyCorner(hatchEgg, 999)
+	applyStroke(hatchEgg, WHITE, 5)
+
+	local viewport = findOrCreate(overlay, "ViewportFrame", "HatchViewport")
+	viewport.Size = UDim2.fromOffset(360, 300)
+	viewport.AnchorPoint = Vector2.new(0.5, 0.5)
+	viewport.Position = UDim2.fromScale(0.5, 0.45)
+	viewport.BackgroundTransparency = 1
+	viewport.Visible = false
+	viewport.ZIndex = 900
+	viewport:SetAttribute("UsesDefaultHatchLayout", true)
+
+	local world = findOrCreate(viewport, "WorldModel", "HatchWorld")
+	world.Parent = viewport
+	local camera = findOrCreate(viewport, "Camera", "HatchCamera")
+	camera.CFrame = CFrame.new(0, 1.2, 8) * CFrame.Angles(math.rad(-7), 0, 0)
+	camera.FieldOfView = 34
+	viewport.CurrentCamera = camera
+
+	local hatchText = configureHatchText(
+		overlay,
+		"HatchText",
+		"HATCHING...",
+		UDim2.fromScale(0.5, 0.65),
+		UDim2.fromOffset(420, 64),
+		34,
+		WHITE
+	)
+	hatchText.AnchorPoint = Vector2.new(0.5, 0.5)
+	hatchText.TextXAlignment = Enum.TextXAlignment.Center
+	hatchText.ZIndex = 905
+	hatchText:SetAttribute("UsesDefaultHatchLayout", true)
+
+	local stopAuto = findOrCreate(overlay, "TextButton", "StopAutoHatch")
+	stopAuto.AnchorPoint = Vector2.new(0.5, 0.5)
+	stopAuto.Size = UDim2.fromOffset(170, 44)
+	stopAuto.Position = UDim2.fromScale(0.5, 0.76)
+	stopAuto.BackgroundColor3 = Color3.fromRGB(255, 120, 145)
+	stopAuto.BorderSizePixel = 0
+	stopAuto.AutoButtonColor = false
+	stopAuto.Font = Enum.Font.LuckiestGuy
+	stopAuto.TextSize = 17
+	stopAuto.TextColor3 = WHITE
+	stopAuto.TextStrokeTransparency = 0
+	stopAuto.TextStrokeColor3 = DARK
+	stopAuto.Text = "STOP AUTO"
+	stopAuto.Visible = false
+	stopAuto.ZIndex = 920
+	stopAuto:SetAttribute("UsesDefaultHatchLayout", true)
+	applyCorner(stopAuto, 14)
+	applyStroke(stopAuto, DARK, 3)
+
+	local resultCard = findOrCreate(overlay, "Frame", "HatchResultCard")
+	resultCard.Size = UDim2.fromOffset(380, 160)
+	resultCard.AnchorPoint = Vector2.new(0.5, 0.5)
+	resultCard.Position = UDim2.fromScale(0.5, 0.82)
+	resultCard.BackgroundColor3 = Color3.fromRGB(255, 248, 252)
+	resultCard.BorderSizePixel = 0
+	resultCard.Visible = false
+	resultCard.ZIndex = 910
+	resultCard:SetAttribute("UsesDefaultHatchLayout", true)
+	applyCorner(resultCard, 18)
+	applyStroke(resultCard, WHITE, 3)
+
+	configureHatchText(
+		resultCard,
+		"ResultName",
+		"Color",
+		UDim2.fromOffset(14, 12),
+		UDim2.new(1, -28, 0, 38),
+		24,
+		Color3.fromRGB(80, 60, 130)
+	).Visible =
+		false
+	local resultRarity = configureHatchText(
+		resultCard,
+		"ResultRarity",
+		"Common",
+		UDim2.fromOffset(14, 48),
+		UDim2.new(1, -28, 0, 26),
+		16,
+		Color3.fromRGB(80, 60, 130)
+	)
+	resultRarity.Font = Enum.Font.GothamBold
+	resultRarity.TextWrapped = true
+	resultRarity.Visible = false
+	configureHatchText(
+		resultCard,
+		"ResultStats",
+		"0  FIST",
+		UDim2.fromOffset(14, 80),
+		UDim2.new(1, -28, 0, 32),
+		24,
+		Color3.fromRGB(235, 54, 54)
+	).Visible =
+		false
+end
+
 local function configureOption(parent, name, x, width, keyText, actionText, color)
 	local option = findOrCreate(parent, "Frame", name)
 	option.Position = UDim2.fromOffset(x, 113)
@@ -562,7 +708,8 @@ function Builder.BuildUI()
 
 	layer:SetAttribute("EditableEggHatchLayer", true)
 	layer:SetAttribute("ClientBoundBy", "EggShopUI.client.luau")
-	print("StudioEggPromptBuilder: ready editable StarterGui.MainHUD.EggShopUI layer.")
+	configureHatchAnimationUi(layer)
+	print("StudioEggPromptBuilder: ready editable StarterGui.MainHUD.EggShopUI hatch animation layer.")
 	return layer
 end
 

@@ -1,7 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 
 local PetDefinitions = {}
 
@@ -73,11 +73,12 @@ local function getEggWorldInfo()
 			local world = ColorData.getWorldByColor(areaColor)
 			local worldNumber = ColorData.getWorldIndex(areaColor) or (world and world.order) or 1
 			for _, entry in ipairs(egg.pets or {}) do
-				infoByPetId[entry.petId] = infoByPetId[entry.petId] or {
-					AreaColor = areaColor,
-					WorldNumber = worldNumber,
-					EggId = eggId,
-				}
+				infoByPetId[entry.petId] = infoByPetId[entry.petId]
+					or {
+						AreaColor = areaColor,
+						WorldNumber = worldNumber,
+						EggId = eggId,
+					}
 			end
 		end
 	end
@@ -90,7 +91,9 @@ local function buildDefinition(petId, pet, eggWorldInfo)
 	local theme = WORLD_THEMES[areaColor] or WORLD_THEMES.Red
 	local rarity = pet.rarity or "Common"
 	local petColor = pet.color or theme.IconColor
-	local isRainbow = areaColor == "Rainbow" or petId == "DevRainbowPet" or string.find(string.lower(petId), "rainbow", 1, true) ~= nil
+	local isRainbow = areaColor == "Rainbow"
+		or petId == "DevRainbowPet"
+		or string.find(string.lower(petId), "rainbow", 1, true) ~= nil
 
 	return {
 		Id = petId,
@@ -102,8 +105,13 @@ local function buildDefinition(petId, pet, eggWorldInfo)
 		ModelName = makeModelName(petId, pet),
 		IconColor = pet.IconColor or pet.iconColor or (isRainbow and Color3.fromRGB(255, 255, 255) or petColor),
 		CardColor = pet.CardColor or pet.cardColor or theme.CardColor or petColor:Lerp(Color3.new(1, 1, 1), 0.78),
-		AccentColor = pet.AccentColor or pet.accentColor or (isRainbow and Color3.fromRGB(255, 220, 80) or RARITY_ACCENTS[rarity] or theme.AccentColor or petColor),
-		UseRainbowGradient = pet.UseRainbowGradient == true or pet.useRainbowGradient == true or theme.UseRainbowGradient == true or isRainbow,
+		AccentColor = pet.AccentColor
+			or pet.accentColor
+			or (isRainbow and Color3.fromRGB(255, 220, 80) or RARITY_ACCENTS[rarity] or theme.AccentColor or petColor),
+		UseRainbowGradient = pet.UseRainbowGradient == true
+			or pet.useRainbowGradient == true
+			or theme.UseRainbowGradient == true
+			or isRainbow,
 		BaseColor = petColor,
 		IsLegendaryColorOrb = pet.isLegendaryColorOrb == true,
 	}

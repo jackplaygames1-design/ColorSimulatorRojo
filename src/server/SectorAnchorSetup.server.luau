@@ -1,7 +1,7 @@
 -- Tags user-built distant sector models so gameplay systems treat them as landmarks,
 -- not color zones or spawn surfaces.
-local Workspace = game:GetService("Workspace")
 local ServerScriptService = game:GetService("ServerScriptService")
+local Workspace = game:GetService("Workspace")
 
 local MAP_NAME = "ColorSimulatorMap"
 local DISTANT_SECTORS_FOLDER = "DistantSectors"
@@ -176,7 +176,8 @@ local function setupSectorModel(model, config)
 		end
 	end
 
-	local eggModel = getAncestorNamed(model, config.sectorColor .. "Egg") or model:FindFirstChild(config.sectorColor .. "Egg", true)
+	local eggModel = getAncestorNamed(model, config.sectorColor .. "Egg")
+		or model:FindFirstChild(config.sectorColor .. "Egg", true)
 	if eggModel then
 		if eggModel:IsA("BasePart") then
 			applyEggAttributes(eggModel, config)

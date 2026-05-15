@@ -10,10 +10,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
-local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
-local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
-local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
 local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
+local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
+local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
+local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
 
 local DARK = UITheme.Colors.OutlineDark
 local WHITE = UITheme.Colors.TextWhite
@@ -294,7 +294,15 @@ end
 local function makeCircle(parent, name, size, position, color, zIndex)
 	local circle = makeRoundedIconPart(parent, name, size, position, color, 999, zIndex)
 	addStroke(circle, DARK, 3)
-	local shine = makeRoundedIconPart(circle, "Shine", UDim2.fromScale(0.32, 0.22), UDim2.fromScale(0.17, 0.14), Color3.fromRGB(255, 255, 255), 999, (zIndex or 64) + 1)
+	local shine = makeRoundedIconPart(
+		circle,
+		"Shine",
+		UDim2.fromScale(0.32, 0.22),
+		UDim2.fromScale(0.17, 0.14),
+		Color3.fromRGB(255, 255, 255),
+		999,
+		(zIndex or 64) + 1
+	)
 	shine.BackgroundTransparency = 0.22
 	return circle
 end
@@ -337,41 +345,214 @@ local function createGamepassIcon(parent, pass, accent)
 
 	local id = pass.id
 	if id == "AutoSell" then
-		local bucket = makeRoundedIconPart(block, "PaintBucket", UDim2.new(0, 50, 0, 48), UDim2.new(0, 14, 0, 34), Color3.fromRGB(247, 249, 255), 10)
+		local bucket = makeRoundedIconPart(
+			block,
+			"PaintBucket",
+			UDim2.new(0, 50, 0, 48),
+			UDim2.new(0, 14, 0, 34),
+			Color3.fromRGB(247, 249, 255),
+			10
+		)
 		addStroke(bucket, DARK, 3)
-		makeRoundedIconPart(bucket, "PaintRed", UDim2.new(0.25, 0, 0, 16), UDim2.new(0, 0, 0, 0), Color3.fromRGB(255, 80, 100), 5, 65)
-		makeRoundedIconPart(bucket, "PaintBlue", UDim2.new(0.25, 0, 0, 16), UDim2.new(0.25, 0, 0, 0), Color3.fromRGB(64, 178, 255), 5, 65)
-		makeRoundedIconPart(bucket, "PaintGreen", UDim2.new(0.25, 0, 0, 16), UDim2.new(0.5, 0, 0, 0), Color3.fromRGB(78, 225, 92), 5, 65)
-		makeRoundedIconPart(bucket, "PaintYellow", UDim2.new(0.25, 0, 0, 16), UDim2.new(0.75, 0, 0, 0), Color3.fromRGB(255, 224, 70), 5, 65)
+		makeRoundedIconPart(
+			bucket,
+			"PaintRed",
+			UDim2.new(0.25, 0, 0, 16),
+			UDim2.new(0, 0, 0, 0),
+			Color3.fromRGB(255, 80, 100),
+			5,
+			65
+		)
+		makeRoundedIconPart(
+			bucket,
+			"PaintBlue",
+			UDim2.new(0.25, 0, 0, 16),
+			UDim2.new(0.25, 0, 0, 0),
+			Color3.fromRGB(64, 178, 255),
+			5,
+			65
+		)
+		makeRoundedIconPart(
+			bucket,
+			"PaintGreen",
+			UDim2.new(0.25, 0, 0, 16),
+			UDim2.new(0.5, 0, 0, 0),
+			Color3.fromRGB(78, 225, 92),
+			5,
+			65
+		)
+		makeRoundedIconPart(
+			bucket,
+			"PaintYellow",
+			UDim2.new(0.25, 0, 0, 16),
+			UDim2.new(0.75, 0, 0, 0),
+			Color3.fromRGB(255, 224, 70),
+			5,
+			65
+		)
 		makeCircle(block, "Coin", UDim2.new(0, 28, 0, 28), UDim2.new(0, 55, 0, 54), Color3.fromRGB(255, 218, 74), 66)
-		makeIconLabel(block, "$", UDim2.new(0, 28, 0, 28), UDim2.new(0, 55, 0, 54), 20, Color3.fromRGB(255, 255, 190), Color3.fromRGB(174, 111, 20))
+		makeIconLabel(
+			block,
+			"$",
+			UDim2.new(0, 28, 0, 28),
+			UDim2.new(0, 55, 0, 54),
+			20,
+			Color3.fromRGB(255, 255, 190),
+			Color3.fromRGB(174, 111, 20)
+		)
 	elseif id == "Plus3Colors" then
 		makeCircle(block, "RedColor", UDim2.new(0, 36, 0, 36), UDim2.new(0, 12, 0, 21), Color3.fromRGB(255, 83, 92), 64)
-		makeCircle(block, "GreenColor", UDim2.new(0, 36, 0, 36), UDim2.new(0, 42, 0, 26), Color3.fromRGB(82, 230, 84), 64)
-		makeCircle(block, "BlueColor", UDim2.new(0, 36, 0, 36), UDim2.new(0, 26, 0, 52), Color3.fromRGB(77, 177, 255), 64)
+		makeCircle(
+			block,
+			"GreenColor",
+			UDim2.new(0, 36, 0, 36),
+			UDim2.new(0, 42, 0, 26),
+			Color3.fromRGB(82, 230, 84),
+			64
+		)
+		makeCircle(
+			block,
+			"BlueColor",
+			UDim2.new(0, 36, 0, 36),
+			UDim2.new(0, 26, 0, 52),
+			Color3.fromRGB(77, 177, 255),
+			64
+		)
 		makeIconLabel(block, "+3", UDim2.new(1, 0, 0, 34), UDim2.new(0, 0, 1, -38), 31, WHITE, DARK)
 	elseif id == "DoubleCoins" then
-		makeCircle(block, "CoinBack", UDim2.new(0, 36, 0, 36), UDim2.new(0, 12, 0, 43), Color3.fromRGB(255, 194, 45), 64)
+		makeCircle(
+			block,
+			"CoinBack",
+			UDim2.new(0, 36, 0, 36),
+			UDim2.new(0, 12, 0, 43),
+			Color3.fromRGB(255, 194, 45),
+			64
+		)
 		makeCircle(block, "CoinMid", UDim2.new(0, 42, 0, 42), UDim2.new(0, 36, 0, 38), Color3.fromRGB(255, 218, 74), 65)
-		makeIconLabel(block, "2x", UDim2.new(1, 0, 0, 52), UDim2.new(0, 0, 0, 8), 39, Color3.fromRGB(255, 247, 168), DARK)
+		makeIconLabel(
+			block,
+			"2x",
+			UDim2.new(1, 0, 0, 52),
+			UDim2.new(0, 0, 0, 8),
+			39,
+			Color3.fromRGB(255, 247, 168),
+			DARK
+		)
 	elseif id == "VIP" then
-		local crownBase = makeRoundedIconPart(block, "CrownBase", UDim2.new(0, 56, 0, 18), UDim2.new(0, 18, 0, 62), Color3.fromRGB(255, 198, 35), 7)
+		local crownBase = makeRoundedIconPart(
+			block,
+			"CrownBase",
+			UDim2.new(0, 56, 0, 18),
+			UDim2.new(0, 18, 0, 62),
+			Color3.fromRGB(255, 198, 35),
+			7
+		)
 		addStroke(crownBase, DARK, 3)
-		makeCircle(block, "CrownLeft", UDim2.new(0, 22, 0, 22), UDim2.new(0, 13, 0, 28), Color3.fromRGB(255, 226, 65), 64)
-		makeCircle(block, "CrownCenter", UDim2.new(0, 28, 0, 28), UDim2.new(0, 32, 0, 17), Color3.fromRGB(255, 226, 65), 65)
-		makeCircle(block, "CrownRight", UDim2.new(0, 22, 0, 22), UDim2.new(0, 57, 0, 28), Color3.fromRGB(255, 226, 65), 64)
-		makeIconLabel(block, "VIP", UDim2.new(1, 0, 0, 34), UDim2.new(0, 0, 1, -36), 27, Color3.fromRGB(255, 255, 180), DARK)
+		makeCircle(
+			block,
+			"CrownLeft",
+			UDim2.new(0, 22, 0, 22),
+			UDim2.new(0, 13, 0, 28),
+			Color3.fromRGB(255, 226, 65),
+			64
+		)
+		makeCircle(
+			block,
+			"CrownCenter",
+			UDim2.new(0, 28, 0, 28),
+			UDim2.new(0, 32, 0, 17),
+			Color3.fromRGB(255, 226, 65),
+			65
+		)
+		makeCircle(
+			block,
+			"CrownRight",
+			UDim2.new(0, 22, 0, 22),
+			UDim2.new(0, 57, 0, 28),
+			Color3.fromRGB(255, 226, 65),
+			64
+		)
+		makeIconLabel(
+			block,
+			"VIP",
+			UDim2.new(1, 0, 0, 34),
+			UDim2.new(0, 0, 1, -36),
+			27,
+			Color3.fromRGB(255, 255, 180),
+			DARK
+		)
 	elseif id == "LuckyHatch" then
-		local egg = makeRoundedIconPart(block, "Egg", UDim2.new(0, 48, 0, 58), UDim2.new(0, 22, 0, 20), Color3.fromRGB(255, 249, 240), 999)
+		local egg = makeRoundedIconPart(
+			block,
+			"Egg",
+			UDim2.new(0, 48, 0, 58),
+			UDim2.new(0, 22, 0, 20),
+			Color3.fromRGB(255, 249, 240),
+			999
+		)
 		addStroke(egg, DARK, 3)
-		makeRoundedIconPart(egg, "EggPink", UDim2.new(0.4, 0, 0.6, 0), UDim2.new(0, 0, 0, 0), Color3.fromRGB(255, 82, 176), 999, 65)
-		makeRoundedIconPart(egg, "EggBlue", UDim2.new(0.4, 0, 0.6, 0), UDim2.new(0.28, 0, 0, 0), Color3.fromRGB(82, 198, 255), 999, 65)
-		makeRoundedIconPart(egg, "EggGreen", UDim2.new(0.44, 0, 0.6, 0), UDim2.new(0.58, 0, 0, 0), Color3.fromRGB(90, 232, 90), 999, 65)
-		makeIconLabel(block, "*", UDim2.new(0, 32, 0, 32), UDim2.new(0, 52, 0, 14), 32, Color3.fromRGB(255, 234, 78), DARK)
+		makeRoundedIconPart(
+			egg,
+			"EggPink",
+			UDim2.new(0.4, 0, 0.6, 0),
+			UDim2.new(0, 0, 0, 0),
+			Color3.fromRGB(255, 82, 176),
+			999,
+			65
+		)
+		makeRoundedIconPart(
+			egg,
+			"EggBlue",
+			UDim2.new(0.4, 0, 0.6, 0),
+			UDim2.new(0.28, 0, 0, 0),
+			Color3.fromRGB(82, 198, 255),
+			999,
+			65
+		)
+		makeRoundedIconPart(
+			egg,
+			"EggGreen",
+			UDim2.new(0.44, 0, 0.6, 0),
+			UDim2.new(0.58, 0, 0, 0),
+			Color3.fromRGB(90, 232, 90),
+			999,
+			65
+		)
+		makeIconLabel(
+			block,
+			"*",
+			UDim2.new(0, 32, 0, 32),
+			UDim2.new(0, 52, 0, 14),
+			32,
+			Color3.fromRGB(255, 234, 78),
+			DARK
+		)
 	elseif id == "SupportDev" then
-		makeIconLabel(block, "<3", UDim2.new(1, 0, 0, 52), UDim2.new(0, 0, 0, 21), 38, Color3.fromRGB(255, 86, 136), DARK)
-		makeCircle(block, "SparkLeft", UDim2.new(0, 16, 0, 16), UDim2.new(0, 15, 0, 18), Color3.fromRGB(255, 225, 235), 64)
-		makeCircle(block, "SparkRight", UDim2.new(0, 14, 0, 14), UDim2.new(0, 67, 0, 70), Color3.fromRGB(255, 225, 235), 64)
+		makeIconLabel(
+			block,
+			"<3",
+			UDim2.new(1, 0, 0, 52),
+			UDim2.new(0, 0, 0, 21),
+			38,
+			Color3.fromRGB(255, 86, 136),
+			DARK
+		)
+		makeCircle(
+			block,
+			"SparkLeft",
+			UDim2.new(0, 16, 0, 16),
+			UDim2.new(0, 15, 0, 18),
+			Color3.fromRGB(255, 225, 235),
+			64
+		)
+		makeCircle(
+			block,
+			"SparkRight",
+			UDim2.new(0, 14, 0, 14),
+			UDim2.new(0, 67, 0, 70),
+			Color3.fromRGB(255, 225, 235),
+			64
+		)
 	else
 		makeIconLabel(block, tostring(pass.icon or ""), UDim2.new(1, 0, 1, 0), UDim2.fromOffset(0, 0), 34, WHITE, DARK)
 	end
@@ -571,7 +752,8 @@ end
 
 local function refresh()
 	clearCards()
-	local passes = RobuxShopConfig.getSortedGamepasses and RobuxShopConfig.getSortedGamepasses() or (RobuxShopConfig.Gamepasses or {})
+	local passes = RobuxShopConfig.getSortedGamepasses and RobuxShopConfig.getSortedGamepasses()
+		or (RobuxShopConfig.Gamepasses or {})
 	for index, pass in ipairs(passes) do
 		buildPassCard(pass, index)
 	end
@@ -673,11 +855,19 @@ overlay.MouseButton1Click:Connect(function()
 	UIManager.close("Gamepass")
 end)
 
-UIManager.register("Gamepass", function(context) toggleGamepass(true, context) end, function(context) toggleGamepass(false, context) end, function() return isOpen end)
+UIManager.register("Gamepass", function(context)
+	toggleGamepass(true, context)
+end, function(context)
+	toggleGamepass(false, context)
+end, function()
+	return isOpen
+end)
 
 local gamepassBtn = ReplicatedStorage:WaitForChild("HudButton_GAMEPASS", 10)
 if gamepassBtn then
-	gamepassBtn.Event:Connect(function() UIManager.toggle("Gamepass") end)
+	gamepassBtn.Event:Connect(function()
+		UIManager.toggle("Gamepass")
+	end)
 end
 
 for _, pass in ipairs(RobuxShopConfig.Gamepasses or {}) do

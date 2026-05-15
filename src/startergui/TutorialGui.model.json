@@ -1,0 +1,465 @@
+{
+  "className": "ScreenGui",
+  "properties": {
+    "DisplayOrder": 99950,
+    "Enabled": false,
+    "IgnoreGuiInset": true,
+    "ResetOnSpawn": false,
+    "ZIndexBehavior": "Sibling",
+    "Name": "TutorialGui"
+  },
+  "children": [
+    {
+      "className": "Frame",
+      "properties": {
+        "Active": false,
+        "BackgroundTransparency": 1,
+        "BorderSizePixel": 0,
+        "Position": {
+          "UDim2": [[0, 0], [0, 0]]
+        },
+        "Size": {
+          "UDim2": [[1, 0], [1, 0]]
+        },
+        "ZIndex": 1,
+        "Name": "TutorialRoot"
+      },
+      "children": [
+        {
+          "className": "Frame",
+          "properties": {
+            "BackgroundColor3": [0.098039, 0.870588, 1],
+            "BackgroundTransparency": 0.72,
+            "BorderSizePixel": 0,
+            "Position": {
+              "UDim2": [[0, 0], [0, 0]]
+            },
+            "Size": {
+              "UDim2": [[1, 0], [0, 4]]
+            },
+            "ZIndex": 4,
+            "Name": "TopGlow"
+          }
+        },
+        {
+          "className": "Frame",
+          "properties": {
+            "BackgroundColor3": [0.027451, 0.035294, 0.058824],
+            "BackgroundTransparency": 0.06,
+            "BorderSizePixel": 0,
+            "Position": {
+              "UDim2": [[0, 24], [0.38, -95]]
+            },
+            "Size": {
+              "UDim2": [[0, 370], [0, 210]]
+            },
+            "ZIndex": 20,
+            "Name": "QuestPanel"
+          },
+          "children": [
+            {
+              "className": "UICorner",
+              "properties": {
+                "CornerRadius": {
+                  "UDim": [0, 8]
+                },
+                "Name": "Corner"
+              }
+            },
+            {
+              "className": "UIStroke",
+              "properties": {
+                "Color": [0.098039, 0.870588, 1],
+                "Thickness": 2,
+                "Transparency": 0.1,
+                "Name": "Stroke"
+              }
+            },
+            {
+              "className": "Frame",
+              "properties": {
+                "BackgroundColor3": [0.098039, 0.870588, 1],
+                "BorderSizePixel": 0,
+                "Position": {
+                  "UDim2": [[0, 0], [0, 0]]
+                },
+                "Size": {
+                  "UDim2": [[0, 7], [1, 0]]
+                },
+                "ZIndex": 21,
+                "Name": "AccentBar"
+              },
+              "children": [
+                {
+                  "className": "UICorner",
+                  "properties": {
+                    "CornerRadius": {
+                      "UDim": [0, 8]
+                    },
+                    "Name": "Corner"
+                  }
+                }
+              ]
+            },
+            {
+              "className": "TextLabel",
+              "properties": {
+                "BackgroundTransparency": 1,
+                "Font": "GothamBlack",
+                "Position": {
+                  "UDim2": [[0, 22], [0, 14]]
+                },
+                "Size": {
+                  "UDim2": [[1, -116], [0, 24]]
+                },
+                "Text": "TUTORIAL QUEST",
+                "TextColor3": [0.098039, 0.870588, 1],
+                "TextScaled": true,
+                "TextStrokeTransparency": 1,
+                "TextWrapped": true,
+                "TextXAlignment": "Left",
+                "ZIndex": 22,
+                "Name": "Header"
+              },
+              "children": [
+                {
+                  "className": "UITextSizeConstraint",
+                  "properties": {
+                    "MaxTextSize": 16,
+                    "MinTextSize": 10,
+                    "Name": "TextSize"
+                  }
+                }
+              ]
+            },
+            {
+              "className": "TextLabel",
+              "properties": {
+                "BackgroundTransparency": 1,
+                "Font": "GothamBlack",
+                "Position": {
+                  "UDim2": [[0, 22], [0, 44]]
+                },
+                "Size": {
+                  "UDim2": [[1, -44], [0, 34]]
+                },
+                "Text": "Quest 1: Paint a color spill",
+                "TextColor3": [1, 1, 1],
+                "TextScaled": true,
+                "TextStrokeTransparency": 1,
+                "TextWrapped": true,
+                "TextXAlignment": "Left",
+                "ZIndex": 22,
+                "Name": "QuestTitle"
+              },
+              "children": [
+                {
+                  "className": "UITextSizeConstraint",
+                  "properties": {
+                    "MaxTextSize": 24,
+                    "MinTextSize": 12,
+                    "Name": "TextSize"
+                  }
+                }
+              ]
+            },
+            {
+              "className": "TextLabel",
+              "properties": {
+                "BackgroundTransparency": 1,
+                "Font": "GothamBold",
+                "Position": {
+                  "UDim2": [[0, 22], [0, 84]]
+                },
+                "Size": {
+                  "UDim2": [[1, -44], [0, 52]]
+                },
+                "Text": "Walk to a glowing color spill and paint it down with your brush.",
+                "TextColor3": [0.839216, 0.901961, 1],
+                "TextScaled": true,
+                "TextStrokeTransparency": 1,
+                "TextWrapped": true,
+                "TextXAlignment": "Left",
+                "TextYAlignment": "Top",
+                "ZIndex": 22,
+                "Name": "QuestBody"
+              },
+              "children": [
+                {
+                  "className": "UITextSizeConstraint",
+                  "properties": {
+                    "MaxTextSize": 16,
+                    "MinTextSize": 10,
+                    "Name": "TextSize"
+                  }
+                }
+              ]
+            },
+            {
+              "className": "TextLabel",
+              "properties": {
+                "BackgroundColor3": [0.011765, 0.015686, 0.027451],
+                "BackgroundTransparency": 0.05,
+                "BorderSizePixel": 0,
+                "Font": "GothamBlack",
+                "Position": {
+                  "UDim2": [[0, 22], [1, -62]]
+                },
+                "Size": {
+                  "UDim2": [[1, -168], [0, 32]]
+                },
+                "Text": "Paint 1 color spill",
+                "TextColor3": [0.288235, 1, 0.466667],
+                "TextScaled": true,
+                "TextStrokeTransparency": 1,
+                "TextWrapped": true,
+                "TextXAlignment": "Center",
+                "TextYAlignment": "Center",
+                "ZIndex": 22,
+                "Name": "ObjectiveLabel"
+              },
+              "children": [
+                {
+                  "className": "UICorner",
+                  "properties": {
+                    "CornerRadius": {
+                      "UDim": [0, 8]
+                    },
+                    "Name": "Corner"
+                  }
+                },
+                {
+                  "className": "UITextSizeConstraint",
+                  "properties": {
+                    "MaxTextSize": 14,
+                    "MinTextSize": 9,
+                    "Name": "TextSize"
+                  }
+                }
+              ]
+            },
+            {
+              "className": "TextLabel",
+              "properties": {
+                "BackgroundTransparency": 1,
+                "Font": "GothamBold",
+                "Position": {
+                  "UDim2": [[0, 22], [1, -26]]
+                },
+                "Size": {
+                  "UDim2": [[1, -44], [0, 18]]
+                },
+                "Text": "0 / 1  -  1/6",
+                "TextColor3": [0.760784, 0.878431, 1],
+                "TextScaled": true,
+                "TextStrokeTransparency": 1,
+                "TextWrapped": true,
+                "TextXAlignment": "Left",
+                "ZIndex": 22,
+                "Name": "ProgressLabel"
+              },
+              "children": [
+                {
+                  "className": "UITextSizeConstraint",
+                  "properties": {
+                    "MaxTextSize": 12,
+                    "MinTextSize": 8,
+                    "Name": "TextSize"
+                  }
+                }
+              ]
+            },
+            {
+              "className": "TextLabel",
+              "properties": {
+                "BackgroundTransparency": 1,
+                "Font": "GothamBold",
+                "Position": {
+                  "UDim2": [[1, -126], [0, 15]]
+                },
+                "Size": {
+                  "UDim2": [[0, 102], [0, 20]]
+                },
+                "Text": "Active tutorial quest",
+                "TextColor3": [0.760784, 0.878431, 1],
+                "TextScaled": true,
+                "TextStrokeTransparency": 1,
+                "TextWrapped": true,
+                "TextXAlignment": "Right",
+                "ZIndex": 22,
+                "Name": "StatusLabel"
+              },
+              "children": [
+                {
+                  "className": "UITextSizeConstraint",
+                  "properties": {
+                    "MaxTextSize": 11,
+                    "MinTextSize": 8,
+                    "Name": "TextSize"
+                  }
+                }
+              ]
+            },
+            {
+              "className": "TextButton",
+              "properties": {
+                "AutoButtonColor": true,
+                "BackgroundColor3": [0.282353, 0.321569, 0.407843],
+                "BorderSizePixel": 0,
+                "Font": "GothamBlack",
+                "Position": {
+                  "UDim2": [[1, -124], [1, -62]]
+                },
+                "Size": {
+                  "UDim2": [[0, 100], [0, 32]]
+                },
+                "Text": "SKIP",
+                "TextColor3": [1, 1, 1],
+                "TextScaled": true,
+                "TextStrokeTransparency": 0.35,
+                "TextWrapped": true,
+                "ZIndex": 23,
+                "Name": "SkipButton"
+              },
+              "children": [
+                {
+                  "className": "UICorner",
+                  "properties": {
+                    "CornerRadius": {
+                      "UDim": [0, 8]
+                    },
+                    "Name": "Corner"
+                  }
+                },
+                {
+                  "className": "UIStroke",
+                  "properties": {
+                    "Color": [0.098039, 0.870588, 1],
+                    "Thickness": 1,
+                    "Transparency": 0.45,
+                    "Name": "Stroke"
+                  }
+                },
+                {
+                  "className": "UITextSizeConstraint",
+                  "properties": {
+                    "MaxTextSize": 13,
+                    "MinTextSize": 8,
+                    "Name": "TextSize"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "className": "Frame",
+          "properties": {
+            "BackgroundColor3": [0.003922, 0.003922, 0.007843],
+            "BackgroundTransparency": 1,
+            "BorderSizePixel": 0,
+            "Position": {
+              "UDim2": [[0, 0], [0, 0]]
+            },
+            "Size": {
+              "UDim2": [[0, 120], [0, 120]]
+            },
+            "Visible": false,
+            "ZIndex": 80,
+            "Name": "Spotlight"
+          },
+          "children": [
+            {
+              "className": "Frame",
+              "properties": {
+                "BackgroundColor3": [0.098039, 0.870588, 1],
+                "BackgroundTransparency": 0.84,
+                "BorderSizePixel": 0,
+                "Position": {
+                  "UDim2": [[0, 0], [0, 0]]
+                },
+                "Size": {
+                  "UDim2": [[1, 0], [1, 0]]
+                },
+                "ZIndex": 81,
+                "Name": "TargetRing"
+              },
+              "children": [
+                {
+                  "className": "UICorner",
+                  "properties": {
+                    "CornerRadius": {
+                      "UDim": [0, 10]
+                    },
+                    "Name": "Corner"
+                  }
+                },
+                {
+                  "className": "UIStroke",
+                  "properties": {
+                    "Color": [0.098039, 0.870588, 1],
+                    "Thickness": 3,
+                    "Transparency": 0,
+                    "Name": "Stroke"
+                  }
+                }
+              ]
+            },
+            {
+              "className": "TextLabel",
+              "properties": {
+                "BackgroundColor3": [0.027451, 0.035294, 0.058824],
+                "BackgroundTransparency": 0.04,
+                "BorderSizePixel": 0,
+                "Font": "GothamBold",
+                "Position": {
+                  "UDim2": [[0.5, -170], [1, 10]]
+                },
+                "Size": {
+                  "UDim2": [[0, 340], [0, 34]]
+                },
+                "Text": "",
+                "TextColor3": [0.839216, 0.901961, 1],
+                "TextScaled": true,
+                "TextStrokeTransparency": 1,
+                "TextWrapped": true,
+                "TextXAlignment": "Center",
+                "TextYAlignment": "Center",
+                "ZIndex": 82,
+                "Name": "Hint"
+              },
+              "children": [
+                {
+                  "className": "UICorner",
+                  "properties": {
+                    "CornerRadius": {
+                      "UDim": [0, 8]
+                    },
+                    "Name": "Corner"
+                  }
+                },
+                {
+                  "className": "UIStroke",
+                  "properties": {
+                    "Color": [0.098039, 0.870588, 1],
+                    "Thickness": 2,
+                    "Transparency": 0.15,
+                    "Name": "Stroke"
+                  }
+                },
+                {
+                  "className": "UITextSizeConstraint",
+                  "properties": {
+                    "MaxTextSize": 14,
+                    "MinTextSize": 8,
+                    "Name": "TextSize"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

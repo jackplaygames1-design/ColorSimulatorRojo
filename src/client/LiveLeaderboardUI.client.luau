@@ -144,8 +144,8 @@ for _, statName in ipairs(STAT_NAMES) do
 	label.TextColor3 = MUTED
 	label.TextXAlignment = Enum.TextXAlignment.Right
 	label.Text = statName
-		label.Parent = header
-		x += width
+	label.Parent = header
+	x += width
 end
 peopleHeader.Size = UDim2.new(1, -STATS_WIDTH - 18, 1, 0)
 
@@ -234,7 +234,7 @@ local function rebuild()
 
 		local nameLabel = Instance.new("TextLabel")
 		nameLabel.Name = "PlayerName"
-	nameLabel.Size = UDim2.new(1, -STATS_WIDTH - 54, 1, 0)
+		nameLabel.Size = UDim2.new(1, -STATS_WIDTH - 54, 1, 0)
 		nameLabel.Position = UDim2.new(0, 36, 0, 0)
 		nameLabel.BackgroundTransparency = 1
 		nameLabel.Font = Enum.Font.GothamBold
@@ -305,7 +305,10 @@ local function watchPlayer(listedPlayer)
 		for _, statName in ipairs(STAT_NAMES) do
 			local value = stats:FindFirstChild(statName)
 			if value and value:IsA("ValueBase") then
-				table.insert(statConnections[listedPlayer], value:GetPropertyChangedSignal("Value"):Connect(scheduleRebuild))
+				table.insert(
+					statConnections[listedPlayer],
+					value:GetPropertyChangedSignal("Value"):Connect(scheduleRebuild)
+				)
 			end
 		end
 		scheduleRebuild()
@@ -316,12 +319,18 @@ local function watchPlayer(listedPlayer)
 		hookStats(stats)
 	end
 
-	table.insert(rowConnections[listedPlayer], listedPlayer.ChildAdded:Connect(function(child)
-		if child.Name == "leaderstats" then
-			hookStats(child)
-		end
-	end))
-	table.insert(rowConnections[listedPlayer], listedPlayer:GetPropertyChangedSignal("DisplayName"):Connect(scheduleRebuild))
+	table.insert(
+		rowConnections[listedPlayer],
+		listedPlayer.ChildAdded:Connect(function(child)
+			if child.Name == "leaderstats" then
+				hookStats(child)
+			end
+		end)
+	)
+	table.insert(
+		rowConnections[listedPlayer],
+		listedPlayer:GetPropertyChangedSignal("DisplayName"):Connect(scheduleRebuild)
+	)
 end
 
 Players.PlayerAdded:Connect(function(listedPlayer)

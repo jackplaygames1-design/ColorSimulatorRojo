@@ -5,18 +5,18 @@ if true then
 end
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
-local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
-local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
-local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
-local UpgradeData = require(ReplicatedStorage:WaitForChild("UpgradeData"))
-local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
 local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
+local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
+local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
+local UIManager = require(ReplicatedStorage:WaitForChild("UIManager"))
+local UITheme = require(ReplicatedStorage:WaitForChild("UITheme"))
+local UpgradeData = require(ReplicatedStorage:WaitForChild("UpgradeData"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local purchaseEvent = Events:WaitForChild("PurchasePaintTool")
@@ -613,14 +613,18 @@ local function showZorkDialogue(colorType, options)
 	local skipConnection
 	nextConnection = dialogueNext.Activated:Connect(function()
 		if token ~= dialogueToken then
-			if nextConnection then nextConnection:Disconnect() end
+			if nextConnection then
+				nextConnection:Disconnect()
+			end
 			return
 		end
 		advance()
 	end)
 	skipConnection = dialogueSkip.Activated:Connect(function()
 		if token ~= dialogueToken then
-			if skipConnection then skipConnection:Disconnect() end
+			if skipConnection then
+				skipConnection:Disconnect()
+			end
 			return
 		end
 		openShopAfterDialogue(colorType)
@@ -628,7 +632,9 @@ local function showZorkDialogue(colorType, options)
 	local questConnection
 	questConnection = dialogueQuest.Activated:Connect(function()
 		if token ~= dialogueToken then
-			if questConnection then questConnection:Disconnect() end
+			if questConnection then
+				questConnection:Disconnect()
+			end
 			return
 		end
 		dialogueSkip.Visible = false
@@ -749,7 +755,9 @@ local function buildCard(tool, layoutOrder)
 	button.TextColor3 = WHITE
 	button.TextStrokeTransparency = 0
 	button.TextStrokeColor3 = DARK
-	button.Text = not unlocked and ("UNLOCK " .. string.upper(tostring(tool.RequiredColor or ""))) or equipped and "EQUIPPED" or (owned and "EQUIP" or ("BUY " .. formatNum(tool.Cost) .. " COINS"))
+	button.Text = not unlocked and ("UNLOCK " .. string.upper(tostring(tool.RequiredColor or "")))
+		or equipped and "EQUIPPED"
+		or (owned and "EQUIP" or ("BUY " .. formatNum(tool.Cost) .. " COINS"))
 	button.Parent = card
 	Instance.new("UICorner", button).CornerRadius = UDim.new(0, 10)
 	local buttonStroke = Instance.new("UIStroke")
@@ -847,7 +855,14 @@ local function buildUpgradeCard(upg, layoutOrder)
 	nextText.TextSize = 12
 	nextText.TextColor3 = maxed and Color3.fromRGB(90, 150, 95) or Color3.fromRGB(130, 100, 40)
 	nextText.TextXAlignment = Enum.TextXAlignment.Left
-	nextText.Text = maxed and "MAXED" or ("Next: " .. UpgradeData.getValueDisplay(upg.id, nextLevel) .. " | " .. UpgradeData.formatNumber(cost) .. " Coins")
+	nextText.Text = maxed and "MAXED"
+		or (
+			"Next: "
+			.. UpgradeData.getValueDisplay(upg.id, nextLevel)
+			.. " | "
+			.. UpgradeData.formatNumber(cost)
+			.. " Coins"
+		)
 	nextText.Parent = card
 
 	local button = Instance.new("TextButton")
@@ -995,7 +1010,8 @@ local function showTraitsTutorial(onDone)
 	body.TextWrapped = true
 	body.TextXAlignment = Enum.TextXAlignment.Left
 	body.TextYAlignment = Enum.TextYAlignment.Top
-body.Text = "Colors can hatch with Traits. Traits are small passive bonuses like faster brushing, better Coin rewards, higher jumps, or extra luck.\n\nMutations unlock at the Mutation Core inside Orange Sector."
+	body.Text =
+		"Colors can hatch with Traits. Traits are small passive bonuses like faster brushing, better Coin rewards, higher jumps, or extra luck.\n\nMutations unlock at the Mutation Core inside Orange Sector."
 	body.ZIndex = 101
 	body.Parent = tutorialPanel
 
@@ -1054,7 +1070,8 @@ body.Text = "Colors can hatch with Traits. Traits are small passive bonuses like
 end
 
 function openShopForColor(colorType)
-	activeShopColor = ColorData.getWorldByColor(colorType) and ColorData.getWorldByColor(colorType).primaryColor or getCurrentShopColor()
+	activeShopColor = ColorData.getWorldByColor(colorType) and ColorData.getWorldByColor(colorType).primaryColor
+		or getCurrentShopColor()
 	currentTab = "Brushes"
 	local function open()
 		toggleShop(true)
@@ -1127,8 +1144,12 @@ task.defer(function()
 	if folder then
 		local owned = folder:WaitForChild("Owned", 10)
 		local equipped = folder:WaitForChild("Equipped", 10)
-		if owned then owned:GetPropertyChangedSignal("Value"):Connect(refresh) end
-		if equipped then equipped:GetPropertyChangedSignal("Value"):Connect(refresh) end
+		if owned then
+			owned:GetPropertyChangedSignal("Value"):Connect(refresh)
+		end
+		if equipped then
+			equipped:GetPropertyChangedSignal("Value"):Connect(refresh)
+		end
 	end
 end)
 
@@ -1160,11 +1181,17 @@ end
 UIManager.register("Shop", function()
 	activeShopColor = getCurrentShopColor()
 	toggleShop(true)
-end, function() toggleShop(false) end, function() return isOpen end)
+end, function()
+	toggleShop(false)
+end, function()
+	return isOpen
+end)
 
 local shopBtn = ReplicatedStorage:WaitForChild("HudButton_SHOP", 10)
 if shopBtn then
-	shopBtn.Event:Connect(function() UIManager.toggle("Shop") end)
+	shopBtn.Event:Connect(function()
+		UIManager.toggle("Shop")
+	end)
 end
 
 openBrushShopEvent.Event:Connect(function()
@@ -1179,7 +1206,8 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt)
 		return
 	end
 
-	if prompt:GetAttribute("CombinedShopPrompt")
+	if
+		prompt:GetAttribute("CombinedShopPrompt")
 		or prompt:GetAttribute("BrushShopPrompt")
 		or prompt.ObjectText == "Shop"
 		or prompt.ObjectText == "Brush Shop"
