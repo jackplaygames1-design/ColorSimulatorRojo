@@ -5,13 +5,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
 local Events = ReplicatedStorage:WaitForChild("Events")
 local purchaseEvent = Events:WaitForChild("PurchasePaintTool")
 local equipEvent = Events:WaitForChild("EquipPaintTool")
 
-local mainHud = playerGui:WaitForChild("MainHUD", 15)
-local windowsFolder = mainHud and mainHud:WaitForChild("ModalWindows", 10)
+local mainHud = ClientUIRoot.GetRoot(playerGui)
+local modalRoot = mainHud and mainHud:WaitForChild("ModalWindows", 10)
+local windowsFolder = modalRoot and (modalRoot:FindFirstChild("Windows") or modalRoot)
 
 if not windowsFolder then
 	warn("EditableBrushShopBinder: missing PlayerGui.MainHUD.ModalWindows")

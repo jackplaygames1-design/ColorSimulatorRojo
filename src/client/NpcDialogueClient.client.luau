@@ -7,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local DialogueData = require(script.Parent:WaitForChild("NpcDialogueData"))
 
 local player = Players.LocalPlayer
@@ -26,7 +27,7 @@ local CAMERA_TWEEN_TIME = 0.32
 local DIALOGUE_UI_TIMEOUT = 1.25
 local DIALOGUE_RANGE_PADDING = 18
 
-local mainHud = playerGui:WaitForChild("MainHUD", 30)
+local mainHud = ClientUIRoot.GetRoot(playerGui)
 if not mainHud then
 	warn("NpcDialogueClient: missing PlayerGui.MainHUD")
 	return

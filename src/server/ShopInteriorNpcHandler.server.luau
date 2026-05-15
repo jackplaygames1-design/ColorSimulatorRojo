@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local Events = ReplicatedStorage:WaitForChild("Events")
+local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 local shopTransitionEvent = Events:FindFirstChild("ShopTransition")
 if not shopTransitionEvent then
 	shopTransitionEvent = Instance.new("RemoteEvent")
@@ -32,6 +33,47 @@ local SHOP_REENTER_GRACE_SECONDS = 2.75
 
 local teleportLocks = {}
 local reenterBlockedUntil = {}
+
+local function markDataDirty(player, reason)
+	local event = dataDirtyEvent
+	if not event or not event.Parent then
+		event = Events:FindFirstChild("PlayerDataDirty")
+		dataDirtyEvent = event
+	end
+	if event and event:IsA("BindableEvent") then
+		event:Fire(player, reason or "zork-shop-teleport-unlocked")
+	end
+end
+
+local function unlockZorkShopTeleport(player)
+	local storage = player and player:FindFirstChild("ColorStorage")
+	local teleports = storage and storage:FindFirstChild("UnlockedTeleports")
+	if not teleports or not teleports:IsA("StringValue") then
+		return false
+	end
+
+	local set = { OriginSector = true }
+	for _, existing in ipairs(string.split(teleports.Value or "", ",")) do
+		if existing ~= "" then
+			set[existing] = true
+		end
+	end
+	if set.ZorkShop then
+		return false
+	end
+	set.ZorkShop = true
+
+	local ordered = {}
+	for _, id in ipairs({ "OriginSector", "RedWastelands", "ZorkShop", "OrangeSector", "InsidePipes", "GreenSector" }) do
+		if set[id] then
+			table.insert(ordered, id)
+		end
+	end
+	teleports.Value = table.concat(ordered, ",")
+	player:SetAttribute("UnlockedTeleports", teleports.Value)
+	markDataDirty(player, "zork-shop-teleport-unlocked")
+	return true
+end
 
 local function getMap()
 	return Workspace:FindFirstChild(MAP_NAME)
@@ -135,6 +177,15 @@ local function isShopInteriorDescendant(obj, shopInside)
 	return shopInside and obj:IsDescendantOf(shopInside)
 end
 
+local function isShopDecorPart(obj)
+	local name = compactName(obj and obj.Name)
+	return name:find("sign", 1, true) ~= nil
+		or name:find("awning", 1, true) ~= nil
+		or name:find("counter", 1, true) ~= nil
+		or name:find("backwall", 1, true) ~= nil
+		or name:find("wall", 1, true) ~= nil
+end
+
 local function isNamedEntrancePart(obj)
 	local name = compactName(obj.Name)
 	return obj:GetAttribute("ShopEntrance") == true
@@ -144,6 +195,35 @@ local function isNamedEntrancePart(obj)
 		or name == "entrance"
 		or name:find("zorkdoor", 1, true) ~= nil
 		or (name:find("shop", 1, true) ~= nil and name:find("door", 1, true) ~= nil)
+end
+
+local function isExteriorEntranceCandidate(obj, shopInside)
+	return obj:IsA("BasePart")
+		and obj.Name ~= "ShopDoorTeleportTrigger"
+		and obj.Name ~= "ShopExitTouchTrigger"
+		and not isNpcPart(obj)
+		and not isShopInteriorDescendant(obj, shopInside)
+		and not isShopDecorPart(obj)
+end
+
+local function isInteriorExitCandidate(obj, shopInside)
+	if
+		not obj:IsA("BasePart")
+		or obj.Name == "ShopDoorTeleportTrigger"
+		or obj.Name == "ShopExitTouchTrigger"
+		or isNpcPart(obj)
+		or not isShopInteriorDescendant(obj, shopInside)
+	then
+		return false
+	end
+
+	local name = compactName(obj.Name)
+	return obj:GetAttribute("ShopExit") == true
+		or obj:GetAttribute("ShopExitDoor") == true
+		or obj:GetAttribute("ShopInteriorExit") == true
+		or name:find("exit", 1, true) ~= nil
+		or name:find("door", 1, true) ~= nil
+		or name:find("entrance", 1, true) ~= nil
 end
 
 local function getEntranceFallbackScore(obj)
@@ -160,12 +240,7 @@ local function findExteriorEntrances(shop, shopInside)
 
 	local namedEntrances = {}
 	for _, obj in ipairs(shop:GetDescendants()) do
-		if
-			obj:IsA("BasePart")
-			and obj.Name ~= "ShopDoorTeleportTrigger"
-			and not isNpcPart(obj)
-			and isNamedEntrancePart(obj)
-		then
+		if isExteriorEntranceCandidate(obj, shopInside) and isNamedEntrancePart(obj) then
 			table.insert(namedEntrances, obj)
 		end
 	end
@@ -180,10 +255,8 @@ local function findExteriorEntrances(shop, shopInside)
 	local bestScore = -math.huge
 	for _, obj in ipairs(shop:GetDescendants()) do
 		if
-			obj:IsA("BasePart")
-			and obj.Name ~= "ShopDoorTeleportTrigger"
-			and not isNpcPart(obj)
-			and (isNamedEntrancePart(obj) or not isShopInteriorDescendant(obj, shopInside))
+			isExteriorEntranceCandidate(obj, shopInside)
+			and (isNamedEntrancePart(obj) or obj:GetAttribute("BrushShop") == true)
 		then
 			local score = getEntranceFallbackScore(obj)
 			if score > bestScore then
@@ -193,6 +266,45 @@ local function findExteriorEntrances(shop, shopInside)
 		end
 	end
 	return best and { best } or {}
+end
+
+local function findInteriorExitAnchors(shopInside, floor)
+	local anchors = {}
+	for _, obj in ipairs(shopInside:GetDescendants()) do
+		if isInteriorExitCandidate(obj, shopInside) then
+			table.insert(anchors, obj)
+		end
+	end
+	if #anchors > 0 then
+		table.sort(anchors, function(a, b)
+			return a.Name < b.Name
+		end)
+		return anchors
+	end
+
+	local exitAnchor = shopInside:FindFirstChild("ShopExitPromptAnchor")
+	if not exitAnchor then
+		exitAnchor = Instance.new("Part")
+		exitAnchor.Name = "ShopExitPromptAnchor"
+		exitAnchor.Parent = shopInside
+	end
+	exitAnchor.Size = Vector3.new(4, 4, 4)
+	exitAnchor.CFrame = floor.CFrame * CFrame.new(0, floor.Size.Y * 0.5 + 3, math.max(floor.Size.Z * 0.35, 7))
+	exitAnchor.Anchored = true
+	exitAnchor.CanCollide = false
+	exitAnchor.CanTouch = false
+	exitAnchor.CanQuery = false
+	exitAnchor.Transparency = 1
+	return { exitAnchor }
+end
+
+local function disableInteriorEnterTriggers(shopInside)
+	for _, obj in ipairs(shopInside:GetDescendants()) do
+		if obj:IsA("BasePart") and obj.Name == "ShopDoorTeleportTrigger" then
+			obj.CanTouch = false
+			obj:SetAttribute("DisabledInteriorEnterTrigger", true)
+		end
+	end
 end
 
 local function makePart(parent, name, size, cframe, color, material, shape)
@@ -418,6 +530,22 @@ local function getEntranceOutward(entrance)
 	return outward
 end
 
+local function groundExitPosition(player, position)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.IgnoreWater = true
+	local character = player and player.Character
+	if character then
+		params.FilterDescendantsInstances = { character }
+	end
+
+	local result = Workspace:Raycast(position + Vector3.new(0, 80, 0), Vector3.new(0, -220, 0), params)
+	if result then
+		return result.Position + Vector3.new(0, 3.2, 0)
+	end
+	return position
+end
+
 local function teleportToExterior(player, entrance)
 	if not entrance then
 		return false
@@ -434,6 +562,7 @@ local function teleportToExterior(player, entrance)
 			destination = entrance.Position + outward * minimumDoorClearance
 			destination = Vector3.new(destination.X, entrance.Position.Y + entrance.Size.Y * 0.5 + 3.2, destination.Z)
 		end
+		destination = groundExitPosition(player, destination)
 		local lookAt = Vector3.new(entrance.Position.X, destination.Y, entrance.Position.Z)
 		return setRootCFrame(player, CFrame.lookAt(destination, lookAt))
 	end
@@ -441,6 +570,7 @@ local function teleportToExterior(player, entrance)
 	local offset = minimumDoorClearance
 	local destination = entrance.Position + outward * offset
 	destination = Vector3.new(destination.X, entrance.Position.Y + entrance.Size.Y * 0.5 + 3.2, destination.Z)
+	destination = groundExitPosition(player, destination)
 	local lookAt = Vector3.new(entrance.Position.X, destination.Y, entrance.Position.Z)
 	return setRootCFrame(player, CFrame.lookAt(destination, lookAt))
 end
@@ -490,6 +620,7 @@ local function ensureShopTeleportPrompts(shopInside, floor, npcCore)
 	if not primaryEntrance or not floor then
 		return
 	end
+	disableInteriorEnterTriggers(shopInside)
 
 	local function enterShop(player)
 		local blockedUntil = reenterBlockedUntil[player]
@@ -499,9 +630,18 @@ local function ensureShopTeleportPrompts(shopInside, floor, npcCore)
 		playShopTransition(player, function()
 			return teleportToInterior(player, floor, npcCore or floor)
 		end, function()
+			unlockZorkShopTeleport(player)
 			if tutorialShopEnteredEvent and tutorialShopEnteredEvent:IsA("BindableEvent") then
 				tutorialShopEnteredEvent:Fire(player)
 			end
+		end)
+	end
+
+	local function exitShop(player)
+		playShopTransition(player, function()
+			return teleportToExterior(player, primaryEntrance)
+		end, function()
+			reenterBlockedUntil[player] = os.clock() + SHOP_REENTER_GRACE_SECONDS
 		end)
 	end
 
@@ -558,43 +698,54 @@ local function ensureShopTeleportPrompts(shopInside, floor, npcCore)
 		end
 	end
 
-	local exitAnchor = shopInside:FindFirstChild("ShopExitPromptAnchor")
-	if not exitAnchor then
-		exitAnchor = Instance.new("Part")
-		exitAnchor.Name = "ShopExitPromptAnchor"
-		exitAnchor.Parent = shopInside
-	end
-	exitAnchor.Size = Vector3.new(4, 4, 4)
-	exitAnchor.CFrame = floor.CFrame * CFrame.new(0, floor.Size.Y * 0.5 + 3, math.max(floor.Size.Z * 0.35, 7))
-	exitAnchor.Anchored = true
-	exitAnchor.CanCollide = false
-	exitAnchor.CanTouch = false
-	exitAnchor.CanQuery = false
-	exitAnchor.Transparency = 1
+	for _, exitAnchor in ipairs(findInteriorExitAnchors(shopInside, floor)) do
+		local exitPrompt = exitAnchor:FindFirstChild("ExitShopPrompt")
+		if not exitPrompt then
+			exitPrompt = Instance.new("ProximityPrompt")
+			exitPrompt.Name = "ExitShopPrompt"
+			exitPrompt.Parent = exitAnchor
+		end
+		exitPrompt.ActionText = "Exit"
+		exitPrompt.ObjectText = "Shop Exit"
+		exitPrompt.KeyboardKeyCode = Enum.KeyCode.E
+		exitPrompt.GamepadKeyCode = Enum.KeyCode.ButtonX
+		exitPrompt.HoldDuration = 0
+		exitPrompt.MaxActivationDistance = 12
+		exitPrompt.RequiresLineOfSight = false
+		exitPrompt:SetAttribute("ShopExitPrompt", true)
+		if exitPrompt:GetAttribute("ShopTeleportHooked") ~= true then
+			exitPrompt:SetAttribute("ShopTeleportHooked", true)
+			exitPrompt.Triggered:Connect(exitShop)
+		end
 
-	local exitPrompt = exitAnchor:FindFirstChild("ExitShopPrompt")
-	if not exitPrompt then
-		exitPrompt = Instance.new("ProximityPrompt")
-		exitPrompt.Name = "ExitShopPrompt"
-		exitPrompt.Parent = exitAnchor
-	end
-	exitPrompt.ActionText = "Exit"
-	exitPrompt.ObjectText = "Shop Exit"
-	exitPrompt.KeyboardKeyCode = Enum.KeyCode.E
-	exitPrompt.GamepadKeyCode = Enum.KeyCode.ButtonX
-	exitPrompt.HoldDuration = 0
-	exitPrompt.MaxActivationDistance = 12
-	exitPrompt.RequiresLineOfSight = false
-	exitPrompt:SetAttribute("ShopExitPrompt", true)
-	if exitPrompt:GetAttribute("ShopTeleportHooked") ~= true then
-		exitPrompt:SetAttribute("ShopTeleportHooked", true)
-		exitPrompt.Triggered:Connect(function(player)
-			playShopTransition(player, function()
-				return teleportToExterior(player, primaryEntrance)
-			end, function()
-				reenterBlockedUntil[player] = os.clock() + SHOP_REENTER_GRACE_SECONDS
+		local exitTrigger = exitAnchor:FindFirstChild("ShopExitTouchTrigger")
+		if not exitTrigger then
+			exitTrigger = Instance.new("Part")
+			exitTrigger.Name = "ShopExitTouchTrigger"
+			exitTrigger.Parent = exitAnchor
+		end
+		exitTrigger.Size = Vector3.new(
+			math.max(exitAnchor.Size.X + 2, 6),
+			math.max(exitAnchor.Size.Y + 2, 7),
+			math.max(exitAnchor.Size.Z + 3, 5)
+		)
+		exitTrigger.CFrame = exitAnchor.CFrame
+		exitTrigger.Anchored = true
+		exitTrigger.CanCollide = false
+		exitTrigger.CanTouch = true
+		exitTrigger.CanQuery = false
+		exitTrigger.Transparency = 1
+		exitTrigger:SetAttribute("ShopExitTouchTrigger", true)
+
+		if exitTrigger:GetAttribute("ShopTeleportHooked") ~= true then
+			exitTrigger:SetAttribute("ShopTeleportHooked", true)
+			exitTrigger.Touched:Connect(function(hit)
+				local player = getPlayerFromTouchedPart(hit)
+				if player then
+					exitShop(player)
+				end
 			end)
-		end)
+		end
 	end
 end
 

@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 
 local STARTED_ATTRIBUTE = "EditableTutorialBinderStarted"
 if playerGui:GetAttribute(STARTED_ATTRIBUTE) then
@@ -38,8 +39,8 @@ local collectEvent = Events:WaitForChild("CollectColor")
 local hatchEvent = Events:WaitForChild("HatchEgg")
 local markTutorialProgressEvent = Events:WaitForChild("MarkTutorialProgress")
 
-local mainHud: ScreenGui? = nil
-local modalWindows: Folder? = nil
+local mainHud: Instance? = nil
+local modalWindows: Instance? = nil
 local closed = false
 local currentQuest = 1
 
@@ -47,7 +48,6 @@ local state = {
 	painted = 0,
 	hatched = 0,
 	inventoryOpened = false,
-	shopOpened = false,
 	worldsOpened = false,
 	zorkTalked = false,
 }
@@ -96,22 +96,8 @@ local QUESTS = {
 		end,
 	},
 	{
-		id = "shop",
-		title = "Quest 4: Check upgrades",
-		body = "The Shop is where you buy boosts and upgrades when a sector starts feeling slow.",
-		objective = "Open the Shop window",
-		target = "BottomButtons.ShopButton",
-		spotlight = "Shop upgrades and boosts live here.",
-		progress = function()
-			return state.shopOpened and 1 or 0, 1
-		end,
-		complete = function()
-			return state.shopOpened
-		end,
-	},
-	{
 		id = "worlds",
-		title = "Quest 5: Check sectors",
+		title = "Quest 4: Check sectors",
 		body = "Worlds shows the next sectors, travel options, and where better rewards unlock.",
 		objective = "Open the Worlds window",
 		target = "BottomButtons.WorldsButton",
@@ -125,7 +111,7 @@ local QUESTS = {
 	},
 	{
 		id = "zork",
-		title = "Quest 6: Talk to Zork",
+		title = "Quest 5: Talk to Zork",
 		body = "Zork handles brush help and daily quest direction. Visit him when you want the next goal.",
 		objective = "Talk to Zork",
 		target = "ZorkDialogueUI",
@@ -248,7 +234,7 @@ local function refresh()
 		setText(titleLabel, "Tutorial complete")
 		setText(
 			bodyLabel,
-			"You know the loop now. Paint, hatch, upgrade, unlock sectors, and visit Zork for direction."
+			"You know the loop now. Paint, hatch, equip Colors, unlock sectors, and visit Zork for direction."
 		)
 		setText(objectiveLabel, "Complete")
 		setText(progressLabel, tostring(#QUESTS) .. " / " .. tostring(#QUESTS))
@@ -319,8 +305,6 @@ local function noteWindowOpened(windowName)
 
 	if string.find(windowName, "Inventory") then
 		state.inventoryOpened = true
-	elseif string.find(windowName, "Shop") or string.find(windowName, "Upgrade") then
-		state.shopOpened = true
 	elseif string.find(windowName, "World") then
 		state.worldsOpened = true
 	elseif
@@ -396,8 +380,9 @@ end)
 
 local function showIfNeeded()
 	waitForLoadingComplete()
-	mainHud = playerGui:WaitForChild("MainHUD", 20) :: ScreenGui?
-	modalWindows = mainHud and mainHud:FindFirstChild("ModalWindows") :: Folder?
+	mainHud = ClientUIRoot.GetRoot(playerGui)
+	local modalRoot = mainHud and mainHud:FindFirstChild("ModalWindows")
+	modalWindows = modalRoot and (modalRoot:FindFirstChild("Windows") or modalRoot)
 	local progress = player:WaitForChild("TutorialProgress", 20)
 
 	if
@@ -417,8 +402,6 @@ local function showIfNeeded()
 	end
 
 	bindVisibleWindow("InventoryWindow", "inventoryOpened")
-	bindVisibleWindow("ShopWindow", "shopOpened")
-	bindVisibleWindow("UpgradesWindow", "shopOpened")
 	bindVisibleWindow("WorldsWindow", "worldsOpened")
 	bindVisibleWindow("ZorkDialogueWindow", "zorkTalked")
 	bindVisibleWindow("DailyQuestsWindow", "zorkTalked")

@@ -1,10 +1,12 @@
 -- Controls the Studio-authored StarterGui.LoadingGui clone in PlayerGui.
 -- This script never creates or clones the loading screen; edit LoadingGui in Studio.
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 
 local RUN_ONCE_ATTRIBUTE = "ColorSimulatorLoadingControllerStarted"
 local HEAVY_FX_READY_ATTRIBUTE = "ClientHeavyVFXReady"
@@ -74,7 +76,7 @@ local statusText = loadingGui:FindFirstChild("StatusText", true)
 local progressFill = loadingGui:FindFirstChild("ProgressFill", true)
 
 local function setMainHudEnabled(enabled)
-	local mainHud = playerGui:FindFirstChild("MainHUD")
+	local mainHud = playerGui:FindFirstChild("MainHUD") or ClientUIRoot.GetRoot(playerGui)
 	if mainHud and mainHud:IsA("ScreenGui") then
 		mainHud.Enabled = enabled
 		return
@@ -141,13 +143,17 @@ end
 
 local function waitForHudReady()
 	setStatus(STEPS.UI)
-	local mainHud = waitForChild(playerGui, "MainHUD")
+	local mainHud = ClientUIRoot.GetRoot(playerGui)
 	if not mainHud then
 		warn("LoadingScreenController: PlayerGui.MainHUD did not appear before timeout.")
 		return false
 	end
 	waitForChild(mainHud, "BottomButtons")
-	waitForChild(mainHud, "ModalWindows")
+	local modalRoot = waitForChild(mainHud, "ModalWindows")
+	local modalWindows = modalRoot and (modalRoot:FindFirstChild("Windows") or modalRoot)
+	if not modalWindows then
+		return false
+	end
 	task.wait(STEP_DELAY)
 	print("[Loading] HUD ready")
 	return true

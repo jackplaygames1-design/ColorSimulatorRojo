@@ -15,6 +15,8 @@
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateWorldsWindow()
 -- Zork/tutorial windows refresh:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateZorkWindows()
+-- Power-up toast refresh:
+-- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdatePowerUpToastUI()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
@@ -40,6 +42,7 @@ local ToolData = requireFresh(ReplicatedStorage:WaitForChild("ToolData"))
 local UpgradeData = requireFresh(ReplicatedStorage:WaitForChild("UpgradeData"))
 local UpgradeIconConfig = requireFresh(ReplicatedStorage:WaitForChild("UpgradeIconConfig"))
 local GamepassIconConfig = requireFresh(ReplicatedStorage:WaitForChild("GamepassIconConfig"))
+local UITheme = requireFresh(ReplicatedStorage:WaitForChild("UITheme"))
 
 local OUTLINE = Color3.fromRGB(35, 38, 45)
 local TEXT_DARK = Color3.fromRGB(38, 36, 52)
@@ -50,9 +53,22 @@ local MUTED = Color3.fromRGB(92, 98, 116)
 local DISABLED = Color3.fromRGB(170, 180, 205)
 local PANEL = Color3.fromRGB(244, 248, 252)
 local STANDARD_WINDOW_POSITION = UDim2.fromScale(0.5, 0.47)
-local STANDARD_WINDOW_SIZE = UDim2.fromScale(0.76, 0.68)
+local STANDARD_WINDOW_SIZE = UDim2.fromScale(0.72, 0.72)
 local STANDARD_CLOSE_POSITION = UDim2.new(1, -78, 0, -42)
 local STANDARD_CLOSE_SIZE = UDim2.fromOffset(70, 70)
+local INVENTORY_CARD_POOL_SIZE = 96
+local MENU_ACCENTS = (UITheme and UITheme.MenuAccents) or {}
+local MENU_PANELS = (UITheme and UITheme.MenuPanels) or {}
+
+local makeResponsiveWindow
+
+local function getMenuAccent(name)
+	return MENU_ACCENTS[name] or MENU_ACCENTS.Default or CYAN
+end
+
+local function tintTowardWhite(color, amount)
+	return (color or CYAN):Lerp(Color3.fromRGB(255, 255, 255), amount or 0.82)
+end
 
 local function formatNumber(value)
 	if GameBalance and GameBalance.formatNumber then
@@ -362,6 +378,7 @@ local function makeWindow(windowsFolder, name, title, tabs)
 		Color3.fromRGB(244, 248, 252)
 	)
 	content.ClipsDescendants = false
+	makeResponsiveWindow(window, content)
 	return window, content
 end
 
@@ -1978,9 +1995,10 @@ local WORLD_TELEPORTS = {
 	{
 		id = "ZorkShop",
 		title = "Zork Shop",
-		description = "Jump back to the starter shop area.",
+		description = "Visit Zork once to unlock this teleport.",
 		icon = "ZS",
 		color = Color3.fromRGB(255, 199, 87),
+		requiresTeleportUnlock = true,
 	},
 	{
 		id = "OrangeSector",
@@ -3015,6 +3033,72 @@ local function clearChildren(parent)
 	end
 end
 
+local function ensureUiScale(parent, name, scaleValue)
+	local scale = parent:FindFirstChild(name)
+	if scale and not scale:IsA("UIScale") then
+		scale:Destroy()
+		scale = nil
+	end
+	if not scale then
+		scale = Instance.new("UIScale")
+		scale.Name = name
+		scale.Parent = parent
+	end
+	scale.Scale = scaleValue or 1
+	return scale
+end
+
+local function ensureAspectRatio(parent, aspectRatio)
+	local constraint = parent:FindFirstChild("ResponsiveAspect")
+	if constraint and not constraint:IsA("UIAspectRatioConstraint") then
+		constraint:Destroy()
+		constraint = nil
+	end
+	if not constraint then
+		constraint = Instance.new("UIAspectRatioConstraint")
+		constraint.Name = "ResponsiveAspect"
+		constraint.Parent = parent
+	end
+	constraint.AspectRatio = aspectRatio or 1.55
+	constraint.AspectType = Enum.AspectType.ScaleWithParentSize
+	constraint.DominantAxis = Enum.DominantAxis.Width
+	return constraint
+end
+
+local function ensurePadding(parent, name, padding)
+	local pad = parent:FindFirstChild(name)
+	if pad and not pad:IsA("UIPadding") then
+		pad:Destroy()
+		pad = nil
+	end
+	if not pad then
+		pad = Instance.new("UIPadding")
+		pad.Name = name
+		pad.Parent = parent
+	end
+	pad.PaddingTop = UDim.new(0, padding or 0)
+	pad.PaddingBottom = UDim.new(0, padding or 0)
+	pad.PaddingLeft = UDim.new(0, padding or 0)
+	pad.PaddingRight = UDim.new(0, padding or 0)
+	return pad
+end
+
+makeResponsiveWindow = function(window, content)
+	window:SetAttribute("ResponsiveWindow", true)
+	window:SetAttribute("DesktopWidthScale", 0.72)
+	window:SetAttribute("DesktopHeightScale", 0.72)
+	window:SetAttribute("MobilePortraitWidthScale", 0.94)
+	window:SetAttribute("MobilePortraitHeightScale", 0.78)
+	window:SetAttribute("MobileLandscapeWidthScale", 0.78)
+	window:SetAttribute("MobileLandscapeHeightScale", 0.82)
+	ensureUiScale(window, "ResponsiveScale", 1)
+	ensureAspectRatio(window, 1.55)
+	if content and content:IsA("GuiObject") then
+		content:SetAttribute("ResponsiveContent", true)
+		ensurePadding(content, "ResponsivePadding", 0)
+	end
+end
+
 local function conceptLabel(parent, name, value, position, size, textSize, alignment)
 	local label = text(parent, name, value, position, size, textSize)
 	label.TextXAlignment = alignment or Enum.TextXAlignment.Left
@@ -3111,12 +3195,18 @@ local function conceptWindow(modalWindows, name, title)
 	window.AnchorPoint = Vector2.new(0.5, 0.5)
 	window.Position = STANDARD_WINDOW_POSITION
 	window.Size = STANDARD_WINDOW_SIZE
-	window.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	local accent = getMenuAccent(name)
+	window.BackgroundColor3 = MENU_PANELS.Shell or tintTowardWhite(accent, 0.72)
 	window.BorderSizePixel = 0
 	window.ClipsDescendants = false
 	window.Visible = false
 	applyCorner(window, 28)
 	applyStroke(window, OUTLINE, 5)
+
+	local accentStrip = frame(window, "AccentStrip", UDim2.fromScale(0.04, 0.018), UDim2.fromScale(0.92, 0.035), accent)
+	accentStrip.BorderSizePixel = 0
+	accentStrip.ZIndex = window.ZIndex + 1
+	applyCorner(accentStrip, 14)
 
 	local titleLabel =
 		conceptLabel(window, "Title", title, UDim2.fromScale(0.05, -0.11), UDim2.fromScale(0.9, 0.14), 58)
@@ -3145,11 +3235,15 @@ local function conceptWindow(modalWindows, name, title)
 		"Content",
 		UDim2.fromScale(0.03, 0.06),
 		UDim2.fromScale(0.94, 0.88),
-		Color3.fromRGB(248, 252, 255),
+		MENU_PANELS.Content or tintTowardWhite(accent, 0.86),
 		22,
 		2
 	)
 	content.ClipsDescendants = false
+	content:SetAttribute("MenuAccentR", math.floor(accent.R * 255))
+	content:SetAttribute("MenuAccentG", math.floor(accent.G * 255))
+	content:SetAttribute("MenuAccentB", math.floor(accent.B * 255))
+	makeResponsiveWindow(window, content)
 	return window, content
 end
 
@@ -3183,7 +3277,7 @@ local function buildCurrencyBar(mainHud)
 	clearChildren(currencyBar)
 	currencyBar.AnchorPoint = Vector2.new(0, 0)
 	currencyBar.Position = UDim2.new(0, 8, 0.5, 8)
-	currencyBar.Size = UDim2.fromOffset(136, 150)
+	currencyBar.Size = UDim2.fromOffset(136, 100)
 	currencyBar.BackgroundTransparency = 1
 	currencyBar.Visible = true
 
@@ -3195,9 +3289,8 @@ local function buildCurrencyBar(mainHud)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = currencyBar
 
-	makeCurrencySlot(currencyBar, "ColorFrame", "COLOR", 1)
-	makeCurrencySlot(currencyBar, "GemsFrame", "GEMS", 2)
-	makeCurrencySlot(currencyBar, "CoinsFrame", "COINS", 3)
+	makeCurrencySlot(currencyBar, "GemsFrame", "GEMS", 1)
+	makeCurrencySlot(currencyBar, "CoinsFrame", "COINS", 2)
 end
 
 local BOTTOM_BUTTON_ICONS = {
@@ -3205,58 +3298,100 @@ local BOTTOM_BUTTON_ICONS = {
 		SourceFile = "assets/ui/upgradeicons/sliced/inventory_size.png",
 	},
 	MenuButton = {
+		Label = "MENU",
 		SourceFile = "assets/ui/menu_hamburger.png",
 	},
 	RankButton = {
+		Label = "RANK",
 		SourceFile = "assets/ui/rank_badge.png",
 	},
 	SettingsButton = {
+		Label = "SET",
 		SourceFile = "assets/ui/settings_gear.png",
 	},
 	ShopButton = {
+		Label = "SHOP",
 		SourceFile = "assets/ui/market_shop.png",
 	},
 	TradeButton = {
+		Label = "TRADE",
 		SourceFile = "assets/ui/trading_arrows.png",
 	},
 	WorldsButton = {
+		Label = "WORLD",
 		SourceFile = "assets/ui/market_shop.png",
 	},
 }
 
-local function assetPathToImage(sourceFile)
-	sourceFile = tostring(sourceFile or ""):gsub("\\", "/")
-	if sourceFile == "" then
-		return ""
-	end
-	return "rbxasset://" .. sourceFile
+local function isRenderableImage(image)
+	image = tostring(image or "")
+	return image:match("^rbxassetid://%d+") ~= nil or image:match("^http") ~= nil
 end
 
-local function applyBottomButtonIcon(btn, name, label)
+local function getExistingBottomButtonImages(bottomButtons)
+	local images = {}
+	if not bottomButtons then
+		return images
+	end
+
+	for _, child in ipairs(bottomButtons:GetChildren()) do
+		if child:IsA("ImageButton") or child:IsA("ImageLabel") then
+			local image = tostring(child.Image or "")
+			if isRenderableImage(image) then
+				images[child.Name] = image
+			end
+		end
+	end
+	return images
+end
+
+local function getBottomButtonLabel(name, fallback)
+	local spec = BOTTOM_BUTTON_ICONS[name] or {}
+	return tostring(spec.Label or fallback or name)
+end
+
+local function getBottomButtonImage(name, existingImages)
+	local existing = existingImages and existingImages[name]
+	if isRenderableImage(existing) then
+		return existing
+	end
+
+	local spec = BOTTOM_BUTTON_ICONS[name] or {}
+	if isRenderableImage(spec.Image) then
+		return tostring(spec.Image)
+	end
+	return ""
+end
+
+-- Roblox ImageButtons need uploaded asset IDs to render in game.
+-- Local PNG paths are kept as editable metadata for whoever uploads/replaces them in Studio.
+local function getBottomButtonSourceFile(name)
+	local spec = BOTTOM_BUTTON_ICONS[name] or {}
+	return tostring(spec.SourceFile or "")
+end
+
+local function applyBottomButtonIcon(btn, name, label, existingImages)
 	if not btn or not btn:IsA("ImageButton") then
 		return
 	end
 
-	local spec = BOTTOM_BUTTON_ICONS[name] or {}
-	local image = tostring(spec.Image or "")
-	if image == "" then
-		image = assetPathToImage(spec.SourceFile)
-	end
+	local image = getBottomButtonImage(name, existingImages)
+	local sourceFile = getBottomButtonSourceFile(name)
 
 	btn.Image = image
 	btn.ScaleType = Enum.ScaleType.Fit
-	btn.ImageTransparency = 0
+	btn.ImageTransparency = image == "" and 1 or 0
 	btn:SetAttribute("Label", label)
-	btn:SetAttribute("ExpectedIconFile", spec.SourceFile or "")
+	btn:SetAttribute("ExpectedIconFile", sourceFile)
 
 	local textLabel = btn:FindFirstChild("Label")
 	if textLabel and textLabel:IsA("TextLabel") then
-		textLabel.Text = ""
-		textLabel.Visible = false
+		textLabel.Text = image == "" and getBottomButtonLabel(name, label) or ""
+		textLabel.Visible = image == ""
 	end
 end
 
-local function makeBottomButton(parent, name, label, order, color)
+local function makeBottomButton(parent, name, label, order, color, existingImages)
 	local btn = imageButton(parent, name, UDim2.fromOffset(0, 0), UDim2.fromOffset(68, 68), color)
 	btn.LayoutOrder = order
 	btn.ZIndex = 5001
@@ -3281,12 +3416,13 @@ local function makeBottomButton(parent, name, label, order, color)
 	textLabel.Size = UDim2.new(1, -8, 1, -8)
 	textLabel.Position = UDim2.fromOffset(4, 4)
 	textLabel.ZIndex = btn.ZIndex + 1
-	applyBottomButtonIcon(btn, name, label)
+	applyBottomButtonIcon(btn, name, label, existingImages)
 	return btn
 end
 
 local function buildBottomButtons(mainHud)
 	local bottomButtons = ensureClass(mainHud, "Frame", "BottomButtons")
+	local existingImages = getExistingBottomButtonImages(bottomButtons)
 	clearChildren(bottomButtons)
 	bottomButtons.AnchorPoint = Vector2.new(0.5, 1)
 	bottomButtons.Position = UDim2.new(0.5, 0, 1, -24)
@@ -3294,6 +3430,8 @@ local function buildBottomButtons(mainHud)
 	bottomButtons.BackgroundTransparency = 1
 	bottomButtons.Visible = true
 	bottomButtons.ZIndex = 5000
+	bottomButtons:SetAttribute("ResponsiveHudButtons", true)
+	ensureUiScale(bottomButtons, "ResponsiveScale", 1)
 
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
@@ -3303,12 +3441,12 @@ local function buildBottomButtons(mainHud)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = bottomButtons
 
-	makeBottomButton(bottomButtons, "RankButton", "RANK", 1, Color3.fromRGB(45, 167, 255))
-	makeBottomButton(bottomButtons, "TradeButton", "TRADE", 2, Color3.fromRGB(45, 167, 255))
-	makeBottomButton(bottomButtons, "MenuButton", "MENU", 3, Color3.fromRGB(24, 138, 232))
-	makeBottomButton(bottomButtons, "ShopButton", "SHOP", 4, Color3.fromRGB(45, 167, 255))
-	makeBottomButton(bottomButtons, "WorldsButton", "WORLD", 5, Color3.fromRGB(45, 167, 255))
-	makeBottomButton(bottomButtons, "SettingsButton", "SET", 6, Color3.fromRGB(45, 167, 255))
+	makeBottomButton(bottomButtons, "RankButton", "RANK", 1, Color3.fromRGB(45, 167, 255), existingImages)
+	makeBottomButton(bottomButtons, "TradeButton", "TRADE", 2, Color3.fromRGB(45, 167, 255), existingImages)
+	makeBottomButton(bottomButtons, "MenuButton", "MENU", 3, Color3.fromRGB(24, 138, 232), existingImages)
+	makeBottomButton(bottomButtons, "ShopButton", "SHOP", 4, Color3.fromRGB(45, 167, 255), existingImages)
+	makeBottomButton(bottomButtons, "WorldsButton", "WORLD", 5, Color3.fromRGB(45, 167, 255), existingImages)
+	makeBottomButton(bottomButtons, "SettingsButton", "SET", 6, Color3.fromRGB(45, 167, 255), existingImages)
 end
 
 local function convertExistingBottomButtons(mainHud)
@@ -3339,7 +3477,8 @@ local function convertExistingBottomButtons(mainHud)
 			converted.AnchorPoint = existing.AnchorPoint
 			converted.Visible = existing.Visible
 			converted.ZIndex = existing.ZIndex
-			applyBottomButtonIcon(converted, name, tostring(existing:GetAttribute("Label") or name))
+			local existingImages = getExistingBottomButtonImages(bottomButtons)
+			applyBottomButtonIcon(converted, name, tostring(existing:GetAttribute("Label") or name), existingImages)
 		end
 	end
 end
@@ -3365,18 +3504,93 @@ local function buildShopTransitionOverlay(mainHud)
 	fade.ZIndex = 10000
 end
 
+local function buildPowerUpToast(mainHud)
+	local toast = ensureClass(mainHud, "Frame", "PowerUpToast")
+	clearChildren(toast)
+	toast.AnchorPoint = Vector2.new(0.5, 0)
+	toast.Position = UDim2.new(0.5, 0, 0, -90)
+	toast.Size = UDim2.fromOffset(420, 76)
+	toast.BackgroundColor3 = Color3.fromRGB(24, 29, 42)
+	toast.BackgroundTransparency = 0.04
+	toast.BorderSizePixel = 0
+	toast.Visible = false
+	toast.ZIndex = 6800
+	toast:SetAttribute("EditablePowerUpToast", true)
+	toast:SetAttribute("Purpose", "Wild color and power-up pickup message")
+	applyCorner(toast, 18)
+	applyStroke(toast, CYAN, 3)
+
+	local sizeLimit = Instance.new("UISizeConstraint")
+	sizeLimit.Name = "ResponsiveSizeLimit"
+	sizeLimit.MinSize = Vector2.new(280, 64)
+	sizeLimit.MaxSize = Vector2.new(520, 88)
+	sizeLimit.Parent = toast
+
+	local scale = Instance.new("UIScale")
+	scale.Name = "ResponsiveScale"
+	scale.Scale = 1
+	scale.Parent = toast
+
+	local accent = frame(toast, "Accent", UDim2.fromScale(0, 0), UDim2.fromScale(0.025, 1), CYAN)
+	accent.BorderSizePixel = 0
+	accent.ZIndex = toast.ZIndex + 1
+
+	local icon = frame(toast, "Icon", UDim2.fromOffset(18, 12), UDim2.fromOffset(52, 52), Color3.fromRGB(118, 238, 244))
+	icon.ZIndex = toast.ZIndex + 1
+	applyCorner(icon, 16)
+	applyStroke(icon, OUTLINE, 2)
+	local iconText = text(icon, "IconText", "UP", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 18)
+	iconText.TextScaled = true
+	iconText.TextXAlignment = Enum.TextXAlignment.Center
+	iconText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	iconText.TextStrokeColor3 = OUTLINE
+	iconText.TextStrokeTransparency = 0
+	iconText.ZIndex = toast.ZIndex + 2
+
+	local title = text(toast, "Title", "Power Up", UDim2.fromOffset(84, 10), UDim2.new(1, -108, 0, 28), 22)
+	title.TextScaled = true
+	title.TextStrokeColor3 = OUTLINE
+	title.TextStrokeTransparency = 0.15
+	title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	title.ZIndex = toast.ZIndex + 1
+	local titleLimit = Instance.new("UITextSizeConstraint")
+	titleLimit.Name = "TitleTextLimit"
+	titleLimit.MinTextSize = 14
+	titleLimit.MaxTextSize = 22
+	titleLimit.Parent = title
+
+	local body = text(toast, "Body", "Active for 45s", UDim2.fromOffset(84, 42), UDim2.new(1, -108, 0, 22), 14)
+	body.Font = Enum.Font.GothamBold
+	body.TextScaled = true
+	body.TextColor3 = Color3.fromRGB(205, 232, 255)
+	body.TextStrokeTransparency = 1
+	body.ZIndex = toast.ZIndex + 1
+	local bodyLimit = Instance.new("UITextSizeConstraint")
+	bodyLimit.Name = "BodyTextLimit"
+	bodyLimit.MinTextSize = 10
+	bodyLimit.MaxTextSize = 15
+	bodyLimit.Parent = body
+end
+
 local function makeInventoryTab(parent, name, label, order, selected)
+	local selectedColor = name == "BrushesTab" and Color3.fromRGB(78, 214, 255) or Color3.fromRGB(28, 134, 255)
 	local tab = conceptButton(
 		parent,
 		name,
 		label,
 		UDim2.fromOffset(0, 0),
 		UDim2.new(1, -22, 0, 76),
-		selected and Color3.fromRGB(28, 134, 255) or Color3.fromRGB(255, 255, 255)
+		selected and selectedColor or Color3.fromRGB(238, 247, 255)
 	)
 	tab.LayoutOrder = order
 	tab.TextColor3 = selected and Color3.fromRGB(255, 255, 255) or TEXT_DARK
 	tab.TextStrokeTransparency = selected and 0 or 0.55
+	tab.TextScaled = true
+	tab.TextWrapped = true
+	local textLimit = tab:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	textLimit.MinTextSize = 14
+	textLimit.MaxTextSize = 24
+	textLimit.Parent = tab
 	return tab
 end
 
@@ -3387,11 +3601,16 @@ local function makeInventoryCard(parent, name, order)
 		"",
 		UDim2.fromOffset(0, 0),
 		UDim2.fromOffset(120, 120),
-		Color3.fromRGB(247, 250, 255)
+		MENU_PANELS.Card or Color3.fromRGB(247, 250, 255)
 	)
 	card.LayoutOrder = order
 	card:SetAttribute("InventoryCardSlot", true)
 	card.Text = ""
+	card.ClipsDescendants = true
+
+	local accentBar = frame(card, "AccentBar", UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.06), CYAN)
+	accentBar.BorderSizePixel = 0
+	accentBar.ZIndex = card.ZIndex + 1
 
 	local preview = conceptPanel(
 		card,
@@ -3426,6 +3645,11 @@ local function makeInventoryCard(parent, name, order)
 		Enum.TextXAlignment.Center
 	)
 	itemName.TextYAlignment = Enum.TextYAlignment.Center
+	itemName.TextScaled = true
+	local nameLimit = itemName:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	nameLimit.MinTextSize = 10
+	nameLimit.MaxTextSize = 15
+	nameLimit.Parent = itemName
 	local meta = conceptLabel(
 		card,
 		"ItemMeta",
@@ -3436,6 +3660,11 @@ local function makeInventoryCard(parent, name, order)
 		Enum.TextXAlignment.Center
 	)
 	meta.TextColor3 = MUTED
+	meta.TextScaled = true
+	local metaLimit = meta:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	metaLimit.MinTextSize = 9
+	metaLimit.MaxTextSize = 13
+	metaLimit.Parent = meta
 	return card
 end
 
@@ -3447,7 +3676,7 @@ local function buildInventoryWindow(modalWindows)
 		"Tabs",
 		UDim2.fromScale(0.02, 0.05),
 		UDim2.fromScale(0.16, 0.88),
-		Color3.fromRGB(250, 252, 255),
+		Color3.fromRGB(232, 244, 255),
 		16,
 		2
 	)
@@ -3458,58 +3687,76 @@ local function buildInventoryWindow(modalWindows)
 	tabLayout.Padding = UDim.new(0, 14)
 	tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	tabLayout.Parent = tabs
-	makeInventoryTab(tabs, "ColorsTab", "PETS", 1, true)
-	makeInventoryTab(tabs, "BrushesTab", "COLORS", 2, false)
+	makeInventoryTab(tabs, "ColorsTab", "COLORS", 1, true)
+	makeInventoryTab(tabs, "BrushesTab", "GEAR", 2, false)
 	makeInventoryTab(tabs, "PotionsTab", "BOOSTS", 3, false)
 	makeInventoryTab(tabs, "ItemsTab", "ITEMS", 4, false)
 
 	local search =
 		textBox(content, "SearchBox", "Search inventory...", UDim2.fromScale(0.22, 0.05), UDim2.fromScale(0.39, 0.08))
 	search.TextSize = 20
+	search.BackgroundColor3 = MENU_PANELS.Search or Color3.fromRGB(238, 248, 255)
+	applyStroke(search, Color3.fromRGB(126, 207, 255), 2)
 	conceptButton(
 		content,
 		"SortButton",
 		"Newest",
 		UDim2.fromScale(0.64, 0.05),
 		UDim2.fromScale(0.14, 0.08),
-		Color3.fromRGB(255, 255, 255)
+		Color3.fromRGB(232, 244, 255)
 	).TextColor3 =
 		TEXT_DARK
 
 	local grid = ensureClass(content, "ScrollingFrame", "GridPanel")
 	grid.Position = UDim2.fromScale(0.21, 0.17)
 	grid.Size = UDim2.fromScale(0.57, 0.7)
-	grid.BackgroundColor3 = Color3.fromRGB(250, 252, 255)
+	grid.BackgroundColor3 = Color3.fromRGB(239, 247, 255)
 	grid.BorderSizePixel = 0
 	grid.ScrollBarThickness = 8
 	grid.CanvasSize = UDim2.fromScale(0, 0)
-	grid.AutomaticCanvasSize = Enum.AutomaticSize.None
+	grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	applyCorner(grid, 16)
 	applyStroke(grid, Color3.fromRGB(215, 225, 240), 2)
 
 	clearChildren(grid)
 	applyCorner(grid, 16)
 	applyStroke(grid, Color3.fromRGB(215, 225, 240), 2)
+	local gridPadding = Instance.new("UIPadding")
+	gridPadding.Name = "GridPadding"
+	gridPadding.PaddingTop = UDim.new(0, 14)
+	gridPadding.PaddingBottom = UDim.new(0, 56)
+	gridPadding.PaddingLeft = UDim.new(0, 14)
+	gridPadding.PaddingRight = UDim.new(0, 14)
+	gridPadding.Parent = grid
+	local gridLayout = Instance.new("UIGridLayout")
+	gridLayout.Name = "ItemGridLayout"
+	gridLayout.CellSize = UDim2.fromOffset(120, 120)
+	gridLayout.CellPadding = UDim2.fromOffset(12, 12)
+	gridLayout.FillDirection = Enum.FillDirection.Horizontal
+	gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	gridLayout.Parent = grid
 	local template = makeInventoryCard(grid, "ItemCardTemplate", 0)
 	template.Visible = false
-	for index = 1, 12 do
-		makeInventoryCard(grid, "PreviewSlot" .. tostring(index), index)
+	for index = 1, INVENTORY_CARD_POOL_SIZE do
+		local slot = makeInventoryCard(grid, "PreviewSlot" .. tostring(index), index)
+		slot.Visible = false
 	end
 	local emptyText = conceptLabel(
-		grid,
+		content,
 		"EmptyText",
 		"No items yet.",
-		UDim2.fromScale(0, 0.42),
-		UDim2.fromScale(1, 0.1),
+		UDim2.fromScale(0.21, 0.44),
+		UDim2.fromScale(0.57, 0.08),
 		20,
 		Enum.TextXAlignment.Center
 	)
 	emptyText.Visible = false
 	local footer = conceptPanel(
-		grid,
+		content,
 		"Footer",
-		UDim2.new(0, 14, 1, -44),
-		UDim2.new(1, -28, 0, 30),
+		UDim2.fromScale(0.23, 0.88),
+		UDim2.fromScale(0.53, 0.055),
 		Color3.fromRGB(239, 246, 255),
 		12,
 		0
@@ -3527,7 +3774,7 @@ local function buildInventoryWindow(modalWindows)
 	local details = ensureClass(content, "ScrollingFrame", "DetailsPanel")
 	details.Position = UDim2.fromScale(0.8, 0.05)
 	details.Size = UDim2.fromScale(0.18, 0.82)
-	details.BackgroundColor3 = Color3.fromRGB(246, 250, 255)
+	details.BackgroundColor3 = Color3.fromRGB(232, 244, 255)
 	details.BorderSizePixel = 0
 	details.ScrollBarThickness = 8
 	details.ScrollBarImageColor3 = MUTED
@@ -3598,9 +3845,9 @@ local function buildInventoryWindow(modalWindows)
 	local statsBox = conceptPanel(
 		details,
 		"StatsBox",
-		UDim2.fromScale(0.08, 0.68),
-		UDim2.fromScale(0.84, 0.1),
-		Color3.fromRGB(255, 255, 255),
+		UDim2.fromScale(0.08, 0.66),
+		UDim2.fromScale(0.84, 0.18),
+		Color3.fromRGB(247, 252, 255),
 		12,
 		1
 	)
@@ -3610,14 +3857,23 @@ local function buildInventoryWindow(modalWindows)
 		"",
 		UDim2.fromScale(0.06, 0.05),
 		UDim2.fromScale(0.88, 0.9),
-		13,
+		12,
 		Enum.TextXAlignment.Center
 	)
+	local statsText = statsBox:FindFirstChild("StatsText")
+	if statsText and statsText:IsA("TextLabel") then
+		statsText.TextScaled = true
+		statsText.TextYAlignment = Enum.TextYAlignment.Top
+		local limit = statsText:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+		limit.MinTextSize = 8
+		limit.MaxTextSize = 13
+		limit.Parent = statsText
+	end
 	conceptButton(
 		details,
 		"EquipButton",
 		"EQUIP",
-		UDim2.fromScale(0.08, 0.8),
+		UDim2.fromScale(0.08, 0.86),
 		UDim2.fromScale(0.84, 0.08),
 		Color3.fromRGB(73, 218, 57)
 	)
@@ -3625,7 +3881,7 @@ local function buildInventoryWindow(modalWindows)
 		details,
 		"LockButton",
 		"LOCK",
-		UDim2.fromScale(0.08, 0.89),
+		UDim2.fromScale(0.08, 0.95),
 		UDim2.fromScale(0.4, 0.07),
 		Color3.fromRGB(30, 150, 255)
 	)
@@ -3633,19 +3889,25 @@ local function buildInventoryWindow(modalWindows)
 		details,
 		"DeleteButton",
 		"DELETE",
-		UDim2.fromScale(0.52, 0.89),
+		UDim2.fromScale(0.52, 0.95),
 		UDim2.fromScale(0.4, 0.07),
 		Color3.fromRGB(236, 43, 38)
 	)
 end
 
 local function makeSettingsRow(parent, name, label, description, order, defaultText)
+	local rowColors = {
+		Color3.fromRGB(232, 255, 241),
+		Color3.fromRGB(232, 247, 255),
+		Color3.fromRGB(246, 239, 255),
+		Color3.fromRGB(255, 242, 232),
+	}
 	local row = conceptPanel(
 		parent,
 		name,
 		UDim2.fromOffset(0, 0),
 		UDim2.new(1, -12, 0, 64),
-		Color3.fromRGB(255, 255, 255),
+		rowColors[((order - 1) % #rowColors) + 1],
 		12,
 		1
 	)
@@ -4098,16 +4360,21 @@ local function buildRankWindow(modalWindows)
 		22,
 		Enum.TextXAlignment.Center
 	)
-	local perks = conceptPanel(
-		content,
-		"Perks",
-		UDim2.fromScale(0.18, 0.82),
-		UDim2.fromScale(0.64, 0.12),
-		Color3.fromRGB(248, 252, 255),
-		16,
-		0
-	)
+	local perks = ensureClass(content, "ScrollingFrame", "Perks")
+	perks.Position = UDim2.fromScale(0.18, 0.82)
+	perks.Size = UDim2.fromScale(0.64, 0.12)
+	perks.BackgroundColor3 = Color3.fromRGB(248, 252, 255)
+	perks.BorderSizePixel = 0
+	perks.ScrollBarThickness = 4
+	perks.ScrollBarImageColor3 = MUTED
+	perks.ScrollingDirection = Enum.ScrollingDirection.X
+	perks.AutomaticCanvasSize = Enum.AutomaticSize.X
+	perks.CanvasSize = UDim2.fromOffset(0, 0)
+	perks.ClipsDescendants = true
+	applyCorner(perks, 16)
+	applyStroke(perks, OUTLINE, 0)
 	perks.BackgroundTransparency = 1
+	ensurePadding(perks, "ResponsivePadding", 6)
 	local perkLayout = Instance.new("UIListLayout")
 	perkLayout.FillDirection = Enum.FillDirection.Horizontal
 	perkLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -4170,6 +4437,21 @@ function Builder.UpdateShopTransitionOverlay()
 
 	buildShopTransitionOverlay(mainHud)
 	print("StudioMenuWindowsBuilder: updated editable StarterGui.MainHUD.ShopTransitionOverlay.")
+end
+
+function Builder.UpdatePowerUpToastUI()
+	if not canBuildConceptMenus("UpdatePowerUpToastUI") then
+		return
+	end
+
+	local mainHud = StarterGui:FindFirstChild("MainHUD")
+	if not mainHud or not mainHud:IsA("ScreenGui") then
+		warn("StudioMenuWindowsBuilder: missing StarterGui.MainHUD for PowerUpToast.")
+		return
+	end
+
+	buildPowerUpToast(mainHud)
+	print("StudioMenuWindowsBuilder: updated editable StarterGui.MainHUD.PowerUpToast.")
 end
 
 function Builder.UpdateBottomButtons()
@@ -4670,6 +4952,7 @@ function Builder.BuildConceptMenus()
 	buildCurrencyBar(mainHud)
 	buildBottomButtons(mainHud)
 	buildShopTransitionOverlay(mainHud)
+	buildPowerUpToast(mainHud)
 	buildNpcDialogueUI(mainHud)
 
 	local modalWindows = ensureClass(mainHud, "Folder", "ModalWindows")

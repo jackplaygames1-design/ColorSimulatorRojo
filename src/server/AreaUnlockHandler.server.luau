@@ -105,6 +105,8 @@ local function setCurrentWorld(player, colorType, reason)
 		return
 	end
 
+	player:SetAttribute("InsideSectorInterior", false)
+	player:SetAttribute("LightingPreset", nil)
 	player:SetAttribute("ActiveWorldColor", world.primaryColor)
 	local storage = player:FindFirstChild("ColorStorage")
 	local currentWorld = storage and storage:FindFirstChild("CurrentWorld")

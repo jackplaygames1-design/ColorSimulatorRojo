@@ -26,7 +26,7 @@ local function warnUnknownColorOnce(petId)
 		return
 	end
 	warnedUnknownColorIds[petId] = true
-	warn("Unknown saved ColorId preserved: " .. tostring(petId))
+	warn("Unknown saved ColorId mapped to fallback display only: " .. tostring(petId))
 end
 
 -- These are called Colors in player-facing UI, even if internal code uses Pet for legacy reasons.
@@ -44,6 +44,24 @@ function PetData.GetCompanionDisplayName(petId)
 	petId = PetData.resolvePetId(petId)
 	local pet = PetData.Pets and PetData.Pets[petId]
 	return pet and pet.displayName or "Unknown Color"
+end
+
+function PetData.splitVariantKey(key)
+	if type(key) ~= "string" then
+		return nil
+	end
+
+	local parts = string.split(key, "|")
+	if #parts < 3 then
+		return nil
+	end
+
+	local petId = parts[1]
+	if not PetData.Pets or not PetData.Pets[petId] then
+		return nil
+	end
+
+	return petId, PetData.normalizeTraitId(parts[2]), PetData.normalizeMutationId(parts[3])
 end
 
 function PetData.normalizePersonalityId(personalityId)
@@ -425,6 +443,11 @@ function PetData.resolvePetId(petId)
 	petId = tostring(petId or "")
 	if PetData.Pets[petId] then
 		return petId, false
+	end
+
+	local variantPetId = PetData.splitVariantKey(petId)
+	if variantPetId then
+		return variantPetId, false
 	end
 
 	local alias = PetData.LegacyPetIdAliases[petId]

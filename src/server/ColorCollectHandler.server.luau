@@ -93,6 +93,7 @@ local lastSweepAt = {}
 local lastWalkSweepAt = {}
 local lastLightningAt = {}
 local lastMagnetAt = {}
+local brushStreaks = {}
 local collectionWarnings = {}
 local touchConnections = {}
 local unexpectedClientWarnings = {}
@@ -724,7 +725,7 @@ local function fireEffectVfx(player, effectName, fromPosition, targetPositions, 
 	})
 end
 
-local function collectProcTargets(player, targets, range)
+local function collectProcTargets(player, targets, range, powerMultiplier, source, mode)
 	local total = 0
 	local collected = 0
 	local positions = {}
@@ -734,7 +735,9 @@ local function collectProcTargets(player, targets, range)
 		local ok, awarded = collectBreakable(player, part, {
 			maxRange = range,
 			skipCooldown = true,
-			powerMultiplier = 1,
+			powerMultiplier = powerMultiplier or 1,
+			source = source,
+			mode = mode,
 		})
 		if ok and awarded > 0 then
 			table.insert(positions, position)
@@ -744,6 +747,48 @@ local function collectProcTargets(player, targets, range)
 	end
 
 	return collected, total, positions
+end
+
+local function advanceBrushStreak(player, toolConfig, root, range)
+	if not player or not toolConfig or not root then
+		return 0
+	end
+
+	local now = os.clock()
+	local state = brushStreaks[player]
+	if not state or now - (state.lastAt or 0) > 3.25 or state.toolId ~= toolConfig.Id then
+		state = { count = 0, lastAt = now, toolId = toolConfig.Id }
+		brushStreaks[player] = state
+	end
+	state.lastAt = now
+	state.count += 1
+
+	local threshold = math.max(2, math.floor(tonumber(toolConfig.ActiveTriggerEvery) or 4))
+	if state.count < threshold then
+		return 0
+	end
+	state.count = 0
+
+	local effectType = tostring(toolConfig.ActiveEffectType or "Sweep")
+	if effectType == "Sweep" or effectType == "" then
+		return 0
+	end
+
+	local bonusRange = math.min(range + 8, tonumber(toolConfig.MaxServerRange) or range)
+	local bonusMultiplier = math.clamp(tonumber(toolConfig.ActiveEffectValue) or 0.35, 0.1, 1)
+	local maxBonusTargets = effectType == "Chain" and 2 or 1
+
+	if effectType == "Mark" then
+		for _, target in ipairs(findNearbyBreakables(player, root.Position, bonusRange, 3)) do
+			markPetPriorityTarget(player, target)
+		end
+		return 0
+	end
+
+	local targets = findNearbyBreakables(player, root.Position, bonusRange, maxBonusTargets)
+	local _, awarded, positions = collectProcTargets(player, targets, bonusRange, bonusMultiplier, "brush", "active")
+	fireEffectVfx(player, "BrushActive", root.Position, positions, toolConfig.Id)
+	return awarded
 end
 
 local function tryBrushEffectProcs(player)
@@ -893,6 +938,7 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 	local total = 0
 	local lastMessage = "No Color in range."
 	local seen = {}
+	local root = getPlayerRoot(player)
 
 	for _, part in ipairs(candidates) do
 		if collected >= maxTargets then
@@ -923,7 +969,12 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 		end
 	end
 
+	local activeAwarded = 0
+	if mode == "sweep" and collected > 0 and root then
+		activeAwarded = advanceBrushStreak(player, toolConfig, root, range)
+	end
 	local procAwarded = mode == "sweep" and tryBrushEffectProcs(player) or 0
+	total += activeAwarded
 	total += procAwarded
 
 	local success = total > 0
@@ -956,6 +1007,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastWalkSweepAt[player] = nil
 	lastLightningAt[player] = nil
 	lastMagnetAt[player] = nil
+	brushStreaks[player] = nil
 end)
 
 if isTouchFallbackEnabled() then

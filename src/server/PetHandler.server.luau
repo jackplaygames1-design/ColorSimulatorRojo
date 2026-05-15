@@ -87,6 +87,7 @@ local hatchState = {}
 local hatchLocks = {}
 local activeHatches = {}
 local unexpectedClientWarnings = {}
+local getMaxSlots
 local MIN_HATCH_TRANSACTION_LOCK = 5.35
 local EGG_HATCH_DISTANCE_BUFFER = 6
 local DEFAULT_EGG_HATCH_DISTANCE = 18
@@ -171,6 +172,18 @@ local function repairOwnerRainbowPetInMemory(player)
 	end
 
 	return changed
+end
+
+local function ensureOwnerRainbowEquipped(player)
+	if not isOwnerRainbowPlayer(player) then
+		return false
+	end
+
+	if not playerInventory[player] or not PetData.Pets[STUDIO_DEV_PET_ID] then
+		return false
+	end
+
+	return repairOwnerRainbowPetInMemory(player)
 end
 
 local function reportDailyQuestProgress(player, questId, amount)
@@ -376,7 +389,7 @@ local function getStoredColor(part, colorType)
 	return getVisualColor(colorType)
 end
 
-local function getMaxSlots(player)
+function getMaxSlots(player)
 	local pf = player:FindFirstChild("PetData")
 	local baseSlots = 3
 	if pf then
@@ -441,11 +454,58 @@ local function markDataDirty(player, reason)
 	end
 end
 
+local function resolveActivePetId(petId)
+	petId = tostring(petId or "")
+	if PetData.Pets[petId] then
+		return petId
+	end
+
+	local variantPetId = PetData.splitVariantKey(petId)
+	if variantPetId and PetData.Pets[variantPetId] then
+		return variantPetId
+	end
+
+	local aliases = PetData.LegacyPetIdAliases or {}
+	local alias = aliases[petId]
+	if alias and PetData.Pets[alias] then
+		return alias
+	end
+
+	local compact = string.gsub(petId, "%s+", "")
+	alias = aliases[compact]
+	if alias and PetData.Pets[alias] then
+		return alias
+	end
+
+	return nil
+end
+
+local function isActivePetRecord(data)
+	return type(data) == "table" and resolveActivePetId(data.petId) ~= nil
+end
+
 local function normalizeInventoryData(variantKey, data)
 	if not data or not data.petId then
 		return nil
 	end
 
+	local variantPetId, variantTraitId, variantMutationId = PetData.splitVariantKey(variantKey)
+	if not variantPetId then
+		variantPetId, variantTraitId, variantMutationId = PetData.splitVariantKey(data.petId)
+	end
+	if variantPetId then
+		data.petId = variantPetId
+		data.traitId = data.traitId or variantTraitId
+		data.mutationId = data.mutationId or variantMutationId
+	end
+
+	local resolvedPetId = resolveActivePetId(data.petId)
+	if not resolvedPetId then
+		warn("PetHandler: ignored unknown saved ColorId in active inventory: " .. tostring(data.petId))
+		return nil
+	end
+
+	data.petId = resolvedPetId
 	data.personalityId = PetData.normalizePersonalityId(data.personalityId)
 	data.mutationId = PetData.normalizeMutationId(data.mutationId)
 	data.traitId = PetData.normalizeTraitId(data.traitId)
@@ -463,6 +523,13 @@ local function buildEntry(variantKey, data)
 	if not data then
 		return nil
 	end
+
+	local resolvedPetId = resolveActivePetId(data.petId)
+	if not resolvedPetId then
+		warn("PetHandler: skipped unknown ColorId while building active Color entry: " .. tostring(data.petId))
+		return nil
+	end
+	data.petId = resolvedPetId
 
 	local entry = PetData.buildPetEntry(
 		data.petId,
@@ -530,7 +597,7 @@ local function getPetInventorySnapshot(player)
 		return nil
 	end
 
-	repairOwnerRainbowPetInMemory(player)
+	ensureOwnerRainbowEquipped(player)
 	sanitizeEquippedList(player)
 
 	local records = {}
@@ -613,12 +680,16 @@ local function resolveInventoryKey(inventory, key)
 	end
 
 	local normalizedKey = tostring(key)
-	if inventory[normalizedKey] then
+	if inventory[normalizedKey] and isActivePetRecord(inventory[normalizedKey]) then
 		return normalizedKey
 	end
 	local legacyParts = string.split(normalizedKey, "|")
 
 	for variantKey, data in pairs(inventory) do
+		if not isActivePetRecord(data) then
+			continue
+		end
+
 		if variantKey == normalizedKey or data.petId == normalizedKey then
 			return variantKey
 		end
@@ -658,6 +729,8 @@ function sanitizeEquippedList(player)
 			equipped[writeIndex] = resolvedKey
 			seen[resolvedKey] = true
 			writeIndex += 1
+		elseif key and key ~= "" then
+			warn("PetHandler: removed invalid equipped Color key for " .. player.Name .. ": " .. tostring(key))
 		end
 	end
 
@@ -697,6 +770,11 @@ local function syncPetFolder(player, dirtyReason)
 	if invVal then
 		local parts = {}
 		for variantKey, data in pairs(playerInventory[player]) do
+			if not isActivePetRecord(data) then
+				warn("PetHandler: kept unknown ColorId out of PetData sync: " .. tostring(data and data.petId))
+				continue
+			end
+
 			-- Format: "variantKey:petId:stackAmount:traitId:shiny:personalityId:mutationId"
 			local traitStr = PetData.normalizeTraitId(data.traitId)
 			local shinyStr = data.isShiny and "shiny" or "normal"
@@ -754,7 +832,7 @@ local function sendState(player)
 		return
 	end
 
-	repairOwnerRainbowPetInMemory(player)
+	ensureOwnerRainbowEquipped(player)
 	local invList = {}
 	for variantKey, data in pairs(playerInventory[player]) do
 		local entry = buildEntry(variantKey, data)
@@ -823,7 +901,8 @@ local function ensureOwnerRainbowPet(player)
 		return
 	end
 
-	if not repairOwnerRainbowPetInMemory(player) then
+	local changed = ensureOwnerRainbowEquipped(player)
+	if not changed then
 		return
 	end
 	syncPetFolder(player, "grant-color")
@@ -1229,7 +1308,6 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	-- Stack or create
 	local wasDuplicate = inv[variantKey] ~= nil
 	local previousStackAmount = wasDuplicate and inv[variantKey].stackAmount or nil
-	local insertedEquippedIndex = nil
 	if inv[variantKey] then
 		inv[variantKey].stackAmount += 1
 		-- (for simplicity: keep existing trait — change if you want override logic)
@@ -1242,11 +1320,6 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 			personalityId = personalityId,
 			mutationId = mutationId,
 		}
-		-- Auto-equip first time
-		if #playerEquipped[player] < getMaxSlots(player) then
-			table.insert(playerEquipped[player], variantKey)
-			insertedEquippedIndex = #playerEquipped[player]
-		end
 	end
 
 	local function rollbackHatchInventory()
@@ -1254,17 +1327,6 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 			inv[variantKey].stackAmount = math.max(1, tonumber(previousStackAmount) or 1)
 		else
 			inv[variantKey] = nil
-		end
-
-		if insertedEquippedIndex and playerEquipped[player][insertedEquippedIndex] == variantKey then
-			table.remove(playerEquipped[player], insertedEquippedIndex)
-		else
-			for index = #playerEquipped[player], 1, -1 do
-				if playerEquipped[player][index] == variantKey then
-					table.remove(playerEquipped[player], index)
-					break
-				end
-			end
 		end
 	end
 
@@ -1299,6 +1361,8 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	entry.hatchCost = cost
 	entry.eggId = eggId
 	entry.mergeTier = entry.currentStackTier
+	entry.autoEquipped = false
+	entry.manualEquipRequired = true
 	entry.traitsUnlockedForEgg = canRollTraits
 	entry.mutationsUnlockedForEgg = canRollMutations
 	if DEBUG_LOGS then
@@ -1592,6 +1656,11 @@ local function getPlayerPetStats(player)
 		stats.coinMult *= coinMultiplier.Value
 	end
 
+	local brushEffects = ColorEffectHandler.CalculateEquippedColorEffects(player)
+	stats.breakPower = math.floor(stats.breakPower * (tonumber(brushEffects.PetPowerMultiplier) or 1))
+	stats.coinMult *= tonumber(brushEffects.PetCoinMultiplier) or 1
+	stats.pickupRangeMult *= tonumber(brushEffects.PetRangeMultiplier) or 1
+
 	return stats
 end
 
@@ -1692,15 +1761,16 @@ local function canPetAttackBreakable(player, obj, health, root, unlockedColors, 
 	return (root.Position - obj.Position).Magnitude <= maxRange
 end
 
-local function getPriorityTarget(player, root, unlockedColors, physicalZoneColors)
+local function getPriorityTarget(player, root, unlockedColors, physicalZoneColors, maxRange)
 	local bestTarget = nil
 	local bestSetAt = -math.huge
 	local now = os.clock()
+	maxRange = maxRange or PET_ATTACK_RANGE
 	for obj, health in pairs(objectHealth) do
 		if
 			obj:GetAttribute("PetPriorityOwnerUserId") == player.UserId
 			and (tonumber(obj:GetAttribute("PetPriorityUntil")) or 0) > now
-			and canPetAttackBreakable(player, obj, health, root, unlockedColors, PET_ATTACK_RANGE, physicalZoneColors)
+			and canPetAttackBreakable(player, obj, health, root, unlockedColors, maxRange, physicalZoneColors)
 		then
 			local setAt = tonumber(obj:GetAttribute("PetPrioritySetAt")) or 0
 			if setAt > bestSetAt then
@@ -1735,21 +1805,14 @@ RunService.Heartbeat:Connect(function()
 		local storage = player:FindFirstChild("ColorStorage")
 		local unlockedColors = storage and storage:FindFirstChild("UnlockedColors")
 		local physicalZoneColors = getPhysicalZoneColors(root)
+		local attackRange = PET_ATTACK_RANGE * (tonumber(petStats.pickupRangeMult) or 1)
 
-		local nearest = getPriorityTarget(player, root, unlockedColors, physicalZoneColors)
-		local nearestDist = PET_ATTACK_RANGE
+		local nearest = getPriorityTarget(player, root, unlockedColors, physicalZoneColors, attackRange)
+		local nearestDist = attackRange
 		if not nearest then
 			for obj, health in pairs(objectHealth) do
 				if
-					canPetAttackBreakable(
-						player,
-						obj,
-						health,
-						root,
-						unlockedColors,
-						PET_ATTACK_RANGE,
-						physicalZoneColors
-					)
+					canPetAttackBreakable(player, obj, health, root, unlockedColors, attackRange, physicalZoneColors)
 				then
 					local dist = (root.Position - obj.Position).Magnitude
 					if dist < nearestDist then

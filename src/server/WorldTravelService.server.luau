@@ -43,8 +43,8 @@ local LOCATION_CONFIG = {
 	ZorkShop = {
 		DisplayName = "Zork Shop",
 		SpawnNames = { "ZorkShopSpawn", "ShopEntranceSpawn", "StartSectorSpawn", "SpawnLocation" },
-		AlwaysUnlocked = true,
 		CurrentWorld = "Red",
+		RequiresTeleportUnlock = true,
 		AutoUnlockTeleport = true,
 	},
 	InsidePipes = {
@@ -286,6 +286,21 @@ local function setCurrentWorld(player, colorType)
 	markDataDirty(player, "current-world")
 end
 
+local function applyLocationState(player, locationId, config)
+	if locationId == "InsidePipes" then
+		player:SetAttribute("InsideSectorInterior", true)
+		player:SetAttribute("VisitedMutationSectorInterior", true)
+		player:SetAttribute("LightingPreset", "MutationPipes")
+		return
+	end
+
+	player:SetAttribute("InsideSectorInterior", false)
+	player:SetAttribute("LightingPreset", nil)
+	if config and config.CurrentWorld then
+		player:SetAttribute("ActiveWorldColor", config.CurrentWorld)
+	end
+end
+
 local function canTravel(player, config)
 	if config.Locked then
 		return false, "Locked"
@@ -293,14 +308,11 @@ local function canTravel(player, config)
 	if config.AlwaysUnlocked then
 		return true
 	end
-	if config.RequiredColor then
-		if isColorUnlocked(player, config.RequiredColor) then
-			if config.RequiresTeleportUnlock and not isTeleportUnlocked(player, config.LocationId) then
-				return false, "Visit " .. config.DisplayName .. " first to unlock its teleport."
-			end
-			return true
-		end
+	if config.RequiredColor and not isColorUnlocked(player, config.RequiredColor) then
 		return false, config.DisplayName .. " is locked"
+	end
+	if config.RequiresTeleportUnlock and not isTeleportUnlocked(player, config.LocationId) then
+		return false, "Visit " .. config.DisplayName .. " first to unlock its teleport."
 	end
 	return true
 end
@@ -366,6 +378,7 @@ requestTravel.OnServerEvent:Connect(function(player, locationId)
 	local success, message = safelyTeleport(player, spawnPart)
 	if success then
 		player:SetAttribute("LastTravelLocation", locationId)
+		applyLocationState(player, locationId, config)
 		if config.CurrentWorld then
 			player:SetAttribute("RequestedWorld", config.CurrentWorld)
 			setCurrentWorld(player, config.CurrentWorld)

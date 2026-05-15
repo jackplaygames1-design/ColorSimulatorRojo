@@ -41,6 +41,23 @@ local TRIGGER_NAME_DESTINATION = {
 }
 
 local function resolveDestinationId(trigger)
+	local explicitDestination = trigger:GetAttribute("PipeDestination")
+		or trigger:GetAttribute("Destination")
+		or trigger:GetAttribute("TravelLocation")
+	local explicitColor = trigger:GetAttribute("SectorColor") or trigger:GetAttribute("ColorType")
+	local loweredName = string.lower(trigger.Name or "")
+	if
+		type(explicitDestination) ~= "string"
+		and type(explicitColor) == "string"
+		and explicitColor ~= ""
+		and explicitColor ~= "Orange"
+	then
+		return nil
+	end
+	if type(explicitDestination) ~= "string" and loweredName:find("green", 1, true) then
+		return nil
+	end
+
 	local destinationId = trigger:GetAttribute("PipeDestination")
 		or trigger:GetAttribute("Destination")
 		or trigger:GetAttribute("TravelLocation")
@@ -124,6 +141,7 @@ local function applyDestinationState(player, destinationId)
 		player:SetAttribute("InsideSectorInterior", true)
 		player:SetAttribute("VisitedMutationSectorInterior", true)
 		player:SetAttribute("LightingPreset", "MutationPipes")
+		player:SetAttribute("ActiveWorldColor", "Orange")
 		return
 	end
 
@@ -220,6 +238,7 @@ local function hookPipeTrigger(trigger)
 	if not trigger:IsA("BasePart") then
 		return
 	end
+	trigger.Anchored = true
 	if trigger:GetAttribute("SectorInteriorEntrance") == true or trigger:GetAttribute("SectorInteriorExit") == true then
 		return
 	end
@@ -229,6 +248,13 @@ local function hookPipeTrigger(trigger)
 
 	local destinationPart = resolveDestinationPart(trigger)
 	if not destinationPart then
+		local explicitColor = trigger:GetAttribute("SectorColor") or trigger:GetAttribute("ColorType")
+		local shouldDisable = (type(explicitColor) == "string" and explicitColor ~= "" and explicitColor ~= "Orange")
+			or string.lower(trigger.Name or ""):find("green", 1, true) ~= nil
+		if shouldDisable then
+			trigger.CanTouch = false
+			trigger:SetAttribute("PipeTeleportDisabled", true)
+		end
 		-- Do not spam warnings for random map parts. Only warn likely pipe triggers.
 		if string.lower(trigger.Name):find("pipe") then
 			warn("PipeTeleportService: no destination for pipe trigger:", trigger:GetFullName())
@@ -259,6 +285,21 @@ local function shouldTryHook(part)
 	if not part:IsA("BasePart") then
 		return false
 	end
+	local explicitColor = part:GetAttribute("SectorColor") or part:GetAttribute("ColorType")
+	local explicitDestination = part:GetAttribute("PipeDestination")
+		or part:GetAttribute("Destination")
+		or part:GetAttribute("TravelLocation")
+	if
+		type(explicitDestination) ~= "string"
+		and type(explicitColor) == "string"
+		and explicitColor ~= ""
+		and explicitColor ~= "Orange"
+	then
+		return false
+	end
+	if type(explicitDestination) ~= "string" and string.lower(part.Name or ""):find("green", 1, true) then
+		return false
+	end
 	if part:GetAttribute("SectorInteriorEntrance") == true or part:GetAttribute("SectorInteriorExit") == true then
 		return false
 	end
@@ -285,8 +326,39 @@ local function shouldTryHook(part)
 		)
 end
 
+local function normalizePipePart(part)
+	if not part:IsA("BasePart") then
+		return
+	end
+	local lowered = string.lower(part.Name or "")
+	local parentName = part.Parent and string.lower(part.Parent.Name or "") or ""
+	if not lowered:find("pipe", 1, true) and not parentName:find("pipe", 1, true) then
+		return
+	end
+
+	part.Anchored = true
+	local explicitDestination = part:GetAttribute("PipeDestination")
+		or part:GetAttribute("Destination")
+		or part:GetAttribute("TravelLocation")
+	local explicitColor = part:GetAttribute("SectorColor") or part:GetAttribute("ColorType")
+	if
+		type(explicitDestination) ~= "string"
+		and (
+			(type(explicitColor) == "string" and explicitColor ~= "" and explicitColor ~= "Orange")
+			or lowered:find("green", 1, true)
+			or parentName:find("green", 1, true)
+		)
+	then
+		part.CanTouch = false
+		part:SetAttribute("PipeTeleportDisabled", true)
+	end
+end
+
 local function scanWorkspace()
 	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			normalizePipePart(obj)
+		end
 		if shouldTryHook(obj) then
 			hookPipeTrigger(obj)
 		end
@@ -296,6 +368,9 @@ end
 scanWorkspace()
 workspace.DescendantAdded:Connect(function(obj)
 	task.defer(function()
+		if obj.Parent and obj:IsA("BasePart") then
+			normalizePipePart(obj)
+		end
 		if obj.Parent and shouldTryHook(obj) then
 			hookPipeTrigger(obj)
 		end

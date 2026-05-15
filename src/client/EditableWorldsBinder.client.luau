@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 
@@ -42,9 +43,10 @@ local TELEPORTS = {
 	},
 	ZorkShop = {
 		statusWhenReady = "READY",
+		statusWhenLocked = "VISIT FIRST",
 		requiredColor = nil,
-		requiresTeleportUnlock = false,
-		alwaysUnlocked = true,
+		requiresTeleportUnlock = true,
+		showWhenLocked = true,
 		worldColor = "Red",
 	},
 	OrangeSector = {
@@ -71,19 +73,19 @@ local activePage = "Sectors"
 local statusMessage = ""
 
 local function mainHUD()
-	return playerGui:WaitForChild("MainHUD", 30)
+	return ClientUIRoot.GetRoot(playerGui)
 end
 
 local function windowsFolder(main)
 	local modal = main and main:FindFirstChild("ModalWindows")
-	return modal
+	return modal and (modal:FindFirstChild("Windows") or modal)
 end
 
 local main = mainHUD()
 local windows = windowsFolder(main)
 local worldsWindow = windows and windows:WaitForChild("WorldsWindow", 30)
 if not worldsWindow then
-	warn("EditableWorldsBinder: missing PlayerGui.MainHUD.ModalWindows.WorldsWindow")
+	warn("EditableWorldsBinder: missing editable WorldsWindow")
 	return
 end
 
@@ -723,7 +725,7 @@ local function getUnlockedTeleportSet()
 	local storage = getColorStorage()
 	local value = storage and storage:FindFirstChild("UnlockedTeleports")
 	local csv = value and value.Value or player:GetAttribute("UnlockedTeleports") or "OriginSector"
-	local set = { OriginSector = true, RedWastelands = true, ZorkShop = true }
+	local set = { OriginSector = true, RedWastelands = true }
 	for _, locationId in ipairs(string.split(tostring(csv or ""), ",")) do
 		if locationId ~= "" then
 			set[locationId] = true
@@ -944,6 +946,19 @@ local function updateTeleportCard(locationId, config)
 	local status = findText(card, "Status")
 
 	if not ready then
+		if config.showWhenLocked and requiredColorReady then
+			card.Visible = true
+			card.Size = UDim2.fromOffset(358, 118)
+			setStatus(status, config.statusWhenLocked or "LOCKED", LOCKED_RED)
+			setStroke(card, DISABLED, 2)
+			if button then
+				button.Text = "LOCKED"
+				button.BackgroundColor3 = DISABLED
+				button:SetAttribute("LocationId", locationId)
+				setGuiEnabled(button, false)
+			end
+			return true
+		end
 		card.Visible = false
 		card.Size = UDim2.fromOffset(0, 0)
 		if button then

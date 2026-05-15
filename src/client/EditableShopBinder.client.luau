@@ -7,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local RobuxShopConfig = require(ReplicatedStorage:WaitForChild("RobuxShopConfig"))
 local iconConfigModule = ReplicatedStorage:FindFirstChild("GamepassIconConfig")
 local GamepassIconConfig = iconConfigModule and require(iconConfigModule) or { Icons = {}, ByShopItemId = {} }
@@ -78,12 +79,12 @@ local function warnOnce(key, message)
 end
 
 local function getMainHUD()
-	return playerGui:WaitForChild("MainHUD", 30)
+	return ClientUIRoot.GetRoot(playerGui)
 end
 
 local function getWindows(mainHUD)
 	local modalWindows = mainHUD and mainHUD:FindFirstChild("ModalWindows")
-	return modalWindows
+	return modalWindows and (modalWindows:FindFirstChild("Windows") or modalWindows)
 end
 
 local function getTextLabel(parent, name)

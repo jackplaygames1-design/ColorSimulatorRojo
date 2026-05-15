@@ -91,6 +91,7 @@ local replicatedStateQueued = false
 local warnedEmptyEquippedVisuals = false
 local rebuildOrbitingPets
 local refreshInventoryUI
+local entryMatchesKey
 local isOpen = false
 
 local function getEntryKey(entry)
@@ -104,6 +105,32 @@ local function getEntryPower(entry)
 	return entry.effectivePower or entry.finalPower or 0
 end
 
+local function resolveKnownPetId(petId)
+	petId = tostring(petId or "")
+	if PetData.Pets[petId] then
+		return petId
+	end
+
+	local variantPetId = PetData.splitVariantKey(petId)
+	if variantPetId and PetData.Pets[variantPetId] then
+		return variantPetId
+	end
+
+	local aliases = PetData.LegacyPetIdAliases or {}
+	local alias = aliases[petId]
+	if alias and PetData.Pets[alias] then
+		return alias
+	end
+
+	local compact = string.gsub(petId, "%s+", "")
+	alias = aliases[compact]
+	if alias and PetData.Pets[alias] then
+		return alias
+	end
+
+	return nil
+end
+
 local function parseReplicatedInventory(value)
 	local inventory = {}
 	if type(value) ~= "string" or value == "" then
@@ -113,13 +140,33 @@ local function parseReplicatedInventory(value)
 	for _, raw in ipairs(string.split(value, ",")) do
 		local segments = string.split(raw, ":")
 		if #segments >= 3 then
-			local variantKey = segments[1]
-			local petId = segments[2]
-			local stackAmount = tonumber(segments[3]) or 1
-			local traitId = PetData.normalizeTraitId(segments[4])
-			local shinyStr = string.lower(tostring(segments[5] or "normal"))
-			local personalityId = PetData.normalizePersonalityId(segments[6])
-			local mutationId = PetData.normalizeMutationId(segments[7])
+			local variantKey
+			local petId
+			local stackIndex
+			if tonumber(segments[2]) then
+				variantKey = segments[1]
+				petId = segments[1]
+				stackIndex = 2
+			else
+				variantKey = segments[1]
+				petId = segments[2]
+				stackIndex = 3
+			end
+			local variantPetId, variantTraitId, variantMutationId = PetData.splitVariantKey(variantKey)
+			if variantPetId then
+				petId = variantPetId
+			end
+			local resolvedPetId = resolveKnownPetId(petId)
+			if not resolvedPetId then
+				warn("PetClient: ignored unknown replicated ColorId: " .. tostring(petId))
+				continue
+			end
+			petId = resolvedPetId
+			local stackAmount = tonumber(segments[stackIndex]) or 1
+			local traitId = PetData.normalizeTraitId(segments[stackIndex + 1] or variantTraitId)
+			local shinyStr = string.lower(tostring(segments[stackIndex + 2] or "normal"))
+			local personalityId = PetData.normalizePersonalityId(segments[stackIndex + 3])
+			local mutationId = PetData.normalizeMutationId(segments[stackIndex + 4] or variantMutationId)
 			local entry = PetData.buildPetEntry(
 				petId,
 				stackAmount,
@@ -128,10 +175,12 @@ local function parseReplicatedInventory(value)
 				mutationId,
 				traitId
 			)
-			if entry then
+			if entry and not entry.isUnknownColor then
 				entry.variantKey = variantKey ~= "" and variantKey or entry.variantKey
 				entry.effectivePower = entry.finalPower
 				table.insert(inventory, entry)
+			elseif entry and entry.isUnknownColor then
+				warn("PetClient: ignored unknown replicated ColorId: " .. tostring(entry.unknownColorId or petId))
 			end
 		end
 	end
@@ -154,6 +203,24 @@ local function parseReplicatedEquipped(value)
 	return equipped
 end
 
+local function filterEquippedForInventory(inventory, equipped)
+	local filtered = {}
+	local seen = {}
+	for _, key in ipairs(equipped or {}) do
+		for _, entry in ipairs(inventory or {}) do
+			if entryMatchesKey(entry, key) then
+				local resolvedKey = getEntryKey(entry)
+				if resolvedKey and not seen[resolvedKey] then
+					seen[resolvedKey] = true
+					table.insert(filtered, resolvedKey)
+				end
+				break
+			end
+		end
+	end
+	return filtered
+end
+
 local function applyPetState(inventory, equipped, source)
 	inventory = inventory or {}
 	equipped = equipped or {}
@@ -164,6 +231,23 @@ local function applyPetState(inventory, equipped, source)
 		end
 		warn("PetClient: ignored a transient empty Color inventory update.")
 		return
+	end
+
+	local rawEquippedCount = #equipped
+	equipped = filterEquippedForInventory(inventory, equipped)
+	if rawEquippedCount > 0 and #equipped == 0 and #equippedPets > 0 then
+		local restoredEquipped = filterEquippedForInventory(inventory, equippedPets)
+		if #restoredEquipped > 0 then
+			equipped = restoredEquipped
+			warn(
+				"PetClient: preserved previous equipped Colors after an invalid "
+					.. tostring(source or "state")
+					.. " update."
+			)
+		end
+	end
+	if rawEquippedCount > #equipped then
+		warn("PetClient: ignored invalid equipped Color keys from " .. tostring(source or "state") .. ".")
 	end
 
 	allPets = inventory
@@ -206,7 +290,7 @@ local function refreshPetsFromReplicatedValues()
 	end)
 end
 
-local function entryMatchesKey(entry, key)
+function entryMatchesKey(entry, key)
 	if not entry or not key then
 		return false
 	end
@@ -1398,16 +1482,17 @@ RunService.Heartbeat:Connect(function()
 	for i, entry in ipairs(spawnedPets) do
 		local model = entry.model
 		if model and model.Parent and model.PrimaryPart then
-			local row = math.floor((i - 1) / 3)
-			local slot = (i - 1) % 3
-			local rowCount = math.min(3, total - row * 3)
-			local sideOffset = (slot - (rowCount - 1) * 0.5) * 3.2
-			local backOffset = 4.8 + row * 2.2
+			local maxPerRing = 6
+			local ring = math.floor((i - 1) / maxPerRing)
+			local ringStart = ring * maxPerRing + 1
+			local ringCount = math.min(maxPerRing, total - ring * maxPerRing)
+			local ringSlot = i - ringStart
+			local radius = 4.2 + ring * 2.15
+			local height = 2.4 + ring * 0.42
+			local orbitSpeed = 0.9 - math.min(ring * 0.12, 0.35)
+			local angle = t * orbitSpeed + (ringSlot / ringCount) * math.pi * 2 + ring * 0.45
 			local bob = math.sin(t * 2.4 + i) * 0.35
-			local pos = root.Position
-				- root.CFrame.LookVector * backOffset
-				+ root.CFrame.RightVector * sideOffset
-				+ Vector3.new(0, 2.4 + bob, 0)
+			local pos = root.Position + Vector3.new(math.cos(angle) * radius, height + bob, math.sin(angle) * radius)
 			model:PivotTo(CFrame.lookAt(pos, root.Position + Vector3.new(0, 1.8, 0)))
 			updateCustomPetVisuals(entry, t)
 		end

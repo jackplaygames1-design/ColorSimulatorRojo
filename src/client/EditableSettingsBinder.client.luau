@@ -8,6 +8,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 local Events = ReplicatedStorage:WaitForChild("Events")
 local requestSetSettingEvent = Events:WaitForChild("RequestSetSetting")
 local settingsUpdatedEvent = Events:WaitForChild("SettingsUpdated")
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local SettingsData = require(ReplicatedStorage:WaitForChild("SettingsData"))
 
 local CARD_CONFIG = {
@@ -85,13 +86,14 @@ for index, cardName in ipairs(CARD_ORDER) do
 	SCROLL_ORDER[cardName] = index * 10
 end
 
-local mainHud = playerGui:WaitForChild("MainHUD", 15)
+local mainHud = ClientUIRoot.GetRoot(playerGui)
 if not mainHud then
 	warn("EditableSettingsBinder: missing PlayerGui.MainHUD")
 	return
 end
 
-local modalWindows = mainHud and mainHud:WaitForChild("ModalWindows", 10)
+local modalRoot = mainHud and mainHud:WaitForChild("ModalWindows", 10)
+local modalWindows = modalRoot and (modalRoot:FindFirstChild("Windows") or modalRoot)
 local settingsWindow = modalWindows and modalWindows:WaitForChild("SettingsWindow", 10)
 local content = settingsWindow and settingsWindow:WaitForChild("Content", 10)
 if not content then

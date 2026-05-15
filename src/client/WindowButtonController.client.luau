@@ -14,8 +14,6 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local ROOT_PATH = "PlayerGui.MainHUD"
-local BUTTONS_PATH = ROOT_PATH .. ".BottomButtons"
-local WINDOWS_PATH = ROOT_PATH .. ".ModalWindows"
 
 local BUTTON_TO_WINDOW = {
 	ShopButton = "ShopWindow",
@@ -23,6 +21,15 @@ local BUTTON_TO_WINDOW = {
 	TradeButton = "TradeWindow",
 	RankButton = "RankWindow",
 	SettingsButton = "SettingsWindow",
+}
+
+local WINDOW_ALIASES = {
+	InventoryWindow = { "InventoryWindow" },
+	ShopWindow = { "ShopWindow" },
+	WorldsWindow = { "WorldsWindow", "WorldWindow" },
+	TradeWindow = { "TradeWindow" },
+	RankWindow = { "RankWindow", "RanksWindow" },
+	SettingsWindow = { "SettingsWindow" },
 }
 
 local SIDE_BUTTON_NAMES = {
@@ -43,7 +50,7 @@ local menuExpanded = false
 local activeWindowName = nil
 local lastPressAt = {}
 
-local MODAL_WINDOW_SIZE = UDim2.fromScale(0.76, 0.68)
+local MODAL_WINDOW_SIZE = UDim2.fromScale(0.72, 0.72)
 local MODAL_WINDOW_POSITION = UDim2.fromScale(0.5, 0.47)
 local CLOSE_BUTTON_POSITION = UDim2.new(1, -78, 0, -42)
 local CLOSE_BUTTON_SIZE = UDim2.fromOffset(70, 70)
@@ -54,12 +61,28 @@ local CURRENCY_ZINDEX = 900
 local BOTTOM_BUTTON_ZINDEX = 5000
 local MOBILE_BOTTOM_ZINDEX = 5500
 
+local BUTTON_LABELS = {
+	MenuButton = "MENU",
+	RankButton = "RANK",
+	SettingsButton = "SET",
+	ShopButton = "SHOP",
+	TradeButton = "TRADE",
+	WorldsButton = "WORLD",
+}
+
 local STANDARD_WINDOW_NAMES = {
+	BrushShopWindow = true,
+	CodesWindow = true,
+	DailyQuestsWindow = true,
 	InventoryWindow = true,
-	ShopWindow = true,
-	TradeWindow = true,
 	RankWindow = true,
+	RanksWindow = true,
+	ShopWindow = true,
+	TutorialWindow = true,
+	TradeWindow = true,
+	UpgradesWindow = true,
 	SettingsWindow = true,
+	WorldWindow = true,
 	WorldsWindow = true,
 }
 
@@ -99,6 +122,69 @@ local function findButton(parent, name, path)
 	return object
 end
 
+local function findFirstButton(parent, names, path)
+	for _, name in ipairs(names) do
+		local button = findButton(parent, name, path .. "." .. name)
+		if button then
+			return button, name
+		end
+	end
+	return nil, names[1]
+end
+
+local function waitForDirectChild(parent, childName, timeout)
+	local child = parent and parent:FindFirstChild(childName)
+	if child then
+		return child
+	end
+	if parent then
+		return parent:WaitForChild(childName, timeout)
+	end
+	return nil
+end
+
+local function findMainHud()
+	local direct = waitForDirectChild(playerGui, "MainHUD", 3)
+	if direct and direct:IsA("ScreenGui") then
+		return direct, "PlayerGui.MainHUD"
+	end
+
+	local legacyRoot = waitForDirectChild(playerGui, "ClientUIRoot", 20)
+	if legacyRoot then
+		local legacyHud = waitForDirectChild(legacyRoot, "MainHUD", 5)
+		if legacyHud and legacyHud:IsA("GuiObject") then
+			return legacyHud, "PlayerGui.ClientUIRoot.MainHUD"
+		end
+	end
+
+	return nil, ROOT_PATH
+end
+
+local function findBottomButtons(mainHud, rootPath)
+	local bottom = getChild(mainHud, "BottomButtons", rootPath .. ".BottomButtons", "GuiObject")
+	if bottom then
+		return bottom, rootPath .. ".BottomButtons"
+	end
+	bottom = getChild(mainHud, "BottomRow", rootPath .. ".BottomRow", "GuiObject")
+	if bottom then
+		return bottom, rootPath .. ".BottomRow"
+	end
+	return nil, rootPath .. ".BottomButtons"
+end
+
+local function findWindowContainer(mainHud, rootPath)
+	local modal = getChild(mainHud, "ModalWindows", rootPath .. ".ModalWindows")
+	if not modal then
+		return nil, rootPath .. ".ModalWindows"
+	end
+
+	local windowsFolder = modal:FindFirstChild("Windows")
+	if windowsFolder then
+		return windowsFolder, rootPath .. ".ModalWindows.Windows"
+	end
+	return modal, rootPath .. ".ModalWindows"
+end
+
 local function debounce(key)
 	local now = os.clock()
 	if lastPressAt[key] and now - lastPressAt[key] < 0.12 then
@@ -132,18 +218,24 @@ local function isMobileLayout()
 		and math.min(viewport.X, viewport.Y) <= 900
 end
 
-local function getOrCreateScale(parent, name)
-	local scale = parent and parent:FindFirstChild(name)
+local function findResponsiveScale(parent)
+	if not parent then
+		return nil
+	end
+	local scale = parent:FindFirstChild("ResponsiveScale")
 	if scale and scale:IsA("UIScale") then
 		return scale
 	end
-	if scale then
-		scale:Destroy()
+	scale = parent:FindFirstChild("RuntimeMobileScale")
+	if scale and scale:IsA("UIScale") then
+		return scale
 	end
-	scale = Instance.new("UIScale")
-	scale.Name = name
-	scale.Parent = parent
-	return scale
+	return nil
+end
+
+local function hasRenderableImage(image)
+	image = tostring(image or "")
+	return image:match("^rbxassetid://%d+") ~= nil or image:match("^http") ~= nil
 end
 
 local function connectPress(guiObject, callback, key)
@@ -212,23 +304,9 @@ local function styleCloseIcon(closeButton)
 		return
 	end
 
-	local runtimeText = closeButton:FindFirstChild("RuntimeText")
-	if runtimeText and runtimeText:IsA("GuiObject") then
-		runtimeText:Destroy()
-	end
-
 	local closeIcon = closeButton:FindFirstChild("CloseIcon")
 	if not closeIcon or not closeIcon:IsA("TextLabel") then
-		if closeIcon then
-			closeIcon:Destroy()
-		end
-		closeIcon = Instance.new("TextLabel")
-		closeIcon.Name = "CloseIcon"
-		closeIcon.BackgroundTransparency = 1
-		closeIcon.BorderSizePixel = 0
-		closeIcon.Position = UDim2.fromScale(0, 0)
-		closeIcon.Size = UDim2.fromScale(1, 1)
-		closeIcon.Parent = closeButton
+		return
 	end
 	closeIcon.Visible = true
 	closeIcon.Text = "X"
@@ -275,10 +353,11 @@ local function styleCurrencySlot(slot)
 		icon.TextScaled = true
 		icon.TextXAlignment = Enum.TextXAlignment.Left
 		icon.ZIndex = slot.ZIndex + 1
-		local limit = icon:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
-		limit.MinTextSize = 12
-		limit.MaxTextSize = 22
-		limit.Parent = icon
+		local limit = icon:FindFirstChildOfClass("UITextSizeConstraint")
+		if limit then
+			limit.MinTextSize = 12
+			limit.MaxTextSize = 22
+		end
 	end
 
 	local amount = slot:FindFirstChild("Amount")
@@ -288,10 +367,11 @@ local function styleCurrencySlot(slot)
 		amount.TextScaled = true
 		amount.TextXAlignment = Enum.TextXAlignment.Left
 		amount.ZIndex = slot.ZIndex + 1
-		local limit = amount:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
-		limit.MinTextSize = 12
-		limit.MaxTextSize = 20
-		limit.Parent = amount
+		local limit = amount:FindFirstChildOfClass("UITextSizeConstraint")
+		if limit then
+			limit.MinTextSize = 12
+			limit.MaxTextSize = 20
+		end
 	end
 end
 
@@ -302,20 +382,52 @@ local function styleCurrencyBar()
 
 	currencyBar.AnchorPoint = Vector2.new(0, 0)
 	currencyBar.Position = UDim2.new(0, 8, 0.5, 8)
-	currencyBar.Size = UDim2.fromOffset(136, 150)
+	currencyBar.Size = UDim2.fromOffset(136, 100)
 	currencyBar.BackgroundTransparency = 1
 	currencyBar.ClipsDescendants = false
 	currencyBar.ZIndex = math.max(currencyBar.ZIndex, CURRENCY_ZINDEX)
 
 	for _, child in ipairs(currencyBar:GetChildren()) do
 		if child:IsA("GuiObject") then
-			styleCurrencySlot(child)
+			if child.Name == "ColorFrame" or child.Name == "ColorsFrame" or child.Name == "PaintFrame" then
+				child.Visible = false
+				child:SetAttribute("DeprecatedNoBackpackCurrency", true)
+			else
+				styleCurrencySlot(child)
+			end
 		end
 	end
 end
 
+local function styleBottomButtonVisual(button)
+	if not button or not button:IsA("ImageButton") then
+		return
+	end
+
+	local hasImage = hasRenderableImage(button.Image)
+	button.ImageTransparency = hasImage and 0 or 1
+	button.ScaleType = Enum.ScaleType.Fit
+
+	local label = button:FindFirstChild("Label")
+	if label and label:IsA("TextLabel") then
+		label.Text = hasImage and "" or tostring(button:GetAttribute("Label") or BUTTON_LABELS[button.Name] or "")
+		label.Visible = not hasImage
+		label.TextScaled = true
+		label.TextWrapped = true
+	end
+end
+
+local function styleBottomButtonVisuals()
+	if not bottomButtons then
+		return
+	end
+	for _, child in ipairs(bottomButtons:GetChildren()) do
+		styleBottomButtonVisual(child)
+	end
+end
+
 local function styleBottomButtons()
-	local scale = getOrCreateScale(bottomButtons, "RuntimeMobileScale")
+	local scale = findResponsiveScale(bottomButtons)
 	if isMobileLayout() then
 		local viewport = getViewportSize()
 		local portrait = viewport.Y >= viewport.X
@@ -327,12 +439,17 @@ local function styleBottomButtons()
 		bottomButtons.BackgroundTransparency = 1
 		bottomButtons.ClipsDescendants = false
 		bottomButtons.ZIndex = math.max(bottomButtons.ZIndex, MOBILE_BOTTOM_ZINDEX)
-		scale.Scale = portrait and 0.78 or 0.84
+		if scale then
+			scale.Scale = portrait and 0.78 or 0.84
+		end
 		raiseGuiObjectTree(bottomButtons, MOBILE_BOTTOM_ZINDEX)
+		styleBottomButtonVisuals()
 		return
 	end
 
-	scale.Scale = 1
+	if scale then
+		scale.Scale = 1
+	end
 	bottomButtons.AnchorPoint = Vector2.new(0.5, 1)
 	bottomButtons.Position = UDim2.new(0.5, 0, 1, -24)
 	bottomButtons.Size = UDim2.fromOffset(540, 78)
@@ -340,35 +457,53 @@ local function styleBottomButtons()
 	bottomButtons.ClipsDescendants = false
 	bottomButtons.ZIndex = math.max(bottomButtons.ZIndex, BOTTOM_BUTTON_ZINDEX)
 	raiseGuiObjectTree(bottomButtons, BOTTOM_BUTTON_ZINDEX)
+	styleBottomButtonVisuals()
 end
 
 local function styleModalWindow(windowName, window)
-	if not (window and window:IsA("GuiObject") and STANDARD_WINDOW_NAMES[windowName]) then
+	if
+		not (
+			window
+			and window:IsA("GuiObject")
+			and (
+				STANDARD_WINDOW_NAMES[windowName]
+				or window:GetAttribute("ResponsiveWindow") == true
+				or windowName:match("Window$") ~= nil
+			)
+		)
+	then
 		return
 	end
 
 	window.AnchorPoint = Vector2.new(0.5, 0.5)
 	local mobile = isMobileLayout()
 	window:SetAttribute("MobileLayoutActive", mobile)
-	if windowName == "InventoryWindow" then
-		window:SetAttribute("AllowRuntimeInventoryLayout", mobile)
-	end
-
-	local scale = getOrCreateScale(window, "RuntimeMobileScale")
+	local scale = findResponsiveScale(window)
 	if mobile then
 		local viewport = getViewportSize()
 		local portrait = viewport.Y >= viewport.X
 		local topInset = GuiService:GetGuiInset()
 		local scaleValue = math.clamp(math.min(viewport.X / 900, viewport.Y / 720), 0.58, 0.9)
-		local width = math.floor(viewport.X * (portrait and 0.94 or 0.78))
-		local height = math.floor(viewport.Y * (portrait and 0.76 or 0.82))
-		scale.Scale = scaleValue
+		local widthScale = portrait and (window:GetAttribute("MobilePortraitWidthScale") or 0.94)
+			or (window:GetAttribute("MobileLandscapeWidthScale") or 0.78)
+		local heightScale = portrait and (window:GetAttribute("MobilePortraitHeightScale") or 0.78)
+			or (window:GetAttribute("MobileLandscapeHeightScale") or 0.82)
+		local width = math.floor(viewport.X * widthScale)
+		local height = math.floor(viewport.Y * heightScale)
+		if scale then
+			scale.Scale = scaleValue
+		end
 		window.Position = UDim2.new(0.5, 0, 0.5, math.floor((topInset.Y - getBottomInset()) * 0.18))
 		window.Size = UDim2.fromOffset(math.floor(width / scaleValue), math.floor(height / scaleValue))
 	else
-		scale.Scale = 1
+		if scale then
+			scale.Scale = 1
+		end
 		window.Position = MODAL_WINDOW_POSITION
-		window.Size = MODAL_WINDOW_SIZE
+		window.Size = UDim2.fromScale(
+			window:GetAttribute("DesktopWidthScale") or MODAL_WINDOW_SIZE.X.Scale,
+			window:GetAttribute("DesktopHeightScale") or MODAL_WINDOW_SIZE.Y.Scale
+		)
 	end
 	window.ClipsDescendants = false
 	window.ZIndex = math.max(window.ZIndex, MODAL_ZINDEX)
@@ -387,15 +522,35 @@ local function restyleAll()
 	end
 end
 
-local mainHud = playerGui:WaitForChild("MainHUD", 20)
+local function resolveWindow(windowName)
+	for _, alias in ipairs(WINDOW_ALIASES[windowName] or { windowName }) do
+		local window = allModalWindows[alias]
+		if window then
+			return window, alias
+		end
+	end
+	return nil, windowName
+end
+
+local function looksLikeInventoryMenuButton(object)
+	if not (object and object:IsA("GuiObject")) then
+		return false
+	end
+	return object.Name == "MenuButton" or object.Name == "InventoryButton" or object.Name == "ItemsButton"
+end
+
+local mainHud, actualRootPath = findMainHud()
 if not mainHud then
-	missing(ROOT_PATH)
+	missing(actualRootPath)
 	return
 end
 
-currencyBar = getChild(mainHud, "CurrencyBar", ROOT_PATH .. ".CurrencyBar", "GuiObject")
-bottomButtons = getChild(mainHud, "BottomButtons", BUTTONS_PATH, "GuiObject")
-local modalWindows = getChild(mainHud, "ModalWindows", WINDOWS_PATH)
+currencyBar = getChild(mainHud, "CurrencyBar", actualRootPath .. ".CurrencyBar", "GuiObject")
+local actualButtonsPath = nil
+bottomButtons, actualButtonsPath = findBottomButtons(mainHud, actualRootPath)
+local modalWindows = nil
+local actualWindowsPath = nil
+modalWindows, actualWindowsPath = findWindowContainer(mainHud, actualRootPath)
 
 if not bottomButtons or not modalWindows then
 	return
@@ -408,7 +563,7 @@ end
 bottomButtons.Visible = true
 styleBottomButtons()
 
-local menuButton = findButton(bottomButtons, "MenuButton", BUTTONS_PATH .. ".MenuButton")
+local menuButton = findFirstButton(bottomButtons, { "MenuButton", "InventoryButton", "ItemsButton" }, actualButtonsPath)
 if not menuButton then
 	return
 end
@@ -416,14 +571,8 @@ buttons.MenuButton = menuButton
 menuButton.Visible = true
 menuButton.Active = true
 
-local legacyInventoryButton = bottomButtons:FindFirstChild("InventoryButton")
-if legacyInventoryButton and legacyInventoryButton:IsA("GuiObject") then
-	legacyInventoryButton.Visible = false
-	legacyInventoryButton.Active = false
-end
-
 for _, buttonName in ipairs(SIDE_BUTTON_NAMES) do
-	buttons[buttonName] = findButton(bottomButtons, buttonName, BUTTONS_PATH .. "." .. buttonName)
+	buttons[buttonName] = findButton(bottomButtons, buttonName, actualButtonsPath .. "." .. buttonName)
 end
 
 for _, child in ipairs(modalWindows:GetChildren()) do
@@ -435,17 +584,18 @@ for _, child in ipairs(modalWindows:GetChildren()) do
 end
 
 for _, windowName in pairs(BUTTON_TO_WINDOW) do
-	local window = allModalWindows[windowName]
+	local window = resolveWindow(windowName)
 	if window then
 		windows[windowName] = window
 	else
-		missing(WINDOWS_PATH .. "." .. windowName)
+		missing(actualWindowsPath .. "." .. windowName)
 	end
 end
-if allModalWindows.InventoryWindow then
-	windows.InventoryWindow = allModalWindows.InventoryWindow
+local inventoryWindow = resolveWindow("InventoryWindow")
+if inventoryWindow then
+	windows.InventoryWindow = inventoryWindow
 else
-	missing(WINDOWS_PATH .. ".InventoryWindow")
+	missing(actualWindowsPath .. ".InventoryWindow")
 end
 
 local function setSideButtonsVisible(visible)
@@ -479,9 +629,9 @@ local function closeAllWindows()
 end
 
 local function openWindow(windowName)
-	local window = allModalWindows[windowName]
+	local window, resolvedName = resolveWindow(windowName)
 	if not window then
-		missing(WINDOWS_PATH .. "." .. windowName)
+		missing(actualWindowsPath .. "." .. windowName)
 		return
 	end
 
@@ -489,24 +639,52 @@ local function openWindow(windowName)
 		other.Visible = false
 	end
 	window.Visible = true
-	activeWindowName = windowName
+	activeWindowName = resolvedName
 	playUI("Open")
 	setMenuExpanded(true)
 end
 
 local function toggleWindow(windowName)
-	local window = allModalWindows[windowName]
-	if window and window.Visible and activeWindowName == windowName then
+	local window, resolvedName = resolveWindow(windowName)
+	if window and window.Visible and activeWindowName == resolvedName then
 		closeAllWindows()
 	else
 		openWindow(windowName)
 	end
 end
 
-connectPress(menuButton, function()
-	playUI("Click")
-	toggleWindow("InventoryWindow")
-end, "MenuButton")
+local function bindInventoryMenuButton(button)
+	if not button or button:GetAttribute("WindowButtonControllerInventoryBound") == true then
+		return
+	end
+	button:SetAttribute("WindowButtonControllerInventoryBound", true)
+	button.Visible = true
+	button.Active = true
+	connectPress(button, function()
+		playUI("Click")
+		if not menuExpanded and activeWindowName == nil then
+			setMenuExpanded(true)
+		end
+		toggleWindow("InventoryWindow")
+	end, "InventoryMenuButton")
+end
+
+bindInventoryMenuButton(menuButton)
+for _, descendant in ipairs(mainHud:GetDescendants()) do
+	if looksLikeInventoryMenuButton(descendant) then
+		bindInventoryMenuButton(descendant)
+	end
+end
+
+mainHud.DescendantAdded:Connect(function(descendant)
+	if looksLikeInventoryMenuButton(descendant) then
+		task.defer(function()
+			if descendant.Parent then
+				bindInventoryMenuButton(descendant)
+			end
+		end)
+	end
+end)
 
 for buttonName, windowName in pairs(BUTTON_TO_WINDOW) do
 	local button = buttons[buttonName]
@@ -577,7 +755,11 @@ end
 
 mainHud:GetAttributeChangedSignal("RequestedWindow"):Connect(openRequestedWindow)
 mainHud:GetAttributeChangedSignal("RequestedWindowNonce"):Connect(openRequestedWindow)
+mainHud:GetAttributeChangedSignal("HatchSpotlightClosedMenusAt"):Connect(function()
+	closeAllWindows()
+	setMenuExpanded(false)
+end)
 
 setMenuExpanded(false)
 
-print("WindowButtonController: bound editable PlayerGui.MainHUD workflow.")
+print("WindowButtonController: bound editable " .. actualRootPath .. " workflow.")

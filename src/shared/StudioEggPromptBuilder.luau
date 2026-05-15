@@ -411,6 +411,55 @@ local function configureHatchAnimationUi(layer)
 	hatchText.ZIndex = 905
 	hatchText:SetAttribute("UsesDefaultHatchLayout", true)
 
+	local rarityFlash = findOrCreate(overlay, "Frame", "RarityFlash")
+	rarityFlash.Size = UDim2.fromScale(1, 1)
+	rarityFlash.Position = UDim2.fromScale(0, 0)
+	rarityFlash.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	rarityFlash.BackgroundTransparency = 1
+	rarityFlash.BorderSizePixel = 0
+	rarityFlash.Visible = false
+	rarityFlash.ZIndex = 890
+	rarityFlash:SetAttribute("EditableHatchEffect", true)
+	rarityFlash:SetAttribute("UsesDefaultHatchLayout", true)
+
+	local rarityBanner = configureHatchText(
+		overlay,
+		"RarityBanner",
+		"RARE HATCH!",
+		UDim2.fromScale(0.5, 0.18),
+		UDim2.fromOffset(520, 72),
+		42,
+		Color3.fromRGB(255, 220, 80)
+	)
+	rarityBanner.AnchorPoint = Vector2.new(0.5, 0.5)
+	rarityBanner.TextXAlignment = Enum.TextXAlignment.Center
+	rarityBanner.Visible = false
+	rarityBanner.ZIndex = 930
+	rarityBanner:SetAttribute("EditableHatchEffect", true)
+
+	local effectBurst = findOrCreate(overlay, "Frame", "EffectBurst")
+	effectBurst.Size = UDim2.fromScale(1, 1)
+	effectBurst.Position = UDim2.fromScale(0, 0)
+	effectBurst.BackgroundTransparency = 1
+	effectBurst.BorderSizePixel = 0
+	effectBurst.Visible = true
+	effectBurst.ZIndex = 912
+	effectBurst:SetAttribute("EditableHatchEffect", true)
+	effectBurst:SetAttribute("UsesDefaultHatchLayout", true)
+	for index = 1, 60 do
+		local spark = findOrCreate(effectBurst, "Frame", "Spark" .. tostring(index))
+		spark.AnchorPoint = Vector2.new(0.5, 0.5)
+		spark.Size = UDim2.fromOffset(10, 10)
+		spark.Position = UDim2.fromScale(0.5, 0.46)
+		spark.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		spark.BackgroundTransparency = 1
+		spark.BorderSizePixel = 0
+		spark.Visible = false
+		spark.ZIndex = 912
+		spark:SetAttribute("EditableHatchEffect", true)
+		applyCorner(spark, 999)
+	end
+
 	local stopAuto = findOrCreate(overlay, "TextButton", "StopAutoHatch")
 	stopAuto.AnchorPoint = Vector2.new(0.5, 0.5)
 	stopAuto.Size = UDim2.fromOffset(170, 44)
@@ -467,7 +516,7 @@ local function configureHatchAnimationUi(layer)
 	configureHatchText(
 		resultCard,
 		"ResultStats",
-		"0  FIST",
+		"0  POWER | EQUIP MANUALLY",
 		UDim2.fromOffset(14, 80),
 		UDim2.new(1, -28, 0, 32),
 		24,
@@ -533,7 +582,7 @@ local function configurePrompt(holder, eggId, sourceGui)
 	gui.Enabled = false
 	gui.LightInfluence = 0
 	gui.MaxDistance = 60
-	gui.Size = UDim2.fromOffset(320, 170)
+	gui.Size = UDim2.fromOffset(380, 260)
 	if not sourceGui then
 		gui.StudsOffsetWorldSpace = Vector3.new(0, math.max(8, holder.Size.Y * 0.5 + 4.5), 0)
 	end
@@ -602,8 +651,91 @@ local function configurePrompt(holder, eggId, sourceGui)
 	)
 	costLabel.TextSize = 14
 
-	configureOption(panel, "OpenOption", 21, 136, "E", "HATCH", Color3.fromRGB(116, 218, 230))
-	configureOption(panel, "AutoOption", 169, 120, "R", "AUTO", Color3.fromRGB(176, 134, 244))
+	local previewTitle = text(
+		panel,
+		"PreviewTitle",
+		"POSSIBLE COLORS",
+		UDim2.fromOffset(18, 108),
+		UDim2.new(1, -36, 0, 20),
+		Enum.Font.LuckiestGuy,
+		Color3.fromRGB(78, 58, 130)
+	)
+	previewTitle.TextSize = 14
+	previewTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+	local previewGrid = findOrCreate(panel, "Frame", "PreviewGrid")
+	previewGrid.Position = UDim2.fromOffset(18, 131)
+	previewGrid.Size = UDim2.new(1, -36, 0, 58)
+	previewGrid.BackgroundTransparency = 1
+	previewGrid.BorderSizePixel = 0
+	previewGrid:SetAttribute("EggPreviewGrid", true)
+	local gridLayout = previewGrid:FindFirstChildOfClass("UIGridLayout") or Instance.new("UIGridLayout")
+	gridLayout.CellSize = UDim2.fromOffset(62, 56)
+	gridLayout.CellPadding = UDim2.fromOffset(8, 0)
+	gridLayout.FillDirection = Enum.FillDirection.Horizontal
+	gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	gridLayout.Parent = previewGrid
+	for index = 1, 5 do
+		local slot = findOrCreate(previewGrid, "Frame", "PreviewSlot" .. tostring(index))
+		slot.LayoutOrder = index
+		slot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		slot.BackgroundTransparency = 0.08
+		slot.BorderSizePixel = 0
+		slot.Visible = true
+		slot:SetAttribute("EggPreviewSlot", true)
+		applyCorner(slot, 12)
+		applyStroke(slot, Color3.fromRGB(190, 205, 225), 2)
+
+		local dot = findOrCreate(slot, "Frame", "ColorDot")
+		dot.Size = UDim2.fromOffset(20, 20)
+		dot.Position = UDim2.new(0.5, -10, 0, 6)
+		dot.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+		dot.BorderSizePixel = 0
+		applyCorner(dot, 999)
+
+		local chance = text(
+			slot,
+			"Chance",
+			"0%",
+			UDim2.fromOffset(4, 28),
+			UDim2.new(1, -8, 0, 16),
+			Enum.Font.GothamBold,
+			Color3.fromRGB(78, 58, 130)
+		)
+		chance.TextSize = 10
+
+		local state = text(
+			slot,
+			"State",
+			"???",
+			UDim2.fromOffset(4, 42),
+			UDim2.new(1, -8, 0, 12),
+			Enum.Font.GothamBold,
+			Color3.fromRGB(60, 70, 90)
+		)
+		state.TextSize = 8
+
+		local locked = findOrCreate(slot, "Frame", "LockedShade")
+		locked.Size = UDim2.fromScale(1, 1)
+		locked.Position = UDim2.fromScale(0, 0)
+		locked.BackgroundColor3 = Color3.fromRGB(20, 24, 35)
+		locked.BackgroundTransparency = 0.48
+		locked.BorderSizePixel = 0
+		locked.Visible = true
+		applyCorner(locked, 12)
+	end
+
+	configureOption(panel, "OpenOption", 41, 146, "E", "HATCH", Color3.fromRGB(116, 218, 230))
+	configureOption(panel, "AutoOption", 198, 142, "R", "AUTO", Color3.fromRGB(176, 134, 244))
+	local openOption = panel:FindFirstChild("OpenOption")
+	if openOption then
+		openOption.Position = UDim2.fromOffset(41, 203)
+	end
+	local autoOption = panel:FindFirstChild("AutoOption")
+	if autoOption then
+		autoOption.Position = UDim2.fromOffset(198, 203)
+	end
 
 	holder:SetAttribute("EggPromptAuthored", true)
 	ensureEggPrompt(holder)

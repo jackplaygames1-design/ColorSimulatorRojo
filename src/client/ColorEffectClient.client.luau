@@ -18,6 +18,7 @@ local EFFECT_COLORS = {
 	Storm = Color3.fromRGB(95, 175, 255),
 	Glitched = Color3.fromRGB(180, 90, 255),
 	Rainbow = Color3.fromRGB(255, 120, 220),
+	BrushActive = Color3.fromRGB(91, 230, 235),
 }
 
 local function getFxColor(payload)

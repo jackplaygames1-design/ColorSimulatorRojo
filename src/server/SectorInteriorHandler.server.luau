@@ -17,7 +17,6 @@ local locks = {}
 local teleportTokens = {}
 local hooked = {}
 local AUTO_PIPE_NAMES = {
-	pipe = true,
 	orangesectorpipe = true,
 	orangeinteriorexitpipe = true,
 }
@@ -293,6 +292,43 @@ local function getPipeParts(pipeObject)
 	return parts
 end
 
+local function getExplicitPipeColor(pipeObject)
+	local current = pipeObject
+	while current and current ~= Workspace do
+		local colorType = current:GetAttribute("SectorColor") or current:GetAttribute("ColorType")
+		if type(colorType) == "string" and colorType ~= "" then
+			return colorType
+		end
+		current = current.Parent
+	end
+	return nil
+end
+
+local function hasExplicitInteriorPipeMarker(pipeObject)
+	local current = pipeObject
+	while current and current ~= Workspace do
+		if
+			current:GetAttribute("SectorInteriorEntrance") == true
+			or current:GetAttribute("SectorInteriorExit") == true
+			or current:GetAttribute("SectorInteriorDestination") ~= nil
+		then
+			return true
+		end
+		current = current.Parent
+	end
+	return false
+end
+
+local function isOrangeInteriorPipeName(name)
+	local lowered = string.lower(name or "")
+	return AUTO_PIPE_NAMES[lowered] == true or string.find(lowered, "orang", 1, true) ~= nil
+end
+
+local function isPipeTriggerPart(part)
+	local lowered = string.lower(part.Name or "")
+	return part:GetAttribute("PipeTeleportTrigger") == true or string.find(lowered, "trigger", 1, true) ~= nil
+end
+
 local function configurePipeObject(pipeObject)
 	local lowered = string.lower(pipeObject.Name or "")
 	if not AUTO_PIPE_NAMES[lowered] and not string.match(lowered, "pipe") then
@@ -301,8 +337,34 @@ local function configurePipeObject(pipeObject)
 	if pipeObject:FindFirstAncestor("PetAppearanceStudio") then
 		return
 	end
+	if
+		pipeObject:IsA("BasePart")
+		and not isPipeTriggerPart(pipeObject)
+		and (
+			string.find(lowered, "ring", 1, true)
+			or string.find(lowered, "inner", 1, true)
+			or string.find(lowered, "outer", 1, true)
+		)
+	then
+		pipeObject.Anchored = true
+		pipeObject.CanTouch = false
+		pipeObject:SetAttribute("SectorInteriorEntrance", nil)
+		pipeObject:SetAttribute("SectorInteriorExit", nil)
+		return
+	end
 
-	local colorType = pipeObject:GetAttribute("SectorColor") or pipeObject:GetAttribute("ColorType") or "Orange"
+	local explicitColor = getExplicitPipeColor(pipeObject)
+	if explicitColor and explicitColor ~= "Orange" then
+		return
+	end
+	if not explicitColor and string.find(lowered, "green", 1, true) then
+		return
+	end
+	if not hasExplicitInteriorPipeMarker(pipeObject) and not isOrangeInteriorPipeName(pipeObject.Name) then
+		return
+	end
+
+	local colorType = explicitColor or "Orange"
 	if colorType ~= "Orange" then
 		return
 	end
@@ -314,6 +376,16 @@ local function configurePipeObject(pipeObject)
 		or isInsideBounds(getObjectPosition(pipeObject), boundsCFrame, boundsSize, 20)
 
 	for _, part in ipairs(getPipeParts(pipeObject)) do
+		local shouldHookPart = isPipeTriggerPart(part) or pipeObject:IsA("BasePart")
+		part.Anchored = true
+		part.CanQuery = true
+		if not shouldHookPart then
+			part:SetAttribute("SectorInteriorEntrance", nil)
+			part:SetAttribute("SectorInteriorExit", nil)
+			part.CanTouch = false
+			continue
+		end
+
 		if not part:GetAttribute("SectorInteriorEntrance") and not part:GetAttribute("SectorInteriorExit") then
 			if insideInterior then
 				part:SetAttribute("SectorInteriorExit", true)
@@ -325,7 +397,6 @@ local function configurePipeObject(pipeObject)
 		part:SetAttribute("SectorColor", colorType)
 		part:SetAttribute("ColorType", colorType)
 		part.CanTouch = true
-		part.CanQuery = true
 	end
 end
 
@@ -470,6 +541,7 @@ local function enterInterior(player, trigger)
 			end
 			player:SetAttribute("InsideSectorInterior", true)
 			player:SetAttribute("VisitedMutationSectorInterior", true)
+			player:SetAttribute("LightingPreset", "MutationPipes")
 			unlockTeleport(player, "InsidePipes", "Inside the Pipes")
 		end
 	end)

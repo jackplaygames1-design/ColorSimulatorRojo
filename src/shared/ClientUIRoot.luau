@@ -13,7 +13,6 @@ local warnedLegacy = {}
 local warnedRuntimeLayer = {}
 
 local LEGACY_SCREEN_GUI_NAMES = {
-	ClientUIRoot = true,
 	ColorSimulatorUI = true,
 	MainMenu = true,
 	MenuUI = true,
@@ -70,6 +69,9 @@ end
 local function cleanupLegacyRoots(playerGui)
 	for _, child in ipairs(playerGui:GetChildren()) do
 		if child:IsA("ScreenGui") and child.Name ~= UI_SCREEN_NAME then
+			if child.Name == "ClientUIRoot" then
+				continue
+			end
 			if
 				child:GetAttribute("LegacyUI") == true
 				or LEGACY_SCREEN_GUI_NAMES[child.Name]
@@ -109,6 +111,14 @@ local function getCurrentRoot(playerGui)
 		end
 	end
 
+	if not currentRoot then
+		local legacyRoot = playerGui:FindFirstChild("ClientUIRoot")
+		local legacyMainHud = legacyRoot and legacyRoot:FindFirstChild(UI_SCREEN_NAME)
+		if legacyMainHud and legacyMainHud:IsA("GuiObject") then
+			currentRoot = legacyMainHud
+		end
+	end
+
 	return currentRoot
 end
 
@@ -127,7 +137,14 @@ function ClientUIRoot.GetRoot(playerGui)
 						return
 					end
 					if child.Name ~= UI_SCREEN_NAME then
-						if
+						if child.Name == "ClientUIRoot" then
+							local legacyMainHud = child:FindFirstChild(UI_SCREEN_NAME)
+							if legacyMainHud and legacyMainHud:IsA("GuiObject") then
+								legacyMainHud:SetAttribute("CurrentColorSimulatorUI", true)
+								legacyMainHud:SetAttribute("UIScreenVersion", UI_VERSION)
+								rootByPlayerGui[playerGui] = legacyMainHud
+							end
+						elseif
 							child:GetAttribute("LegacyUI") == true
 							or LEGACY_SCREEN_GUI_NAMES[child.Name]
 							or child.Name == LEGACY_GENERATED_UI_SCREEN_NAME
@@ -146,7 +163,7 @@ function ClientUIRoot.GetRoot(playerGui)
 	end
 
 	local root = rootByPlayerGui[playerGui]
-	if root and root.Parent == playerGui then
+	if root and root:IsDescendantOf(playerGui) then
 		return root
 	end
 
@@ -156,6 +173,14 @@ function ClientUIRoot.GetRoot(playerGui)
 		if waitedRoot and waitedRoot:IsA("ScreenGui") then
 			root = waitedRoot
 		else
+			local legacyRoot = playerGui:WaitForChild("ClientUIRoot", 5)
+			local legacyMainHud = legacyRoot and legacyRoot:WaitForChild(UI_SCREEN_NAME, 5)
+			if legacyMainHud and legacyMainHud:IsA("GuiObject") then
+				root = legacyMainHud
+			end
+		end
+
+		if not root then
 			warn("ClientUIRoot: PlayerGui.MainHUD is missing; runtime ScreenGui creation is disabled.")
 			return nil
 		end

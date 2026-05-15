@@ -1,6 +1,5 @@
 -- Focused Sector egg shop: one usable egg per Sector.
 
-local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -50,9 +49,9 @@ local function getEggShopLayer()
 		return layer
 	end
 
-	local mainHud = playerGui:WaitForChild("MainHUD", 10)
-	if not mainHud or not mainHud:IsA("ScreenGui") then
-		warn("EggShopUI: missing PlayerGui.MainHUD; hatch UI cannot load.")
+	local mainHud = ClientUIRoot.GetRoot(playerGui)
+	if not mainHud or not mainHud:IsA("GuiObject") then
+		warn("EggShopUI: missing editable MainHUD; hatch UI cannot load.")
 		return nil
 	end
 
@@ -61,24 +60,8 @@ local function getEggShopLayer()
 		return layer
 	end
 
-	layer = Instance.new("Frame")
-	layer.Name = "EggShopUI"
-	layer.Size = UDim2.fromScale(1, 1)
-	layer.Position = UDim2.fromScale(0, 0)
-	layer.BackgroundTransparency = 1
-	layer.BorderSizePixel = 0
-	layer.Visible = true
-	layer.ZIndex = 800
-	layer:SetAttribute("RuntimeFallback", true)
-	layer:SetAttribute(
-		"EditableSourceHint",
-		"Run require(game.ReplicatedStorage.StudioEggPromptBuilder).BuildUI() in Studio edit mode."
-	)
-	layer.Parent = mainHud
-	warn(
-		"EggShopUI: created runtime fallback layer. Run StudioEggPromptBuilder.BuildUI() to add an editable StarterGui.MainHUD.EggShopUI layer."
-	)
-	return layer
+	warn("EggShopUI: missing editable MainHUD.EggShopUI. Run StudioEggPromptBuilder.BuildUI() in Studio edit mode.")
+	return nil
 end
 
 local DARK = Color3.fromRGB(35, 38, 45)
@@ -134,6 +117,7 @@ local lastAutoHatchAt = 0
 local hatchOverlay = nil
 local stopAutoButton = nil
 local setExternalHatchUiHidden = function() end
+local ownedPetIds = {}
 
 local function updateHatchFocusState()
 	local overlayVisible = hatchOverlay and hatchOverlay.Visible == true
@@ -222,6 +206,48 @@ local function getEggCostText(eggId)
 	return formatNum(egg.cost or 0) .. " Coins"
 end
 
+local function formatChance(value)
+	value = tonumber(value) or 0
+	if value > 0 and value < 1 then
+		return string.format("%.2f%%", value)
+	end
+	return string.format("%g%%", value)
+end
+
+local function parseOwnedPetsFromInventory(value)
+	table.clear(ownedPetIds)
+	if type(value) ~= "string" or value == "" then
+		return
+	end
+
+	for _, raw in ipairs(string.split(value, ",")) do
+		local segments = string.split(raw, ":")
+		local petId
+		if tonumber(segments[2]) then
+			petId = segments[1]
+		else
+			petId = segments[2]
+		end
+		local variantPetId = PetData.splitVariantKey(petId)
+		if variantPetId then
+			petId = variantPetId
+		end
+		if petId and PetData.Pets[petId] then
+			ownedPetIds[petId] = true
+		end
+	end
+end
+
+local function refreshOwnedPets()
+	local petFolder = player:FindFirstChild("PetData")
+	local inventoryValue = petFolder and petFolder:FindFirstChild("Inventory")
+	parseOwnedPetsFromInventory(inventoryValue and inventoryValue.Value or "")
+end
+
+local function isPetDiscovered(petId)
+	return ownedPetIds[tostring(petId or "")] == true
+end
+
 local findEggOptionsGui
 
 local function configureEggPrompt(prompt)
@@ -246,6 +272,55 @@ local function setPromptText(parent, name, value)
 	local label = parent and parent:FindFirstChild(name, true)
 	if label and (label:IsA("TextLabel") or label:IsA("TextButton") or label:IsA("TextBox")) then
 		label.Text = tostring(value or "")
+	end
+end
+
+local function updateEggPromptPreview(gui, eggId)
+	local egg = eggId and PetData.Eggs[eggId]
+	local grid = gui and gui:FindFirstChild("PreviewGrid", true)
+	if not egg or not grid then
+		return
+	end
+
+	for index = 1, 5 do
+		local slot = grid:FindFirstChild("PreviewSlot" .. tostring(index))
+		local roll = egg.pets and egg.pets[index]
+		local pet = roll and PetData.Pets[roll.petId]
+		if slot and slot:IsA("GuiObject") then
+			slot.Visible = pet ~= nil
+			if pet then
+				local discovered = isPetDiscovered(roll.petId)
+				local rarityColor = RARITY_COLOR[pet.rarity] or TITLE_TEXT
+				slot.BackgroundColor3 = discovered and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(140, 145, 160)
+				slot.BackgroundTransparency = discovered and 0.05 or 0.18
+				local stroke = slot:FindFirstChildOfClass("UIStroke")
+				if stroke then
+					stroke.Color = discovered and rarityColor or Color3.fromRGB(70, 76, 92)
+					stroke.Transparency = discovered and 0 or 0.25
+				end
+
+				local dot = slot:FindFirstChild("ColorDot")
+				if dot and dot:IsA("GuiObject") then
+					dot.BackgroundColor3 = discovered and pet.color or pet.color:Lerp(Color3.fromRGB(20, 24, 35), 0.55)
+					dot.BackgroundTransparency = discovered and 0 or 0.2
+				end
+				setPromptText(slot, "Chance", formatChance(roll.chance))
+				setPromptText(slot, "State", discovered and string.upper(tostring(pet.rarity or "")) or "???")
+
+				local shade = slot:FindFirstChild("LockedShade")
+				if shade and shade:IsA("GuiObject") then
+					shade.Visible = not discovered
+				end
+			end
+		end
+	end
+end
+
+local function refreshEggPromptPreviews()
+	for part, gui in pairs(eggOptionGuis) do
+		if part.Parent and gui and gui.Parent then
+			updateEggPromptPreview(gui, getEggIdFromPart(part))
+		end
 	end
 end
 
@@ -323,6 +398,7 @@ local function bindEggOptionsGui(eggPart)
 	setPromptText(gui, "Title", string.upper(egg and egg.displayName or "Egg"))
 	setPromptText(gui, "MainTitle", "EGG")
 	setPromptText(gui, "Cost", getEggCostText(eggId))
+	updateEggPromptPreview(gui, eggId)
 	gui.Enabled = false
 	gui:SetAttribute("EggOptionGui", true)
 	return gui
@@ -373,6 +449,9 @@ local function setEggOptionsVisible(eggPart)
 			eggOptionGuis[part] = nil
 		elseif gui and gui.Parent then
 			gui.Enabled = part == eggPart and shouldShowPrompt
+			if part == eggPart and shouldShowPrompt then
+				updateEggPromptPreview(gui, getEggIdFromPart(part))
+			end
 			local autoOption = gui:FindFirstChild("Panel") and gui.Panel:FindFirstChild("AutoOption")
 			local label = autoOption and autoOption:FindFirstChild("Label")
 			if label then
@@ -399,6 +478,9 @@ end
 local screenGui = getEggShopLayer()
 if not screenGui then
 	return
+end
+if screenGui:IsA("GuiObject") then
+	screenGui.Visible = true
 end
 local rootScreenGui = screenGui and screenGui:FindFirstAncestorOfClass("ScreenGui")
 local externalGuiEnabledState = {}
@@ -763,6 +845,34 @@ if hatchEgg:GetAttribute("UsesDefaultHatchLayout") ~= true then
 	ensureStroke(hatchEgg, WHITE, 5)
 	hatchEgg:SetAttribute("UsesDefaultHatchLayout", true)
 end
+local hatchEggBaseSize = hatchEgg.Size
+local hatchEggBasePosition = hatchEgg.Position
+local hatchEggBaseRotation = hatchEgg.Rotation
+local hatchEggBaseTransparency = hatchEgg.BackgroundTransparency
+local hatchEggBaseColor = hatchEgg.BackgroundColor3
+
+local function configureHatchCrack(name, position, size, rotation)
+	local crack = getEditableChild(hatchEgg, "Frame", name)
+	crack.Visible = false
+	if crack:GetAttribute("UsesDefaultHatchLayout") ~= true then
+		crack.AnchorPoint = Vector2.new(0.5, 0.5)
+		crack.Position = position
+		crack.Size = size
+		crack.Rotation = rotation
+		crack.BackgroundColor3 = Color3.fromRGB(35, 42, 62)
+		crack.BorderSizePixel = 0
+		crack.ZIndex = hatchEgg.ZIndex + 2
+		ensureCorner(crack, 8)
+		crack:SetAttribute("UsesDefaultHatchLayout", true)
+	end
+	return crack
+end
+
+local hatchEggCracks = {
+	configureHatchCrack("Crack1", UDim2.new(0.5, -8, 0.42, 0), UDim2.new(0, 8, 0, 56), -28),
+	configureHatchCrack("Crack2", UDim2.new(0.5, 14, 0.51, 0), UDim2.new(0, 8, 0, 48), 24),
+	configureHatchCrack("Crack3", UDim2.new(0.5, -18, 0.57, 0), UDim2.new(0, 7, 0, 38), 42),
+}
 
 local hatchViewport = getEditableChild(hatchOverlay, "ViewportFrame", "HatchViewport")
 hatchViewport.Visible = false
@@ -901,9 +1011,168 @@ if resultStats:GetAttribute("UsesDefaultHatchLayout") ~= true then
 end
 resultStats.Visible = false
 
+local rarityFlash = hatchOverlay:FindFirstChild("RarityFlash")
+local rarityBanner = hatchOverlay:FindFirstChild("RarityBanner")
+local effectBurst = hatchOverlay:FindFirstChild("EffectBurst")
+local effectSparks = {}
+if effectBurst then
+	for index = 1, 60 do
+		local spark = effectBurst:FindFirstChild("Spark" .. tostring(index))
+		if spark and spark:IsA("GuiObject") then
+			table.insert(effectSparks, spark)
+		end
+	end
+end
+
+local function resetRngEffects()
+	if rarityFlash and rarityFlash:IsA("GuiObject") then
+		rarityFlash.Visible = false
+		rarityFlash.BackgroundTransparency = 1
+	end
+	if rarityBanner and rarityBanner:IsA("TextLabel") then
+		rarityBanner.Visible = false
+		rarityBanner.TextTransparency = 0
+		rarityBanner.TextStrokeTransparency = 0
+		rarityBanner.Position = UDim2.fromScale(0.5, 0.18)
+	end
+	for _, spark in ipairs(effectSparks) do
+		spark.Visible = false
+		spark.BackgroundTransparency = 1
+		spark.Position = UDim2.new(0.5, 0, 0.46, 0)
+	end
+end
+
+local function getRngRevealTier(entry)
+	if not entry then
+		return 1
+	end
+	if entry.hasMutation == true or entry.isShiny == true then
+		return 4
+	end
+	local rarity = tostring(entry.rarity or "")
+	if rarity == "Secret" or rarity == "Legendary" then
+		return 4
+	elseif rarity == "Epic" then
+		return 3
+	elseif rarity == "Rare" then
+		return 2
+	end
+	return 1
+end
+
+local function playRngRevealEffects(entry, rarityColor)
+	resetRngEffects()
+	local tier = getRngRevealTier(entry)
+	local burstCount = math.min(#effectSparks, tier == 4 and 60 or tier == 3 and 42 or tier == 2 and 28 or 18)
+	local spreadMin = tier == 4 and 150 or tier == 3 and 120 or 90
+	local spreadMax = tier == 4 and 310 or tier == 3 and 245 or 185
+	local flashColor = entry and (entry.mutationTypeColor or entry.auraColor) or rarityColor
+	flashColor = flashColor or rarityColor or WHITE
+
+	if rarityFlash and rarityFlash:IsA("GuiObject") then
+		rarityFlash.BackgroundColor3 = flashColor
+		rarityFlash.BackgroundTransparency = tier >= 3 and 0.62 or 0.82
+		rarityFlash.Visible = true
+		TweenService:Create(rarityFlash, TweenInfo.new(tier >= 3 and 0.9 or 0.45), {
+			BackgroundTransparency = 1,
+		}):Play()
+	end
+
+	if rarityBanner and rarityBanner:IsA("TextLabel") then
+		if tier >= 4 then
+			rarityBanner.Text = entry.hasMutation and "MUTATION RNG!" or "LEGENDARY RNG!"
+		elseif tier == 3 then
+			rarityBanner.Text = "EPIC HATCH!"
+		elseif tier == 2 then
+			rarityBanner.Text = "RARE HATCH!"
+		else
+			rarityBanner.Text = "NEW COLOR!"
+		end
+		rarityBanner.TextColor3 = flashColor
+		rarityBanner.Visible = true
+		TweenService:Create(rarityBanner, TweenInfo.new(0.45, Enum.EasingStyle.Back), {
+			Position = UDim2.fromScale(0.5, tier >= 3 and 0.15 or 0.18),
+		}):Play()
+		task.delay(tier >= 3 and 1.7 or 1.1, function()
+			if rarityBanner and rarityBanner.Parent then
+				TweenService:Create(rarityBanner, TweenInfo.new(0.28), {
+					TextTransparency = 1,
+					TextStrokeTransparency = 1,
+				}):Play()
+			end
+		end)
+	end
+
+	for index = 1, burstCount do
+		local spark = effectSparks[index]
+		if spark then
+			local size = math.random(tier >= 3 and 9 or 6, tier >= 3 and 18 or 12)
+			local angle = math.rad((360 / burstCount) * index + math.random(-8, 8))
+			local distance = math.random(spreadMin, spreadMax)
+			spark.Size = UDim2.fromOffset(size, size)
+			spark.Position = UDim2.new(0.5, 0, 0.46, 0)
+			spark.BackgroundColor3 = index % 3 == 0 and WHITE or flashColor
+			spark.BackgroundTransparency = 0
+			spark.Visible = true
+			TweenService:Create(spark, TweenInfo.new(0.72, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = UDim2.new(0.5, math.cos(angle) * distance, 0.46, math.sin(angle) * distance),
+				BackgroundTransparency = 1,
+				Size = UDim2.fromOffset(2, 2),
+			}):Play()
+		end
+	end
+end
+
+local resultCardHomePosition = resultCard.Position
+local resultCardOffscreenPosition = UDim2.new(resultCardHomePosition.X.Scale, resultCardHomePosition.X.Offset, 1.18, 0)
+local SPOTLIGHT_RARITIES = {
+	Epic = true,
+	Legendary = true,
+}
+
+local function getMainHudRoot()
+	local root = ClientUIRoot.GetRoot(playerGui)
+	if root and root:IsA("GuiObject") then
+		return root
+	end
+	return rootScreenGui
+end
+
+local function closeEditableModalWindowsForSpotlight()
+	local mainHud = getMainHudRoot()
+	if not mainHud then
+		return
+	end
+
+	local modalWindows = mainHud:FindFirstChild("ModalWindows")
+	local windowsFolder = modalWindows and (modalWindows:FindFirstChild("Windows") or modalWindows)
+	if windowsFolder then
+		for _, child in ipairs(windowsFolder:GetChildren()) do
+			if child:IsA("GuiObject") then
+				child.Visible = false
+			end
+		end
+	end
+
+	mainHud:SetAttribute("HatchSpotlightClosedMenusAt", os.clock())
+end
+
+local function shouldSpotlightHatch(entry, pet)
+	if not entry then
+		return false
+	end
+	if entry.hasMutation == true or entry.isShiny == true then
+		return true
+	end
+	local rarity = tostring(entry.rarity or (pet and pet.rarity) or "")
+	return SPOTLIGHT_RARITIES[rarity] == true
+end
+
 local function hideHatchResult()
+	resetRngEffects()
 	resultCard:SetAttribute("LargeReveal", false)
 	resultCard.Visible = false
+	resultCard.Position = resultCardOffscreenPosition
 	resultCard.Size = UDim2.new(0, 260, 0, 100)
 	resultName.Visible = false
 	resultRarity.Visible = false
@@ -944,18 +1213,21 @@ local function prepareHatchResult(entry, pet, rarityColor, hasMutation)
 		resultStats.Position = UDim2.new(0, 14, 0, entry.wasDuplicate and 96 or 80)
 	end
 
-	resultStats.Text = tostring(entry.effectivePower or entry.finalPower or 0) .. "  \226\156\138"
+	resultStats.Text = tostring(entry.effectivePower or entry.finalPower or 0) .. "  \226\156\138  |  EQUIP MANUALLY"
 end
 
-local function revealPreparedHatchResult()
+local function revealPreparedHatchResult(spotlight)
 	resultName.Visible = true
 	resultRarity.Visible = true
 	resultStats.Visible = true
 	resultCard.Visible = true
+	resultCard.Position = resultCardHomePosition
 	local largeReveal = resultCard:GetAttribute("LargeReveal") == true
-	resultCard.Size = largeReveal and UDim2.new(0, 300, 0, 120) or UDim2.new(0, 260, 0, 100)
+	resultCard.Size = largeReveal and UDim2.new(0, 300, 0, 120) or UDim2.new(0, 240, 0, 92)
 	TweenService:Create(resultCard, TweenInfo.new(0.32, Enum.EasingStyle.Back), {
-		Size = largeReveal and UDim2.new(0, 440, 0, 164) or UDim2.new(0, 380, 0, 130),
+		Size = largeReveal and UDim2.new(0, 440, 0, 164)
+			or spotlight and UDim2.new(0, 380, 0, 130)
+			or UDim2.new(0, 320, 0, 112),
 	}):Play()
 end
 
@@ -969,6 +1241,9 @@ end
 
 local function updatePetGrid(egg)
 	clearPets()
+	if not egg or type(egg.pets) ~= "table" then
+		return
+	end
 	local count = 0
 	for _, entry in ipairs(egg.pets) do
 		local pet = PetData.Pets[entry.petId]
@@ -978,9 +1253,11 @@ local function updatePetGrid(egg)
 
 		count += 1
 		local rarity = RARITY_COLOR[pet.rarity] or TITLE_TEXT
+		local discovered = isPetDiscovered(entry.petId)
 		local chip = Instance.new("Frame")
 		chip.LayoutOrder = count
-		chip.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		chip.BackgroundColor3 = discovered and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 155, 172)
+		chip.BackgroundTransparency = discovered and 0 or 0.08
 		chip.BorderSizePixel = 0
 		chip.ZIndex = 13
 		chip.Parent = petGrid
@@ -988,14 +1265,15 @@ local function updatePetGrid(egg)
 		chipCorner.CornerRadius = UDim.new(0, 10)
 		chipCorner.Parent = chip
 		local chipStroke = Instance.new("UIStroke")
-		chipStroke.Color = rarity
+		chipStroke.Color = discovered and rarity or Color3.fromRGB(70, 78, 95)
 		chipStroke.Thickness = 2
 		chipStroke.Parent = chip
 
 		local dot = Instance.new("Frame")
 		dot.Size = UDim2.new(0, 14, 0, 14)
 		dot.Position = UDim2.new(0, 8, 0.5, -7)
-		dot.BackgroundColor3 = pet.color
+		dot.BackgroundColor3 = discovered and pet.color or pet.color:Lerp(Color3.fromRGB(20, 24, 35), 0.58)
+		dot.BackgroundTransparency = discovered and 0 or 0.2
 		dot.BorderSizePixel = 0
 		dot.ZIndex = 14
 		dot.Parent = chip
@@ -1009,7 +1287,7 @@ local function updatePetGrid(egg)
 		name.BackgroundTransparency = 1
 		name.Font = Enum.Font.LuckiestGuy
 		name.TextSize = 12
-		name.TextColor3 = TITLE_TEXT
+		name.TextColor3 = discovered and TITLE_TEXT or Color3.fromRGB(55, 62, 78)
 		name.TextXAlignment = Enum.TextXAlignment.Left
 		name.Text = pet.displayName
 		name.ZIndex = 14
@@ -1021,11 +1299,25 @@ local function updatePetGrid(egg)
 		chance.BackgroundTransparency = 1
 		chance.Font = Enum.Font.GothamBold
 		chance.TextSize = 10
-		chance.TextColor3 = rarity
+		chance.TextColor3 = discovered and rarity or Color3.fromRGB(55, 62, 78)
 		chance.TextXAlignment = Enum.TextXAlignment.Left
-		chance.Text = tostring(entry.chance) .. "% - " .. pet.rarity
+		chance.Text = formatChance(entry.chance) .. " - " .. (discovered and pet.rarity or "Undiscovered")
 		chance.ZIndex = 14
 		chance.Parent = chip
+
+		if not discovered then
+			local shade = Instance.new("Frame")
+			shade.Size = UDim2.fromScale(1, 1)
+			shade.Position = UDim2.fromScale(0, 0)
+			shade.BackgroundColor3 = Color3.fromRGB(12, 16, 24)
+			shade.BackgroundTransparency = 0.58
+			shade.BorderSizePixel = 0
+			shade.ZIndex = 15
+			shade.Parent = chip
+			local shadeCorner = Instance.new("UICorner")
+			shadeCorner.CornerRadius = UDim.new(0, 10)
+			shadeCorner.Parent = shade
+		end
 	end
 	petGrid.CanvasSize = UDim2.new(0, 0, 0, math.ceil(count / 3) * 66)
 end
@@ -1165,6 +1457,107 @@ end
 local function clearHatchWorld()
 	for _, child in ipairs(hatchWorld:GetChildren()) do
 		child:Destroy()
+	end
+end
+
+local function resetEditableHatchEgg(egg)
+	hatchEgg.Visible = true
+	hatchEgg.Size = hatchEggBaseSize
+	hatchEgg.Position = hatchEggBasePosition
+	hatchEgg.Rotation = hatchEggBaseRotation
+	hatchEgg.BackgroundTransparency = hatchEggBaseTransparency
+	hatchEgg.BackgroundColor3 = softColor((egg and egg.color) or hatchEggBaseColor)
+	hatchEgg.ZIndex = math.max(hatchEgg.ZIndex, 900)
+
+	local stroke = hatchEgg:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Transparency = 0
+	end
+
+	for _, crack in ipairs(hatchEggCracks) do
+		crack.Visible = false
+		crack.BackgroundTransparency = 0
+	end
+end
+
+local function hideEditableHatchEgg()
+	hatchEgg.Visible = false
+	hatchEgg.Size = hatchEggBaseSize
+	hatchEgg.Position = hatchEggBasePosition
+	hatchEgg.Rotation = hatchEggBaseRotation
+	hatchEgg.BackgroundTransparency = hatchEggBaseTransparency
+	hatchEgg.BackgroundColor3 = hatchEggBaseColor
+	local stroke = hatchEgg:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Transparency = 0
+	end
+	for _, crack in ipairs(hatchEggCracks) do
+		crack.Visible = false
+		crack.BackgroundTransparency = 0
+	end
+end
+
+local function animateEditableHatchEgg(token)
+	task.spawn(function()
+		while hatchPending and token == hatchToken and hatchOverlay.Visible and hatchEgg.Visible do
+			local elapsed = os.clock() - hatchStartedAt
+			local intensity = math.clamp(elapsed / 1.7, 0.25, 1)
+			local shakeX = math.sin(elapsed * 31) * 7 * intensity
+			local shakeY = math.abs(math.sin(elapsed * 12)) * -10 * intensity
+			local grow = 1 + math.sin(elapsed * 18) * 0.035
+
+			hatchEgg.Position = UDim2.new(
+				hatchEggBasePosition.X.Scale,
+				hatchEggBasePosition.X.Offset + shakeX,
+				hatchEggBasePosition.Y.Scale,
+				hatchEggBasePosition.Y.Offset + shakeY
+			)
+			hatchEgg.Rotation = hatchEggBaseRotation + math.sin(elapsed * 24) * 10 * intensity
+			hatchEgg.Size = UDim2.new(
+				hatchEggBaseSize.X.Scale * grow,
+				math.floor(hatchEggBaseSize.X.Offset * grow),
+				hatchEggBaseSize.Y.Scale * grow,
+				math.floor(hatchEggBaseSize.Y.Offset * grow)
+			)
+
+			if elapsed > 0.9 then
+				hatchText.Text = "CRACKING"
+				for index, crack in ipairs(hatchEggCracks) do
+					crack.Visible = elapsed > (0.82 + index * 0.18)
+				end
+			end
+
+			task.wait()
+		end
+	end)
+end
+
+local function popEditableHatchEgg(token)
+	for _, crack in ipairs(hatchEggCracks) do
+		crack.Visible = true
+	end
+
+	local stroke = hatchEgg:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		TweenService:Create(stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Transparency = 1,
+		}):Play()
+	end
+
+	TweenService:Create(hatchEgg, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+		Size = UDim2.new(
+			hatchEggBaseSize.X.Scale * 1.35,
+			math.floor(hatchEggBaseSize.X.Offset * 1.35),
+			hatchEggBaseSize.Y.Scale * 1.35,
+			math.floor(hatchEggBaseSize.Y.Offset * 1.35)
+		),
+		BackgroundTransparency = 1,
+		Rotation = hatchEggBaseRotation,
+	}):Play()
+
+	task.wait(0.18)
+	if token == hatchToken then
+		hideEditableHatchEgg()
 	end
 end
 
@@ -1627,9 +2020,12 @@ local function createPetViewportModel(entry)
 end
 
 local function showError(message)
+	if screenGui:IsA("GuiObject") then
+		screenGui.Visible = true
+	end
 	hatchOverlay.Visible = true
 	updateHatchFocusState()
-	hatchEgg.Visible = false
+	hideEditableHatchEgg()
 	hatchViewport.Visible = false
 	hideHatchResult()
 	clearHatchWorld()
@@ -1656,13 +2052,16 @@ local function startHatchAnimation(eggId)
 		return
 	end
 
+	if screenGui:IsA("GuiObject") then
+		screenGui.Visible = true
+	end
 	hatchToken += 1
 	local token = hatchToken
 	hatchStartedAt = os.clock()
 	hatchPending = true
 	hatchOverlay.Visible = true
 	updateHatchFocusState()
-	hatchEgg.Visible = false
+	resetEditableHatchEgg(egg)
 	hatchViewport.Visible = true
 	hideHatchResult()
 	hatchViewport.Size = UDim2.new(0, 260, 0, 230)
@@ -1675,6 +2074,7 @@ local function startHatchAnimation(eggId)
 	TweenService:Create(hatchViewport, TweenInfo.new(0.45, Enum.EasingStyle.Back), {
 		Size = UDim2.new(0, 360, 0, 300),
 	}):Play()
+	animateEditableHatchEgg(token)
 
 	task.spawn(function()
 		while hatchPending and token == hatchToken and eggModel and eggModel.Parent and hatchOverlay.Visible do
@@ -1722,6 +2122,10 @@ local function revealHatch(entry)
 	local hasMutation = entry.hasMutation == true
 	local mutationColor = entry.mutationTypeColor or entry.auraColor or rarityColor
 	local specialMutation = hasMutation and (entry.mutationRarity == "Legendary" or entry.mutationType == "Corrupted")
+	local spotlightReveal = shouldSpotlightHatch(entry, pet)
+	if spotlightReveal then
+		closeEditableModalWindowsForSpotlight()
+	end
 	prepareHatchResult(entry, pet, rarityColor, hasMutation)
 
 	hatchText.Text = "CRACK!"
@@ -1729,7 +2133,8 @@ local function revealHatch(entry)
 	TweenService:Create(hatchViewport, TweenInfo.new(0.18, Enum.EasingStyle.Back), {
 		Size = specialMutation and UDim2.new(0, 450, 0, 360) or UDim2.new(0, 410, 0, 330),
 	}):Play()
-	task.wait(0.25)
+	popEditableHatchEgg(token)
+	task.wait(0.07)
 	if token ~= hatchToken then
 		return
 	end
@@ -1753,7 +2158,8 @@ local function revealHatch(entry)
 		hatchText.Text = "YOU HATCHED!"
 	end
 	hatchText.TextColor3 = hasMutation and mutationColor or rarityColor
-	revealPreparedHatchResult()
+	playRngRevealEffects(entry, hasMutation and mutationColor or rarityColor)
+	revealPreparedHatchResult(spotlightReveal)
 
 	local spinConnection
 	if petModel and petModel.PrimaryPart then
@@ -1772,29 +2178,6 @@ local function revealHatch(entry)
 		end)
 	end
 
-	local sparkCount = specialMutation and 44 or hasMutation and 32 or 24
-	for i = 1, sparkCount do
-		local spark = Instance.new("Frame")
-		spark.AnchorPoint = Vector2.new(0.5, 0.5)
-		spark.Size = UDim2.new(0, math.random(7, 13), 0, math.random(7, 13))
-		spark.Position = UDim2.new(0.5, 0, 0.46, 0)
-		spark.BackgroundColor3 = i % 3 == 0 and WHITE or (hasMutation and mutationColor or rarityColor)
-		spark.BorderSizePixel = 0
-		spark.ZIndex = 912
-		spark.Parent = hatchOverlay
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(1, 0)
-		corner.Parent = spark
-		local angle = math.rad((360 / sparkCount) * i)
-		local distance = math.random(specialMutation and 135 or 105, specialMutation and 255 or 205)
-		TweenService:Create(spark, TweenInfo.new(0.72, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Position = UDim2.new(0.5, math.cos(angle) * distance, 0.46, math.sin(angle) * distance),
-			BackgroundTransparency = 1,
-			Size = UDim2.new(0, 2, 0, 2),
-		}):Play()
-		Debris:AddItem(spark, 0.85)
-	end
-
 	task.delay(3.2, function()
 		if token ~= hatchToken then
 			return
@@ -1803,6 +2186,7 @@ local function revealHatch(entry)
 			spinConnection:Disconnect()
 		end
 		clearHatchWorld()
+		hideEditableHatchEgg()
 		hatchViewport.Visible = false
 		hatchOverlay.Visible = false
 		hideHatchResult()
@@ -1836,6 +2220,7 @@ local function toggleShop(open, eggId)
 			hatchPending = false
 			hatchOverlay.Visible = false
 			updateHatchFocusState()
+			hideEditableHatchEgg()
 			hatchViewport.Visible = false
 			hideHatchResult()
 			clearHatchWorld()
@@ -1888,9 +2273,9 @@ local function requestHatch(eggId, fromAutoHatch)
 	lastHatchRequestAt = now
 	lastHatchRequestEggId = targetEggId
 	hatchInputLockedUntil = now + math.max(2.4, CLIENT_HATCH_REQUEST_COOLDOWN)
-	UIManager.closeAll("Eggs")
 	setHatchingLocked(true)
 	startHatchAnimation(targetEggId)
+	toggleShop(false)
 	hatchEvent:FireServer(targetEggId)
 	return true
 end
@@ -2085,6 +2470,11 @@ hatchEvent.OnClientEvent:Connect(function(success, entry, message)
 		return
 	end
 
+	if entry and entry.petId then
+		ownedPetIds[entry.petId] = true
+		refreshEggPromptPreviews()
+		updatePetGrid(PetData.Eggs[entry.eggId or selectedEggId] or PetData.Eggs[selectedEggId])
+	end
 	revealHatch(entry)
 end)
 
@@ -2100,7 +2490,31 @@ if coinsValue then
 end
 
 buildWorldRows()
+refreshOwnedPets()
 selectEgg(selectedEggId or chooseBestUnlockedEgg())
+
+task.spawn(function()
+	local petFolder = player:WaitForChild("PetData", 15)
+	if not petFolder then
+		return
+	end
+	local inventoryValue = petFolder:WaitForChild("Inventory", 10)
+	if not inventoryValue then
+		return
+	end
+	refreshOwnedPets()
+	refreshEggPromptPreviews()
+	if selectedEggId and PetData.Eggs[selectedEggId] then
+		updatePetGrid(PetData.Eggs[selectedEggId])
+	end
+	inventoryValue:GetPropertyChangedSignal("Value"):Connect(function()
+		refreshOwnedPets()
+		refreshEggPromptPreviews()
+		if selectedEggId and PetData.Eggs[selectedEggId] then
+			updatePetGrid(PetData.Eggs[selectedEggId])
+		end
+	end)
+end)
 
 UIManager.register("Eggs", function()
 	if currentNearbyEgg then

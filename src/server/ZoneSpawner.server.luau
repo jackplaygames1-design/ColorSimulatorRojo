@@ -31,6 +31,8 @@ local PROGRESSION_CONFIG = GameBalance.Progression or {}
 local MAX_PLAYABLE_SECTOR_INDEX = tonumber(PROGRESSION_CONFIG.MaxPlayableSectorIndex) or math.huge
 local objectHealth = {}
 local lastPopulatedAt = {}
+local populatingZones = {}
+local zoneByColorCache = {}
 local populateRequest = ServerScriptService:FindFirstChild("RequestPopulateColorZone")
 if not populateRequest then
 	populateRequest = Instance.new("BindableEvent")
@@ -258,6 +260,11 @@ local function looksLikeZoneSurface(part)
 end
 
 local function inferColorFromMapPart(part)
+	local namedPlayableColor = inferPlayableSectorColorFromName(part)
+	if namedPlayableColor and isSectorPlayable(namedPlayableColor) then
+		return namedPlayableColor
+	end
+
 	local attrColor = part:GetAttribute("ColorType")
 		or part:GetAttribute("WorldColor")
 		or part:GetAttribute("AreaColor")
@@ -282,8 +289,14 @@ local function inferColorFromMapPart(part)
 	return nil
 end
 
-local function getZoneScore(part)
+local function getZoneScore(part, requestedColor)
 	local area = math.max(1, part.Size.X * part.Size.Z)
+	local namedPlayableColor = inferPlayableSectorColorFromName(part)
+	if requestedColor and namedPlayableColor == requestedColor then
+		area *= 20
+	elseif requestedColor and namedPlayableColor and namedPlayableColor ~= requestedColor then
+		area /= 100
+	end
 	if part:GetAttribute("PlayableSectorFloor") == true then
 		area *= 10
 	end
@@ -413,13 +426,6 @@ local function isProtectedSpawnBlocker(part, zone)
 	if not part or not part:IsA("BasePart") or part == zone or isRuntimeBlobPart(part) then
 		return false
 	end
-	if shouldNeverBeColorZone(part) then
-		return true
-	end
-	if part:GetAttribute("ColorZone") == true or part:GetAttribute("ColorBlobSpawn") == true then
-		return false
-	end
-
 	if
 		part:IsA("SpawnLocation")
 		or hasNoSpawnNameOrAttribute(part)
@@ -433,7 +439,18 @@ local function isProtectedSpawnBlocker(part, zone)
 		or part:GetAttribute("WorldSpawn") == true
 		or part:GetAttribute("SectorSpawn") == true
 		or part:GetAttribute("LobbySpawn") == true
-		or part.Name == "SpawnEgg"
+	then
+		return true
+	end
+	if shouldNeverBeColorZone(part) then
+		return true
+	end
+	if part:GetAttribute("ColorZone") == true or part:GetAttribute("ColorBlobSpawn") == true then
+		return false
+	end
+
+	if
+		part.Name == "SpawnEgg"
 		or part.Name == "ShopEntrance"
 		or part.Name == "Door"
 		or part.Name == "Entrance"
@@ -484,6 +501,17 @@ local function collectSpawnExclusions(zone)
 end
 
 local function getExclusionPadding(part, defaultPadding)
+	if
+		part:IsA("SpawnLocation")
+		or part:GetAttribute("AreaSpawn") == true
+		or part:GetAttribute("WorldSpawn") == true
+		or part:GetAttribute("SectorSpawn") == true
+		or part:GetAttribute("LobbySpawn") == true
+		or part:GetAttribute("SafeZone") == true
+		or hasNoSpawnNameOrAttribute(part)
+	then
+		return math.max(defaultPadding or DEFAULT_EXCLUSION_PADDING, 36)
+	end
 	if
 		part.Name == "SpawnEgg"
 		or part:FindFirstAncestor("SpawnEgg") ~= nil
@@ -743,7 +771,7 @@ local function spawnObject(zone, breakableType, colorType, forcedPosition, exclu
 	part.CanTouch = GameBalance.Collection and GameBalance.Collection.AllowTouchCollectionFallback == true
 	part.CanQuery = true
 	part.CastShadow = false
-	part.Material = math.random() < 0.22 and Enum.Material.Neon or Enum.Material.SmoothPlastic
+	part.Material = Enum.Material.Neon
 
 	part.Color = getVariedThemeColor(colorType)
 
@@ -878,6 +906,12 @@ local function watchObject(part)
 	if not breakableType or not colorType then
 		return
 	end
+	part.Material = Enum.Material.Neon
+	for _, child in ipairs(part:GetDescendants()) do
+		if child:IsA("BasePart") and child:GetAttribute("PuddleDetail") then
+			child.Material = Enum.Material.Neon
+		end
+	end
 
 	part:GetPropertyChangedSignal("Transparency"):Connect(function()
 		setPuddleDetailsVisible(part, part.Transparency < 1)
@@ -888,9 +922,18 @@ local function watchObject(part)
 end
 
 local function populateZone(zone)
+	if populatingZones[zone] then
+		return
+	end
+	populatingZones[zone] = true
+	local function finish()
+		populatingZones[zone] = nil
+	end
+
 	local startedAt = os.clock()
 	local colorType = zone:GetAttribute("ColorType") or "Red"
 	if not isSectorPlayable(colorType) then
+		finish()
 		return
 	end
 	if DEBUG_LOGS then
@@ -929,6 +972,7 @@ local function populateZone(zone)
 				.. "/"
 				.. tostring(targetCount)
 		)
+		finish()
 		return
 	end
 	if lastPopulatedAt[zone] and os.clock() - lastPopulatedAt[zone] < repopulateCooldown then
@@ -942,6 +986,7 @@ local function populateZone(zone)
 					.. tostring(targetCount)
 			)
 		end
+		finish()
 		return
 	end
 	lastPopulatedAt[zone] = os.clock()
@@ -997,18 +1042,32 @@ local function populateZone(zone)
 	if elapsed > 0.5 then
 		warn("ZoneSpawner: population took over 0.5s for " .. zone.Name .. "; work was batched over frames.")
 	end
+	finish()
 end
 
 local function findZoneByColor(colorType)
+	local cached = zoneByColorCache[colorType]
+	if
+		cached
+		and cached.Parent
+		and cached:GetAttribute("ColorZone") == true
+		and cached:GetAttribute("ColorType") == colorType
+	then
+		return cached
+	end
+
 	local best = nil
 	local bestScore = -math.huge
 	for _, obj in ipairs(workspace:GetDescendants()) do
 		if obj:IsA("BasePart") then
 			local zoneColor = configureColorZonePart(obj)
+			local namedColor = inferPlayableSectorColorFromName(obj)
 			if
-				obj:GetAttribute("ColorZone") and (obj:GetAttribute("ColorType") == colorType or zoneColor == colorType)
+				obj:GetAttribute("ColorZone")
+				and (obj:GetAttribute("ColorType") == colorType or zoneColor == colorType)
+				and (not namedColor or namedColor == colorType)
 			then
-				local score = getZoneScore(obj)
+				local score = getZoneScore(obj, colorType)
 				if score > bestScore then
 					best = obj
 					bestScore = score
@@ -1016,6 +1075,7 @@ local function findZoneByColor(colorType)
 			end
 		end
 	end
+	zoneByColorCache[colorType] = best
 	return best
 end
 
@@ -1100,6 +1160,9 @@ end
 Players.PlayerAdded:Connect(hookPlayer)
 
 workspace.DescendantAdded:Connect(function(obj)
+	if obj:IsA("BasePart") then
+		table.clear(zoneByColorCache)
+	end
 	if obj:IsA("BasePart") and obj:GetAttribute("BreakableType") then
 		if obj:GetAttribute("PaintPuddleVersion") ~= PUDDLE_VERSION then
 			if not shouldClearGeneratedMapOnStart() then

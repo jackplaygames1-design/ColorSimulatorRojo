@@ -303,6 +303,9 @@ local function normalizePaintToolList(value)
 
 	local function add(toolId)
 		toolId = tostring(toolId or "")
+		if ToolData.ResolveBrushId then
+			toolId = ToolData.ResolveBrushId(toolId)
+		end
 		if toolId == "" or seen[toolId] then
 			return
 		end
@@ -336,6 +339,9 @@ end
 
 local function normalizeEquippedPaintTool(toolId, ownedTools)
 	toolId = tostring(toolId or "")
+	if ToolData.ResolveBrushId then
+		toolId = ToolData.ResolveBrushId(toolId)
+	end
 	local owned = {}
 	for _, ownedToolId in ipairs(ownedTools or {}) do
 		owned[ownedToolId] = true
@@ -758,6 +764,15 @@ local function normalizePetRecord(record, sourceKey, backupList)
 	end
 
 	normalized.petId = tostring(normalized.petId)
+	local variantPetId, variantTraitId, variantMutationId = PetData.splitVariantKey(normalized.variantKey)
+	if not variantPetId then
+		variantPetId, variantTraitId, variantMutationId = PetData.splitVariantKey(normalized.petId)
+	end
+	if variantPetId then
+		normalized.petId = variantPetId
+		normalized.traitId = normalized.traitId or variantTraitId
+		normalized.mutationId = normalized.mutationId or variantMutationId
+	end
 	normalized.stackAmount = math.max(1, math.floor(tonumber(normalized.stackAmount) or 1))
 	normalized.traitId = PetData.normalizeTraitId(normalized.traitId or "Neutral")
 	normalized.traitName = normalized.traitId
@@ -767,10 +782,12 @@ local function normalizePetRecord(record, sourceKey, backupList)
 	normalized.isShiny = normalized.isShiny == true or normalized.isShiny == "true" or normalized.isShiny == "shiny"
 
 	if not PetData.Pets[normalized.petId] then
+		table.insert(backupList, deepCopy(normalized))
 		warnOnce(
 			"unknown-color-" .. normalized.petId,
-			"Unknown saved ColorId preserved: " .. tostring(normalized.petId)
+			"Unknown saved ColorId preserved in LegacyPetsBackup: " .. tostring(normalized.petId)
 		)
+		return nil
 	end
 
 	return normalized

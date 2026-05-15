@@ -1,11 +1,13 @@
 -- Binds the Studio-authored RankWindow bones. This script never creates UI.
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 
 local ROOT_PATH = "PlayerGui.MainHUD.ModalWindows.RankWindow"
 local warned = {}
@@ -31,7 +33,7 @@ local function findDescendant(parent, name, className, path)
 	return object
 end
 
-local mainHud = playerGui:WaitForChild("MainHUD", 20)
+local mainHud = ClientUIRoot.GetRoot(playerGui)
 if not mainHud then
 	warnOnce("PlayerGui.MainHUD")
 	return
@@ -42,6 +44,7 @@ if not modalWindows then
 	warnOnce("PlayerGui.MainHUD.ModalWindows")
 	return
 end
+modalWindows = modalWindows:FindFirstChild("Windows") or modalWindows
 
 local rankWindow = modalWindows:WaitForChild("RankWindow", 20)
 if not rankWindow or not rankWindow:IsA("GuiObject") then

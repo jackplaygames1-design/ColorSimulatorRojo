@@ -7,14 +7,16 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local redeemEvent = Events:WaitForChild("RedeemCode", 10)
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 
-local mainHud = playerGui:WaitForChild("MainHUD", 15)
+local mainHud = ClientUIRoot.GetRoot(playerGui)
 if not mainHud then
 	warn("EditableCodesBinder: missing PlayerGui.MainHUD")
 	return
 end
 
-local modalWindows = mainHud and mainHud:WaitForChild("ModalWindows", 10)
+local modalRoot = mainHud and mainHud:WaitForChild("ModalWindows", 10)
+local modalWindows = modalRoot and (modalRoot:FindFirstChild("Windows") or modalRoot)
 local codesWindow = modalWindows and modalWindows:WaitForChild("CodesWindow", 10)
 if not codesWindow then
 	warn("EditableCodesBinder: missing PlayerGui.MainHUD.ModalWindows.CodesWindow")

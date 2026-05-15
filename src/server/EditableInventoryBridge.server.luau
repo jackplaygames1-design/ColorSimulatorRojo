@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
 local ItemsData = require(ReplicatedStorage:WaitForChild("ItemsData"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
@@ -316,6 +317,22 @@ local function buildBrushRows(player)
 	for _, toolId in ipairs(ToolData.Order or {}) do
 		local tool = ToolData.Tools[toolId]
 		if tool and owned[toolId] then
+			local stats = ToolData.GetEffectiveStats and ToolData.GetEffectiveStats(tool.Id, player) or {}
+			local passiveDefined = tool.PassiveEnabled == true
+			local passiveUnlocked = ToolData.HasUnlockedPassive and ToolData.HasUnlockedPassive(player, tool) == true
+			local passiveText = "Passive: none"
+			if passiveDefined then
+				if passiveUnlocked then
+					passiveText = tostring(tool.PassiveName or "Passive")
+						.. ": "
+						.. tostring(tool.PassiveDescription or "")
+				else
+					local unlockColor = tostring(tool.PassiveUnlockSector or ToolData.PassiveUnlockColor or "Green")
+					local world = ColorData.getWorldByColor and ColorData.getWorldByColor(unlockColor)
+					passiveText = "Passive: unlocks in " .. tostring((world and world.DisplayName) or unlockColor)
+				end
+			end
+
 			table.insert(rows, {
 				Id = tool.Id,
 				Kind = "Brush",
@@ -324,15 +341,22 @@ local function buildBrushRows(player)
 				Rarity = tool.Rarity or "Brush",
 				Equipped = equippedId == tool.Id,
 				Power = tonumber(tool.PowerMultiplier or tool.CollectPowerMultiplier) or 1,
-				Description = tool.Description or tool.PassiveDescription or "Paint tool.",
+				Description = tool.Description or tool.Flavor or "Paint tool.",
 				IconText = tool.ShortName or "BR",
 				IconImage = tool.IconImage or tool.iconImage,
+				IconName = tool.IconKey or "Tag",
+				IconColor = tool.AccentColor,
+				AccentColor = tool.AccentColor,
 				ModelName = tool.ModelName or tool.Id,
 				Stats = {
 					"Power: x"
 						.. string.format("%.2f", tonumber(tool.PowerMultiplier or tool.CollectPowerMultiplier) or 1),
 					"Range: " .. tostring(tool.Range or "-"),
 					"Width: " .. tostring(tool.Width or "-"),
+					"Speed: x" .. string.format("%.2f", tonumber(tool.UseSpeedMultiplier) or 1),
+					"Active: " .. tostring(stats.ActiveName or tool.ActiveName or "Basic Swipe"),
+					tostring(stats.ActiveDescription or tool.ActiveDescription or ""),
+					passiveText,
 				},
 			})
 		end
@@ -425,6 +449,7 @@ local function setBrushEquipped(player, brushId, equippedRequested)
 	local toolsFolder = player:FindFirstChild("PaintTools")
 	local ownedValue = toolsFolder and toolsFolder:FindFirstChild("Owned")
 	local equippedValue = toolsFolder and toolsFolder:FindFirstChild("Equipped")
+	brushId = ToolData.ResolveBrushId and ToolData.ResolveBrushId(brushId) or brushId
 	local tool = ToolData.Tools[brushId or ""]
 	if not tool or not ownedValue or not equippedValue then
 		return false, "Brush data is not ready."

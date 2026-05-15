@@ -21,10 +21,17 @@ local equipPaintToolEvent = Events:WaitForChild("EquipPaintTool")
 local paintToolState = ReplicatedStorage:FindFirstChild("PaintToolEquippedState")
 local paintToolEquipChanged = ReplicatedStorage:FindFirstChild("PaintToolEquipChanged")
 
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local InventoryIconConfig = require(ReplicatedStorage:WaitForChild("InventoryIconConfig"))
 local PetModelUtil = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetModelUtil"))
 
 local TAB_NAMES = { "Colors", "Brushes", "Potions", "Items" }
+local TAB_DISPLAY_NAMES = {
+	Colors = "Colors",
+	Brushes = "Gear",
+	Potions = "Boosts",
+	Items = "Items",
+}
 local currentTab = "Colors"
 local inventoryData = { Colors = {}, Brushes = {}, Potions = {}, Items = {}, Count = 0, Capacity = 75 }
 local selectedItem = nil
@@ -48,8 +55,9 @@ local TAB_INACTIVE_COLOR = Color3.fromRGB(255, 255, 255)
 local TAB_SELECTED_TEXT_COLOR = Color3.fromRGB(255, 255, 255)
 local TAB_INACTIVE_TEXT_COLOR = Color3.fromRGB(37, 36, 52)
 
-local mainHud = playerGui:WaitForChild("MainHUD", 30)
-local modalWindows = mainHud and mainHud:WaitForChild("ModalWindows", 30)
+local mainHud = ClientUIRoot.GetRoot(playerGui)
+local modalRoot = mainHud and mainHud:WaitForChild("ModalWindows", 30)
+local modalWindows = modalRoot and (modalRoot:FindFirstChild("Windows") or modalRoot)
 
 local function waitForInventoryWindow()
 	return modalWindows and modalWindows:WaitForChild("InventoryWindow", 30)
@@ -57,7 +65,7 @@ end
 
 local inventoryWindow = waitForInventoryWindow()
 if not inventoryWindow or not inventoryWindow:IsA("GuiObject") then
-	warn("EditableInventoryBinder: missing PlayerGui.MainHUD.ModalWindows.InventoryWindow")
+	warn("EditableInventoryBinder: missing editable InventoryWindow")
 	return
 end
 
@@ -220,9 +228,17 @@ local function styleInventoryTab(tab, selected)
 	end
 end
 
+local function getTabDisplayName(tabName)
+	return TAB_DISPLAY_NAMES[tabName] or tostring(tabName or "Items")
+end
+
 local function updateTabHighlights()
 	for _, tabName in ipairs(TAB_NAMES) do
-		styleInventoryTab(ui.tabs and ui.tabs:FindFirstChild(tabName .. "Tab", true), tabName == currentTab)
+		local tab = ui.tabs and ui.tabs:FindFirstChild(tabName .. "Tab", true)
+		if tab then
+			setButtonText(tab, string.upper(getTabDisplayName(tabName)))
+		end
+		styleInventoryTab(tab, tabName == currentTab)
 	end
 end
 
@@ -230,7 +246,7 @@ local function getEmptyInventoryMessage()
 	if currentTab == "Potions" then
 		return "No boosts left."
 	end
-	return "No " .. string.lower(currentTab) .. " yet."
+	return "No " .. string.lower(getTabDisplayName(currentTab)) .. " yet."
 end
 
 local function getPaintToolState()
@@ -786,8 +802,8 @@ local function prepareStructure()
 		warn("EditableInventoryBinder: add ItemCardTemplate or physical card slots to GridPanel.")
 	end
 
-	ui.emptyText = ui.gridPanel:FindFirstChild("EmptyText", true)
-	ui.footer = ui.gridPanel:FindFirstChild("Footer", true)
+	ui.emptyText = ui.body:FindFirstChild("EmptyText", true) or ui.gridPanel:FindFirstChild("EmptyText", true)
+	ui.footer = ui.body:FindFirstChild("Footer", true) or ui.gridPanel:FindFirstChild("Footer", true)
 	ui.capacityText = ui.footer and ui.footer:FindFirstChild("CapacityText", true)
 
 	ui.detailPanel = ui.body:FindFirstChild("DetailsPanel")
@@ -1182,6 +1198,10 @@ local function makeCard(item, index)
 	local displayedEquipped = isDisplayedEquipped(item)
 	card:SetAttribute("InventoryItemEquipped", displayedEquipped)
 	card:SetAttribute("InventoryItemLocked", item.Locked == true)
+	local accent = card:FindFirstChild("AccentBar")
+	if accent and accent:IsA("GuiObject") then
+		accent.BackgroundColor3 = item.AccentColor or item.IconColor or Color3.fromRGB(75, 214, 232)
+	end
 	local amount = math.max(1, math.floor(tonumber(item.Amount) or 1))
 	local stackText = amount > 1 and (" x" .. tostring(amount)) or ""
 	setText(
@@ -1230,24 +1250,23 @@ local function ensureItemCards(requiredCount)
 	end
 
 	ui.itemCards = collectItemCards()
-	local source = ui.cardTemplate
-	if not (source and source:IsA("GuiObject")) then
-		source = ui.itemCards[1]
+	if requiredCount > #ui.itemCards and not cardCapacityWarned then
+		cardCapacityWarned = true
+		warn(
+			"EditableInventoryBinder: inventory needs "
+				.. tostring(requiredCount)
+				.. " physical card slot(s), but GridPanel only has "
+				.. tostring(#ui.itemCards)
+				.. ". Rebuild StarterGui.MainHUD with StudioMenuWindowsBuilder; runtime card cloning is disabled."
+		)
 	end
-	if not source then
+end
+
+local function layoutGeneratedInventoryCards()
+	if not inventoryWindow:GetAttribute(RUNTIME_LAYOUT_ATTRIBUTE) then
 		return
 	end
-
-	for index = #ui.itemCards + 1, requiredCount do
-		local card = source:Clone()
-		card.Name = "RuntimeItemCard" .. tostring(index)
-		card.LayoutOrder = index
-		card.Visible = false
-		card:SetAttribute("EditableInventoryGeneratedCard", true)
-		card:SetAttribute("InventoryCardSlot", true)
-		card.Parent = ui.gridPanel
-		table.insert(ui.itemCards, card)
-	end
+	layoutCards()
 end
 
 renderDetails = function()
@@ -1321,16 +1340,17 @@ local function renderInventory()
 
 	local items = getTabItems()
 	ensureItemCards(#items)
+	layoutGeneratedInventoryCards()
 	if #items > #(ui.itemCards or {}) and not cardCapacityWarned then
 		cardCapacityWarned = true
 		warn(
 			"EditableInventoryBinder: inventory has "
 				.. tostring(#items)
 				.. " "
-				.. tostring(currentTab)
+				.. tostring(getTabDisplayName(currentTab))
 				.. " item(s), but only "
 				.. tostring(#(ui.itemCards or {}))
-				.. " card(s) could be created. Check GridPanel and ItemCardTemplate."
+				.. " editable card slot(s) exist. Rebuild the Studio UI card pool."
 		)
 	end
 	if ui.emptyText then
@@ -1382,6 +1402,7 @@ local function renderInventory()
 	end
 	renderDetails()
 	polishInventoryLayout()
+	layoutGeneratedInventoryCards()
 end
 
 local function disconnectPetAppearanceWatch()

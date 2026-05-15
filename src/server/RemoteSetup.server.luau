@@ -44,6 +44,7 @@ local remoteEvents = {
 	"MarkTutorialProgress",
 	"TutorialAction",
 	"ShopTransition",
+	"WildBuffNotice",
 }
 
 for _, name in ipairs(remoteEvents) do

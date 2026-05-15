@@ -8,6 +8,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local tradeRequest = remotes:WaitForChild("TradeRequest", 20)
 local tradeUpdate = remotes:WaitForChild("TradeUpdate", 20)
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 
 local ROOT_PATH = "PlayerGui.MainHUD.ModalWindows.TradeWindow"
 local TRADE_PICK_ACTIVE_ATTRIBUTE = "TradePickColorActive"
@@ -54,13 +55,14 @@ local function findDescendant(parent, name, className, path)
 	return found
 end
 
-local mainHud = playerGui:WaitForChild("MainHUD", 20)
+local mainHud = ClientUIRoot.GetRoot(playerGui)
 if not mainHud then
 	warnOnce("PlayerGui.MainHUD")
 	return
 end
 
-local modalWindows = mainHud:WaitForChild("ModalWindows", 20)
+local modalRoot = mainHud:WaitForChild("ModalWindows", 20)
+local modalWindows = modalRoot and (modalRoot:FindFirstChild("Windows") or modalRoot)
 if not modalWindows then
 	warnOnce("PlayerGui.MainHUD.ModalWindows")
 	return

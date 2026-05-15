@@ -1,8 +1,10 @@
 -- Bind-only currency HUD. The CurrencyBar must be built in Studio.
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 
 local ROOT_PATH = "PlayerGui.MainHUD"
 local CURRENCY_PATH = ROOT_PATH .. ".CurrencyBar"
@@ -94,7 +96,7 @@ local function connectValue(valueObject, label, missingText)
 	valueObject:GetPropertyChangedSignal("Value"):Connect(update)
 end
 
-local mainHud = playerGui:WaitForChild("MainHUD", 20)
+local mainHud = ClientUIRoot.GetRoot(playerGui)
 if not mainHud then
 	warnOnce(ROOT_PATH, "CurrencyHUD: missing " .. ROOT_PATH)
 	return
@@ -108,6 +110,12 @@ end
 
 currencyBar.Visible = true
 
+local colorFrame = findCurrencyFrame(currencyBar, { "ColorFrame", "ColorsFrame", "PaintFrame", "Color" })
+if colorFrame then
+	colorFrame.Visible = false
+	colorFrame:SetAttribute("DeprecatedNoBackpackCurrency", true)
+end
+
 local coinsAmount =
 	findAmountLabel(currencyBar, { "CoinsFrame", "CoinFrame", "Coins", "Coin" }, CURRENCY_PATH .. ".CoinsFrame")
 local gemsAmount = findAmountLabel(
@@ -115,8 +123,6 @@ local gemsAmount = findAmountLabel(
 	{ "GemsFrame", "GemFrame", "DiamondsFrame", "DiamondFrame", "Gems", "Diamonds" },
 	CURRENCY_PATH .. ".GemsFrame"
 )
-local colorAmount =
-	findAmountLabel(currencyBar, { "ColorFrame", "ColorsFrame", "PaintFrame", "Color" }, CURRENCY_PATH .. ".ColorFrame")
 
 local leaderstats = player:WaitForChild("leaderstats", 20)
 if not leaderstats then
@@ -129,10 +135,6 @@ local gems = leaderstats:FindFirstChild("Gems") or leaderstats:FindFirstChild("D
 if not gems then
 	gems = leaderstats:WaitForChild("Gems", 10) or leaderstats:WaitForChild("Diamonds", 2)
 end
-local colorValue = leaderstats:FindFirstChild("Color")
-	or leaderstats:FindFirstChild("Colors")
-	or leaderstats:FindFirstChild("Paint")
 
 connectValue(coins, coinsAmount, "0")
 connectValue(gems, gemsAmount, "0")
-connectValue(colorValue, colorAmount, "0")

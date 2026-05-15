@@ -69,6 +69,40 @@ Theme.RarityColors = {
 	Event = Color3.fromRGB(255, 135, 42),
 }
 
+Theme.MenuAccents = {
+	Default = Color3.fromRGB(91, 230, 235),
+	InventoryWindow = Color3.fromRGB(86, 202, 255),
+	SettingsWindow = Color3.fromRGB(91, 228, 126),
+	RankWindow = Color3.fromRGB(255, 218, 74),
+	TradeWindow = Color3.fromRGB(91, 228, 126),
+	ShopWindow = Color3.fromRGB(255, 105, 165),
+	WorldsWindow = Color3.fromRGB(91, 230, 235),
+	SectorsWindow = Color3.fromRGB(91, 230, 235),
+	CodesWindow = Color3.fromRGB(177, 141, 255),
+	TutorialWindow = Color3.fromRGB(91, 230, 235),
+}
+
+Theme.SectorAccents = {
+	Red = Color3.fromRGB(255, 91, 104),
+	Orange = Color3.fromRGB(255, 174, 72),
+	Yellow = Color3.fromRGB(255, 218, 74),
+	Green = Color3.fromRGB(91, 228, 126),
+	Blue = Color3.fromRGB(88, 174, 255),
+	Purple = Color3.fromRGB(177, 141, 255),
+	Pink = Color3.fromRGB(255, 105, 165),
+	Neon = Color3.fromRGB(0, 255, 200),
+	Rainbow = Color3.fromRGB(255, 255, 255),
+	Void = Color3.fromRGB(60, 55, 85),
+}
+
+Theme.MenuPanels = {
+	Shell = Color3.fromRGB(235, 244, 255),
+	Content = Color3.fromRGB(242, 248, 255),
+	Card = Color3.fromRGB(250, 253, 255),
+	CardAlt = Color3.fromRGB(232, 244, 255),
+	Search = Color3.fromRGB(238, 248, 255),
+}
+
 Theme.Sizes = {
 	CornerSmall = UDim.new(0, 8),
 	CornerMedium = UDim.new(0, 14),

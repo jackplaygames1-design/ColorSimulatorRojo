@@ -5,6 +5,7 @@ local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationD
 local ColorTraitData = require(ReplicatedStorage:WaitForChild("ColorTraitData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
 
 local ColorEffectHandler = {}
 
@@ -38,6 +39,9 @@ local DEFAULT_EFFECTS = {
 	MutationLuckMultiplier = 1,
 	RandomMultiplierCeiling = 1,
 	ComboCoinMultiplier = 1,
+	PetPowerMultiplier = 1,
+	PetCoinMultiplier = 1,
+	PetRangeMultiplier = 1,
 	SourceMutationId = "None",
 	BaseColorGainMultiplier = 1,
 	BaseSellCoinsMultiplier = 1,
@@ -178,6 +182,9 @@ local function mergeEffects(result, effects)
 	multiplyEffect(result, "MutationLuckMultiplier", effects.MutationLuckMultiplier)
 	multiplyEffect(result, "RandomMultiplierCeiling", effects.RandomMultiplierCeiling)
 	multiplyEffect(result, "ComboCoinMultiplier", effects.ComboCoinMultiplier)
+	multiplyEffect(result, "PetPowerMultiplier", effects.PetPowerMultiplier)
+	multiplyEffect(result, "PetCoinMultiplier", effects.PetCoinMultiplier)
+	multiplyEffect(result, "PetRangeMultiplier", effects.PetRangeMultiplier)
 end
 
 local function clampEffects(result)
@@ -207,9 +214,22 @@ local function clampEffects(result)
 	result.MutationLuckMultiplier = math.clamp(result.MutationLuckMultiplier, 1, 4)
 	result.RandomMultiplierCeiling = math.clamp(result.RandomMultiplierCeiling, 1, 6)
 	result.ComboCoinMultiplier = math.clamp(result.ComboCoinMultiplier, 1, 4)
+	result.PetPowerMultiplier = math.clamp(result.PetPowerMultiplier, 1, 1.75)
+	result.PetCoinMultiplier = math.clamp(result.PetCoinMultiplier, 1, 1.75)
+	result.PetRangeMultiplier = math.clamp(result.PetRangeMultiplier, 1, 1.5)
 	if result.LightningCooldown <= 0 then
 		result.LightningCooldown = 4
 	end
+end
+
+local function getEquippedBrushPassiveEffects(player)
+	local toolsFolder = player and player:FindFirstChild("PaintTools")
+	local equippedValue = toolsFolder and toolsFolder:FindFirstChild("Equipped")
+	local brushId = equippedValue and equippedValue.Value or "StarterBrush"
+	if not ToolData.GetBrushPassiveEffects then
+		return nil
+	end
+	return ToolData.GetBrushPassiveEffects(brushId, player)
 end
 
 function ColorEffectHandler.CalculateEquippedColorEffects(player)
@@ -243,6 +263,7 @@ function ColorEffectHandler.CalculateEquippedColorEffects(player)
 	end
 
 	mergeEffects(result, BuffService.GetEffects(player))
+	mergeEffects(result, getEquippedBrushPassiveEffects(player))
 
 	clampEffects(result)
 	result.ColorGainMultiplier *= result.BaseColorGainMultiplier
