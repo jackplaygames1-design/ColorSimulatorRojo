@@ -29,7 +29,7 @@ local FULL_COVERAGE = tonumber(config.FullCoverage) or 1
 local EMPTY_COVERAGE = tonumber(config.EmptyCoverage) or 0
 local START_COVERAGE = math.clamp(tonumber(config.StartCoverage) or FULL_COVERAGE, EMPTY_COVERAGE, FULL_COVERAGE)
 local SURFACE_INSET = math.max(tonumber(config.SurfaceInset) or 0, 0)
-local REWARD_PER_COVERAGE_UNIT = math.max(tonumber(config.RewardPerCoverageUnit) or 10, 0)
+local REWARD_PER_COVERAGE_UNIT = math.max(tonumber(config.RewardPerCoverageUnit) or 1, 0)
 local REGEN_ENABLED = regenConfig.Enabled ~= false
 local REGEN_DELAY = math.max(tonumber(regenConfig.DelayAfterBrush) or 0.45, 0)
 local REGEN_PER_SECOND = math.max(tonumber(regenConfig.CoveragePerSecond) or 0.22, 0)
@@ -478,6 +478,9 @@ local function getPaintSurfaceRejectReason(part, allowFallback)
 	end
 	if not explicitlyGroundPainted and (hasBlockedSurfaceName(part) or hasBlockedDiscoveryKeyword(part)) then
 		return "blocked keyword"
+	end
+	if debugConfig.RedOnlyTestMode == true and resolveSurfaceColor(part) ~= "Red" then
+		return "red test mode rejects non-red"
 	end
 	if REQUIRE_EXPLICIT_PAINTABLE and not hasExplicitPaintableAttribute(part) then
 		return "no explicit attribute"
@@ -1011,10 +1014,10 @@ local function canPlayerAccessSurface(player, surface)
 end
 
 local function clampRewardForPlayer(player, amount)
-	local maxPerSweep = math.max(tonumber(brushConfig.MaxRewardPerSweep) or 250, 1)
+	local maxPerSweep = math.max(tonumber(brushConfig.MaxRewardPerSweep) or 35, 1)
 	amount = math.min(amount, maxPerSweep)
 
-	local maxPerSecond = tonumber(brushConfig.MaxRewardPerSecond)
+	local maxPerSecond = tonumber(brushConfig.MaxRewardPerSecond) or 120
 	if not player or not maxPerSecond or maxPerSecond <= 0 then
 		return amount
 	end
@@ -1079,15 +1082,18 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 		return nil
 	end
 
-	radius =
-		math.clamp(tonumber(radius) or tonumber(brushConfig.BaseRadius) or 7, 1, tonumber(brushConfig.MaxRadius) or 42)
-	power = math.clamp(tonumber(power) or tonumber(brushConfig.BasePower) or 0.28, 0.01, 1.5)
+	radius = math.clamp(
+		tonumber(radius) or tonumber(brushConfig.BaseRadius) or 6.5,
+		1,
+		tonumber(brushConfig.MaxRadius) or 18
+	)
+	power = math.clamp(tonumber(power) or tonumber(brushConfig.BasePower) or 0.24, 0.01, 1.5)
 	local maxHealth = math.max(tonumber(surface.PaintHardness) or 1, 0.05)
 
 	local now = os.clock()
 	local localPoint = surface.Part.CFrame:PointToObjectSpace(worldPosition)
 	local radiusSq = radius * radius
-	local softEdgeMultiplier = math.max(tonumber(brushConfig.SoftEdgeMultiplier) or 1.35, 0.2)
+	local softEdgeMultiplier = math.max(tonumber(brushConfig.SoftEdgeMultiplier) or 1.25, 0.2)
 	local minX, maxX, minZ, maxZ = getCellBounds(surface, localPoint, radius * softEdgeMultiplier)
 	local removedCoverageUnits = 0
 	local cellsChanged = 0
@@ -1115,9 +1121,9 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 						local newCoverage = newHealth / maxHealth
 						setCellCoverage(surface, index, newCoverage)
 						surface.LastBrushAt[index] = now
-						removedCoverageUnits += healthRemoved * surface.CellAreaScale * (tonumber(
-							surface.PaintRewardMultiplier
-						) or 1)
+						local rewardMultiplier = math.max(tonumber(surface.PaintRewardMultiplier) or 1, 0)
+						local normalizedCellReward = healthRemoved * rewardMultiplier
+						removedCoverageUnits += normalizedCellReward
 						cellsChanged += 1
 						if #positions < 8 then
 							table.insert(positions, getCellWorldPosition(surface, index))
@@ -1134,6 +1140,8 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 
 	local rewardUnits = removedCoverageUnits * REWARD_PER_COVERAGE_UNIT
 	rewardUnits = clampRewardForPlayer(sourcePlayer, rewardUnits)
+	rewardUnits = math.floor(math.max(rewardUnits, 0) + 0.5)
+	rewardUnits = math.clamp(rewardUnits, 0, tonumber(brushConfig.MaxRewardPerSweep) or 35)
 	local stamp = queueStamp(surface, worldPosition, radius, power, source)
 
 	return {

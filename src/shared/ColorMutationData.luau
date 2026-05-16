@@ -906,6 +906,75 @@ for index, row in ipairs(rows) do
 	table.insert(ColorMutationData.RollOrder, mutation.Id)
 end
 
+local CORE_MUTATIONS = {
+	Overflow = {
+		Id = "Overflow",
+		DisplayName = "Overflow",
+		Type = "Overflow",
+		Rarity = "Rare",
+		Description = "Dripping paint overflow.",
+		VisualTheme = "Paint drips and wet red trails",
+		StatModifiers = { PowerMultiplier = 1.55, ColorGainMultiplier = 1.12 },
+		Effects = { PowerMultiplier = 1.55, ColorGainMultiplier = 1.12 },
+		SpecialEffect = "core_overflow",
+		VisualEffect = "overflow_drip",
+		VisualTag = "overflow_drip",
+		Weight = 0,
+		IsMutation = true,
+		PowerMultiplier = 1.55,
+		AuraColor = Color3.fromRGB(255, 42, 42),
+		TypeColor = Color3.fromRGB(255, 58, 58),
+		RarityText = "Core Mutation",
+		SortOrder = 41000,
+	},
+	Corrupted = {
+		Id = "Corrupted",
+		DisplayName = "Corrupted",
+		Type = "Corrupted",
+		Rarity = "Rare",
+		Description = "Broken purple-black color energy.",
+		VisualTheme = "Dark smoke and broken particles",
+		StatModifiers = { PowerMultiplier = 2.05, ColorGainMultiplier = 1.18 },
+		Effects = { PowerMultiplier = 2.05, ColorGainMultiplier = 1.18 },
+		SpecialEffect = "core_corrupted",
+		VisualEffect = "corrupted_smoke",
+		VisualTag = "corrupted_smoke",
+		Weight = 0,
+		IsMutation = true,
+		PowerMultiplier = 2.05,
+		AuraColor = Color3.fromRGB(85, 20, 125),
+		TypeColor = Color3.fromRGB(190, 68, 255),
+		RarityText = "Core Mutation",
+		SortOrder = 42000,
+	},
+	Radioactive = {
+		Id = "Radioactive",
+		DisplayName = "Radioactive",
+		Type = "Radioactive",
+		Rarity = "Rare",
+		Description = "Toxic green color particles.",
+		VisualTheme = "Green bubbling toxic aura",
+		StatModifiers = { PowerMultiplier = 1.9, ColorGainMultiplier = 1.16 },
+		Effects = { PowerMultiplier = 1.9, ColorGainMultiplier = 1.16 },
+		SpecialEffect = "core_radioactive",
+		VisualEffect = "radioactive_toxic",
+		VisualTag = "radioactive_toxic",
+		Weight = 0,
+		IsMutation = true,
+		PowerMultiplier = 1.9,
+		AuraColor = Color3.fromRGB(82, 255, 84),
+		TypeColor = Color3.fromRGB(82, 255, 84),
+		RarityText = "Core Mutation",
+		SortOrder = 43000,
+	},
+}
+
+for mutationId, mutation in pairs(CORE_MUTATIONS) do
+	if not ColorMutationData.Mutations[mutationId] then
+		ColorMutationData.Mutations[mutationId] = mutation
+	end
+end
+
 ColorMutationData.LegacyAliases = {
 	Sparked = "Shadowed",
 	Chromatic = "Prism",

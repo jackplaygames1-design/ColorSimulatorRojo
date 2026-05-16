@@ -74,6 +74,12 @@ if not grantPetFunction then
 	grantPetFunction.Name = "ServerGrantPet"
 	grantPetFunction.Parent = ReplicatedStorage
 end
+local grantCoreColorFunction = ReplicatedStorage:FindFirstChild("ServerGrantCoreColor")
+if not grantCoreColorFunction then
+	grantCoreColorFunction = Instance.new("BindableFunction")
+	grantCoreColorFunction.Name = "ServerGrantCoreColor"
+	grantCoreColorFunction.Parent = ReplicatedStorage
+end
 
 local MAX_EQUIPPED = 3
 local DEBUG_LOGS = RunService:IsStudio()
@@ -485,9 +491,63 @@ local function isActivePetRecord(data)
 	return type(data) == "table" and resolveActivePetId(data.petId) ~= nil
 end
 
+local function isCoreColorRecord(data)
+	return type(data) == "table"
+		and (
+			data.isCoreColor == true
+			or data.IsCoreColor == true
+			or data.CoreId ~= nil
+			or data.coreId ~= nil
+			or data.ColorId ~= nil
+			or data.colorId ~= nil
+		)
+end
+
+local function normalizeBool(value)
+	return value == true or value == "true" or value == "1"
+end
+
+local function normalizeCoreColorData(variantKey, data)
+	data.isCoreColor = true
+	data.petId = resolveActivePetId(data.petId) or tostring(data.petId or "")
+	if data.petId == "" then
+		return nil, nil
+	end
+
+	data.stackAmount = 1
+	data.personalityId = PetData.normalizePersonalityId(data.personalityId)
+	data.traitId = PetData.normalizeTraitId(data.traitId)
+	data.mutationId = PetData.normalizeMutationId(data.mutationId or data.Mutation)
+	data.colorId = tostring(data.colorId or data.ColorId or variantKey or "")
+	if data.colorId == "" then
+		data.colorId = "core_" .. tostring(os.time()) .. "_" .. tostring(math.random(100000, 999999))
+	end
+	data.ColorId = data.colorId
+	data.coreId = tostring(data.coreId or data.CoreId or "RedCore")
+	data.CoreId = data.coreId
+	data.createdAt = tonumber(data.createdAt or data.CreatedAt) or os.time()
+	data.CreatedAt = data.createdAt
+	data.power = math.max(1, math.floor(tonumber(data.power or data.Power or data.finalPower) or 1))
+	data.Power = data.power
+	data.rarity = tostring(data.rarity or data.Rarity or (PetData.Pets[data.petId] and PetData.Pets[data.petId].rarity) or "Common")
+	data.Rarity = data.rarity
+	data.colorName = tostring(data.colorName or data.ColorName or (PetData.Pets[data.petId] and PetData.Pets[data.petId].displayName) or data.petId)
+	data.ColorName = data.colorName
+	data.isGlitched = normalizeBool(data.isGlitched or data.IsGlitched)
+	data.IsGlitched = data.isGlitched
+
+	variantKey = tostring(data.variantKey or data.VariantKey or variantKey or data.colorId)
+	data.variantKey = variantKey
+	return variantKey, data
+end
+
 local function normalizeInventoryData(variantKey, data)
 	if not data or not data.petId then
 		return nil
+	end
+
+	if isCoreColorRecord(data) then
+		return normalizeCoreColorData(variantKey, data)
 	end
 
 	local variantPetId, variantTraitId, variantMutationId = PetData.splitVariantKey(variantKey)
@@ -552,6 +612,40 @@ local function buildEntry(variantKey, data)
 			visualEffect = "none",
 		}
 		entry.effectivePower = entry.finalPower
+		if isCoreColorRecord(data) then
+			local mutation = ColorMutationData.get(data.mutationId)
+			local power = math.max(1, math.floor(tonumber(data.power or data.Power or entry.finalPower) or 1))
+			entry.variantKey = tostring(variantKey or data.variantKey or data.colorId)
+			entry.ColorId = tostring(data.colorId or data.ColorId or entry.variantKey)
+			entry.ColorName = tostring(data.colorName or data.ColorName or entry.baseName or entry.displayName)
+			entry.CoreId = tostring(data.coreId or data.CoreId or "RedCore")
+			entry.CreatedAt = tonumber(data.createdAt or data.CreatedAt) or os.time()
+			entry.Power = power
+			entry.finalPower = power
+			entry.effectivePower = power
+			entry.rarity = tostring(data.rarity or data.Rarity or entry.rarity)
+			entry.Rarity = entry.rarity
+			entry.displayName = entry.ColorName
+			entry.baseName = entry.ColorName
+			entry.stackAmount = 1
+			entry.isCoreColor = true
+			entry.IsCoreColor = true
+			entry.mutationId = PetData.normalizeMutationId(data.mutationId or data.Mutation)
+			entry.MutationId = entry.mutationId
+			entry.Mutation = entry.mutationId ~= ColorMutationData.NoneId and entry.mutationId or nil
+			entry.mutationName = mutation.DisplayName
+			entry.hasMutation = entry.mutationId ~= ColorMutationData.NoneId
+			entry.isGlitched = data.isGlitched == true or data.IsGlitched == true
+			entry.IsGlitched = entry.isGlitched
+			if entry.isGlitched then
+				entry.mutationVisualTag = "glitch"
+				entry.mutationType = "Corrupted"
+				entry.mutationTypeColor = Color3.fromRGB(255, 72, 255)
+				entry.auraColor = Color3.fromRGB(140, 70, 255)
+			end
+			entry.colorMult = 1 + math.clamp(power / 250000, 0, 2.5)
+			entry.coinMult = 1 + math.clamp(power / 400000, 0, 2.0)
+		end
 	end
 	return entry
 end
@@ -610,6 +704,22 @@ local function getPetInventorySnapshot(player)
 			isShiny = data.isShiny == true,
 			personalityId = data.personalityId,
 			mutationId = data.mutationId,
+			variantKey = data.variantKey or variantKey,
+			isCoreColor = data.isCoreColor == true,
+			colorId = data.colorId,
+			ColorId = data.ColorId,
+			colorName = data.colorName,
+			ColorName = data.ColorName,
+			coreId = data.coreId,
+			CoreId = data.CoreId,
+			createdAt = data.createdAt,
+			CreatedAt = data.CreatedAt,
+			power = data.power,
+			Power = data.Power,
+			rarity = data.rarity,
+			Rarity = data.Rarity,
+			isGlitched = data.isGlitched == true,
+			IsGlitched = data.IsGlitched == true,
 		})
 		if normalizedKey and normalizedData then
 			normalizedData.variantKey = normalizedKey
@@ -692,6 +802,9 @@ local function resolveInventoryKey(inventory, key)
 		end
 
 		if variantKey == normalizedKey or data.petId == normalizedKey then
+			return variantKey
+		end
+		if isCoreColorRecord(data) and (data.colorId == normalizedKey or data.ColorId == normalizedKey) then
 			return variantKey
 		end
 
@@ -779,22 +892,34 @@ local function syncPetFolder(player, dirtyReason)
 			-- Format: "variantKey:petId:stackAmount:traitId:shiny:personalityId:mutationId"
 			local traitStr = PetData.normalizeTraitId(data.traitId)
 			local shinyStr = data.isShiny and "shiny" or "normal"
-			table.insert(
-				parts,
-				tostring(variantKey)
+			local encoded = tostring(variantKey)
+				.. ":"
+				.. data.petId
+				.. ":"
+				.. data.stackAmount
+				.. ":"
+				.. traitStr
+				.. ":"
+				.. shinyStr
+				.. ":"
+				.. (data.personalityId or "Neutral")
+				.. ":"
+				.. (data.mutationId or "None")
+			if isCoreColorRecord(data) then
+				encoded ..= ":core:"
+					.. tostring(data.colorId or data.ColorId or variantKey)
 					.. ":"
-					.. data.petId
+					.. tostring(data.coreId or data.CoreId or "RedCore")
 					.. ":"
-					.. data.stackAmount
+					.. tostring(math.floor(tonumber(data.createdAt or data.CreatedAt) or os.time()))
 					.. ":"
-					.. traitStr
+					.. tostring(math.floor(tonumber(data.power or data.Power or 1) or 1))
 					.. ":"
-					.. shinyStr
+					.. tostring(data.rarity or data.Rarity or "Common")
 					.. ":"
-					.. (data.personalityId or "Neutral")
-					.. ":"
-					.. (data.mutationId or "None")
-			)
+					.. tostring(data.isGlitched == true or data.IsGlitched == true)
+			end
+			table.insert(parts, encoded)
 		end
 		local serializedInventory = table.concat(parts, ",")
 		if serializedInventory == "" and invVal.Value ~= "" and dirtyReason ~= "delete-color" then
@@ -887,6 +1012,68 @@ local function grantPetToPlayer(player, petId, amount, traitId, isShiny, autoEqu
 	return true, entry
 end
 
+local function grantCoreColorToPlayer(player, coreColor)
+	coreColor = type(coreColor) == "table" and coreColor or {}
+	local petId = tostring(coreColor.PetId or coreColor.petId or coreColor.BaseColorId or "")
+	local inv = playerInventory[player]
+	local equipped = playerEquipped[player]
+	if not inv or not equipped or not PetData.Pets[petId] then
+		return false, nil, "Color inventory is not ready."
+	end
+
+	local hasInventoryRoom = canAddColorsToInventory(player, inv, 1)
+	if not hasInventoryRoom then
+		return false, nil, "Inventory full"
+	end
+
+	local colorId = tostring(coreColor.ColorId or coreColor.colorId or "")
+	if colorId == "" then
+		colorId = "core_" .. tostring(player.UserId) .. "_" .. tostring(os.time()) .. "_" .. tostring(math.random(100000, 999999))
+	end
+	local variantKey = tostring(coreColor.VariantKey or coreColor.variantKey or colorId)
+	local suffix = 0
+	local baseVariantKey = variantKey
+	while inv[variantKey] do
+		suffix += 1
+		variantKey = baseVariantKey .. "_" .. tostring(suffix)
+	end
+
+	inv[variantKey] = {
+		petId = petId,
+		stackAmount = 1,
+		traitId = PetData.normalizeTraitId("Neutral"),
+		isShiny = false,
+		personalityId = "Neutral",
+		mutationId = PetData.normalizeMutationId(coreColor.Mutation or coreColor.mutationId or "None"),
+		variantKey = variantKey,
+		isCoreColor = true,
+		colorId = colorId,
+		ColorId = colorId,
+		colorName = tostring(coreColor.ColorName or coreColor.colorName or PetData.GetCompanionDisplayName(petId)),
+		ColorName = tostring(coreColor.ColorName or coreColor.colorName or PetData.GetCompanionDisplayName(petId)),
+		coreId = tostring(coreColor.CoreId or coreColor.coreId or "RedCore"),
+		CoreId = tostring(coreColor.CoreId or coreColor.coreId or "RedCore"),
+		createdAt = tonumber(coreColor.CreatedAt or coreColor.createdAt) or os.time(),
+		CreatedAt = tonumber(coreColor.CreatedAt or coreColor.createdAt) or os.time(),
+		power = math.max(1, math.floor(tonumber(coreColor.Power or coreColor.power) or 1)),
+		Power = math.max(1, math.floor(tonumber(coreColor.Power or coreColor.power) or 1)),
+		rarity = tostring(coreColor.Rarity or coreColor.rarity or "Common"),
+		Rarity = tostring(coreColor.Rarity or coreColor.rarity or "Common"),
+		isGlitched = coreColor.IsGlitched == true or coreColor.isGlitched == true,
+		IsGlitched = coreColor.IsGlitched == true or coreColor.isGlitched == true,
+	}
+
+	local entry = buildEntry(variantKey, inv[variantKey])
+	if not entry then
+		inv[variantKey] = nil
+		return false, nil, "Inventory update failed."
+	end
+
+	syncPetFolder(player, "core-roll-color")
+	sendState(player)
+	return true, entry
+end
+
 local function shouldAlwaysOwnRainbowPet(player)
 	return isOwnerRainbowPlayer(player)
 end
@@ -938,6 +1125,7 @@ local function parseInventory(str)
 		local shinyStr = segments[stackIndex + 2] or "normal"
 		local personalityId = PetData.normalizePersonalityId(segments[stackIndex + 3] or "Neutral")
 		local mutationId = PetData.normalizeMutationId(segments[stackIndex + 4] or "None")
+		local isCore = segments[stackIndex + 5] == "core"
 		if not petId or petId == "" then
 			continue
 		end
@@ -950,6 +1138,13 @@ local function parseInventory(str)
 			isShiny = shinyStr == "shiny" or shinyStr == "true",
 			personalityId = personalityId,
 			mutationId = mutationId,
+			isCoreColor = isCore,
+			colorId = isCore and segments[stackIndex + 6] or nil,
+			coreId = isCore and segments[stackIndex + 7] or nil,
+			createdAt = isCore and tonumber(segments[stackIndex + 8]) or nil,
+			power = isCore and tonumber(segments[stackIndex + 9]) or nil,
+			rarity = isCore and segments[stackIndex + 10] or nil,
+			isGlitched = isCore and normalizeBool(segments[stackIndex + 11]) or false,
 		})
 		if normalizedKey and normalizedData then
 			inv[normalizedKey] = normalizedData
@@ -1412,6 +1607,10 @@ grantPetFunction.OnInvoke = function(player, petId, amount, traitId, mutationId,
 	return grantPetToPlayer(player, petId, amount, traitId, false, autoEquip ~= false, "Neutral", mutationId)
 end
 
+grantCoreColorFunction.OnInvoke = function(player, coreColor)
+	return grantCoreColorToPlayer(player, coreColor)
+end
+
 -- ========================
 --   EQUIP / UNEQUIP
 -- ========================
@@ -1623,16 +1822,7 @@ local function getPlayerPetStats(player)
 
 	for _, variantKey in ipairs(equipped) do
 		local data = inventory[variantKey]
-		local stack = data and data.stackAmount or 1
-		local entry = data
-			and PetData.buildPetEntry(
-				data.petId,
-				stack,
-				data.isShiny,
-				data.personalityId,
-				data.mutationId,
-				data.traitId
-			)
+		local entry = data and buildEntry(variantKey, data)
 		if entry then
 			local effPower = entry.finalPower
 
@@ -1834,12 +2024,14 @@ RunService.Heartbeat:Connect(function()
 		if groundRewardUnits > 0 then
 			lastAttack[player] = now
 			local colorType = groundResult.ColorType
+			local maxPetReward = tonumber(groundPaintPetConfig.MaxRewardPerTick) or 15
 			local reward = math.max(
 				1,
 				math.floor(
 					groundRewardUnits * petStats.colorMult * getInstantCoinMultiplier(player, colorType, petStats)
 				)
 			)
+			reward = math.clamp(reward, 0, maxPetReward)
 			petBreakRewardEvent:FireClient(player, {
 				Amount = reward,
 				ColorType = colorType,

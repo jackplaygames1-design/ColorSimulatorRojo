@@ -224,6 +224,7 @@ local function parseReplicatedInventory(value)
 			local shinyStr = string.lower(tostring(segments[stackIndex + 2] or "normal"))
 			local personalityId = PetData.normalizePersonalityId(segments[stackIndex + 3])
 			local mutationId = PetData.normalizeMutationId(segments[stackIndex + 4] or variantMutationId)
+			local isCore = segments[stackIndex + 5] == "core"
 			local entry = PetData.buildPetEntry(
 				petId,
 				stackAmount,
@@ -235,6 +236,26 @@ local function parseReplicatedInventory(value)
 			if entry and not entry.isUnknownColor then
 				entry.variantKey = variantKey ~= "" and variantKey or entry.variantKey
 				entry.effectivePower = entry.finalPower
+				if isCore then
+					entry.isCoreColor = true
+					entry.IsCoreColor = true
+					entry.ColorId = tostring(segments[stackIndex + 6] or entry.variantKey)
+					entry.CoreId = tostring(segments[stackIndex + 7] or "RedCore")
+					entry.CreatedAt = tonumber(segments[stackIndex + 8]) or os.time()
+					entry.Power = math.max(1, math.floor(tonumber(segments[stackIndex + 9]) or entry.finalPower or 1))
+					entry.finalPower = entry.Power
+					entry.effectivePower = entry.Power
+					entry.rarity = tostring(segments[stackIndex + 10] or entry.rarity or "Common")
+					entry.Rarity = entry.rarity
+					entry.isGlitched = segments[stackIndex + 11] == "true" or segments[stackIndex + 11] == "1"
+					entry.IsGlitched = entry.isGlitched
+					entry.hasMutation = entry.mutationId ~= ColorMutationData.NoneId
+					if entry.isGlitched then
+						entry.mutationVisualTag = "glitch"
+						entry.mutationType = "Corrupted"
+						entry.auraColor = Color3.fromRGB(140, 70, 255)
+					end
+				end
 				table.insert(inventory, entry)
 			elseif entry and entry.isUnknownColor then
 				warn("PetClient: ignored unknown replicated ColorId: " .. tostring(entry.unknownColorId or petId))
@@ -365,6 +386,9 @@ function entryMatchesKey(entry, key)
 	if getEntryKey(entry) == key or entry.petId == key then
 		return true
 	end
+	if entry.ColorId == key or entry.colorId == key then
+		return true
+	end
 	if type(key) ~= "string" then
 		return false
 	end
@@ -383,6 +407,9 @@ local function softColor(color)
 end
 
 local function getFxColor(petEntry, pet)
+	if petEntry.isGlitched == true or petEntry.IsGlitched == true then
+		return Color3.fromRGB(185, 80, 255)
+	end
 	if petEntry.hasMutation and petEntry.auraColor then
 		return petEntry.auraColor
 	end
@@ -399,6 +426,15 @@ local function getFxColor(petEntry, pet)
 end
 
 local function getColorSequence(petEntry, pet, fxColor)
+	if petEntry.isGlitched == true or petEntry.IsGlitched == true then
+		return ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 50, 90)),
+			ColorSequenceKeypoint.new(0.32, Color3.fromRGB(70, 240, 255)),
+			ColorSequenceKeypoint.new(0.66, Color3.fromRGB(190, 70, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255)),
+		})
+	end
+
 	if
 		petEntry.mutationVisualTag == "rainbow"
 		or petEntry.mutationId == "Rainbow"
@@ -426,6 +462,9 @@ local function getColorSequence(petEntry, pet, fxColor)
 end
 
 local function getMutationFxBoost(petEntry)
+	if petEntry.isGlitched == true or petEntry.IsGlitched == true then
+		return 2.4, NumberRange.new(1.9, 4.4), NumberRange.new(0.14, 0.38)
+	end
 	local tag = petEntry.mutationVisualTag
 	local mutationType = petEntry.mutationType
 	if mutationType == "Corrupted" or string.find(tostring(tag), "corrupted") then
@@ -799,6 +838,77 @@ local function applyMutationOverlay(model, petEntry)
 	end
 end
 
+local function applyGlitchedOverlay(model, petEntry)
+	if not model or not model.PrimaryPart or not petEntry then
+		return
+	end
+	if not (petEntry.isGlitched == true or petEntry.IsGlitched == true) then
+		return
+	end
+
+	local primary = model.PrimaryPart
+	local extents = model:GetExtentsSize()
+	local largest = math.max(extents.X, extents.Y, extents.Z, 1)
+
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "GlitchedHighlight"
+	highlight.Adornee = model
+	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+	highlight.FillColor = Color3.fromRGB(185, 70, 255)
+	highlight.OutlineColor = Color3.fromRGB(70, 235, 255)
+	highlight.FillTransparency = 0.58
+	highlight.OutlineTransparency = 0.05
+	highlight.Parent = model
+
+	local attachment = primary:FindFirstChild("GlitchedFxAttachment")
+	if not attachment then
+		attachment = Instance.new("Attachment")
+		attachment.Name = "GlitchedFxAttachment"
+		attachment.Parent = primary
+	end
+
+	local pixels = Instance.new("ParticleEmitter")
+	pixels.Name = "GlitchedPixels"
+	pixels.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	pixels.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 55, 90)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(65, 238, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(190, 70, 255)),
+	})
+	pixels.LightEmission = 0.75
+	pixels.LightInfluence = 0.15
+	pixels.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.16),
+		NumberSequenceKeypoint.new(0.4, 0.08),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	pixels.Speed = NumberRange.new(2.0, 4.5)
+	pixels.SpreadAngle = Vector2.new(180, 180)
+	pixels.Lifetime = NumberRange.new(0.16, 0.34)
+	pixels.Rate = 16
+	pixels.Rotation = NumberRange.new(0, 360)
+	pixels.RotSpeed = NumberRange.new(-220, 220)
+	pixels.Parent = attachment
+
+	for index = 1, 3 do
+		local shard = Instance.new("Part")
+		shard.Name = "GlitchedOffsetShard"
+		shard.Size = Vector3.new(largest * 0.22, largest * 0.08, largest * 0.22)
+		shard.Color = index == 1 and Color3.fromRGB(255, 45, 85)
+			or index == 2 and Color3.fromRGB(65, 235, 255)
+			or Color3.fromRGB(180, 80, 255)
+		shard.Material = Enum.Material.Neon
+		shard.Transparency = 0.25
+		shard.Anchored = true
+		shard.CanCollide = false
+		shard.CanTouch = false
+		shard.CanQuery = false
+		shard.CastShadow = false
+		shard.CFrame = primary.CFrame * CFrame.new((index - 2) * largest * 0.18, largest * 0.2, -largest * 0.55)
+		shard.Parent = model
+	end
+end
+
 -- ========================
 --   CREATE PET MODEL
 -- ========================
@@ -900,6 +1010,7 @@ local function createPetModel(petEntry)
 	if not usesCustomMutationVariant then
 		applyMutationOverlay(model, petEntry)
 	end
+	applyGlitchedOverlay(model, petEntry)
 	addPetParticles(model, petEntry, pet)
 
 	model:SetAttribute("ClientPetOwnerUserId", player.UserId)
@@ -1141,6 +1252,8 @@ local function buildPetVisualState(model, petEntry)
 		floatCores = collectFloatCores(model),
 		redLightning = makeRedLightningVisuals(model, petEntry),
 		mutationHighlight = model and model:FindFirstChild("MutationHighlight"),
+		glitchedHighlight = model and model:FindFirstChild("GlitchedHighlight"),
+		glitchedShards = model and model:GetChildren() or {},
 		mutationType = petEntry and petEntry.mutationType,
 	}
 end
@@ -1186,6 +1299,18 @@ local function updateCustomPetVisuals(entry, now)
 			mutationHighlight.OutlineTransparency = 0.13 + math.sin(now * 2.8) * 0.07
 		end
 	end
+
+	local glitchedHighlight = visuals.glitchedHighlight
+	if glitchedHighlight and glitchedHighlight.Parent then
+		glitchedHighlight.FillTransparency = 0.48 + math.abs(math.sin(now * 24)) * 0.32
+		glitchedHighlight.OutlineTransparency = 0.02 + math.abs(math.sin(now * 19)) * 0.2
+	end
+	for _, shard in ipairs(visuals.glitchedShards or {}) do
+		if shard:IsA("BasePart") and shard.Name == "GlitchedOffsetShard" and shard.Parent then
+			local phase = shard:GetDebugId(0):byte(1) or 1
+			shard.Transparency = 0.18 + math.abs(math.sin(now * 14 + phase)) * 0.34
+		end
+	end
 end
 -- ========================
 --   REBUILD ORBITING PETS
@@ -1209,6 +1334,9 @@ function rebuildOrbitingPets()
 	local entryByKey = {}
 	for _, entry in ipairs(allPets) do
 		entryByKey[getEntryKey(entry)] = entry
+		if entry.ColorId or entry.colorId then
+			entryByKey[tostring(entry.ColorId or entry.colorId)] = entry
+		end
 		entryByKey[entry.petId] = entryByKey[entry.petId] or entry
 	end
 

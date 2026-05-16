@@ -9,6 +9,7 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
+local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 
 local function loadToolData()
 	local module = ReplicatedStorage:WaitForChild("ToolData", 3)
@@ -280,7 +281,8 @@ local function getGroundBrushRadius(toolConfig)
 		or tonumber(toolConfig.BrushRadius)
 		or math.max(4, (toolConfig.Width or 7) * 0.7)
 	radius *= getUpgradeMultiplier("BrushSize", 1)
-	return math.clamp(radius, 3, 30)
+	local maxRadius = tonumber(((GameBalance.GroundPaint or {}).Brush or {}).MaxRadius) or 18
+	return math.clamp(radius, 3, maxRadius)
 end
 
 local function getInputPosition(input)

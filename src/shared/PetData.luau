@@ -2,6 +2,7 @@
 local ColorMutationData = require(script.Parent:WaitForChild("ColorMutationData"))
 local ColorPersonalityData = require(script.Parent:WaitForChild("ColorPersonalityData"))
 local ColorTraitData = require(script.Parent:WaitForChild("ColorTraitData"))
+local CoreColorDefinitions = require(script.Parent:WaitForChild("ColorDefinitions"))
 local GameBalance = require(script.Parent:WaitForChild("GameBalance"))
 local LegendaryColorOrbDefinitions =
 	require(script.Parent:WaitForChild("Modules"):WaitForChild("LegendaryColorOrbDefinitions"))
@@ -447,6 +448,24 @@ for _, orb in ipairs(LegendaryColorOrbDefinitions) do
 		areaColor = orb.AreaColor,
 		isLegendaryColorOrb = true,
 	}
+end
+
+for colorId, colorDefinition in pairs(CoreColorDefinitions.Colors or {}) do
+	PetData.Pets[colorId] = PetData.Pets[colorId]
+		or {
+			displayName = colorDefinition.ColorName or colorId,
+			rarity = colorDefinition.Rarity or "Common",
+			color = colorDefinition.Color or Color3.fromRGB(235, 48, 50),
+			breakPower = math.max(1, math.floor(tonumber(colorDefinition.BasePower) or 1)),
+			colorMult = 1.05,
+			coinMult = 1.0,
+			modelName = colorId,
+			iconColor = colorDefinition.Color,
+			cardColor = (colorDefinition.Color or Color3.fromRGB(235, 48, 50)):Lerp(Color3.new(1, 1, 1), 0.72),
+			accentColor = colorDefinition.Color,
+			isCoreColor = true,
+			coreColorType = colorDefinition.ColorType or "Red",
+		}
 end
 
 function PetData.resolvePetId(petId)

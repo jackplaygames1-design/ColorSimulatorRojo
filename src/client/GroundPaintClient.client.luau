@@ -40,6 +40,8 @@ end
 
 local surfaces = {}
 local activeStampCount = 0
+local predictedStamps = {}
+local nextPredictedId = 0
 local lastSnapshotAttempt = 0
 local snapshotRetryQueued = false
 local clientReadySent = false
@@ -52,6 +54,10 @@ local function asNumber(value, fallback)
 	end
 	return n
 end
+
+local MAX_STAMP_RADIUS = asNumber(stampConfig.MaxRadius, 18)
+local MAX_MERGED_STAMP_RADIUS = asNumber(stampConfig.MaxMergedRadius, 22)
+local LOCAL_STAMP_CONFIRM_WINDOW = 0.35
 
 local function getMaterial(value)
 	if typeof(value) == "EnumItem" then
@@ -100,6 +106,7 @@ local function clearVisuals()
 		destroySurface(surface)
 	end
 	table.clear(surfaces)
+	table.clear(predictedStamps)
 	folder:ClearAllChildren()
 	activeStampCount = 0
 end
@@ -317,6 +324,9 @@ local function pruneSurfaceStamps(surface)
 	while #surface.Stamps > limit do
 		local stamp = table.remove(surface.Stamps, 1)
 		if stamp and stamp.Folder then
+			if stamp.PredictionId then
+				predictedStamps[stamp.PredictionId] = nil
+			end
 			stamp.Folder:Destroy()
 			activeStampCount = math.max(activeStampCount - 1, 0)
 		end
@@ -342,6 +352,9 @@ local function pruneGlobalStamps()
 			break
 		end
 		table.remove(oldestSurface.Stamps, oldestIndex)
+		if oldestStamp.PredictionId then
+			predictedStamps[oldestStamp.PredictionId] = nil
+		end
 		if oldestStamp.Folder then
 			oldestStamp.Folder:Destroy()
 		end
@@ -353,26 +366,63 @@ local function removeStamp(surface, stamp)
 	if not surface or not stamp then
 		return
 	end
+	local removed = false
 	for index = #surface.Stamps, 1, -1 do
 		if surface.Stamps[index] == stamp then
 			table.remove(surface.Stamps, index)
+			removed = true
 			break
 		end
+	end
+	if stamp.PredictionId then
+		predictedStamps[stamp.PredictionId] = nil
 	end
 	if stamp.Folder then
 		stamp.Folder:Destroy()
 	end
-	activeStampCount = math.max(activeStampCount - 1, 0)
+	if removed then
+		activeStampCount = math.max(activeStampCount - 1, 0)
+	end
 end
 
-local function absorbNearbyStamp(surface, localPoint, radius)
-	for _, stamp in ipairs(surface.Stamps) do
+local function fadeStampNow(surface, stamp, fadeTime)
+	if not stamp or not stamp.Folder or not stamp.Folder.Parent then
+		return
+	end
+	for _, part in ipairs(stamp.Parts or {}) do
+		if part and part.Parent then
+			TweenService
+				:Create(part, TweenInfo.new(fadeTime or 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Transparency = 1,
+				})
+				:Play()
+		end
+	end
+	task.delay((fadeTime or 0.35) + 0.05, function()
+		removeStamp(surface, stamp)
+	end)
+end
+
+local function absorbNearbyStamp(surface, localPoint, radius, source)
+	radius = math.clamp(radius, 1, MAX_STAMP_RADIUS)
+
+	for index = #surface.Stamps, 1, -1 do
+		local stamp = surface.Stamps[index]
 		if stamp.CenterLocal and stamp.Radius then
 			local dx = stamp.CenterLocal.X - localPoint.X
 			local dz = stamp.CenterLocal.Y - localPoint.Z
-			local mergeDistance = math.max(radius, stamp.Radius) * 0.35
+			local mergeDistance = math.max(radius, stamp.Radius or radius) * 0.25
 			if dx * dx + dz * dz <= mergeDistance * mergeDistance then
-				local nextRadius = math.max(radius, stamp.Radius * 1.08)
+				if source == "local" and stamp.Source == "server" then
+					return radius
+				end
+
+				if source == "server" and stamp.Source == "local" then
+					removeStamp(surface, stamp)
+					return radius
+				end
+
+				local nextRadius = math.min(math.max(radius, (stamp.Radius or radius) + 1.25), MAX_MERGED_STAMP_RADIUS)
 				removeStamp(surface, stamp)
 				return nextRadius
 			end
@@ -396,18 +446,20 @@ local function emitLiftParticles(position, color, radius)
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Name = "Lift"
 	emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	emitter.Color = ColorSequence.new(color, Color3.fromRGB(255, 255, 255))
+	emitter.Color = ColorSequence.new(color, color:Lerp(Color3.fromRGB(255, 255, 255), 0.35))
 	emitter.LightEmission = 0.65
-	emitter.Lifetime = NumberRange.new(0.22, 0.55)
-	emitter.Speed = NumberRange.new(2.2, 5.8)
-	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Lifetime = NumberRange.new(0.18, 0.42)
+	emitter.Speed = NumberRange.new(3.2, 7.2)
+	emitter.SpreadAngle = Vector2.new(60, 180)
+	emitter.Acceleration = Vector3.new(0, 10, 0)
+	emitter.Drag = 6
 	emitter.Rate = 0
 	emitter.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, math.clamp(radius * 0.07, 0.25, 0.9)),
+		NumberSequenceKeypoint.new(0, math.clamp(radius * 0.055, 0.18, 0.65)),
 		NumberSequenceKeypoint.new(1, 0),
 	})
 	emitter.Parent = anchor
-	emitter:Emit(math.clamp(math.floor(radius * 1.8), 8, 28))
+	emitter:Emit(math.clamp(math.floor(radius * 1.35), 6, 20))
 	Debris:AddItem(anchor, 0.8)
 end
 
@@ -451,26 +503,107 @@ local function fadeAndDestroyStamp(surface, stamp)
 		if not stamp.Folder or not stamp.Folder.Parent then
 			return
 		end
-		for _, part in ipairs(stamp.Parts) do
-			if part and part.Parent then
-				TweenService:Create(part, TweenInfo.new(fadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					Transparency = 1,
-				}):Play()
-			end
-		end
-		task.delay(fadeTime + 0.05, function()
-			if stamp.Folder then
-				stamp.Folder:Destroy()
-			end
-			activeStampCount = math.max(activeStampCount - 1, 0)
-			for index = #surface.Stamps, 1, -1 do
-				if surface.Stamps[index] == stamp then
-					table.remove(surface.Stamps, index)
-					break
+		fadeStampNow(surface, stamp, fadeTime)
+	end)
+end
+
+local function fadeNearestPredictedStamp(worldPosition)
+	if typeof(worldPosition) ~= "Vector3" then
+		return
+	end
+
+	local bestSurface = nil
+	local bestStamp = nil
+	local bestDistance = math.huge
+	for _, surface in pairs(surfaces) do
+		local cframe = surface.SurfaceCFrame or surface.CFrame or (surface.Part and surface.Part.CFrame)
+		if typeof(cframe) == "CFrame" then
+			local localPoint = cframe:PointToObjectSpace(worldPosition)
+			for _, stamp in ipairs(surface.Stamps or {}) do
+				if stamp.Source == "local" and stamp.CenterLocal then
+					local dx = stamp.CenterLocal.X - localPoint.X
+					local dz = stamp.CenterLocal.Y - localPoint.Z
+					local distance = dx * dx + dz * dz
+					if distance < bestDistance then
+						bestDistance = distance
+						bestSurface = surface
+						bestStamp = stamp
+					end
 				end
 			end
-		end)
-	end)
+		end
+	end
+
+	if bestSurface and bestStamp then
+		fadeStampNow(bestSurface, bestStamp, asNumber(stampConfig.LocalPredictionFadeTime, 0.35))
+	end
+end
+
+local function makeRimPieces(surface, stamp, localPoint, radius, paintColor, yOffset)
+	if stampConfig.RimEnabled == false then
+		return
+	end
+
+	local pieces = math.clamp(math.floor(radius * 0.8), 6, 14)
+	local rimColor = paintColor:Lerp(Color3.fromRGB(0, 0, 0), 0.25)
+
+	for i = 1, pieces do
+		local angle = (math.pi * 2) * (i / pieces)
+		local jitter = 0.85 + math.random() * 0.25
+		local r = radius * jitter
+		local localX = localPoint.X + math.cos(angle) * r
+		local localZ = localPoint.Z + math.sin(angle) * r
+
+		local piece = Instance.new("Part")
+		piece.Name = "PaintRim"
+		piece.Size = Vector3.new(
+			math.clamp(radius * asNumber(stampConfig.RimThickness, 0.18), 0.35, 1.3),
+			asNumber(stampConfig.RimHeight, 0.11),
+			math.clamp(radius * 0.08, 0.2, 0.7)
+		)
+		piece.CFrame = getSurfaceTopCFrame(surface, localX, localZ, yOffset + 0.06) * CFrame.Angles(0, angle, 0)
+		piece.Anchored = true
+		piece.CanCollide = false
+		piece.CanTouch = false
+		piece.CanQuery = false
+		piece.CastShadow = false
+		piece.Material = Enum.Material.SmoothPlastic
+		piece.Color = rimColor
+		piece.Transparency = asNumber(stampConfig.RimTransparency, 0.18)
+		piece.Parent = stamp.Folder
+		table.insert(stamp.Parts, piece)
+	end
+end
+
+local function makeSplatter(surface, stamp, localPoint, radius, paintColor, yOffset)
+	if stampConfig.SplatterEnabled == false then
+		return
+	end
+
+	local count = math.clamp(math.floor(asNumber(stampConfig.SplatterCount, 6)), 0, 16)
+	for _ = 1, count do
+		local angle = math.random() * math.pi * 2
+		local r = radius * (0.65 + math.random() * 0.65)
+		local localX = localPoint.X + math.cos(angle) * r
+		local localZ = localPoint.Z + math.sin(angle) * r
+
+		local dot = Instance.new("Part")
+		dot.Name = "PaintSplatter"
+		dot.Shape = Enum.PartType.Ball
+		local size = math.random(8, 18) / 100
+		dot.Size = Vector3.new(size, size, size)
+		dot.CFrame = getSurfaceTopCFrame(surface, localX, localZ, yOffset + 0.12)
+		dot.Anchored = true
+		dot.CanCollide = false
+		dot.CanTouch = false
+		dot.CanQuery = false
+		dot.CastShadow = false
+		dot.Material = Enum.Material.SmoothPlastic
+		dot.Color = paintColor
+		dot.Transparency = 0.05
+		dot.Parent = stamp.Folder
+		table.insert(stamp.Parts, dot)
+	end
 end
 
 local function makeClearStamp(stampData)
@@ -492,8 +625,13 @@ local function makeClearStamp(stampData)
 	end
 
 	local localPoint = surfaceCFrame:PointToObjectSpace(stampData.Position)
+	local source = stampData.Source == "local" and "local" or "server"
 	local radius = math.max(asNumber(stampData.Radius, 7), 1)
-	radius = absorbNearbyStamp(surface, localPoint, radius)
+	radius = math.clamp(radius, 1, MAX_STAMP_RADIUS)
+	radius = absorbNearbyStamp(surface, localPoint, radius, source)
+	if source == "local" then
+		radius = math.clamp(radius, 1, MAX_STAMP_RADIUS)
+	end
 	local ringCount = math.clamp(math.floor(asNumber(stampConfig.RingCount, 7)), 2, 11)
 	local baseColor = typeof(surface.BaseSurfaceColor) == "Color3" and surface.BaseSurfaceColor
 		or typeof(stampData.BaseSurfaceColor) == "Color3" and stampData.BaseSurfaceColor
@@ -515,6 +653,9 @@ local function makeClearStamp(stampData)
 		CenterLocal = Vector2.new(localPoint.X, localPoint.Z),
 		Radius = radius,
 		Duration = asNumber(stampData.RegenDelay, asNumber(regenConfig.DelayAfterBrush, 5)),
+		Position = stampData.Position,
+		PredictionId = stampData.PredictionId,
+		Source = source,
 		CreatedAt = os.clock(),
 	}
 
@@ -527,6 +668,7 @@ local function makeClearStamp(stampData)
 		disc.Shape = Enum.PartType.Block
 		disc.Size = Vector3.new(discRadius * 2, 0.08, discRadius * 2)
 		disc.CFrame = getSurfaceTopCFrame(surface, localPoint.X, localPoint.Z, yOffset + ring * 0.012)
+			* CFrame.Angles(0, math.rad((ring % 2 == 0 and 10 or -10) + math.random(-5, 5)), 0)
 		disc.Anchored = true
 		disc.CanCollide = false
 		disc.CanTouch = false
@@ -544,12 +686,29 @@ local function makeClearStamp(stampData)
 		disc.Parent = stampFolder
 		table.insert(stamp.Parts, disc)
 	end
+	makeRimPieces(surface, stamp, localPoint, radius, surface.PaintColor, yOffset)
+	makeSplatter(surface, stamp, localPoint, radius, surface.PaintColor, yOffset)
 
 	table.insert(surface.Stamps, stamp)
 	activeStampCount += 1
 	pruneSurfaceStamps(surface)
 	pruneGlobalStamps()
-	fadeAndDestroyStamp(surface, stamp)
+	if source == "local" then
+		if not stamp.PredictionId then
+			nextPredictedId += 1
+			stamp.PredictionId = "pred_" .. tostring(nextPredictedId)
+		end
+		predictedStamps[stamp.PredictionId] = stamp
+		task.delay(LOCAL_STAMP_CONFIRM_WINDOW, function()
+			local stillPredicted = predictedStamps[stamp.PredictionId]
+			if stillPredicted == stamp then
+				predictedStamps[stamp.PredictionId] = nil
+				fadeStampNow(surface, stamp, asNumber(stampConfig.LocalPredictionFadeTime, 0.35))
+			end
+		end)
+	else
+		fadeAndDestroyStamp(surface, stamp)
+	end
 	emitLiftParticles(stampData.Position, surface.PaintColor, radius)
 	print(
 		string.format(
@@ -688,6 +847,11 @@ paintSweepEvent.OnClientEvent:Connect(function(payload)
 		print(string.format("GroundPaintClient PaintToolSweep response: stamps=%d", #stamps))
 	end
 
+	if #stamps == 0 then
+		fadeNearestPredictedStamp(payload.Position or payload.HitPosition or payload.GroundPosition)
+		return
+	end
+
 	for _, stamp in ipairs(stamps) do
 		makeClearStamp(stamp)
 	end
@@ -707,13 +871,17 @@ if localBrushEvent:IsA("BindableEvent") then
 			return
 		end
 
+		nextPredictedId += 1
+		local predictionId = "pred_" .. tostring(nextPredictedId)
+
 		makeClearStamp({
+			PredictionId = predictionId,
 			SurfaceId = surface.SurfaceId,
 			Position = payload.Position,
 			Radius = payload.Radius or 7,
 			BaseSurfaceColor = surface.BaseSurfaceColor or Color3.fromRGB(5, 5, 5),
 			PaintColor = surface.PaintColor,
-			RegenDelay = asNumber(regenConfig.DelayAfterBrush, 5),
+			RegenDelay = 0.35,
 			Source = "local",
 		})
 	end)

@@ -411,9 +411,16 @@ local function encodePetRecord(record)
 	local shinyText = shiny and "shiny" or "normal"
 	local personalityId = record.personalityId or record.PersonalityId or "Neutral"
 	local mutationId = PetData.normalizeMutationId(record.mutationId or record.MutationId or "None")
-	local variantKey = PetData.makeVariantKey(petId, personalityId, mutationId, traitId)
+	local isCoreColor = record.isCoreColor == true
+		or record.IsCoreColor == true
+		or record.CoreId ~= nil
+		or record.coreId ~= nil
+		or record.ColorId ~= nil
+		or record.colorId ~= nil
+	local variantKey = isCoreColor and tostring(record.variantKey or record.VariantKey or record.ColorId or record.colorId)
+		or PetData.makeVariantKey(petId, personalityId, mutationId, traitId)
 
-	return tostring(variantKey)
+	local encoded = tostring(variantKey)
 		.. ":"
 		.. tostring(petId)
 		.. ":"
@@ -426,6 +433,21 @@ local function encodePetRecord(record)
 		.. tostring(personalityId)
 		.. ":"
 		.. tostring(mutationId)
+	if isCoreColor then
+		encoded ..= ":core:"
+			.. tostring(record.ColorId or record.colorId or variantKey)
+			.. ":"
+			.. tostring(record.CoreId or record.coreId or "RedCore")
+			.. ":"
+			.. tostring(math.floor(tonumber(record.CreatedAt or record.createdAt) or os.time()))
+			.. ":"
+			.. tostring(math.floor(tonumber(record.Power or record.power or record.finalPower) or 1))
+			.. ":"
+			.. tostring(record.Rarity or record.rarity or "Common")
+			.. ":"
+			.. tostring(record.IsGlitched == true or record.isGlitched == true)
+	end
+	return encoded
 end
 
 local function decodePetRecord(encoded)
@@ -455,6 +477,15 @@ local function decodePetRecord(encoded)
 		isShiny = segments[stackIndex + 2] == "shiny" or segments[stackIndex + 2] == "true",
 		personalityId = segments[stackIndex + 3] or "Neutral",
 		mutationId = PetData.normalizeMutationId(segments[stackIndex + 4] or "None"),
+		isCoreColor = segments[stackIndex + 5] == "core",
+		colorId = segments[stackIndex + 5] == "core" and segments[stackIndex + 6] or nil,
+		coreId = segments[stackIndex + 5] == "core" and segments[stackIndex + 7] or nil,
+		createdAt = segments[stackIndex + 5] == "core" and tonumber(segments[stackIndex + 8]) or nil,
+		power = segments[stackIndex + 5] == "core" and tonumber(segments[stackIndex + 9]) or nil,
+		rarity = segments[stackIndex + 5] == "core" and segments[stackIndex + 10] or nil,
+		isGlitched = segments[stackIndex + 5] == "core"
+			and (segments[stackIndex + 11] == "true" or segments[stackIndex + 11] == "1")
+			or false,
 	}
 end
 
@@ -734,6 +765,12 @@ local function getRecordVariantKey(record)
 	if type(record) ~= "table" then
 		return nil
 	end
+	if record.isCoreColor == true or record.coreId ~= nil or record.colorId ~= nil then
+		local coreKey = record.variantKey or record.ColorId or record.colorId
+		if coreKey and tostring(coreKey) ~= "" then
+			return tostring(coreKey)
+		end
+	end
 	return PetData.makeVariantKey(record.petId, record.personalityId, record.mutationId, record.traitId)
 end
 
@@ -745,7 +782,7 @@ local function resolveEquippedPetKey(records, key)
 	key = tostring(key)
 	for _, record in ipairs(records or {}) do
 		local variantKey = getRecordVariantKey(record)
-		if variantKey == key or record.petId == key then
+		if variantKey == key or record.petId == key or record.colorId == key or record.ColorId == key then
 			return variantKey
 		end
 
@@ -889,6 +926,14 @@ local function normalizePetRecord(record, sourceKey, backupList)
 				mergeTier = record.mergeTier or record.MergeTier or record.currentStackTier or record.CurrentStackTier,
 				isShiny = record.isShiny or record.IsShiny or record.shiny or record.Shiny,
 				personalityId = record.personalityId or record.PersonalityId or "Neutral",
+				isCoreColor = record.isCoreColor == true or record.IsCoreColor == true or record.CoreId ~= nil,
+				colorId = record.colorId or record.ColorId,
+				colorName = record.colorName or record.ColorName,
+				coreId = record.coreId or record.CoreId,
+				createdAt = record.createdAt or record.CreatedAt,
+				power = record.power or record.Power or record.finalPower,
+				rarity = record.rarity or record.Rarity,
+				isGlitched = record.isGlitched == true or record.IsGlitched == true,
 			}
 		end
 	end
@@ -916,6 +961,20 @@ local function normalizePetRecord(record, sourceKey, backupList)
 	normalized.personalityId = PetData.normalizePersonalityId(normalized.personalityId or "Neutral")
 	normalized.mergeTier = normalized.mergeTier or "Normal"
 	normalized.isShiny = normalized.isShiny == true or normalized.isShiny == "true" or normalized.isShiny == "shiny"
+	normalized.isCoreColor = normalized.isCoreColor == true or normalized.coreId ~= nil or normalized.colorId ~= nil
+	if normalized.isCoreColor then
+		normalized.stackAmount = 1
+		normalized.colorId = tostring(normalized.colorId or normalized.ColorId or normalized.variantKey or "")
+		if normalized.colorId == "" then
+			normalized.colorId = "core_" .. tostring(normalized.petId) .. "_" .. tostring(os.time())
+		end
+		normalized.coreId = tostring(normalized.coreId or normalized.CoreId or "RedCore")
+		normalized.createdAt = tonumber(normalized.createdAt or normalized.CreatedAt) or os.time()
+		normalized.power = math.max(1, math.floor(tonumber(normalized.power or normalized.Power) or 1))
+		normalized.rarity = tostring(normalized.rarity or normalized.Rarity or (PetData.Pets[normalized.petId] and PetData.Pets[normalized.petId].rarity) or "Common")
+		normalized.isGlitched = normalized.isGlitched == true or normalized.IsGlitched == true
+		normalized.variantKey = tostring(normalized.variantKey or normalized.colorId)
+	end
 
 	if not PetData.Pets[normalized.petId] then
 		table.insert(backupList, deepCopy(normalized))
@@ -934,9 +993,17 @@ local function addNormalizedInventoryRecord(recordsByKey, record)
 		return
 	end
 
-	local variantKey = PetData.makeVariantKey(record.petId, record.personalityId, record.mutationId, record.traitId)
+	local isCoreColor = record.isCoreColor == true or record.coreId ~= nil or record.colorId ~= nil
+	local variantKey
+	if isCoreColor then
+		variantKey = tostring(record.variantKey or record.colorId or record.ColorId or "")
+	end
+	if not variantKey or variantKey == "" then
+		variantKey = PetData.makeVariantKey(record.petId, record.personalityId, record.mutationId, record.traitId)
+	end
+
 	local existing = recordsByKey[variantKey]
-	if existing then
+	if existing and not isCoreColor then
 		existing.stackAmount += math.max(1, tonumber(record.stackAmount) or 1)
 		existing.isShiny = existing.isShiny or record.isShiny == true
 	else
@@ -978,7 +1045,7 @@ end
 local function inventoryMapToList(recordsByKey)
 	local list = {}
 	for _, record in pairs(recordsByKey) do
-		table.insert(list, {
+		local normalized = {
 			petId = record.petId,
 			stackAmount = math.max(1, tonumber(record.stackAmount) or 1),
 			traitId = PetData.normalizeTraitId(record.traitId),
@@ -987,10 +1054,23 @@ local function inventoryMapToList(recordsByKey)
 			personalityId = PetData.normalizePersonalityId(record.personalityId),
 			mutationId = PetData.normalizeMutationId(record.mutationId),
 			mergeTier = record.mergeTier or "Normal",
-		})
+		}
+		if record.isCoreColor == true or record.coreId ~= nil or record.colorId ~= nil then
+			normalized.stackAmount = 1
+			normalized.variantKey = tostring(record.variantKey or record.colorId or "")
+			normalized.isCoreColor = true
+			normalized.colorId = tostring(record.colorId or record.variantKey or "")
+			normalized.colorName = record.colorName
+			normalized.coreId = tostring(record.coreId or "RedCore")
+			normalized.createdAt = tonumber(record.createdAt) or os.time()
+			normalized.power = math.max(1, math.floor(tonumber(record.power) or 1))
+			normalized.rarity = tostring(record.rarity or "Common")
+			normalized.isGlitched = record.isGlitched == true
+		end
+		table.insert(list, normalized)
 	end
 	table.sort(list, function(a, b)
-		return tostring(a.petId) < tostring(b.petId)
+		return tostring(a.variantKey or a.petId) < tostring(b.variantKey or b.petId)
 	end)
 	return list
 end

@@ -22,6 +22,26 @@ GameBalance.Collection = {
 	AllowTouchCollectionFallback = false,
 }
 
+GameBalance.CoreRNG = {
+	Enabled = true,
+	EquippedLimit = 3,
+	RedCore = {
+		RequireProximity = true,
+		InteractionRadius = 28,
+		Cost = 5000,
+		Currency = "Red",
+	},
+	ChatAnnouncements = {
+		AnnounceLegendary = false,
+		AnnounceMythic = true,
+		AnnounceSecret = true,
+		AnnounceGlitched = true,
+	},
+	Debug = {
+		PrintRolls = true,
+	},
+}
+
 GameBalance.Contamination = {
 	Enabled = false,
 	TileSize = 10,
@@ -97,7 +117,7 @@ GameBalance.GroundPaint = {
 	FullCoverage = 1,
 	EmptyCoverage = 0,
 	SurfaceInset = 5,
-	RewardPerCoverageUnit = 10,
+	RewardPerCoverageUnit = 1,
 
 	SurfaceDiscovery = {
 		RequireExplicitPaintable = true,
@@ -169,11 +189,20 @@ GameBalance.GroundPaint = {
 
 		BrushStamp = {
 			Softness = 0.72,
-			RingCount = 5,
+			RingCount = 6,
 			MinStampLifetime = 5.0,
 			FadeOutTime = 1.0,
-			CenterTransparency = 0,
-			EdgeTransparency = 0.55,
+			CenterTransparency = 0.02,
+			EdgeTransparency = 0.62,
+			MaxRadius = 18,
+			MaxMergedRadius = 22,
+			RimEnabled = true,
+			RimThickness = 0.18,
+			RimTransparency = 0.18,
+			RimHeight = 0.11,
+			SplatterEnabled = true,
+			SplatterCount = 6,
+			LocalPredictionFadeTime = 0.35,
 			UseConcentricDiscsFallback = true,
 			TextureAssetId = "",
 		},
@@ -191,6 +220,7 @@ GameBalance.GroundPaint = {
 			RegenDelay = 5,
 			RegenPerSecond = 0.35,
 			RewardMultiplier = 1,
+			CoinsPerHealth = 1,
 			PaintColor = Color3.fromRGB(235, 35, 32),
 			BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
 		},
@@ -199,6 +229,7 @@ GameBalance.GroundPaint = {
 			RegenDelay = 6,
 			RegenPerSecond = 0.25,
 			RewardMultiplier = 2.5,
+			CoinsPerHealth = 1,
 			PaintColor = Color3.fromRGB(255, 132, 28),
 			BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
 		},
@@ -207,6 +238,7 @@ GameBalance.GroundPaint = {
 			RegenDelay = 7,
 			RegenPerSecond = 0.18,
 			RewardMultiplier = 8,
+			CoinsPerHealth = 1,
 			PaintColor = Color3.fromRGB(70, 220, 90),
 			BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
 		},
@@ -283,25 +315,26 @@ GameBalance.GroundPaint = {
 	},
 
 	Brush = {
-		BaseRadius = 7,
-		BasePower = 0.28,
+		BaseRadius = 6.5,
+		BasePower = 0.24,
 		BaseCooldown = 0.38,
 		MinimumCooldown = 0.12,
-		MaxRewardPerSweep = 250,
-		MaxRewardPerSecond = 900,
-		SoftEdgeMultiplier = 1.35,
-		MaxRadius = 42,
+		MaxRewardPerSweep = 35,
+		MaxRewardPerSecond = 120,
+		SoftEdgeMultiplier = 1.25,
+		MaxRadius = 18,
 	},
 
 	Pets = {
 		Enabled = true,
 		CollectRadius = 5,
-		CollectPower = 0.16,
+		CollectPower = 0.08,
 		CollectInterval = 0.75,
 		TargetSearchRadius = 45,
 		MaxTargetsPerPet = 1,
 		ReserveSeconds = 1.5,
 		CoverageThreshold = 0.18,
+		MaxRewardPerTick = 15,
 	},
 
 	Networking = {
@@ -321,6 +354,7 @@ GameBalance.GroundPaint = {
 		PrintSweepRejects = false,
 		DrawSurfaceIds = false,
 		DrawBrushHits = false,
+		RedOnlyTestMode = true,
 	},
 }
 

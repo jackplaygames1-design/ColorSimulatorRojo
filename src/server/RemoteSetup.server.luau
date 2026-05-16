@@ -43,6 +43,10 @@ local remoteEvents = {
 	"GroupRewards",
 	"ClaimInfinitePackTier",
 	"MutationStation",
+	"CoreRollRequest",
+	"CoreRollResult",
+	"CoreRollAnnouncement",
+	"CoreRollState",
 	"MarkTutorialProgress",
 	"TutorialAction",
 	"ShopTransition",
@@ -182,6 +186,7 @@ end
 local bindableFunctions = {
 	"ServerSellPaint",
 	"ServerGrantPet",
+	"ServerGrantCoreColor",
 }
 
 for _, name in ipairs(bindableFunctions) do

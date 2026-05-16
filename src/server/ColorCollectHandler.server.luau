@@ -678,9 +678,9 @@ local function processGroundBrush(player, toolConfig, toolStats, root, range, gr
 	if brushSize then
 		radius *= math.max(tonumber(brushSize.Value) or 1, 0.1)
 	end
-	radius = math.clamp(radius, 3, tonumber(groundBrushConfig.MaxRadius) or 42)
+	radius = math.clamp(radius, 3, tonumber(groundBrushConfig.MaxRadius) or 18)
 
-	local basePower = tonumber(groundBrushConfig.BasePower) or 0.28
+	local basePower = tonumber(groundBrushConfig.BasePower) or 0.24
 	local brushPower = tonumber(toolStats.BrushPower)
 		or tonumber(toolStats.CollectPowerMultiplier)
 		or tonumber(toolConfig.PowerMultiplier)
@@ -690,6 +690,8 @@ local function processGroundBrush(player, toolConfig, toolStats, root, range, gr
 
 	local result = GroundPaintService.Brush(player, hitPosition, radius, paintPower)
 	local rewardUnits = GroundPaintService.GetPaintRewardUnits(result)
+	local maxGroundReward = tonumber(groundBrushConfig.MaxRewardPerSweep) or 35
+	rewardUnits = math.clamp(rewardUnits, 0, maxGroundReward)
 	if rewardUnits <= 0 then
 		if DEBUG_LOGS then
 			print(("PaintToolSweep: %s hit ground paint but removed 0 paint cells"):format(player.Name))
@@ -699,11 +701,12 @@ local function processGroundBrush(player, toolConfig, toolStats, root, range, gr
 
 	local colorType = result.ColorType
 	local reward = math.floor(rewardUnits * getCollectMultiplier(player) * getInstantCoinMultiplier(player, colorType))
+	reward = math.clamp(reward, 0, maxGroundReward)
 	local critChance = upgrades and upgrades:FindFirstChild("CritChance")
 	if critChance and math.random() < math.clamp(critChance.Value, 0, 0.95) then
 		reward *= 2
 	end
-	reward = math.max(reward, 1)
+	reward = math.clamp(math.max(reward, 1), 0, maxGroundReward)
 
 	if not awardCoins(player, reward) then
 		return 0, 0, nil
@@ -1127,12 +1130,18 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 		end
 
 		if skipLegacyBrushBlobs then
+			local rejectedPosition = nil
+			if type(groundPayload) == "table" then
+				rejectedPosition = groundPayload.Position or groundPayload.hitPosition or groundPayload.HitPosition
+			end
 			paintSweepEvent:FireClient(player, {
 				success = false,
 				total = 0,
 				collected = 0,
 				message = "No paint under brush.",
 				GroundPaint = true,
+				Position = rejectedPosition,
+				Stamps = {},
 			})
 			return
 		end

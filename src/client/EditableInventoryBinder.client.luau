@@ -1207,6 +1207,8 @@ local function makeCard(item, index)
 	setText(
 		meta,
 		displayedEquipped and ("EQUIPPED" .. stackText)
+			or tostring(item.MutationText or item.GlitchedMutationText or "")
+			~= "" and tostring(item.MutationText or item.GlitchedMutationText)
 			or (amount > 1 and ("x" .. amount) or tostring(item.Rarity or ""))
 	)
 
@@ -1294,7 +1296,11 @@ renderDetails = function()
 	setButtonVisible(ui.deleteButton, true)
 	paintPreview(ui.bigPreview, item)
 	setDetailText(ui.selectedName, item.Name)
-	setDetailText(ui.selectedRarity, item.Rarity or item.Mutation or item.Kind)
+	local rarityText = tostring(item.Rarity or item.Kind or "")
+	if item.MutationText and tostring(item.MutationText) ~= "" then
+		rarityText ..= "\n" .. tostring(item.MutationText)
+	end
+	setDetailText(ui.selectedRarity, rarityText)
 	setDetailText(ui.selectedDescription, item.Description or item.Bonus or "")
 	setDetailText(ui.statsText, table.concat(item.Stats or {}, "\n"))
 

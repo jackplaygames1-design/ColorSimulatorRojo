@@ -16,6 +16,18 @@
       "ColorData": {
         "$path": "src/shared/ColorData.luau"
       },
+      "CoreDefinitions": {
+        "$path": "src/shared/CoreDefinitions.luau"
+      },
+      "RarityDefinitions": {
+        "$path": "src/shared/RarityDefinitions.luau"
+      },
+      "MutationDefinitions": {
+        "$path": "src/shared/MutationDefinitions.luau"
+      },
+      "ColorDefinitions": {
+        "$path": "src/shared/ColorDefinitions.luau"
+      },
       "CodeData": {
         "$path": "src/shared/CodeData.luau"
       },
@@ -235,6 +247,18 @@
           "$className": "RemoteEvent"
         },
         "MutationStation": {
+          "$className": "RemoteEvent"
+        },
+        "CoreRollRequest": {
+          "$className": "RemoteEvent"
+        },
+        "CoreRollResult": {
+          "$className": "RemoteEvent"
+        },
+        "CoreRollAnnouncement": {
+          "$className": "RemoteEvent"
+        },
+        "CoreRollState": {
           "$className": "RemoteEvent"
         }
       },

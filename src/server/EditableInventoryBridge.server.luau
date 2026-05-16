@@ -10,6 +10,7 @@ local ItemsData = require(ReplicatedStorage:WaitForChild("ItemsData"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local PetDefinitions = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetDefinitions"))
 local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
+local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
 
 local remotes = ReplicatedStorage:FindFirstChild("Remotes")
 if not remotes then
@@ -141,6 +142,7 @@ local function parsePetInventory(value)
 			local shinyStr = segments[stackIndex + 2] or "normal"
 			local personalityId = PetData.normalizePersonalityId(segments[stackIndex + 3] or "Neutral")
 			local mutationId = PetData.normalizeMutationId(segments[stackIndex + 4] or "None")
+			local isCore = segments[stackIndex + 5] == "core"
 			if not PetData.Pets[petId] and #legacyParts >= 3 and PetData.Pets[legacyParts[1]] then
 				petId = legacyParts[1]
 				traitId = PetData.normalizeTraitId(legacyParts[2])
@@ -163,11 +165,73 @@ local function parsePetInventory(value)
 					entry.legacyColorKey = variantKey
 					entry.modelName = petId
 				end
+				if isCore then
+					local colorId = tostring(segments[stackIndex + 6] or variantKey)
+					entry.variantKey = tostring(variantKey or colorId)
+					entry.isCoreColor = true
+					entry.IsCoreColor = true
+					entry.ColorId = colorId
+					entry.ColorName = entry.displayName
+					entry.CoreId = tostring(segments[stackIndex + 7] or "RedCore")
+					entry.CreatedAt = tonumber(segments[stackIndex + 8]) or os.time()
+					entry.Power = math.max(1, math.floor(tonumber(segments[stackIndex + 9]) or entry.finalPower or 1))
+					entry.finalPower = entry.Power
+					entry.effectivePower = entry.Power
+					entry.Rarity = tostring(segments[stackIndex + 10] or entry.rarity or "Common")
+					entry.rarity = entry.Rarity
+					entry.IsGlitched = segments[stackIndex + 11] == "true" or segments[stackIndex + 11] == "1"
+					entry.isGlitched = entry.IsGlitched
+					entry.stackAmount = 1
+					entry.hasMutation = entry.mutationId ~= ColorMutationData.NoneId
+				end
 				table.insert(entries, entry)
 			end
 		end
 	end
 	return entries
+end
+
+local function applyCoreDisplayFields(entry, record)
+	if not entry or type(record) ~= "table" then
+		return entry
+	end
+	local isCoreColor = record.isCoreColor == true
+		or record.IsCoreColor == true
+		or record.colorId ~= nil
+		or record.ColorId ~= nil
+		or record.coreId ~= nil
+		or record.CoreId ~= nil
+	if not isCoreColor then
+		return entry
+	end
+
+	entry.isCoreColor = true
+	entry.IsCoreColor = true
+	entry.variantKey = tostring(record.variantKey or record.VariantKey or record.colorId or record.ColorId or entry.variantKey)
+	entry.ColorId = tostring(record.colorId or record.ColorId or entry.variantKey)
+	entry.ColorName = tostring(record.colorName or record.ColorName or entry.displayName or entry.petId)
+	entry.CoreId = tostring(record.coreId or record.CoreId or "RedCore")
+	entry.CreatedAt = tonumber(record.createdAt or record.CreatedAt) or os.time()
+	entry.Power = math.max(1, math.floor(tonumber(record.power or record.Power or entry.finalPower) or 1))
+	entry.finalPower = entry.Power
+	entry.effectivePower = entry.Power
+	entry.Rarity = tostring(record.rarity or record.Rarity or entry.rarity or "Common")
+	entry.rarity = entry.Rarity
+	entry.displayName = entry.ColorName
+	entry.baseName = entry.ColorName
+	entry.stackAmount = 1
+	entry.mutationId = PetData.normalizeMutationId(record.mutationId or record.MutationId or record.Mutation or entry.mutationId)
+	entry.MutationId = entry.mutationId
+	entry.Mutation = entry.mutationId ~= ColorMutationData.NoneId and entry.mutationId or nil
+	entry.hasMutation = entry.mutationId ~= ColorMutationData.NoneId
+	entry.IsGlitched = record.isGlitched == true or record.IsGlitched == true
+	entry.isGlitched = entry.IsGlitched
+	local mutation = ColorMutationData.get(entry.mutationId)
+	if mutation then
+		entry.mutationName = mutation.DisplayName
+		entry.mutationDescription = mutation.Description
+	end
+	return entry
 end
 
 local function getLivePetInventorySnapshot(player)
@@ -218,6 +282,7 @@ local function buildEntriesFromSnapshot(records)
 			entry.variantKey = tostring(record.variantKey or record.VariantKey or entry.variantKey)
 			entry.petId = petId
 			entry.modelName = record.modelName or record.ModelName or entry.modelName
+			applyCoreDisplayFields(entry, record)
 			table.insert(entries, entry)
 		end
 	end
@@ -238,7 +303,9 @@ local function entryIsInSet(entry, set)
 	if not entry or not set then
 		return false
 	end
-	return set[tostring(entry.variantKey or "")] == true or set[tostring(entry.petId or "")] == true
+	return set[tostring(entry.variantKey or "")] == true
+		or set[tostring(entry.ColorId or entry.colorId or "")] == true
+		or set[tostring(entry.petId or "")] == true
 end
 
 local function buildColorRows(player)
@@ -259,14 +326,35 @@ local function buildColorRows(player)
 		if mutationName == "" then
 			mutationName = "None"
 		end
+		local mutation = ColorMutationData.get(entry.mutationId)
+		local isCoreColor = entry.isCoreColor == true or entry.IsCoreColor == true
+		local isGlitched = entry.isGlitched == true or entry.IsGlitched == true
 		local displayName = entry.displayName or pet.displayName or entry.petId
+		if isCoreColor then
+			displayName = tostring(entry.ColorName or entry.colorName or displayName)
+		end
 		if entry.petId == "DevRainbowPet" and displayName == "Rainbow Pet" then
 			displayName = "Dev Rainbow Pet"
 		end
-		local amount = math.max(1, tonumber(entry.stackAmount) or 1)
-		local rarity = entry.rarity or pet.rarity or "Color"
+		local amount = isCoreColor and 1 or math.max(1, tonumber(entry.stackAmount) or 1)
+		local rarity = entry.Rarity or entry.rarity or pet.rarity or "Color"
 		if entry.legacyColorKey and entry.traitId and entry.traitId ~= "Neutral" then
 			rarity = entry.traitId
+		end
+		local power = entry.Power or entry.finalPower or entry.effectivePower or 0
+		local mutationLabel
+		if mutation then
+			mutationLabel = isGlitched and ("GLITCHED " .. string.upper(mutation.DisplayName))
+				or (string.upper(mutation.DisplayName) .. " MUTATION")
+		end
+		local stats = {
+			"Owned: x" .. tostring(amount),
+			"Power: " .. tostring(power),
+			"Color Gain: x" .. string.format("%.2f", tonumber(entry.colorMult) or 1),
+			"Coin Bonus: x" .. string.format("%.2f", tonumber(entry.coinMult) or 1),
+		}
+		if mutationLabel then
+			table.insert(stats, "Mutation: " .. mutationLabel)
 		end
 		table.insert(rows, {
 			Id = entry.variantKey,
@@ -278,21 +366,26 @@ local function buildColorRows(player)
 			Locked = entryIsInSet(entry, locked),
 			MutationId = entry.mutationId,
 			Mutation = mutationName,
+			MutationText = mutationLabel,
+			IsGlitched = isGlitched,
+			CoreId = entry.CoreId,
+			ColorId = entry.ColorId,
 			Trait = entry.traitName,
-			Power = tostring(entry.finalPower or entry.effectivePower or 0),
-			Bonus = "Coins x" .. string.format("%.2f", tonumber(entry.coinMult) or 1),
-			Description = tostring(entry.traitDescription or entry.mutationDescription or "Color companion."),
+			Power = tostring(power),
+			Bonus = mutationLabel or ("Coins x" .. string.format("%.2f", tonumber(entry.coinMult) or 1)),
+			Description = tostring(
+				isGlitched and "Glitched mutation jackpot."
+					or (mutation and mutation.Description)
+					or entry.traitDescription
+					or entry.mutationDescription
+					or "Color companion."
+			),
 			IconImage = pet.IconImage or pet.iconImage,
 			IconText = entry.petId == "DevRainbowPet" and "RA" or string.upper(string.sub(displayName, 1, 2)),
 			IconColor = (definition and definition.IconColor) or pet.iconColor or pet.color,
 			ModelName = entry.modelName or (definition and definition.ModelName) or pet.modelName or entry.petId,
 			PetId = entry.petId,
-			Stats = {
-				"Owned: x" .. tostring(amount),
-				"Power: " .. tostring(entry.finalPower or entry.effectivePower or 0),
-				"Color Gain: x" .. string.format("%.2f", tonumber(entry.colorMult) or 1),
-				"Coin Bonus: x" .. string.format("%.2f", tonumber(entry.coinMult) or 1),
-			},
+			Stats = stats,
 		})
 	end
 
