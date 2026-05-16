@@ -149,6 +149,8 @@ local function destroyOwnedClientPetModels(knownPetIds)
 	end
 end
 
+destroyOwnedClientPetModels({})
+
 local function getEntryPower(entry)
 	return entry.effectivePower or entry.finalPower or 0
 end
