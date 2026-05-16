@@ -14,6 +14,7 @@ local remoteEvents = {
 	"CollectColor",
 	"PaintToolSweep",
 	"ColorEffectVFX",
+	"PaintFieldDelta",
 	"HatchEgg",
 	"EquipPet",
 	"LockPet",
@@ -56,6 +57,24 @@ for _, name in ipairs(remoteEvents) do
 	end
 	if not existing then
 		local remote = Instance.new("RemoteEvent")
+		remote.Name = name
+		remote.Parent = events
+	end
+end
+
+local remoteFunctions = {
+	"PaintFieldSnapshot",
+}
+
+for _, name in ipairs(remoteFunctions) do
+	local existing = events:FindFirstChild(name)
+	if existing and not existing:IsA("RemoteFunction") then
+		warn("RemoteSetup: replacing invalid Events." .. name)
+		existing:Destroy()
+		existing = nil
+	end
+	if not existing then
+		local remote = Instance.new("RemoteFunction")
 		remote.Name = name
 		remote.Parent = events
 	end

@@ -156,6 +156,12 @@
         "ColorEffectVFX": {
           "$className": "RemoteEvent"
         },
+        "PaintFieldSnapshot": {
+          "$className": "RemoteFunction"
+        },
+        "PaintFieldDelta": {
+          "$className": "RemoteEvent"
+        },
         "HatchEgg": {
           "$className": "RemoteEvent"
         },

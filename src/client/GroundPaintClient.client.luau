@@ -1,19 +1,25 @@
--- Client-only visual coat for server-owned ground paint data.
-local Players = game:GetService("Players")
+-- Client-only beauty renderer for the server-owned ground paint field.
+local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 
 local config = GameBalance.GroundPaint or {}
-if config.Enabled == false then
+if config.Enabled == false or (config.Visual and config.Visual.Enabled == false) then
 	return
 end
 
-local player = Players.LocalPlayer
+local visualConfig = config.Visual or {}
+local stampConfig = visualConfig.BrushStamp or {}
+local thicknessConfig = visualConfig.Thickness or {}
+local regenConfig = config.Regen or {}
+
 local Events = ReplicatedStorage:WaitForChild("Events")
-local paintUpdateEvent = Events:WaitForChild("GroundPaintUpdate")
+local snapshotRemote = Events:WaitForChild("PaintFieldSnapshot")
+local deltaRemote = Events:WaitForChild("PaintFieldDelta")
 
 local folder = Workspace:FindFirstChild("ClientGroundPaint")
 if not folder then
@@ -22,46 +28,53 @@ if not folder then
 	folder.Parent = Workspace
 end
 
-local maxVisibleCells = tonumber(config.MaxVisibleCellsPerClient) or 2500
 local surfaces = {}
-local totalVisibleCells = 0
-local lastRefreshAt = 0
-local lastVisibilityRefreshAt = 0
+local activeStampCount = 0
+local lastSnapshotAttempt = 0
 
-local function getTransparency(coverage, surface)
-	local fullTransparency = tonumber(surface.FullPaintTransparency) or tonumber(config.FullPaintTransparency) or 0.12
-	local clearedTransparency = tonumber(surface.ClearedTransparency) or tonumber(config.ClearedTransparency) or 1
-	return clearedTransparency + (fullTransparency - clearedTransparency) * math.clamp(coverage or 0, 0, 1)
-end
-
-local function getCellLocalPosition(surface, index)
-	local zeroIndex = index - 1
-	local x = zeroIndex % surface.XCount
-	local z = math.floor(zeroIndex / surface.XCount)
-	local localX = -surface.CoverageX * 0.5 + surface.CellSizeX * (x + 0.5) + surface.OffsetX
-	local localZ = -surface.CoverageZ * 0.5 + surface.CellSizeZ * (z + 0.5) + surface.OffsetZ
-	return localX, localZ
-end
-
-local function refreshCellCFrame(surface, index)
-	local part = surface.Cells[index]
-	local basePart = surface.Part
-	if not part or not basePart or not basePart.Parent then
-		return
+local function asNumber(value, fallback)
+	local n = tonumber(value)
+	if n == nil then
+		return fallback
 	end
+	return n
+end
 
-	local localX, localZ = getCellLocalPosition(surface, index)
-	local topY = basePart.Size.Y * 0.5 + surface.VisualHeightOffset
-	part.CFrame = basePart.CFrame * CFrame.new(localX, topY, localZ)
+local function getMaterial(value)
+	if typeof(value) == "EnumItem" then
+		return value
+	end
+	return Enum.Material.SmoothPlastic
+end
+
+local function configurePaintPart(part, color, transparency, material)
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Color = color
+	part.Material = material or getMaterial(visualConfig.PaintMaterial)
+	part.Transparency = transparency
+	part.Reflectance = asNumber(visualConfig.PaintReflectance, 0.03)
 end
 
 local function destroySurface(surface)
 	if not surface then
 		return
 	end
-	for _, part in pairs(surface.Cells or {}) do
-		if part then
-			part:Destroy()
+	for _, part in ipairs(surface.Coats or {}) do
+		part:Destroy()
+	end
+	for _, part in ipairs(surface.Lips or {}) do
+		part:Destroy()
+	end
+	for _, part in ipairs(surface.Glow or {}) do
+		part:Destroy()
+	end
+	for _, stamp in ipairs(surface.Stamps or {}) do
+		if stamp.Folder then
+			stamp.Folder:Destroy()
 		end
 	end
 	if surface.Folder then
@@ -69,44 +82,122 @@ local function destroySurface(surface)
 	end
 end
 
-local function makeCell(surface, index, coverage)
+local function clearVisuals()
+	for _, surface in pairs(surfaces) do
+		destroySurface(surface)
+	end
+	table.clear(surfaces)
+	folder:ClearAllChildren()
+	activeStampCount = 0
+end
+
+local function getPlaneGrid(maxPlanes, coverageX, coverageZ)
+	maxPlanes = math.max(1, math.floor(maxPlanes or 16))
+	local aspect = math.max(coverageX, 1) / math.max(coverageZ, 1)
+	local xCount = math.clamp(math.ceil(math.sqrt(maxPlanes * aspect)), 1, maxPlanes)
+	local zCount = math.clamp(math.ceil(maxPlanes / xCount), 1, maxPlanes)
+	while xCount * zCount > maxPlanes do
+		if xCount >= zCount and xCount > 1 then
+			xCount -= 1
+		elseif zCount > 1 then
+			zCount -= 1
+		else
+			break
+		end
+	end
+	return xCount, zCount
+end
+
+local function getSurfaceTopCFrame(surface, localX, localZ, yOffset)
 	local basePart = surface.Part
-	if not basePart or not basePart.Parent then
-		return nil
-	end
-
-	local part = Instance.new("Part")
-	part.Name = string.format("%s_Cell_%04d", tostring(surface.ColorType), index)
-	part.Anchored = true
-	part.CanCollide = false
-	part.CanTouch = false
-	part.CanQuery = false
-	part.CastShadow = false
-	part.Material = Enum.Material.SmoothPlastic
-	part.Color = surface.Color
-	part.Transparency = getTransparency(coverage, surface)
-	part.Size = Vector3.new(math.max(surface.CellSizeX * 0.98, 0.5), 0.035, math.max(surface.CellSizeZ * 0.98, 0.5))
-	part.Parent = surface.Folder
-
-	surface.Cells[index] = part
-	refreshCellCFrame(surface, index)
-	totalVisibleCells += 1
-	return part
+	local topY = basePart.Size.Y * 0.5 + yOffset
+	return basePart.CFrame * CFrame.new(localX, topY, localZ)
 end
 
-local function removeCell(surface, index)
-	local part = surface.Cells[index]
-	if part then
-		part:Destroy()
-		surface.Cells[index] = nil
-		surface.VisibleCount = math.max((surface.VisibleCount or 1) - 1, 0)
-		totalVisibleCells = math.max(totalVisibleCells - 1, 0)
+local function makeCoatPlanes(surface)
+	local xCount, zCount = getPlaneGrid(visualConfig.MaxCoatPlanesPerSurface, surface.CoverageX, surface.CoverageZ)
+	local segmentX = surface.CoverageX / xCount
+	local segmentZ = surface.CoverageZ / zCount
+	local yOffset = asNumber(visualConfig.PaintYOffset, 0.035)
+	local paintTransparency = asNumber(visualConfig.PaintTransparency, 0.06)
+	local material = getMaterial(visualConfig.PaintMaterial)
+
+	for z = 1, zCount do
+		for x = 1, xCount do
+			local localX = -surface.CoverageX * 0.5 + segmentX * (x - 0.5) + surface.OffsetX
+			local localZ = -surface.CoverageZ * 0.5 + segmentZ * (z - 0.5) + surface.OffsetZ
+
+			local coat = Instance.new("Part")
+			coat.Name = "PaintCoat"
+			coat.Size = Vector3.new(math.max(segmentX + 0.08, 0.5), 0.045, math.max(segmentZ + 0.08, 0.5))
+			coat.CFrame = getSurfaceTopCFrame(surface, localX, localZ, yOffset)
+			configurePaintPart(coat, surface.PaintColor, paintTransparency, material)
+			coat.Parent = surface.Folder
+			table.insert(surface.Coats, coat)
+
+			if visualConfig.UseNeonGlow == true then
+				local glow = Instance.new("Part")
+				glow.Name = "PaintGlow"
+				glow.Size = Vector3.new(coat.Size.X, 0.025, coat.Size.Z)
+				glow.CFrame = getSurfaceTopCFrame(surface, localX, localZ, asNumber(visualConfig.GlowYOffset, 0.045))
+				configurePaintPart(
+					glow,
+					surface.PaintColor,
+					asNumber(visualConfig.GlowTransparency, 0.55),
+					Enum.Material.Neon
+				)
+				glow.Parent = surface.Folder
+				table.insert(surface.Glow, glow)
+			end
+		end
 	end
 end
 
-local function clearSurfaceCells(surface)
-	for index in pairs(surface.Cells or {}) do
-		removeCell(surface, index)
+local function darken(color, amount)
+	return color:Lerp(Color3.fromRGB(0, 0, 0), math.clamp(amount or 0.22, 0, 1))
+end
+
+local function makeThicknessLips(surface)
+	if thicknessConfig.Enabled == false or thicknessConfig.SideLipEnabled == false then
+		return
+	end
+
+	local lipColor = darken(surface.PaintColor, asNumber(thicknessConfig.EdgeDarken, 0.22))
+	local yOffset = asNumber(visualConfig.PaintYOffset, 0.035) - 0.015
+	local lipHeight = 0.11
+	local lipThickness = 0.25
+	local definitions = {
+		{
+			Size = Vector3.new(surface.CoverageX, lipHeight, lipThickness),
+			Offset = Vector3.new(surface.OffsetX, 0, surface.OffsetZ - surface.CoverageZ * 0.5),
+		},
+		{
+			Size = Vector3.new(surface.CoverageX, lipHeight, lipThickness),
+			Offset = Vector3.new(surface.OffsetX, 0, surface.OffsetZ + surface.CoverageZ * 0.5),
+		},
+		{
+			Size = Vector3.new(lipThickness, lipHeight, surface.CoverageZ),
+			Offset = Vector3.new(surface.OffsetX - surface.CoverageX * 0.5, 0, surface.OffsetZ),
+		},
+		{
+			Size = Vector3.new(lipThickness, lipHeight, surface.CoverageZ),
+			Offset = Vector3.new(surface.OffsetX + surface.CoverageX * 0.5, 0, surface.OffsetZ),
+		},
+	}
+
+	for _, definition in ipairs(definitions) do
+		local lip = Instance.new("Part")
+		lip.Name = "PaintThicknessLip"
+		lip.Size = definition.Size
+		lip.CFrame = getSurfaceTopCFrame(surface, definition.Offset.X, definition.Offset.Z, yOffset)
+		configurePaintPart(
+			lip,
+			lipColor,
+			asNumber(visualConfig.PaintTransparency, 0.06) + 0.04,
+			Enum.Material.SmoothPlastic
+		)
+		lip.Parent = surface.Folder
+		table.insert(surface.Lips, lip)
 	end
 end
 
@@ -117,7 +208,6 @@ local function upsertSurface(data)
 
 	local oldSurface = surfaces[data.SurfaceId]
 	if oldSurface then
-		totalVisibleCells -= oldSurface.VisibleCount or 0
 		destroySurface(oldSurface)
 	end
 
@@ -129,175 +219,226 @@ local function upsertSurface(data)
 		SurfaceId = data.SurfaceId,
 		Part = data.Part,
 		ColorType = data.ColorType,
-		Color = typeof(data.Color) == "Color3" and data.Color or Color3.fromRGB(220, 50, 50),
-		CoverageX = tonumber(data.CoverageX) or data.Part.Size.X,
-		CoverageZ = tonumber(data.CoverageZ) or data.Part.Size.Z,
-		XCount = math.max(1, math.floor(tonumber(data.XCount) or 1)),
-		ZCount = math.max(1, math.floor(tonumber(data.ZCount) or 1)),
-		CellSizeX = tonumber(data.CellSizeX) or tonumber(config.CellSize) or 10,
-		CellSizeZ = tonumber(data.CellSizeZ) or tonumber(config.CellSize) or 10,
-		OffsetX = tonumber(data.OffsetX) or 0,
-		OffsetZ = tonumber(data.OffsetZ) or 0,
-		VisualHeightOffset = tonumber(data.VisualHeightOffset) or tonumber(config.VisualHeightOffset) or 0.08,
-		FullPaintTransparency = data.FullPaintTransparency,
-		ClearedTransparency = data.ClearedTransparency,
-		Coverage = data.Coverage or {},
-		Cells = {},
+		PaintColor = typeof(data.PaintColor) == "Color3" and data.PaintColor or Color3.fromRGB(235, 35, 32),
+		BaseSurfaceColor = typeof(data.BaseSurfaceColor) == "Color3" and data.BaseSurfaceColor
+			or (visualConfig.BaseSurfaceColor or Color3.fromRGB(8, 8, 8)),
+		CoverageX = asNumber(data.CoverageX, data.Part.Size.X),
+		CoverageZ = asNumber(data.CoverageZ, data.Part.Size.Z),
+		OffsetX = asNumber(data.OffsetX, 0),
+		OffsetZ = asNumber(data.OffsetZ, 0),
 		Folder = surfaceFolder,
-		VisibleCount = 0,
+		Coats = {},
+		Lips = {},
+		Glow = {},
+		Stamps = {},
 	}
+
 	surfaces[surface.SurfaceId] = surface
+	makeCoatPlanes(surface)
+	makeThicknessLips(surface)
 end
 
-local function applyDelta(surfaceData)
-	local surface = surfaceData and surfaces[surfaceData.SurfaceId]
-	if not surface then
-		return
+local function pruneSurfaceStamps(surface)
+	local limit = math.max(1, math.floor(asNumber(visualConfig.MaxActiveClearStampsPerSurface, 90)))
+	while #surface.Stamps > limit do
+		local stamp = table.remove(surface.Stamps, 1)
+		if stamp and stamp.Folder then
+			stamp.Folder:Destroy()
+			activeStampCount = math.max(activeStampCount - 1, 0)
+		end
 	end
+end
 
-	for _, change in ipairs(surfaceData.Changes or {}) do
-		local index = tonumber(change[1])
-		local coverage = tonumber(change[2])
-		if index and coverage then
-			surface.Coverage[index] = coverage
-			local cell = surface.Cells[index]
-			if cell then
-				cell.Transparency = getTransparency(coverage, surface)
-			elseif coverage > 0.01 and totalVisibleCells < maxVisibleCells then
-				makeCell(surface, index, coverage)
-				surface.VisibleCount += 1
+local function pruneGlobalStamps()
+	local limit = math.max(1, math.floor(asNumber(visualConfig.MaxActiveClearStamps, 260)))
+	while activeStampCount > limit do
+		local oldestSurface = nil
+		local oldestStamp = nil
+		local oldestIndex = nil
+		for _, surface in pairs(surfaces) do
+			for index, stamp in ipairs(surface.Stamps) do
+				if not oldestStamp or stamp.CreatedAt < oldestStamp.CreatedAt then
+					oldestSurface = surface
+					oldestStamp = stamp
+					oldestIndex = index
+				end
 			end
 		end
-	end
-end
-
-local function getPlayerRoot()
-	local character = player.Character
-	return character and character:FindFirstChild("HumanoidRootPart")
-end
-
-local function refreshVisibleCells()
-	local root = getPlayerRoot()
-	if not root then
-		return
-	end
-
-	local candidates = {}
-	for _, surface in pairs(surfaces) do
-		if surface.Part and surface.Part.Parent then
-			local localPoint = surface.Part.CFrame:PointToObjectSpace(root.Position)
-			local dx = math.max(math.abs(localPoint.X - surface.OffsetX) - surface.CoverageX * 0.5, 0)
-			local dz = math.max(math.abs(localPoint.Z - surface.OffsetZ) - surface.CoverageZ * 0.5, 0)
-			table.insert(candidates, {
-				Surface = surface,
-				DistanceSq = dx * dx + dz * dz,
-			})
-		else
-			clearSurfaceCells(surface)
-			destroySurface(surface)
-			surfaces[surface.SurfaceId] = nil
-		end
-	end
-
-	table.sort(candidates, function(a, b)
-		return a.DistanceSq < b.DistanceSq
-	end)
-
-	local selected = {}
-	local budget = maxVisibleCells
-	for _, candidate in ipairs(candidates) do
-		if budget <= 0 then
+		if not oldestSurface or not oldestIndex then
 			break
 		end
-		local surface = candidate.Surface
-		selected[surface.SurfaceId] = true
-		local totalCells = surface.XCount * surface.ZCount
-		for index = 1, totalCells do
-			if budget <= 0 then
-				break
-			end
-			local coverage = surface.Coverage[index]
-			if (coverage == nil or coverage > 0.01) and not surface.Cells[index] then
-				makeCell(surface, index, coverage == nil and 1 or coverage)
-				surface.VisibleCount += 1
-			end
-			if surface.Cells[index] then
-				budget -= 1
-			end
+		table.remove(oldestSurface.Stamps, oldestIndex)
+		if oldestStamp.Folder then
+			oldestStamp.Folder:Destroy()
 		end
-	end
-
-	for surfaceId, surface in pairs(surfaces) do
-		if not selected[surfaceId] then
-			clearSurfaceCells(surface)
-		end
+		activeStampCount = math.max(activeStampCount - 1, 0)
 	end
 end
 
-local function clearVisuals()
-	for _, surface in pairs(surfaces) do
-		destroySurface(surface)
-	end
-	table.clear(surfaces)
-	totalVisibleCells = 0
-	folder:ClearAllChildren()
+local function emitLiftParticles(position, color, radius)
+	local anchor = Instance.new("Part")
+	anchor.Name = "GroundPaintLiftParticles"
+	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+	anchor.Transparency = 1
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanTouch = false
+	anchor.CanQuery = false
+	anchor.CFrame = CFrame.new(position + Vector3.new(0, 0.12, 0))
+	anchor.Parent = folder
+
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "Lift"
+	emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	emitter.Color = ColorSequence.new(color, Color3.fromRGB(255, 255, 255))
+	emitter.LightEmission = 0.65
+	emitter.Lifetime = NumberRange.new(0.22, 0.55)
+	emitter.Speed = NumberRange.new(2.2, 5.8)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Rate = 0
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, math.clamp(radius * 0.07, 0.25, 0.9)),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	emitter.Parent = anchor
+	emitter:Emit(math.clamp(math.floor(radius * 1.8), 8, 28))
+	Debris:AddItem(anchor, 0.8)
 end
 
-paintUpdateEvent.OnClientEvent:Connect(function(payload)
+local function fadeAndDestroyStamp(surface, stamp)
+	local holdTime = asNumber(stampConfig.MinStampLifetime, 0.45) + asNumber(regenConfig.DelayAfterBrush, 0.45)
+	local fadeTime = asNumber(stampConfig.FadeOutTime, 1.35)
+
+	task.delay(holdTime, function()
+		if not stamp.Folder or not stamp.Folder.Parent then
+			return
+		end
+		for _, part in ipairs(stamp.Parts) do
+			if part and part.Parent then
+				TweenService:Create(part, TweenInfo.new(fadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Transparency = 1,
+				}):Play()
+			end
+		end
+		task.delay(fadeTime + 0.05, function()
+			if stamp.Folder then
+				stamp.Folder:Destroy()
+			end
+			activeStampCount = math.max(activeStampCount - 1, 0)
+			for index = #surface.Stamps, 1, -1 do
+				if surface.Stamps[index] == stamp then
+					table.remove(surface.Stamps, index)
+					break
+				end
+			end
+		end)
+	end)
+end
+
+local function makeClearStamp(stampData)
+	if type(stampData) ~= "table" or typeof(stampData.Position) ~= "Vector3" then
+		return
+	end
+
+	local surface = surfaces[stampData.SurfaceId]
+	if not surface or not surface.Part or not surface.Part.Parent then
+		return
+	end
+
+	local localPoint = surface.Part.CFrame:PointToObjectSpace(stampData.Position)
+	local radius = math.max(asNumber(stampData.Radius, 7), 1)
+	local ringCount = math.clamp(math.floor(asNumber(stampConfig.RingCount, 5)), 2, 9)
+	local baseColor = typeof(stampData.BaseSurfaceColor) == "Color3" and stampData.BaseSurfaceColor
+		or surface.BaseSurfaceColor
+	local rimTransparency = asNumber(thicknessConfig.StrokeRimTransparency, 0.35)
+	local yOffset = asNumber(visualConfig.ClearStampYOffset, 0.055)
+
+	local stampFolder = Instance.new("Folder")
+	stampFolder.Name = "SoftClearStamp"
+	stampFolder.Parent = surface.Folder
+
+	local stamp = {
+		Folder = stampFolder,
+		Parts = {},
+		CreatedAt = os.clock(),
+	}
+
+	for ring = ringCount, 1, -1 do
+		local alpha = ring / ringCount
+		local disc = Instance.new("Part")
+		disc.Name = "ClearDisc"
+		disc.Shape = Enum.PartType.Cylinder
+		disc.Size = Vector3.new(radius * 2 * alpha, 0.035, radius * 2 * alpha)
+		disc.CFrame = getSurfaceTopCFrame(surface, localPoint.X, localPoint.Z, yOffset + ring * 0.003)
+		disc.Anchored = true
+		disc.CanCollide = false
+		disc.CanTouch = false
+		disc.CanQuery = false
+		disc.CastShadow = false
+		disc.Material = Enum.Material.SmoothPlastic
+		disc.Color = baseColor
+		disc.Transparency = (ring == 1) and 0.01 or math.clamp(rimTransparency + (alpha * 0.28), 0.18, 0.82)
+		disc.Parent = stampFolder
+		table.insert(stamp.Parts, disc)
+	end
+
+	table.insert(surface.Stamps, stamp)
+	activeStampCount += 1
+	pruneSurfaceStamps(surface)
+	pruneGlobalStamps()
+	fadeAndDestroyStamp(surface, stamp)
+	emitLiftParticles(stampData.Position, surface.PaintColor, radius)
+end
+
+local function applySnapshot(payload)
+	clearVisuals()
+	for _, surfaceData in ipairs(payload.Surfaces or {}) do
+		upsertSurface(surfaceData)
+	end
+end
+
+local function requestSnapshot()
+	if os.clock() - lastSnapshotAttempt < 1 then
+		return
+	end
+	lastSnapshotAttempt = os.clock()
+
+	task.spawn(function()
+		local ok, payload = pcall(function()
+			return snapshotRemote:InvokeServer()
+		end)
+		if ok and type(payload) == "table" and payload.Type == "Snapshot" then
+			applySnapshot(payload)
+		end
+	end)
+end
+
+deltaRemote.OnClientEvent:Connect(function(payload)
 	if type(payload) ~= "table" then
 		return
 	end
-	if tonumber(payload.MaxVisibleCells) then
-		maxVisibleCells = tonumber(payload.MaxVisibleCells)
-	end
 
 	if payload.Type == "Snapshot" then
-		clearVisuals()
-		for _, surfaceData in ipairs(payload.Surfaces or {}) do
-			upsertSurface(surfaceData)
-		end
+		applySnapshot(payload)
 	elseif payload.Type == "SurfaceAdded" then
 		for _, surfaceData in ipairs(payload.Surfaces or {}) do
 			upsertSurface(surfaceData)
 		end
 	elseif payload.Type == "Delta" then
-		for _, surfaceData in ipairs(payload.Surfaces or {}) do
-			applyDelta(surfaceData)
+		for _, stamp in ipairs(payload.Stamps or {}) do
+			makeClearStamp(stamp)
 		end
 	end
 end)
 
 RunService.Heartbeat:Connect(function()
-	local now = os.clock()
-	if now - lastVisibilityRefreshAt >= 0.75 then
-		lastVisibilityRefreshAt = now
-		refreshVisibleCells()
-	end
-	if now - lastRefreshAt < 0.5 then
-		return
-	end
-	lastRefreshAt = now
-
-	local root = getPlayerRoot()
-	local origin = root and root.Position
-
-	for _, surface in pairs(surfaces) do
+	for surfaceId, surface in pairs(surfaces) do
 		if not surface.Part or not surface.Part.Parent then
-			totalVisibleCells -= surface.VisibleCount or 0
 			destroySurface(surface)
-			surfaces[surface.SurfaceId] = nil
-			continue
-		end
-
-		local shouldRefresh = true
-		if origin then
-			shouldRefresh = (surface.Part.Position - origin).Magnitude
-				<= math.max(surface.CoverageX, surface.CoverageZ) * 0.75 + 220
-		end
-		if shouldRefresh then
-			for index in pairs(surface.Cells) do
-				refreshCellCFrame(surface, index)
-			end
+			surfaces[surfaceId] = nil
 		end
 	end
 end)
+
+print("GroundPaintClient ready")
+requestSnapshot()

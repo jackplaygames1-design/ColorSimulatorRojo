@@ -661,18 +661,19 @@ local function processGroundBrush(player, toolConfig, toolStats, root, range, gr
 	end
 
 	local groundConfig = GameBalance.GroundPaint or {}
+	local groundBrushConfig = groundConfig.Brush or {}
 	local upgrades = player:FindFirstChild("Upgrades")
 	local brushSize = upgrades and upgrades:FindFirstChild("BrushSize")
 	local radius = tonumber(toolStats.BrushRadius)
 		or tonumber(toolConfig.BrushRadius)
-		or tonumber(groundConfig.BaseBrushRadius)
+		or tonumber(groundBrushConfig.BaseRadius)
 		or math.max(4, (tonumber(toolConfig.Width) or 7) * 0.7)
 	if brushSize then
 		radius *= math.max(tonumber(brushSize.Value) or 1, 0.1)
 	end
-	radius = math.clamp(radius, 3, 30)
+	radius = math.clamp(radius, 3, tonumber(groundBrushConfig.MaxRadius) or 42)
 
-	local basePower = tonumber(groundConfig.BaseBrushPower) or 0.24
+	local basePower = tonumber(groundBrushConfig.BasePower) or 0.28
 	local brushPower = tonumber(toolStats.BrushPower)
 		or tonumber(toolStats.CollectPowerMultiplier)
 		or tonumber(toolConfig.PowerMultiplier)
@@ -1011,10 +1012,18 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 	if paintSpeed then
 		useSpeedMultiplier *= math.max(tonumber(paintSpeed.Value) or 1, 0.01)
 	end
-	local cooldown = (
-		(mode == "walk" and WALK_SWEEP_COOLDOWN or (toolConfig.Cooldown or 0.45)) * effects.BrushCooldownMultiplier
-	) / useSpeedMultiplier
+	local groundBrushConfig = (GameBalance.GroundPaint and GameBalance.GroundPaint.Brush) or {}
+	local baseSweepCooldown = toolConfig.Cooldown or 0.45
+	if type(groundPayload) == "table" then
+		baseSweepCooldown = tonumber(toolStats.BrushTickRate)
+			or tonumber(toolConfig.BrushTickRate)
+			or tonumber(groundBrushConfig.BaseCooldown)
+			or baseSweepCooldown
+	end
+	local cooldown = ((mode == "walk" and WALK_SWEEP_COOLDOWN or baseSweepCooldown) * effects.BrushCooldownMultiplier)
+		/ useSpeedMultiplier
 	local minimumCooldown = mode == "walk" and 0.1
+		or (type(groundPayload) == "table" and tonumber(groundBrushConfig.MinimumCooldown))
 		or ((GameBalance.ColorEffects and GameBalance.ColorEffects.MinimumBrushCooldown) or 0.2)
 	cooldown = math.max(cooldown, minimumCooldown)
 

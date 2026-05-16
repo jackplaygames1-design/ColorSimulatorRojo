@@ -85,35 +85,135 @@ GameBalance.Contamination = {
 GameBalance.GroundPaint = {
 	Enabled = true,
 
-	CellSize = 10,
-	MaxCellsPerSurface = 1800,
-	MaxVisibleCellsPerClient = 2500,
+	DisableOldZoneSpawnerColors = true,
+	DisableOldWildColorPopulation = true,
+	DisableOldGroundContaminationParts = true,
 
+	CellSize = 6,
+	MaxLogicalCellsPerSurface = 6500,
+	MaxLogicalCellsTotal = 50000,
+	StartCoverage = 1,
 	FullCoverage = 1,
 	EmptyCoverage = 0,
-	StartCoverage = 1,
+	SurfaceInset = 5,
+	RewardPerCoverageUnit = 10,
 
-	FullPaintTransparency = 0.12,
-	ClearedTransparency = 1,
+	Regen = {
+		Enabled = true,
+		DelayAfterBrush = 0.45,
+		CoveragePerSecond = 0.22,
+		TickHz = 8,
+	},
 
-	RegenPerSecond = 0.18,
-	RegenDelayAfterBrush = 0.35,
+	Visual = {
+		Enabled = true,
+		Mode = "SoftStampMask",
 
-	ServerDeltaHz = 10,
-	ClientSendHz = 12,
+		PaintYOffset = 0.035,
+		ClearStampYOffset = 0.055,
 
-	BaseBrushRadius = 5.5,
-	BaseBrushPower = 0.24,
-	RewardPerCoverageUnit = 1,
+		MaxCoatPlanesPerSurface = 16,
+		MaxActiveClearStamps = 260,
+		MaxActiveClearStampsPerSurface = 90,
 
-	PetCollectRadius = 4,
-	PetCollectInterval = 0.65,
-	PetPowerScale = 0.35,
+		PaintMaterial = Enum.Material.SmoothPlastic,
+		PaintTransparency = 0.06,
+		PaintReflectance = 0.03,
 
-	SurfaceInset = 6,
-	VisualHeightOffset = 0.08,
-	BlackBaseMaterial = "SmoothPlastic",
-	Debug = false,
+		UseNeonGlow = false,
+		GlowTransparency = 0.55,
+		GlowYOffset = 0.045,
+
+		BaseSurfaceColor = Color3.fromRGB(8, 8, 8),
+
+		Thickness = {
+			Enabled = true,
+			SideLipEnabled = true,
+			EdgeDarken = 0.22,
+			StrokeRimTransparency = 0.35,
+		},
+
+		BrushStamp = {
+			Softness = 0.65,
+			RingCount = 5,
+			MinStampLifetime = 0.45,
+			FadeOutTime = 1.35,
+			UseConcentricDiscsFallback = true,
+			TextureAssetId = "",
+		},
+	},
+
+	DefaultColorType = "Red",
+	ZoneColors = {
+		StarterField = {
+			ColorType = "Red",
+			PaintColor = Color3.fromRGB(235, 35, 32),
+			BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
+		},
+		Red = {
+			ColorType = "Red",
+			PaintColor = Color3.fromRGB(235, 35, 32),
+			BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
+		},
+		OrangeGrove = {
+			ColorType = "Orange",
+			PaintColor = Color3.fromRGB(255, 132, 28),
+			BaseSurfaceColor = Color3.fromRGB(8, 8, 8),
+		},
+		Orange = {
+			ColorType = "Orange",
+			PaintColor = Color3.fromRGB(255, 132, 28),
+			BaseSurfaceColor = Color3.fromRGB(8, 8, 8),
+		},
+		GreenForest = {
+			ColorType = "Green",
+			PaintColor = Color3.fromRGB(62, 220, 88),
+			BaseSurfaceColor = Color3.fromRGB(8, 8, 8),
+		},
+		Green = {
+			ColorType = "Green",
+			PaintColor = Color3.fromRGB(62, 220, 88),
+			BaseSurfaceColor = Color3.fromRGB(8, 8, 8),
+		},
+	},
+
+	Brush = {
+		BaseRadius = 7,
+		BasePower = 0.28,
+		BaseCooldown = 0.38,
+		MinimumCooldown = 0.12,
+		MaxRewardPerSweep = 250,
+		MaxRewardPerSecond = 900,
+		SoftEdgeMultiplier = 1.35,
+		MaxRadius = 42,
+	},
+
+	Pets = {
+		Enabled = true,
+		CollectRadius = 5,
+		CollectPower = 0.16,
+		CollectInterval = 0.75,
+		TargetSearchRadius = 45,
+		MaxTargetsPerPet = 1,
+		ReserveSeconds = 1.5,
+		CoverageThreshold = 0.18,
+	},
+
+	Networking = {
+		SnapshotRadius = 420,
+		DeltaHz = 12,
+		MaxDeltasPerPacket = 150,
+		SendOnlyNearbyPlayers = true,
+	},
+
+	Debug = {
+		Enabled = false,
+		PrintBoot = true,
+		PrintSurfaceDiscovery = false,
+		PrintSweepRejects = false,
+		DrawSurfaceIds = false,
+		DrawBrushHits = false,
+	},
 }
 
 GameBalance.FeatureFlags = {

@@ -1723,7 +1723,8 @@ workspace.DescendantAdded:Connect(registerObject)
 --   PET AUTO-ATTACK LOOP
 -- ========================
 local PET_ATTACK_RANGE = tonumber(GameBalance.Pets and GameBalance.Pets.AttackRange) or 16
-local PET_ATTACK_INTERVAL = tonumber(GameBalance.GroundPaint and GameBalance.GroundPaint.PetCollectInterval)
+local GROUND_PAINT_PET_CONFIG = (GameBalance.GroundPaint and GameBalance.GroundPaint.Pets) or {}
+local PET_ATTACK_INTERVAL = tonumber(GROUND_PAINT_PET_CONFIG.CollectInterval)
 	or tonumber(GameBalance.Pets and GameBalance.Pets.AttackInterval)
 	or 0.65
 local PET_DAMAGE_SCALE = tonumber(GameBalance.Pets and GameBalance.Pets.DamageScale) or 0.35
@@ -1817,15 +1818,14 @@ RunService.Heartbeat:Connect(function()
 		local physicalZoneColors = getPhysicalZoneColors(root)
 		local attackRange = PET_ATTACK_RANGE * (tonumber(petStats.pickupRangeMult) or 1)
 		local groundPaintConfig = GameBalance.GroundPaint or {}
+		local groundPaintPetConfig = groundPaintConfig.Pets or {}
 		local groundResult = GroundPaintService.CollectNearestPaint(
 			player,
 			root.Position,
-			attackRange,
-			(tonumber(groundPaintConfig.PetCollectRadius) or 4) * (tonumber(petStats.pickupRangeMult) or 1),
+			math.max(attackRange, tonumber(groundPaintPetConfig.TargetSearchRadius) or attackRange),
+			(tonumber(groundPaintPetConfig.CollectRadius) or 5) * (tonumber(petStats.pickupRangeMult) or 1),
 			math.clamp(
-				(tonumber(groundPaintConfig.BaseBrushPower) or 0.24)
-					* (tonumber(groundPaintConfig.PetPowerScale) or 0.35)
-					* math.max(1, petStats.breakPower),
+				(tonumber(groundPaintPetConfig.CollectPower) or 0.16) * math.max(1, petStats.breakPower),
 				0.03,
 				1.25
 			)

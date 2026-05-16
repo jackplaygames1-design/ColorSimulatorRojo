@@ -6,7 +6,20 @@ local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 
 local featureFlags = GameBalance.FeatureFlags or {}
-if featureFlags.RuntimeColorPopulationEnabled == false then
+local groundPaintConfig = GameBalance.GroundPaint or {}
+
+local function removeRuntimeBlobFolders()
+	while true do
+		local folder = workspace:FindFirstChild("RuntimeColorBlobs", true)
+		if not folder then
+			break
+		end
+		folder:Destroy()
+	end
+end
+
+if featureFlags.RuntimeColorPopulationEnabled == false or groundPaintConfig.DisableOldZoneSpawnerColors == true then
+	removeRuntimeBlobFolders()
 	warn("ZoneSpawner: runtime color population disabled.")
 	return
 end

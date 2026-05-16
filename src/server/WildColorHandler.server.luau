@@ -8,7 +8,19 @@ local BuffService = require(script.Parent:WaitForChild("BuffService"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 
+local groundPaintConfig = GameBalance.GroundPaint or {}
 local FEATURE_ENABLED = not (GameBalance.FeatureFlags and GameBalance.FeatureFlags.WildColorsEnabled == false)
+	and groundPaintConfig.DisableOldWildColorPopulation ~= true
+if not FEATURE_ENABLED then
+	local rootFolder = workspace:FindFirstChild("DynamicGameplay")
+	local wildFolder = rootFolder and rootFolder:FindFirstChild("WildColors")
+	if wildFolder then
+		wildFolder:Destroy()
+	end
+	print("WildColorHandler: wild color population disabled.")
+	return
+end
+
 local WILD_CONFIG = GameBalance.WildGameplay and GameBalance.WildGameplay.WildColors or {}
 local ROLL_INTERVAL = WILD_CONFIG.RollInterval or 25
 local SPAWN_CHANCE = WILD_CONFIG.SpawnChance or 0.20
