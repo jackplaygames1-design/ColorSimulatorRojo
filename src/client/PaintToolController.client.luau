@@ -2,7 +2,6 @@
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -92,7 +91,6 @@ local equippedToolId = "StarterBrush"
 local brushVisual
 local brushMotor
 local brushHeld = false
-local lastPointerPosition
 local lastGroundVisualAt = 0
 local groundBrushSequence = 0
 
@@ -154,6 +152,31 @@ local function getClientRange(toolConfig)
 	local stats = getToolEffectiveStats(toolConfig)
 	local buffMultiplier = hasActiveWildBuff("BrushFrenzy") and 1.25 or 1
 	return math.min(range * (stats.PickupRadiusMultiplier or 1) * buffMultiplier, toolConfig.MaxServerRange or 24)
+end
+
+local function configureNonInteractiveVisual(part)
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Massless = true
+	part:SetAttribute("NonInteractiveVFX", true)
+	part:SetAttribute("BrushVisual", true)
+end
+
+local function getFlatForward(root)
+	local look = root.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z)
+	if flat.Magnitude <= 0.001 then
+		return Vector3.zAxis
+	end
+	return flat.Unit
+end
+
+local function getGroundBrushHighlightCenter(root, toolConfig)
+	local range = getClientRange(toolConfig)
+	local distance = math.clamp(range * 0.48, 4, math.min(range, 18))
+	return root.Position + getFlatForward(root) * distance
 end
 
 local function isGroundContamination(part)
@@ -246,6 +269,9 @@ local function isBrushableGroundSurface(part)
 	if not part or not part:IsA("BasePart") then
 		return false
 	end
+	if part:GetAttribute("NonInteractiveVFX") == true or part:GetAttribute("BrushVisual") == true then
+		return false
+	end
 	if isGroundContamination(part) then
 		return true
 	end
@@ -291,28 +317,28 @@ local function findNearestGroundContamination(position, radius)
 	return nearest
 end
 
-local function getInputPosition(input)
-	local position = input and input.Position
-	if typeof(position) == "Vector3" then
-		return Vector2.new(position.X, position.Y)
-	end
-	return UserInputService:GetMouseLocation()
-end
-
 local function findGroundBrushPayload(toolConfig)
-	local camera = workspace.CurrentCamera
-	if not camera then
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then
 		return nil
 	end
 
-	local pointer = lastPointerPosition or UserInputService:GetMouseLocation()
-	local ray = camera:ViewportPointToRay(pointer.X, pointer.Y)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { player.Character, brushVisual }
+	local filter = { character }
+	if brushVisual then
+		table.insert(filter, brushVisual)
+	end
+	local clientGroundPaint = workspace:FindFirstChild("ClientGroundPaint")
+	if clientGroundPaint then
+		table.insert(filter, clientGroundPaint)
+	end
+	params.FilterDescendantsInstances = filter
 	params.IgnoreWater = true
 
-	local result = workspace:Raycast(ray.Origin, ray.Direction * 600, params)
+	local highlightCenter = getGroundBrushHighlightCenter(root, toolConfig)
+	local result = workspace:Raycast(highlightCenter + Vector3.new(0, 10, 0), Vector3.new(0, -48, 0), params)
 	if not result or not isBrushableGroundSurface(result.Instance) then
 		return nil
 	end
@@ -323,19 +349,16 @@ local function findGroundBrushPayload(toolConfig)
 		target = findNearestGroundContamination(hitPosition, getGroundBrushRadius(toolConfig)) or result.Instance
 	end
 
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if root then
-		local maxRange = tonumber(toolConfig.MaxServerRange) or getClientRange(toolConfig)
-		if (root.Position - hitPosition).Magnitude > maxRange + 12 then
-			return nil
-		end
+	local maxRange = tonumber(toolConfig.MaxServerRange) or getClientRange(toolConfig)
+	if (root.Position - hitPosition).Magnitude > maxRange + 12 then
+		return nil
 	end
 
 	return {
 		Position = hitPosition,
 		Normal = result.Normal,
 		Target = target,
+		HighlightCenter = highlightCenter,
 	}
 end
 
@@ -355,10 +378,7 @@ local function showGroundBrushEffect(payload, toolConfig)
 	ring.Name = "LocalBrushCleanPulse"
 	ring.Shape = Enum.PartType.Cylinder
 	ring.Anchored = true
-	ring.CanCollide = false
-	ring.CanTouch = false
-	ring.CanQuery = false
-	ring.CastShadow = false
+	configureNonInteractiveVisual(ring)
 	ring.Material = Enum.Material.Neon
 	ring.Color = toolConfig.PaintColor or toolConfig.AccentColor or Color3.fromRGB(91, 230, 235)
 	ring.Transparency = 0.62
@@ -390,11 +410,7 @@ local function makeVisualPart(name, size, color, material)
 	part.Color = color
 	part.Material = material or Enum.Material.SmoothPlastic
 	part.Anchored = false
-	part.CanCollide = false
-	part.CanTouch = false
-	part.CanQuery = false
-	part.Massless = true
-	part.CastShadow = false
+	configureNonInteractiveVisual(part)
 	return part
 end
 
@@ -684,10 +700,7 @@ local function showSweepArc(root, range, width)
 	arc.Material = Enum.Material.Neon
 	arc.Transparency = 0.68
 	arc.Anchored = true
-	arc.CanCollide = false
-	arc.CanTouch = false
-	arc.CanQuery = false
-	arc.CastShadow = false
+	configureNonInteractiveVisual(arc)
 	arc.Parent = workspace
 
 	TweenService:Create(arc, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -804,11 +817,7 @@ local function activateBrush(tool, groundPayload)
 	ensureBrushVisual(character)
 
 	if groundPayload then
-		local range = getClientRange(toolConfig)
-		local width = (toolConfig.Width or 7) * (toolStats.SweepWidthMultiplier or 1)
-		width *= getUpgradeMultiplier("BrushSize", 1)
 		local predictedRadius = getGroundBrushRadius(toolConfig)
-		showSweepArc(root, range, width)
 		showGroundBrushEffect(groundPayload, toolConfig)
 		if localBrushEvent:IsA("BindableEvent") then
 			localBrushEvent:Fire({
@@ -939,16 +948,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 		if brushEquipped then
 			brushHeld = true
-			lastPointerPosition = getInputPosition(input)
 			local toolConfig = ToolData.get(equippedToolId)
 			activateBrush(activeTool, findGroundBrushPayload(toolConfig))
 		end
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-		lastPointerPosition = getInputPosition(input)
 	end
 end)
 

@@ -81,6 +81,7 @@ local MUTATION_TYPE_COLOR = {
 }
 
 local PET_APPEARANCE_SOURCE_NAME = "PetAppearanceStudio"
+local CLIENT_PET_FOLDER_NAME = "ClientOrbitingColors"
 
 -- State
 local spawnedPets = {} -- { { model, variantKey } }
@@ -99,6 +100,53 @@ local function getEntryKey(entry)
 		return entry.variantKey or entry.petId
 	end
 	return entry
+end
+
+local function getClientPetFolder()
+	local folder = workspace:FindFirstChild(CLIENT_PET_FOLDER_NAME)
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = CLIENT_PET_FOLDER_NAME
+		folder.Parent = workspace
+	end
+	return folder
+end
+
+local function modelLooksLikeOwnedOrbitingPet(model, knownPetIds)
+	if not model or not model:IsA("Model") or model == player.Character then
+		return false
+	end
+	if model:GetAttribute("ClientPetOwnerUserId") == player.UserId then
+		return true
+	end
+	if model:FindFirstChild("PetAttachment", true) then
+		return true
+	end
+
+	local name = tostring(model.Name or "")
+	for petId in pairs(knownPetIds or {}) do
+		if name == petId or string.sub(name, 1, #petId + 1) == petId .. "_" then
+			return true
+		end
+	end
+	return false
+end
+
+local function destroyOwnedClientPetModels(knownPetIds)
+	local folder = workspace:FindFirstChild(CLIENT_PET_FOLDER_NAME)
+	if folder then
+		for _, child in ipairs(folder:GetChildren()) do
+			if child:GetAttribute("ClientPetOwnerUserId") == nil or child:GetAttribute("ClientPetOwnerUserId") == player.UserId then
+				child:Destroy()
+			end
+		end
+	end
+
+	for _, child in ipairs(workspace:GetChildren()) do
+		if child ~= folder and child.Name ~= PET_APPEARANCE_SOURCE_NAME and modelLooksLikeOwnedOrbitingPet(child, knownPetIds) then
+			child:Destroy()
+		end
+	end
 end
 
 local function getEntryPower(entry)
@@ -190,13 +238,15 @@ end
 
 local function parseReplicatedEquipped(value)
 	local equipped = {}
+	local seen = {}
 	if type(value) ~= "string" or value == "" then
 		return equipped
 	end
 
 	for _, rawKey in ipairs(string.split(value, ",")) do
 		local key = string.gsub(rawKey, "^%s*(.-)%s*$", "%1")
-		if key ~= "" then
+		if key ~= "" and not seen[key] then
+			seen[key] = true
 			table.insert(equipped, key)
 		end
 	end
@@ -224,6 +274,15 @@ end
 local function applyPetState(inventory, equipped, source)
 	inventory = inventory or {}
 	equipped = equipped or {}
+	local dedupedEquipped = {}
+	local seenEquipped = {}
+	for _, key in ipairs(equipped) do
+		if key and key ~= "" and not seenEquipped[key] then
+			seenEquipped[key] = true
+			table.insert(dedupedEquipped, key)
+		end
+	end
+	equipped = dedupedEquipped
 
 	if #inventory == 0 and #allPets > 0 and os.clock() - lastPetStateAt < 1.5 then
 		if isOpen then
@@ -834,7 +893,10 @@ local function createPetModel(petEntry)
 	end
 	addPetParticles(model, petEntry, pet)
 
-	model.Parent = workspace
+	model:SetAttribute("ClientPetOwnerUserId", player.UserId)
+	model:SetAttribute("ClientPetVariantKey", petEntry.variantKey or petEntry.petId)
+	model:SetAttribute("ClientOrbitingColor", true)
+	model.Parent = getClientPetFolder()
 	return model
 end
 local function applyTraitEffect(model, trait)
@@ -1120,12 +1182,19 @@ end
 --   REBUILD ORBITING PETS
 -- ========================
 function rebuildOrbitingPets()
+	local knownPetIds = {}
+	for _, entry in ipairs(allPets) do
+		if entry and entry.petId then
+			knownPetIds[entry.petId] = true
+		end
+	end
 	for _, entry in ipairs(spawnedPets) do
 		if entry.model and entry.model.Parent then
 			entry.model:Destroy()
 		end
 	end
 	spawnedPets = {}
+	destroyOwnedClientPetModels(knownPetIds)
 
 	-- Build a lookup from variantKey -> entry data. Legacy petIds still work as a fallback.
 	local entryByKey = {}
@@ -1134,7 +1203,12 @@ function rebuildOrbitingPets()
 		entryByKey[entry.petId] = entryByKey[entry.petId] or entry
 	end
 
+	local spawnedKeys = {}
 	for _, variantKey in ipairs(equippedPets) do
+		if spawnedKeys[variantKey] then
+			continue
+		end
+		spawnedKeys[variantKey] = true
 		local petEntry = entryByKey[variantKey]
 		if not petEntry then
 			for _, entry in ipairs(allPets) do

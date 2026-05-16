@@ -465,7 +465,35 @@ local function isGroundContamination(part)
 		)
 end
 
+local function getFlatForward(root)
+	local look = root.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z)
+	if flat.Magnitude <= 0.001 then
+		return Vector3.zAxis
+	end
+	return flat.Unit
+end
+
+local function resolveHighlightedBrushPosition(player, root, range)
+	if not root then
+		return nil
+	end
+
+	local forwardDistance = math.clamp((tonumber(range) or 24) * 0.48, 4, math.min(tonumber(range) or 24, 18))
+	local probeOrigin = root.Position + getFlatForward(root) * forwardDistance + Vector3.new(0, 10, 0)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { player.Character }
+	params.IgnoreWater = true
+
+	local result = workspace:Raycast(probeOrigin, Vector3.new(0, -48, 0), params)
+	return result and result.Position or nil
+end
+
 local function resolveGroundBrushPosition(player, root, range, groundPayload)
+	if type(groundPayload) == "table" and groundPayload.Type == "GroundPaintBrush" then
+		return resolveHighlightedBrushPosition(player, root, range)
+	end
 	if type(groundPayload) == "table" and typeof(groundPayload.Position) == "Vector3" then
 		return groundPayload.Position
 	end

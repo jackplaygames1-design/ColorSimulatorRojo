@@ -21,6 +21,15 @@ local EFFECT_COLORS = {
 	BrushActive = Color3.fromRGB(91, 230, 235),
 }
 
+local function configureNonInteractiveVfx(part)
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Massless = true
+	part:SetAttribute("NonInteractiveVFX", true)
+end
+
 local function getFxColor(payload)
 	local mutationId = payload and payload.MutationId
 	return EFFECT_COLORS[mutationId] or EFFECT_COLORS[payload and payload.Effect] or EFFECT_COLORS.Lightning
@@ -36,10 +45,7 @@ local function makeBeamPart(fromPosition, toPosition, color)
 	local part = Instance.new("Part")
 	part.Name = "ColorEffectBeam"
 	part.Anchored = true
-	part.CanCollide = false
-	part.CanTouch = false
-	part.CanQuery = false
-	part.CastShadow = false
+	configureNonInteractiveVfx(part)
 	part.Material = Enum.Material.Neon
 	part.Color = color
 	part.Size = Vector3.new(0.18, 0.18, distance)
@@ -59,10 +65,7 @@ local function makeFlash(position, color)
 	flash.Name = "ColorEffectFlash"
 	flash.Shape = Enum.PartType.Ball
 	flash.Anchored = true
-	flash.CanCollide = false
-	flash.CanTouch = false
-	flash.CanQuery = false
-	flash.CastShadow = false
+	configureNonInteractiveVfx(flash)
 	flash.Material = Enum.Material.Neon
 	flash.Color = color
 	flash.Size = Vector3.new(1.2, 1.2, 1.2)
@@ -107,10 +110,7 @@ local function playMagnet(payload)
 			orb.Name = "ColorMagnetOrb"
 			orb.Shape = Enum.PartType.Ball
 			orb.Anchored = true
-			orb.CanCollide = false
-			orb.CanTouch = false
-			orb.CanQuery = false
-			orb.CastShadow = false
+			configureNonInteractiveVfx(orb)
 			orb.Material = Enum.Material.Neon
 			orb.Color = color
 			orb.Size = Vector3.new(0.7, 0.7, 0.7)
