@@ -13,6 +13,8 @@ local currentPresetName = nil
 local currentSkyName = nil
 local lastScan = 0
 local activeTweens = {}
+local currentWorldConnection = nil
+local colorStorageConnection = nil
 
 local function ensureEffect(className, name)
 	local existing = Lighting:FindFirstChild(name)
@@ -121,6 +123,11 @@ local function applySky(presetName, preset)
 
 	local template = findSkyInFolder(skyName) or findAttributedSky(skyName, presetName)
 	if not template then
+		local activeSky = Lighting:FindFirstChild(LightingPresets.ActiveSkyName or "ColorSimulatorActiveSky")
+		if activeSky and activeSky:IsA("Sky") then
+			activeSky:Destroy()
+		end
+		currentSkyName = nil
 		return
 	end
 
@@ -172,12 +179,41 @@ local function getRootPosition()
 	return root and root.Position or nil
 end
 
+local function getGroundContact()
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return nil, nil
+	end
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character }
+	params.IgnoreWater = true
+
+	local distance = tonumber(LightingPresets.GroundProbeDistance) or 28
+	local result = Workspace:Raycast(root.Position, Vector3.new(0, -distance, 0), params)
+	if not result then
+		return nil, nil
+	end
+
+	return result.Position, result.Instance
+end
+
 local function pointIsInsidePart(position, part)
 	local localPosition = part.CFrame:PointToObjectSpace(position)
 	local halfSize = part.Size * 0.5
 	return math.abs(localPosition.X) <= halfSize.X
 		and math.abs(localPosition.Y) <= halfSize.Y + 8
 		and math.abs(localPosition.Z) <= halfSize.Z
+end
+
+local function pointIsOnTopSurface(position, part)
+	local localPosition = part.CFrame:PointToObjectSpace(position)
+	local halfSize = part.Size * 0.5
+	return math.abs(localPosition.X) <= halfSize.X
+		and math.abs(localPosition.Z) <= halfSize.Z
+		and math.abs(localPosition.Y - halfSize.Y) <= 3
 end
 
 local function nameMatches(part, rule)
@@ -196,6 +232,45 @@ local function attributeMatches(part, rule)
 		end
 	end
 	return false
+end
+
+local function instanceMatchesRule(instance, rule)
+	if not instance then
+		return false
+	end
+
+	return attributeMatches(instance, rule) or nameMatches(instance, rule)
+end
+
+local function partOrAncestorMatchesRule(part, rule)
+	local cursor = part
+	while cursor and cursor ~= Workspace do
+		if instanceMatchesRule(cursor, rule) then
+			return true
+		end
+		cursor = cursor.Parent
+	end
+	return false
+end
+
+local function getGroundPartPreset(part)
+	if not part then
+		return nil
+	end
+
+	local bestPreset = nil
+	local bestPriority = -math.huge
+	for _, rule in ipairs(LightingPresets.AreaRules or {}) do
+		if rule.PartAttributes and partOrAncestorMatchesRule(part, rule) then
+			local priority = tonumber(rule.Priority) or 0
+			if priority > bestPriority then
+				bestPriority = priority
+				bestPreset = rule.Preset
+			end
+		end
+	end
+
+	return bestPreset
 end
 
 local function partMatchesRule(part, rule)
@@ -235,6 +310,31 @@ local function getAttributePreset()
 	return nil
 end
 
+local function getCurrentWorldColor()
+	local activeWorldColor = player:GetAttribute("ActiveWorldColor")
+	if type(activeWorldColor) == "string" and activeWorldColor ~= "" then
+		return activeWorldColor
+	end
+
+	local storage = player:FindFirstChild("ColorStorage")
+	local currentWorld = storage and storage:FindFirstChild("CurrentWorld")
+	if currentWorld and currentWorld:IsA("StringValue") and currentWorld.Value ~= "" then
+		return currentWorld.Value
+	end
+
+	return nil
+end
+
+local function getWorldColorPreset()
+	local worldColor = getCurrentWorldColor()
+	local worldColorPresets = LightingPresets.WorldColorPresets
+	local presetName = worldColorPresets and worldColor and worldColorPresets[worldColor]
+	if type(presetName) == "string" and LightingPresets.Presets[presetName] then
+		return presetName
+	end
+	return nil
+end
+
 local function getAreaPreset()
 	local manualPresetAttribute = LightingPresets.ManualPresetAttribute
 	local manualPreset = manualPresetAttribute and player:GetAttribute(manualPresetAttribute)
@@ -247,8 +347,8 @@ local function getAreaPreset()
 		return attributePreset
 	end
 
-	local position = getRootPosition()
-	if not position then
+	local rootPosition = getRootPosition()
+	if not rootPosition then
 		return LightingPresets.DefaultPreset
 	end
 
@@ -256,11 +356,38 @@ local function getAreaPreset()
 		rescanAreaParts()
 	end
 
+	local groundPosition, groundPart = getGroundContact()
+	local groundPreset = getGroundPartPreset(groundPart)
+	if groundPreset then
+		return groundPreset
+	end
+
+	if groundPosition then
+		for _, area in ipairs(areaParts) do
+			local part = area.Part
+			if part and part.Parent and pointIsOnTopSurface(groundPosition, part) then
+				return area.Preset
+			end
+		end
+	else
+		return currentPresetName or LightingPresets.DefaultPreset
+	end
+
 	for _, area in ipairs(areaParts) do
 		local part = area.Part
-		if part and part.Parent and pointIsInsidePart(position, part) then
+		if
+			part
+			and part.Parent
+			and part:GetAttribute("LightingAreaVolume") == true
+			and pointIsInsidePart(rootPosition, part)
+		then
 			return area.Preset
 		end
+	end
+
+	local worldPreset = LightingPresets.UseWorldColorFallback == true and getWorldColorPreset() or nil
+	if worldPreset and not groundPosition then
+		return worldPreset
 	end
 
 	return LightingPresets.DefaultPreset
@@ -283,6 +410,41 @@ end
 if LightingPresets.ManualPresetAttribute then
 	player:GetAttributeChangedSignal(LightingPresets.ManualPresetAttribute):Connect(updateLighting)
 end
+
+player:GetAttributeChangedSignal("ActiveWorldColor"):Connect(updateLighting)
+
+local function hookCurrentWorldValue()
+	if currentWorldConnection then
+		currentWorldConnection:Disconnect()
+		currentWorldConnection = nil
+	end
+	if colorStorageConnection then
+		colorStorageConnection:Disconnect()
+		colorStorageConnection = nil
+	end
+
+	local storage = player:FindFirstChild("ColorStorage")
+	local currentWorld = storage and storage:FindFirstChild("CurrentWorld")
+	if currentWorld and currentWorld:IsA("StringValue") then
+		currentWorldConnection = currentWorld:GetPropertyChangedSignal("Value"):Connect(updateLighting)
+		updateLighting()
+	end
+
+	if storage then
+		colorStorageConnection = storage.ChildAdded:Connect(function(child)
+			if child.Name == "CurrentWorld" then
+				task.defer(hookCurrentWorldValue)
+			end
+		end)
+	end
+end
+
+player.ChildAdded:Connect(function(child)
+	if child.Name == "ColorStorage" then
+		task.defer(hookCurrentWorldValue)
+	end
+end)
+hookCurrentWorldValue()
 
 player.CharacterAdded:Connect(function()
 	task.wait(0.25)

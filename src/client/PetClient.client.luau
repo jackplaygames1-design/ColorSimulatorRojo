@@ -742,7 +742,13 @@ local function createPetModel(petEntry)
 
 	local tierName = petEntry.currentStackTier
 	local auraColor = petEntry.auraColor
-	local model = PetModelUtil.ClonePetModel(petEntry.petId, { anchored = true, removeBillboards = true })
+	local model = PetModelUtil.ClonePetModel(petEntry.petId, {
+		anchored = true,
+		removeBillboards = true,
+		mutationId = petEntry.mutationId,
+		skipGeneratedMutationVisuals = true,
+	})
+	local usesCustomMutationVariant = model and model:GetAttribute("FromMutationVariant") == true
 
 	if model and model:IsA("Model") then
 		model.Name = petEntry.petId .. "_" .. tierName
@@ -805,7 +811,7 @@ local function createPetModel(petEntry)
 		att.Parent = model.PrimaryPart
 	end
 
-	if petEntry.hasMutation and model.PrimaryPart then
+	if petEntry.hasMutation and model.PrimaryPart and not usesCustomMutationVariant then
 		local extents = model:GetExtentsSize()
 		local auraSize = math.max(extents.X, extents.Y, extents.Z) * 1.35
 		local mutationAura = Instance.new("Part")
@@ -823,7 +829,9 @@ local function createPetModel(petEntry)
 	end
 
 	-- Point light — color and intensity scale with tier
-	applyMutationOverlay(model, petEntry)
+	if not usesCustomMutationVariant then
+		applyMutationOverlay(model, petEntry)
+	end
 	addPetParticles(model, petEntry, pet)
 
 	model.Parent = workspace
@@ -1452,11 +1460,33 @@ petAtkEvent.OnClientEvent:Connect(function(equippedPetIds, targetObj, colorType)
 	if not equippedPetIds or not targetObj then
 		return
 	end
+	local temporaryTarget = nil
+	if typeof(targetObj) == "Vector3" then
+		temporaryTarget = Instance.new("Part")
+		temporaryTarget.Name = "PetGroundPaintDrainTarget"
+		temporaryTarget.Anchored = true
+		temporaryTarget.CanCollide = false
+		temporaryTarget.CanTouch = false
+		temporaryTarget.CanQuery = false
+		temporaryTarget.CastShadow = false
+		temporaryTarget.Transparency = 1
+		temporaryTarget.Size = Vector3.new(0.4, 0.4, 0.4)
+		temporaryTarget.CFrame = CFrame.new(targetObj)
+		temporaryTarget.Parent = workspace
+		targetObj = temporaryTarget
+	end
 	for i, petId in ipairs(equippedPetIds) do
 		local petModel = spawnedPets[i] and spawnedPets[i].model
 		if petModel then
 			createDrainBeam(petModel, targetObj, colorType)
 		end
+	end
+	if temporaryTarget then
+		task.delay(0.75, function()
+			if temporaryTarget and temporaryTarget.Parent then
+				temporaryTarget:Destroy()
+			end
+		end)
 	end
 end)
 

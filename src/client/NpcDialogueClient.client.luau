@@ -1,3 +1,4 @@
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -84,6 +85,14 @@ if dialogueRootCreated then
 	dialogueRoot.ZIndex = 900
 end
 dialogueRoot.Visible = false
+local dialogueScale = dialogueRoot:FindFirstChild("ResponsiveScale")
+if dialogueScale and not dialogueScale:IsA("UIScale") then
+	dialogueScale:Destroy()
+	dialogueScale = nil
+end
+dialogueScale = dialogueScale or Instance.new("UIScale")
+dialogueScale.Name = "ResponsiveScale"
+dialogueScale.Parent = dialogueRoot
 
 local panel, panelCreated = ensureChild(dialogueRoot, "Frame", "Panel")
 if panelCreated then
@@ -227,6 +236,22 @@ local function getCamera()
 	return Workspace.CurrentCamera
 end
 
+local function styleDialogueForViewport()
+	local camera = getCamera()
+	local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+	local minAxis = math.min(viewport.X, viewport.Y)
+	local maxAxis = math.max(viewport.X, viewport.Y)
+	local mobile = UserInputService.TouchEnabled and (minAxis <= 1024 or maxAxis <= 1280)
+	if mobile then
+		local topInset, bottomInset = GuiService:GetGuiInset()
+		local usableWidth = math.max(1, viewport.X - topInset.X - bottomInset.X - 24)
+		local usableHeight = math.max(1, viewport.Y - topInset.Y - bottomInset.Y)
+		dialogueScale.Scale = math.clamp(math.min(usableWidth / 620, (usableHeight * 0.42) / 330), 0.58, 0.92)
+	else
+		dialogueScale.Scale = 1
+	end
+end
+
 local function getPlayerControls()
 	if playerControls then
 		return playerControls
@@ -327,6 +352,7 @@ local function updateDialoguePosition()
 		return
 	end
 
+	styleDialogueForViewport()
 	local offsetY = tonumber(dialogueRoot:GetAttribute("WorldOffsetY")) or 5.8
 	local screenPoint = camera:WorldToViewportPoint(activeAdornee.Position + Vector3.new(0, offsetY, 0))
 	if screenPoint.Z <= 0 then
@@ -334,11 +360,12 @@ local function updateDialoguePosition()
 	end
 
 	local viewport = camera.ViewportSize
+	local topInset, bottomInset = GuiService:GetGuiInset()
 	local size = dialogueRoot.AbsoluteSize
 	local minX = (size.X * 0.5) + 12
 	local maxX = math.max(minX, viewport.X - minX)
-	local minY = size.Y + 12
-	local maxY = math.max(minY, viewport.Y - 20)
+	local minY = topInset.Y + size.Y + 12
+	local maxY = math.max(minY, viewport.Y - bottomInset.Y - 20)
 
 	dialogueRoot.Position =
 		UDim2.fromOffset(math.clamp(screenPoint.X, minX, maxX), math.clamp(screenPoint.Y, minY, maxY))

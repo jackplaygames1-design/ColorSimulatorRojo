@@ -21,6 +21,7 @@ local SPAWN_EGG_NAME = "SpawnEgg"
 local SPAWN_EGG_ID = "ColorEgg"
 local SPAWN_EGG_COLOR = "Red"
 local SPAWN_TEMPLATE_EGG_ID = "OrangeEgg"
+local MAX_HATCH_EFFECT_SPARKS = 96
 
 local function formatNumber(value)
 	value = tonumber(value) or 0
@@ -437,6 +438,64 @@ local function configureHatchAnimationUi(layer)
 	rarityBanner.ZIndex = 930
 	rarityBanner:SetAttribute("EditableHatchEffect", true)
 
+	local cutsceneBackdrop = findOrCreate(overlay, "Frame", "RngCutsceneBackdrop")
+	cutsceneBackdrop.Size = UDim2.fromScale(1, 1)
+	cutsceneBackdrop.Position = UDim2.fromScale(0, 0)
+	cutsceneBackdrop.BackgroundColor3 = Color3.fromRGB(6, 8, 15)
+	cutsceneBackdrop.BackgroundTransparency = 1
+	cutsceneBackdrop.BorderSizePixel = 0
+	cutsceneBackdrop.Visible = false
+	cutsceneBackdrop.ZIndex = 886
+	cutsceneBackdrop:SetAttribute("EditableHatchCutscene", true)
+	cutsceneBackdrop:SetAttribute("UsesDefaultHatchLayout", true)
+
+	local cutsceneShockwave = findOrCreate(overlay, "Frame", "RngCutsceneShockwave")
+	cutsceneShockwave.AnchorPoint = Vector2.new(0.5, 0.5)
+	cutsceneShockwave.Size = UDim2.fromOffset(80, 80)
+	cutsceneShockwave.Position = UDim2.fromScale(0.5, 0.45)
+	cutsceneShockwave.BackgroundColor3 = WHITE
+	cutsceneShockwave.BackgroundTransparency = 1
+	cutsceneShockwave.BorderSizePixel = 0
+	cutsceneShockwave.Visible = false
+	cutsceneShockwave.ZIndex = 913
+	cutsceneShockwave:SetAttribute("EditableHatchCutscene", true)
+	cutsceneShockwave:SetAttribute("UsesDefaultHatchLayout", true)
+	applyCorner(cutsceneShockwave, 999)
+	local cutsceneShockwaveStroke = applyStroke(cutsceneShockwave, WHITE, 5)
+	cutsceneShockwaveStroke.Transparency = 1
+
+	local cutsceneTitle = configureHatchText(
+		overlay,
+		"RngCutsceneTitle",
+		"INSANE HATCH!",
+		UDim2.fromScale(0.5, 0.23),
+		UDim2.fromOffset(760, 84),
+		58,
+		WHITE
+	)
+	cutsceneTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+	cutsceneTitle.TextXAlignment = Enum.TextXAlignment.Center
+	cutsceneTitle.Visible = false
+	cutsceneTitle.ZIndex = 935
+	cutsceneTitle:SetAttribute("EditableHatchCutscene", true)
+
+	local cutsceneSubtitle = configureHatchText(
+		overlay,
+		"RngCutsceneSubtitle",
+		"A rare Color is breaking out",
+		UDim2.fromScale(0.5, 0.31),
+		UDim2.fromOffset(660, 48),
+		28,
+		Color3.fromRGB(230, 240, 255)
+	)
+	cutsceneSubtitle.AnchorPoint = Vector2.new(0.5, 0.5)
+	cutsceneSubtitle.Font = Enum.Font.GothamBlack
+	cutsceneSubtitle.TextXAlignment = Enum.TextXAlignment.Center
+	cutsceneSubtitle.TextStrokeTransparency = 0.35
+	cutsceneSubtitle.Visible = false
+	cutsceneSubtitle.ZIndex = 935
+	cutsceneSubtitle:SetAttribute("EditableHatchCutscene", true)
+
 	local effectBurst = findOrCreate(overlay, "Frame", "EffectBurst")
 	effectBurst.Size = UDim2.fromScale(1, 1)
 	effectBurst.Position = UDim2.fromScale(0, 0)
@@ -446,7 +505,7 @@ local function configureHatchAnimationUi(layer)
 	effectBurst.ZIndex = 912
 	effectBurst:SetAttribute("EditableHatchEffect", true)
 	effectBurst:SetAttribute("UsesDefaultHatchLayout", true)
-	for index = 1, 60 do
+	for index = 1, MAX_HATCH_EFFECT_SPARKS do
 		local spark = findOrCreate(effectBurst, "Frame", "Spark" .. tostring(index))
 		spark.AnchorPoint = Vector2.new(0.5, 0.5)
 		spark.Size = UDim2.fromOffset(10, 10)
@@ -523,6 +582,21 @@ local function configureHatchAnimationUi(layer)
 		Color3.fromRGB(235, 54, 54)
 	).Visible =
 		false
+
+	local resultOdds = configureHatchText(
+		resultCard,
+		"ResultOdds",
+		"Color odds: 0%",
+		UDim2.new(0, 14, 1, -38),
+		UDim2.new(1, -28, 0, 30),
+		14,
+		Color3.fromRGB(66, 78, 110)
+	)
+	resultOdds.Font = Enum.Font.GothamBlack
+	resultOdds.TextWrapped = true
+	resultOdds.TextStrokeTransparency = 0.75
+	resultOdds.Visible = false
+	resultOdds:SetAttribute("EditableHatchOdds", true)
 end
 
 local function configureOption(parent, name, x, width, keyText, actionText, color)

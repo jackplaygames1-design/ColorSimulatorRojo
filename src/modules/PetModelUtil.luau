@@ -101,6 +101,35 @@ local function findStudioTemplate(petId)
 	return nil
 end
 
+local function findStudioMutationTemplate(petId, mutationId)
+	local source = findStudioSource()
+	if not source then
+		return nil
+	end
+
+	local normalizedMutationId = ColorMutationData.normalize(mutationId)
+	if normalizedMutationId == ColorMutationData.NoneId then
+		return nil
+	end
+
+	for _, eggFolder in ipairs(source:GetChildren()) do
+		local petsFolder = eggFolder:FindFirstChild("Pets")
+		local mutationFolder = petsFolder and petsFolder:FindFirstChild(tostring(petId) .. "_Mutations")
+		if mutationFolder and mutationFolder:IsA("Folder") then
+			local direct = mutationFolder:FindFirstChild(normalizedMutationId)
+			if direct and direct:IsA("Model") then
+				return direct
+			end
+			for _, child in ipairs(mutationFolder:GetChildren()) do
+				if child:IsA("Model") and child:GetAttribute("MutationId") == normalizedMutationId then
+					return child
+				end
+			end
+		end
+	end
+	return nil
+end
+
 local function makePart(model, name, shape, size, cframe, color, material, transparency)
 	local part = Instance.new("Part")
 	part.Name = name
@@ -116,13 +145,22 @@ local function makePart(model, name, shape, size, cframe, color, material, trans
 	return part
 end
 
-local function stripPreviewOnly(root)
+local function shouldPreserveMutationVisual(descendant, preserveMutationVisuals)
+	return preserveMutationVisuals
+		and (
+			descendant:GetAttribute("MutationVisual") == true
+			or descendant:GetAttribute("StudioMutationPolish") == true
+			or descendant:GetAttribute("MutationVariantVisual") == true
+		)
+end
+
+local function stripPreviewOnly(root, preserveMutationVisuals)
 	for _, descendant in ipairs(root:GetDescendants()) do
-		if
-			descendant:GetAttribute("PreviewOnly") == true
-			or descendant:GetAttribute("MutationVisual") == true
-			or (descendant:IsA("BillboardGui") and descendant.Name == "PreviewLabel")
-		then
+		local removablePreview = (
+			descendant:GetAttribute("PreviewOnly") == true or descendant:GetAttribute("MutationVisual") == true
+		) and not shouldPreserveMutationVisual(descendant, preserveMutationVisuals)
+		local previewBillboard = descendant:IsA("BillboardGui") and descendant.Name == "PreviewLabel"
+		if removablePreview or previewBillboard then
 			descendant:Destroy()
 		end
 	end
@@ -333,13 +371,11 @@ local function tintModelForMutation(model, mutation)
 				continue
 			end
 			descendant.Color = descendant.Color:Lerp(typeColor, tintStrength)
-			if mutation.Type == "Light" then
+			if mutation.Type == "Light" or mutation.Type == "Corrupted" then
 				descendant.Material = Enum.Material.Neon
 			elseif mutation.Type == "Dark" then
 				descendant.Material = descendant.Name == "Core" and Enum.Material.SmoothPlastic
 					or Enum.Material.ForceField
-			elseif mutation.Type == "Corrupted" then
-				descendant.Material = Enum.Material.Neon
 			end
 		end
 	end
@@ -476,7 +512,7 @@ function PetModelUtil.PrepareModel(model, options)
 		return nil
 	end
 
-	stripPreviewOnly(model)
+	stripPreviewOnly(model, options.preserveMutationVisuals == true)
 
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("BasePart") then
@@ -492,7 +528,7 @@ function PetModelUtil.PrepareModel(model, options)
 		)
 	end
 
-	if options.mutationId then
+	if options.mutationId and options.skipGeneratedMutationVisuals ~= true then
 		PetModelUtil.ApplyMutationVisuals(model, options.mutationId)
 	end
 
@@ -500,7 +536,32 @@ function PetModelUtil.PrepareModel(model, options)
 end
 
 function PetModelUtil.ClonePetModel(petId, options)
+	options = options or {}
+	local mutationId = options.mutationId and ColorMutationData.normalize(options.mutationId)
+		or ColorMutationData.NoneId
 	local template, definition = PetModelUtil.EnsureTemplate(petId)
+	if mutationId ~= ColorMutationData.NoneId then
+		local mutationTemplate = findStudioMutationTemplate(definition and definition.Id or petId, mutationId)
+		if mutationTemplate then
+			local clone = mutationTemplate:Clone()
+			clone.Name = (definition and definition.Id or petId) .. "Model"
+
+			local prepareOptions = {}
+			for key, value in pairs(options) do
+				prepareOptions[key] = value
+			end
+			prepareOptions.mutationId = nil
+			prepareOptions.preserveMutationVisuals = true
+			PetModelUtil.PrepareModel(clone, prepareOptions)
+
+			local mutation = ColorMutationData.get(mutationId)
+			clone:SetAttribute("FromMutationVariant", true)
+			clone:SetAttribute("MutationId", mutationId)
+			clone:SetAttribute("MutationName", mutation and mutation.DisplayName or mutationId)
+			return clone, definition
+		end
+	end
+
 	if not template then
 		return nil, definition
 	end

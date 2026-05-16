@@ -9,6 +9,7 @@ local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local ColorEffectHandler = require(script.Parent:WaitForChild("ColorEffectHandler"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
+local GroundPaintService = require(script.Parent:WaitForChild("GroundPaintService"))
 local GroupRewardsService = require(script.Parent:WaitForChild("GroupRewardsService"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local RankService = require(script.Parent:WaitForChild("RankService"))
@@ -464,6 +465,28 @@ local function isGroundContamination(part)
 		)
 end
 
+local function resolveGroundBrushPosition(player, root, range, groundPayload)
+	if type(groundPayload) == "table" and typeof(groundPayload.Position) == "Vector3" then
+		return groundPayload.Position
+	end
+	if not root then
+		return nil
+	end
+
+	local forwardDistance = math.clamp((tonumber(range) or 24) * 0.45, 6, 18)
+	local probeOrigin = root.Position + root.CFrame.LookVector * forwardDistance + Vector3.new(0, 8, 0)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { player.Character }
+	params.IgnoreWater = true
+
+	local result = workspace:Raycast(probeOrigin, Vector3.new(0, -36, 0), params)
+	if result then
+		return result.Position
+	end
+	return root.Position + root.CFrame.LookVector * forwardDistance
+end
+
 local function resetBreakable(part)
 	if not part or not part.Parent then
 		return
@@ -620,69 +643,75 @@ local function collectBreakable(player, part, options)
 	return true, reward, "Coins"
 end
 
+local fireEffectVfx
+
 local function processGroundBrush(player, toolConfig, toolStats, root, range, groundPayload)
-	if type(groundPayload) ~= "table" or typeof(groundPayload.Position) ~= "Vector3" or not root then
+	if not root then
 		return 0, 0
 	end
 
-	local hitPosition = groundPayload.Position
+	local hitPosition = resolveGroundBrushPosition(player, root, range, groundPayload)
+	if not hitPosition then
+		return 0, 0
+	end
+
 	local maxServerRange = tonumber(toolConfig.MaxServerRange) or range or 24
 	if (root.Position - hitPosition).Magnitude > maxServerRange + 12 then
 		return 0, 0
 	end
 
+	local groundConfig = GameBalance.GroundPaint or {}
 	local upgrades = player:FindFirstChild("Upgrades")
 	local brushSize = upgrades and upgrades:FindFirstChild("BrushSize")
 	local radius = tonumber(toolStats.BrushRadius)
 		or tonumber(toolConfig.BrushRadius)
+		or tonumber(groundConfig.BaseBrushRadius)
 		or math.max(4, (tonumber(toolConfig.Width) or 7) * 0.7)
 	if brushSize then
 		radius *= math.max(tonumber(brushSize.Value) or 1, 0.1)
 	end
 	radius = math.clamp(radius, 3, 30)
 
-	local params = OverlapParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { player.Character }
+	local basePower = tonumber(groundConfig.BaseBrushPower) or 0.24
+	local brushPower = tonumber(toolStats.BrushPower)
+		or tonumber(toolStats.CollectPowerMultiplier)
+		or tonumber(toolConfig.PowerMultiplier)
+		or 1
+	local rewardPower = tonumber(toolStats.BrushRewardMultiplier) or tonumber(toolConfig.BrushRewardMultiplier) or 0.38
+	local paintPower = math.clamp(basePower * brushPower * math.max(rewardPower / 0.38, 0.25), 0.03, 1.25)
 
-	local parts = workspace:GetPartBoundsInRadius(hitPosition, radius, params)
-	table.sort(parts, function(a, b)
-		return (a.Position - hitPosition).Magnitude < (b.Position - hitPosition).Magnitude
-	end)
-
-	local maxTargets =
-		math.clamp(tonumber(toolStats.MaxGroundTargets) or tonumber(toolConfig.MaxGroundTargets) or 6, 1, 18)
-	local powerMultiplier = (tonumber(toolStats.BrushPower) or tonumber(toolStats.CollectPowerMultiplier) or 1)
-		* (tonumber(toolStats.BrushRewardMultiplier) or tonumber(toolConfig.BrushRewardMultiplier) or 0.38)
-
-	local seen = {}
-	local collected = 0
-	local total = 0
-	for _, part in ipairs(parts) do
-		if collected >= maxTargets then
-			break
-		end
-		if isGroundContamination(part) and not seen[part] then
-			seen[part] = true
-			local partRadius = math.max(part.Size.X, part.Size.Z) * 0.5
-			if (part.Position - hitPosition).Magnitude <= radius + partRadius then
-				markPetPriorityTarget(player, part)
-				local ok, awarded = collectBreakable(player, part, {
-					maxRange = maxServerRange + radius + partRadius,
-					skipCooldown = true,
-					powerMultiplier = powerMultiplier,
-					source = "brush",
-					mode = "ground",
-				})
-				if ok and awarded > 0 then
-					collected += 1
-					total += awarded
-				end
-			end
-		end
+	local result = GroundPaintService.Brush(player, hitPosition, radius, paintPower)
+	local rewardUnits = GroundPaintService.GetPaintRewardUnits(result)
+	if rewardUnits <= 0 then
+		return 0, 0
 	end
 
-	return collected, total
+	local colorType = result.ColorType
+	local reward = math.floor(rewardUnits * getCollectMultiplier(player) * getInstantCoinMultiplier(player, colorType))
+	local critChance = upgrades and upgrades:FindFirstChild("CritChance")
+	if critChance and math.random() < math.clamp(critChance.Value, 0, 0.95) then
+		reward *= 2
+	end
+	reward = math.max(reward, 1)
+
+	if not awardCoins(player, reward) then
+		return 0, 0
+	end
+
+	if tutorialPatchClearedEvent then
+		tutorialPatchClearedEvent:Fire(player, colorType, reward, nil, "ground")
+	end
+	reportDailyQuestProgress(player, "ColorSpillsCleaned", 1)
+	if colorType == "Red" then
+		reportDailyQuestProgress(player, "RedWastelandsSpillsCleaned", 1)
+	end
+	reportDailyQuestProgress(player, "BrushUses", 1)
+
+	if result.Positions and #result.Positions > 0 then
+		fireEffectVfx(player, "BrushActive", root.Position, result.Positions, toolConfig.Id)
+	end
+
+	return math.max(1, tonumber(result.CellsChanged) or 1), reward
 end
 
 local function getPlayerFromHit(hit)
@@ -789,7 +818,7 @@ local function findNearbyBreakables(player, origin, range, maxTargets)
 	return result
 end
 
-local function fireEffectVfx(player, effectName, fromPosition, targetPositions, mutationId)
+function fireEffectVfx(player, effectName, fromPosition, targetPositions, mutationId)
 	if #targetPositions == 0 then
 		return
 	end
@@ -963,7 +992,16 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 		return
 	end
 
-	mode = mode == "walk" and "walk" or "sweep"
+	if mode == "walk" then
+		paintSweepEvent:FireClient(player, {
+			success = false,
+			total = 0,
+			collected = 0,
+			message = "Click with your Brush.",
+		})
+		return
+	end
+	mode = "sweep"
 
 	local effects = ColorEffectHandler.CalculateEquippedColorEffects(player)
 	local toolStats = getToolEffectiveStats(toolConfig)

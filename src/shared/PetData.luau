@@ -813,10 +813,10 @@ function PetData.formatStack(n)
 	return tostring(n)
 end
 
-function PetData.rollEgg(eggId, luckMult)
+local function getEggRollEntries(eggId, luckMult)
 	local egg = PetData.Eggs[eggId]
 	if not egg then
-		return nil
+		return nil, 0
 	end
 	local maxLuckMult = 2.5
 	if RunService:IsStudio() then
@@ -832,24 +832,53 @@ function PetData.rollEgg(eggId, luckMult)
 	}
 
 	local total = 0
+	local weighted = {}
 	for _, entry in ipairs(egg.pets) do
 		local pet = PetData.Pets[entry.petId]
 		local boost = pet and rarityBoost[pet.rarity] or 0
-		total += entry.chance * (1 + ((luckMult - 1) * boost))
+		local weight = entry.chance * (1 + ((luckMult - 1) * boost))
+		total += weight
+		table.insert(weighted, {
+			petId = entry.petId,
+			weight = weight,
+			baseChance = entry.chance,
+		})
+	end
+
+	return weighted, total
+end
+
+function PetData.getEggRollChance(eggId, petId, luckMult)
+	local weighted, total = getEggRollEntries(eggId, luckMult)
+	if not weighted or total <= 0 then
+		return nil
+	end
+
+	petId = tostring(petId or "")
+	for _, entry in ipairs(weighted) do
+		if entry.petId == petId then
+			return (entry.weight / total) * 100
+		end
+	end
+	return nil
+end
+
+function PetData.rollEgg(eggId, luckMult)
+	local weighted, total = getEggRollEntries(eggId, luckMult)
+	if not weighted or total <= 0 then
+		return nil
 	end
 
 	local roll = math.random() * total
 	local cumulative = 0
-	for _, entry in ipairs(egg.pets) do
-		local pet = PetData.Pets[entry.petId]
-		local boost = pet and rarityBoost[pet.rarity] or 0
-		cumulative += entry.chance * (1 + ((luckMult - 1) * boost))
+	for _, entry in ipairs(weighted) do
+		cumulative += entry.weight
 		if roll <= cumulative then
 			return entry.petId
 		end
 	end
 
-	return egg.pets[1].petId
+	return weighted[1] and weighted[1].petId or nil
 end
 
 return PetData

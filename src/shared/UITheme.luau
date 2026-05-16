@@ -2,12 +2,19 @@
 local RunService = game:GetService("RunService")
 
 local UserInputService = nil
+local GuiService = nil
 if RunService:IsClient() then
 	local ok, service = pcall(function()
 		return game:GetService("UserInputService")
 	end)
 	if ok then
 		UserInputService = service
+	end
+	local guiOk, guiService = pcall(function()
+		return game:GetService("GuiService")
+	end)
+	if guiOk then
+		GuiService = guiService
 	end
 end
 
@@ -170,6 +177,18 @@ function Theme.GetViewportSize()
 	return camera and camera.ViewportSize or Vector2.new(1280, 720)
 end
 
+function Theme.GetSafeViewportSize()
+	local viewport = Theme.GetViewportSize()
+	if not GuiService then
+		return viewport
+	end
+	local topLeftInset, bottomRightInset = GuiService:GetGuiInset()
+	return Vector2.new(
+		math.max(1, viewport.X - topLeftInset.X - bottomRightInset.X),
+		math.max(1, viewport.Y - topLeftInset.Y - bottomRightInset.Y)
+	)
+end
+
 function Theme.IsTouchDevice()
 	return UserInputService and UserInputService.TouchEnabled == true
 end
@@ -200,7 +219,7 @@ function Theme.ApplyResponsiveScale(instance, baseWidth, baseHeight, minScale, m
 	margin = margin or 28
 
 	local function updateScale()
-		local viewport = Theme.GetViewportSize()
+		local viewport = Theme.GetSafeViewportSize()
 		local touch = Theme.IsTouchDevice()
 		local effectiveMargin = touch and math.max(margin, 36) or margin
 		local minimum = touch and math.max(minScale, 0.72) or minScale

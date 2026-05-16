@@ -9,6 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
+local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 
 local function loadToolData()
 	local module = ReplicatedStorage:WaitForChild("ToolData", 3)
@@ -128,6 +129,8 @@ local function getToolEffectiveStats(toolConfig)
 	}
 end
 
+local getUpgradeMultiplier
+
 local function hasActiveWildBuff(buffId)
 	local folder = player:FindFirstChild("WildBuffs")
 	return folder and folder:FindFirstChild(buffId) ~= nil
@@ -154,6 +157,132 @@ local function isGroundContamination(part)
 		)
 end
 
+local function getSurfaceColorAttribute(instance)
+	if not instance then
+		return nil
+	end
+
+	local attrColor = instance:GetAttribute("ColorType")
+		or instance:GetAttribute("WorldColor")
+		or instance:GetAttribute("AreaColor")
+		or instance:GetAttribute("SectorColor")
+		or instance:GetAttribute("SpawnColor")
+	if type(attrColor) == "string" and ColorData.Colors[attrColor] then
+		return attrColor
+	end
+
+	return nil
+end
+
+local function inferGroundColorFromSurface(part)
+	local current = part
+	while current and current ~= workspace do
+		local attrColor = getSurfaceColorAttribute(current)
+		if attrColor then
+			return attrColor
+		end
+
+		local loweredName = string.lower(current.Name or "")
+		for _, world in ipairs(ColorData.Worlds or {}) do
+			local color = world.primaryColor
+			if color and loweredName:find(string.lower(color), 1, true) then
+				return color
+			end
+		end
+		for color in pairs(ColorData.Colors or {}) do
+			if loweredName:find(string.lower(color), 1, true) then
+				return color
+			end
+		end
+
+		current = current.Parent
+	end
+
+	return nil
+end
+
+local function looksLikeBrushableSectorFloor(part)
+	local partName = string.lower(part.Name or "")
+	local parentName = part.Parent and string.lower(part.Parent.Name or "") or ""
+	if
+		partName:find("pipe", 1, true)
+		or parentName:find("pipe", 1, true)
+		or partName == "core"
+		or partName == "glowshell"
+		or partName == "highlight"
+		or partName:find("floatcore", 1, true)
+	then
+		return false
+	end
+
+	local hasSurfaceName = partName:find("floor", 1, true)
+		or partName:find("ground", 1, true)
+		or partName:find("zone", 1, true)
+		or partName:find("area", 1, true)
+		or partName:find("sector", 1, true)
+		or parentName:find("floor", 1, true)
+		or parentName:find("ground", 1, true)
+		or parentName:find("zone", 1, true)
+		or parentName:find("area", 1, true)
+		or parentName:find("sector", 1, true)
+		or parentName:find("wasteland", 1, true)
+	local largeFlatSurface = (part.Size.X * part.Size.Z) >= 1600
+		and part.Size.X >= 35
+		and part.Size.Z >= 35
+		and part.Size.Y <= math.max(8, math.min(part.Size.X, part.Size.Z) * 0.3)
+
+	return hasSurfaceName ~= nil and largeFlatSurface and inferGroundColorFromSurface(part) ~= nil
+end
+
+local function isBrushableGroundSurface(part)
+	if not part or not part:IsA("BasePart") then
+		return false
+	end
+	if isGroundContamination(part) then
+		return true
+	end
+	if part:GetAttribute("BreakableType") ~= nil then
+		return true
+	end
+	if part:GetAttribute("NoContamination") == true or part:GetAttribute("NoColorSpawn") == true then
+		return false
+	end
+	return part:GetAttribute("ColorZone") == true
+		or part:GetAttribute("PlayableSectorFloor") == true
+		or part:GetAttribute("ZoneFloor") == true
+		or part:GetAttribute("ContaminationAllowed") == true
+		or looksLikeBrushableSectorFloor(part)
+end
+
+local function getGroundBrushRadius(toolConfig)
+	local stats = getToolEffectiveStats(toolConfig)
+	local radius = tonumber(stats.BrushRadius)
+		or tonumber(toolConfig.BrushRadius)
+		or math.max(4, (toolConfig.Width or 7) * 0.7)
+	radius *= getUpgradeMultiplier("BrushSize", 1)
+	return math.clamp(radius, 3, 30)
+end
+
+local function findNearestGroundContamination(position, radius)
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { player.Character, brushVisual }
+
+	local nearest = nil
+	local nearestDistance = math.huge
+	for _, part in ipairs(workspace:GetPartBoundsInRadius(position, math.max(radius, 10), params)) do
+		if isGroundContamination(part) and part.Transparency < 1 and not part:GetAttribute("IsCollected") then
+			local distance = (part.Position - position).Magnitude
+			if distance < nearestDistance then
+				nearest = part
+				nearestDistance = distance
+			end
+		end
+	end
+
+	return nearest
+end
+
 local function getInputPosition(input)
 	local position = input and input.Position
 	if typeof(position) == "Vector3" then
@@ -176,23 +305,29 @@ local function findGroundBrushPayload(toolConfig)
 	params.IgnoreWater = true
 
 	local result = workspace:Raycast(ray.Origin, ray.Direction * 600, params)
-	if not result or not isGroundContamination(result.Instance) then
+	if not result or not isBrushableGroundSurface(result.Instance) then
 		return nil
+	end
+
+	local hitPosition = result.Position
+	local target = result.Instance
+	if not isGroundContamination(target) then
+		target = findNearestGroundContamination(hitPosition, getGroundBrushRadius(toolConfig)) or result.Instance
 	end
 
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if root then
 		local maxRange = tonumber(toolConfig.MaxServerRange) or getClientRange(toolConfig)
-		if (root.Position - result.Position).Magnitude > maxRange + 12 then
+		if (root.Position - hitPosition).Magnitude > maxRange + 12 then
 			return nil
 		end
 	end
 
 	return {
-		Position = result.Position,
+		Position = hitPosition,
 		Normal = result.Normal,
-		Target = result.Instance,
+		Target = target,
 	}
 end
 
@@ -207,10 +342,7 @@ local function showGroundBrushEffect(payload, toolConfig)
 	end
 	lastGroundVisualAt = now
 
-	local stats = getToolEffectiveStats(toolConfig)
-	local radius = tonumber(stats.BrushRadius)
-		or tonumber(toolConfig.BrushRadius)
-		or math.max(4, (toolConfig.Width or 7) * 0.7)
+	local radius = getGroundBrushRadius(toolConfig)
 	local ring = Instance.new("Part")
 	ring.Name = "LocalBrushCleanPulse"
 	ring.Shape = Enum.PartType.Cylinder
@@ -233,7 +365,7 @@ local function showGroundBrushEffect(payload, toolConfig)
 	Debris:AddItem(ring, 0.28)
 end
 
-local function getUpgradeMultiplier(name, defaultValue)
+function getUpgradeMultiplier(name, defaultValue)
 	local upgrades = player:FindFirstChild("Upgrades")
 	local value = upgrades and upgrades:FindFirstChild(name)
 	return value and math.max(tonumber(value.Value) or defaultValue, 0.01) or defaultValue
@@ -729,7 +861,8 @@ local function watchTool(tool)
 		end
 	end)
 	tool.Activated:Connect(function()
-		activateBrush(tool)
+		local toolConfig = ToolData.get(equippedToolId)
+		activateBrush(tool, findGroundBrushPayload(toolConfig))
 	end)
 end
 
@@ -821,7 +954,6 @@ end
 task.spawn(function()
 	while true do
 		task.wait(0.04)
-		autoCollectBrush()
 		if brushHeld and brushEquipped then
 			local toolConfig = ToolData.get(equippedToolId)
 			local groundPayload = findGroundBrushPayload(toolConfig)

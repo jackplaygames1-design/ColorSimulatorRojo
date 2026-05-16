@@ -23,11 +23,18 @@ GameBalance.Collection = {
 }
 
 GameBalance.Contamination = {
-	Enabled = true,
-	TileSize = 34,
-	MaxCellsPerZone = 96,
-	HeightOffset = 0.055,
-	BaseTransparency = 0.24,
+	Enabled = false,
+	TileSize = 10,
+	MaxCellDimension = 10,
+	CellFill = 0.82,
+	MaxCellsPerZone = 520,
+	SurfaceInset = 10,
+	FallbackFloorCoverageX = 220,
+	FallbackFloorCoverageZ = 220,
+	HeightOffset = 0.08,
+	BaseTransparency = 0.18,
+	BaseLayerTransparency = 0.34,
+	BaseLayerHeightOffset = 0.025,
 	CleanTransparency = 1,
 	DefaultRegenDelay = 8,
 	RegenDelayByColor = {
@@ -44,10 +51,11 @@ GameBalance.Contamination = {
 	BaseReward = 4,
 	RewardMultiplier = 0.35,
 	PetRewardMultiplier = 0.24,
-	InitialBuildDelay = 5,
+	InitialBuildDelay = 1,
 	BuildBatchSize = 12,
 	BuildBatchDelay = 0.03,
 	SpawnExclusionPadding = 48,
+	SafeExclusionPadding = 24,
 	SafeNameFragments = {
 		"origin",
 		"zork",
@@ -74,10 +82,44 @@ GameBalance.Contamination = {
 	},
 }
 
+GameBalance.GroundPaint = {
+	Enabled = true,
+
+	CellSize = 10,
+	MaxCellsPerSurface = 1800,
+	MaxVisibleCellsPerClient = 2500,
+
+	FullCoverage = 1,
+	EmptyCoverage = 0,
+	StartCoverage = 1,
+
+	FullPaintTransparency = 0.12,
+	ClearedTransparency = 1,
+
+	RegenPerSecond = 0.18,
+	RegenDelayAfterBrush = 0.35,
+
+	ServerDeltaHz = 10,
+	ClientSendHz = 12,
+
+	BaseBrushRadius = 5.5,
+	BaseBrushPower = 0.24,
+	RewardPerCoverageUnit = 1,
+
+	PetCollectRadius = 4,
+	PetCollectInterval = 0.65,
+	PetPowerScale = 0.35,
+
+	SurfaceInset = 6,
+	VisualHeightOffset = 0.08,
+	BlackBaseMaterial = "SmoothPlastic",
+	Debug = false,
+}
+
 GameBalance.FeatureFlags = {
 	GemDepositsEnabled = true,
-	WildColorsEnabled = true,
-	RuntimeColorPopulationEnabled = true,
+	WildColorsEnabled = false,
+	RuntimeColorPopulationEnabled = false,
 	RuntimeTutorialSectorBuildingEnabled = false,
 	RuntimeWorldBuildingEnabled = false,
 	RuntimeWorldLabelsEnabled = false,

@@ -213,9 +213,44 @@ end
 
 local function isMobileLayout()
 	local viewport = getViewportSize()
-	return UserInputService.TouchEnabled
-		and not UserInputService.KeyboardEnabled
-		and math.min(viewport.X, viewport.Y) <= 900
+	local minAxis = math.min(viewport.X, viewport.Y)
+	local maxAxis = math.max(viewport.X, viewport.Y)
+	return UserInputService.TouchEnabled and (minAxis <= 1024 or maxAxis <= 1280)
+end
+
+local function isPhoneLayout()
+	local viewport = getViewportSize()
+	return UserInputService.TouchEnabled and math.min(viewport.X, viewport.Y) <= 720
+end
+
+local function getSafeFrame(margin)
+	local viewport = getViewportSize()
+	local topLeftInset, bottomRightInset = GuiService:GetGuiInset()
+	local left = topLeftInset.X + margin
+	local top = topLeftInset.Y + margin
+	local width = math.max(1, viewport.X - topLeftInset.X - bottomRightInset.X - margin * 2)
+	local height = math.max(1, viewport.Y - topLeftInset.Y - bottomRightInset.Y - margin * 2)
+	return left, top, width, height
+end
+
+local function ensureTouchTarget(guiObject, minSize)
+	if not (guiObject and guiObject:IsA("GuiObject")) then
+		return
+	end
+
+	local constraint = guiObject:FindFirstChild("RuntimeTouchTarget")
+	if constraint and not constraint:IsA("UISizeConstraint") then
+		constraint:Destroy()
+		constraint = nil
+	end
+
+	if not constraint then
+		constraint = Instance.new("UISizeConstraint")
+		constraint.Name = "RuntimeTouchTarget"
+		constraint.Parent = guiObject
+	end
+
+	constraint.MinSize = Vector2.new(minSize, minSize)
 end
 
 local function findResponsiveScale(parent)
@@ -284,6 +319,7 @@ local function styleCloseIcon(closeButton)
 	closeButton.BackgroundColor3 = Color3.fromRGB(216, 24, 32)
 	closeButton.BorderSizePixel = 0
 	closeButton.ZIndex = math.max(closeButton.ZIndex, MODAL_ZINDEX + 4)
+	ensureTouchTarget(closeButton, mobile and 52 or 44)
 	closeButton:SetAttribute("NoTextGlow", true)
 	if closeButton:IsA("TextButton") then
 		closeButton.Text = "X"
@@ -381,8 +417,14 @@ local function styleCurrencyBar()
 	end
 
 	currencyBar.AnchorPoint = Vector2.new(0, 0)
-	currencyBar.Position = UDim2.new(0, 8, 0.5, 8)
-	currencyBar.Size = UDim2.fromOffset(136, 100)
+	if isMobileLayout() then
+		local topLeftInset = GuiService:GetGuiInset()
+		currencyBar.Position = UDim2.fromOffset(topLeftInset.X + 8, topLeftInset.Y + 8)
+		currencyBar.Size = UDim2.fromOffset(128, 92)
+	else
+		currencyBar.Position = UDim2.new(0, 8, 0.5, 8)
+		currencyBar.Size = UDim2.fromOffset(136, 100)
+	end
 	currencyBar.BackgroundTransparency = 1
 	currencyBar.ClipsDescendants = false
 	currencyBar.ZIndex = math.max(currencyBar.ZIndex, CURRENCY_ZINDEX)
@@ -407,6 +449,7 @@ local function styleBottomButtonVisual(button)
 	local hasImage = hasRenderableImage(button.Image)
 	button.ImageTransparency = hasImage and 0 or 1
 	button.ScaleType = Enum.ScaleType.Fit
+	ensureTouchTarget(button, isMobileLayout() and 52 or 44)
 
 	local label = button:FindFirstChild("Label")
 	if label and label:IsA("TextLabel") then
@@ -428,19 +471,25 @@ end
 
 local function styleBottomButtons()
 	local scale = findResponsiveScale(bottomButtons)
+	if isPhoneLayout() and activeWindowName ~= nil then
+		bottomButtons.Visible = false
+		return
+	end
+
+	bottomButtons.Visible = true
 	if isMobileLayout() then
 		local viewport = getViewportSize()
 		local portrait = viewport.Y >= viewport.X
-		local bottomOffset = getBottomInset() + (portrait and 148 or 104)
-		local targetWidth = math.floor(math.min(viewport.X * (portrait and 0.86 or 0.56), portrait and 390 or 440))
+		local bottomOffset = getBottomInset() + (portrait and 116 or 78)
+		local targetWidth = math.floor(math.min(viewport.X * (portrait and 0.88 or 0.58), portrait and 390 or 440))
 		bottomButtons.AnchorPoint = Vector2.new(0.5, 1)
 		bottomButtons.Position = UDim2.new(0.5, 0, 1, -bottomOffset)
-		bottomButtons.Size = UDim2.fromOffset(targetWidth, portrait and 64 or 62)
+		bottomButtons.Size = UDim2.fromOffset(targetWidth, portrait and 66 or 62)
 		bottomButtons.BackgroundTransparency = 1
 		bottomButtons.ClipsDescendants = false
 		bottomButtons.ZIndex = math.max(bottomButtons.ZIndex, MOBILE_BOTTOM_ZINDEX)
 		if scale then
-			scale.Scale = portrait and 0.78 or 0.84
+			scale.Scale = portrait and 0.82 or 0.88
 		end
 		raiseGuiObjectTree(bottomButtons, MOBILE_BOTTOM_ZINDEX)
 		styleBottomButtonVisuals()
@@ -458,6 +507,17 @@ local function styleBottomButtons()
 	bottomButtons.ZIndex = math.max(bottomButtons.ZIndex, BOTTOM_BUTTON_ZINDEX)
 	raiseGuiObjectTree(bottomButtons, BOTTOM_BUTTON_ZINDEX)
 	styleBottomButtonVisuals()
+end
+
+local function styleScrollableAreas(root, mobile)
+	for _, descendant in ipairs(root:GetDescendants()) do
+		if descendant:IsA("ScrollingFrame") then
+			descendant.ScrollingEnabled = true
+			descendant.ScrollBarThickness = mobile and 5 or math.max(descendant.ScrollBarThickness, 6)
+			descendant.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+			descendant.ScrollingDirection = Enum.ScrollingDirection.XY
+		end
+	end
 end
 
 local function styleModalWindow(windowName, window)
@@ -482,18 +542,23 @@ local function styleModalWindow(windowName, window)
 	if mobile then
 		local viewport = getViewportSize()
 		local portrait = viewport.Y >= viewport.X
-		local topInset = GuiService:GetGuiInset()
-		local scaleValue = math.clamp(math.min(viewport.X / 900, viewport.Y / 720), 0.58, 0.9)
+		local margin = portrait and 10 or 16
+		local left, top, safeWidth, safeHeight = getSafeFrame(margin)
+		local scaleValue = math.clamp(math.min(safeWidth / 900, safeHeight / 720), portrait and 0.56 or 0.54, 0.92)
 		local widthScale = portrait and (window:GetAttribute("MobilePortraitWidthScale") or 0.94)
 			or (window:GetAttribute("MobileLandscapeWidthScale") or 0.78)
 		local heightScale = portrait and (window:GetAttribute("MobilePortraitHeightScale") or 0.78)
 			or (window:GetAttribute("MobileLandscapeHeightScale") or 0.82)
-		local width = math.floor(viewport.X * widthScale)
-		local height = math.floor(viewport.Y * heightScale)
+		if isPhoneLayout() then
+			widthScale = math.max(widthScale, portrait and 1 or 0.9)
+			heightScale = math.max(heightScale, portrait and 1 or 0.92)
+		end
+		local width = math.floor(math.min(safeWidth * widthScale, safeWidth))
+		local height = math.floor(math.min(safeHeight * heightScale, safeHeight))
 		if scale then
 			scale.Scale = scaleValue
 		end
-		window.Position = UDim2.new(0.5, 0, 0.5, math.floor((topInset.Y - getBottomInset()) * 0.18))
+		window.Position = UDim2.fromOffset(math.floor(left + safeWidth * 0.5), math.floor(top + safeHeight * 0.5))
 		window.Size = UDim2.fromOffset(math.floor(width / scaleValue), math.floor(height / scaleValue))
 	else
 		if scale then
@@ -512,6 +577,7 @@ local function styleModalWindow(windowName, window)
 	if closeButton and closeButton:IsA("GuiObject") then
 		styleCloseIcon(closeButton)
 	end
+	styleScrollableAreas(window, mobile)
 end
 
 local function restyleAll()
@@ -610,10 +676,11 @@ end
 
 local function setMenuExpanded(expanded)
 	menuExpanded = expanded == true
-	setSideButtonsVisible(menuExpanded or activeWindowName ~= nil)
-	bottomButtons.Visible = true
-	menuButton.Visible = true
-	menuButton.Active = true
+	local phoneModalOpen = isPhoneLayout() and activeWindowName ~= nil
+	setSideButtonsVisible((menuExpanded or activeWindowName ~= nil) and not phoneModalOpen)
+	bottomButtons.Visible = not phoneModalOpen
+	menuButton.Visible = not phoneModalOpen
+	menuButton.Active = not phoneModalOpen
 	if currencyBar then
 		currencyBar.Visible = true
 	end

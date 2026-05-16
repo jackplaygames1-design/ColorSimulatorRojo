@@ -961,7 +961,7 @@ function ColorMutationData.getTypeAura(mutationType)
 	return TYPE_AURAS[mutationType] or TYPE_AURAS.None
 end
 
-function ColorMutationData.roll(luckMultiplier)
+local function getMutationRollWeights(luckMultiplier)
 	luckMultiplier = math.clamp(tonumber(luckMultiplier) or 1, 1, 3.5)
 
 	local noMutationWeight = NO_MUTATION_WEIGHT
@@ -978,6 +978,29 @@ function ColorMutationData.roll(luckMultiplier)
 			table.insert(weighted, { mutation = mutation, weight = weight })
 		end
 	end
+
+	return noMutationWeight, totalWeight, weighted
+end
+
+function ColorMutationData.getRollChance(mutationId, luckMultiplier)
+	mutationId = ColorMutationData.normalize(mutationId)
+	local noMutationWeight, totalWeight, weighted = getMutationRollWeights(luckMultiplier)
+	if totalWeight <= 0 then
+		return nil
+	end
+	if mutationId == ColorMutationData.NoneId then
+		return (noMutationWeight / totalWeight) * 100
+	end
+	for _, data in ipairs(weighted) do
+		if data.mutation.Id == mutationId then
+			return (data.weight / totalWeight) * 100
+		end
+	end
+	return nil
+end
+
+function ColorMutationData.roll(luckMultiplier)
+	local noMutationWeight, totalWeight, weighted = getMutationRollWeights(luckMultiplier)
 
 	local roll = math.random() * totalWeight
 	if roll <= noMutationWeight then

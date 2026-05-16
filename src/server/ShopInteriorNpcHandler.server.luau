@@ -230,7 +230,8 @@ local function getEntranceFallbackScore(obj)
 	local color = obj.Color
 	local blueScore = color.B - math.max(color.R, color.G) * 0.35
 	local verticalScore = obj.Size.Y - math.min(obj.Size.X, obj.Size.Z)
-	return blueScore * 10 + verticalScore
+	local thinScore = math.max(obj.Size.X, obj.Size.Z) - math.min(obj.Size.X, obj.Size.Z)
+	return blueScore * 10 + verticalScore * 2 + thinScore * 0.35
 end
 
 local function findExteriorEntrances(shop, shopInside)
@@ -254,11 +255,14 @@ local function findExteriorEntrances(shop, shopInside)
 	local best
 	local bestScore = -math.huge
 	for _, obj in ipairs(shop:GetDescendants()) do
-		if
-			isExteriorEntranceCandidate(obj, shopInside)
-			and (isNamedEntrancePart(obj) or obj:GetAttribute("BrushShop") == true)
-		then
+		if isExteriorEntranceCandidate(obj, shopInside) then
 			local score = getEntranceFallbackScore(obj)
+			if obj:GetAttribute("BrushShop") == true then
+				score -= 80
+			end
+			if obj:GetAttribute("ShopDecor") == true or obj:GetAttribute("BrushShopDecor") == true then
+				score -= 60
+			end
 			if score > bestScore then
 				best = obj
 				bestScore = score
@@ -646,6 +650,9 @@ local function ensureShopTeleportPrompts(shopInside, floor, npcCore)
 	end
 
 	for _, entrance in ipairs(entrances) do
+		local outward = getEntranceOutward(entrance)
+		local triggerDepth = math.max(math.min(entrance.Size.X, entrance.Size.Z) + 8, 10)
+		local triggerCenter = entrance.Position + outward * math.max(triggerDepth * 0.35, 3)
 		entrance:SetAttribute("ShopEntrance", true)
 		entrance:SetAttribute("ColorType", SHOP_COLOR)
 		local enterPrompt = entrance:FindFirstChild("EnterShopPrompt")
@@ -659,7 +666,7 @@ local function ensureShopTeleportPrompts(shopInside, floor, npcCore)
 		enterPrompt.KeyboardKeyCode = Enum.KeyCode.E
 		enterPrompt.GamepadKeyCode = Enum.KeyCode.ButtonX
 		enterPrompt.HoldDuration = 0
-		enterPrompt.MaxActivationDistance = 14
+		enterPrompt.MaxActivationDistance = 20
 		enterPrompt.RequiresLineOfSight = false
 		enterPrompt:SetAttribute("ShopEnterPrompt", true)
 
@@ -675,11 +682,11 @@ local function ensureShopTeleportPrompts(shopInside, floor, npcCore)
 			trigger.Parent = entrance
 		end
 		trigger.Size = Vector3.new(
-			math.max(entrance.Size.X + 2, 6),
+			math.max(entrance.Size.X + 8, 10),
 			math.max(entrance.Size.Y + 2, 7),
-			math.max(entrance.Size.Z + 3, 5)
+			math.max(entrance.Size.Z + triggerDepth, triggerDepth)
 		)
-		trigger.CFrame = entrance.CFrame
+		trigger.CFrame = CFrame.new(triggerCenter) * entrance.CFrame.Rotation
 		trigger.Anchored = true
 		trigger.CanCollide = false
 		trigger.CanTouch = true

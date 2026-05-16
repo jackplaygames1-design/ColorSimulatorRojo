@@ -171,7 +171,7 @@ local function removeGeneratedMutationFolders(source)
 			continue
 		end
 		for _, child in ipairs(petsFolder:GetChildren()) do
-			if child:IsA("Folder") and string.match(child.Name, "_Mutations$") then
+			if child:IsA("Folder") and child:GetAttribute("TemporaryMutationPreview") == true then
 				child:Destroy()
 			end
 		end

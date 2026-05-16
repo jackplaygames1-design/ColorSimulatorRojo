@@ -1,5 +1,6 @@
 -- Focused Sector egg shop: one usable egg per Sector.
 
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -85,6 +86,17 @@ local RARITY_COLOR = {
 	Legendary = Color3.fromRGB(255, 190, 50),
 	Secret = Color3.fromRGB(255, 80, 140),
 }
+
+local RARITY_SCORE = {
+	Common = 1,
+	Uncommon = 1.35,
+	Rare = 2,
+	Epic = 3,
+	Legendary = 4,
+	Secret = 5,
+}
+
+local MAX_EFFECT_SPARKS = 96
 
 local EGG_BY_WORLD = {}
 for _, eggId in ipairs(PetData.EggOrder or {}) do
@@ -212,6 +224,25 @@ local function formatChance(value)
 		return string.format("%.2f%%", value)
 	end
 	return string.format("%g%%", value)
+end
+
+local function formatRollOdds(value)
+	value = tonumber(value)
+	if not value or value <= 0 then
+		return "Unknown odds"
+	end
+
+	local percent
+	if value < 0.01 then
+		percent = string.format("%.4f%%", value)
+	elseif value < 1 then
+		percent = string.format("%.3f%%", value):gsub("0+$", ""):gsub("%.$", "")
+	else
+		percent = string.format("%.2f%%", value):gsub("0+$", ""):gsub("%.$", "")
+	end
+
+	local oneIn = math.max(1, math.floor((100 / value) + 0.5))
+	return percent .. " (1 in " .. formatNum(oneIn) .. ")"
 end
 
 local function parseOwnedPetsFromInventory(value)
@@ -1014,20 +1045,146 @@ if resultStats:GetAttribute("UsesDefaultHatchLayout") ~= true then
 end
 resultStats.Visible = false
 
+local resultOdds = getEditableChild(resultCard, "TextLabel", "ResultOdds")
+if resultOdds:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	resultOdds.Size = UDim2.new(1, -28, 0, 30)
+	resultOdds.Position = UDim2.new(0, 14, 1, -38)
+	resultOdds.BackgroundTransparency = 1
+	resultOdds.Font = Enum.Font.GothamBlack
+	resultOdds.TextSize = 14
+	resultOdds.TextScaled = true
+	resultOdds.TextColor3 = Color3.fromRGB(66, 78, 110)
+	resultOdds.TextStrokeTransparency = 0.75
+	resultOdds.TextStrokeColor3 = WHITE
+	resultOdds.TextWrapped = true
+	resultOdds.TextXAlignment = Enum.TextXAlignment.Left
+	resultOdds.TextYAlignment = Enum.TextYAlignment.Center
+	resultOdds.Text = "Odds"
+	resultOdds.ZIndex = 911
+	ensureTextSizeLimit(resultOdds, 9, 14)
+	resultOdds:SetAttribute("EditableHatchOdds", true)
+	resultOdds:SetAttribute("UsesDefaultHatchLayout", true)
+end
+resultOdds.Visible = false
+
 local rarityFlash = hatchOverlay:FindFirstChild("RarityFlash")
 local rarityBanner = hatchOverlay:FindFirstChild("RarityBanner")
-local effectBurst = hatchOverlay:FindFirstChild("EffectBurst")
+local cutsceneBackdrop = getEditableChild(hatchOverlay, "Frame", "RngCutsceneBackdrop")
+if cutsceneBackdrop:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	cutsceneBackdrop.Size = UDim2.fromScale(1, 1)
+	cutsceneBackdrop.Position = UDim2.fromScale(0, 0)
+	cutsceneBackdrop.BackgroundColor3 = Color3.fromRGB(6, 8, 15)
+	cutsceneBackdrop.BackgroundTransparency = 1
+	cutsceneBackdrop.BorderSizePixel = 0
+	cutsceneBackdrop.ZIndex = 886
+	cutsceneBackdrop:SetAttribute("EditableHatchCutscene", true)
+	cutsceneBackdrop:SetAttribute("UsesDefaultHatchLayout", true)
+end
+cutsceneBackdrop.Visible = false
+
+local cutsceneShockwave = getEditableChild(hatchOverlay, "Frame", "RngCutsceneShockwave")
+if cutsceneShockwave:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	cutsceneShockwave.AnchorPoint = Vector2.new(0.5, 0.5)
+	cutsceneShockwave.Size = UDim2.fromOffset(80, 80)
+	cutsceneShockwave.Position = UDim2.fromScale(0.5, 0.45)
+	cutsceneShockwave.BackgroundColor3 = WHITE
+	cutsceneShockwave.BackgroundTransparency = 1
+	cutsceneShockwave.BorderSizePixel = 0
+	cutsceneShockwave.ZIndex = 913
+	ensureCorner(cutsceneShockwave, 999)
+	local shockwaveStroke = ensureStroke(cutsceneShockwave, WHITE, 5)
+	shockwaveStroke.Transparency = 1
+	cutsceneShockwave:SetAttribute("EditableHatchCutscene", true)
+	cutsceneShockwave:SetAttribute("UsesDefaultHatchLayout", true)
+end
+cutsceneShockwave.Visible = false
+
+local cutsceneTitle = getEditableChild(hatchOverlay, "TextLabel", "RngCutsceneTitle")
+if cutsceneTitle:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	cutsceneTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+	cutsceneTitle.Size = UDim2.fromOffset(760, 84)
+	cutsceneTitle.Position = UDim2.fromScale(0.5, 0.23)
+	cutsceneTitle.BackgroundTransparency = 1
+	cutsceneTitle.Font = Enum.Font.LuckiestGuy
+	cutsceneTitle.Text = "INSANE HATCH!"
+	cutsceneTitle.TextScaled = true
+	cutsceneTitle.TextColor3 = WHITE
+	cutsceneTitle.TextStrokeTransparency = 0
+	cutsceneTitle.TextStrokeColor3 = DARK
+	cutsceneTitle.ZIndex = 935
+	ensureTextSizeLimit(cutsceneTitle, 18, 58)
+	cutsceneTitle:SetAttribute("EditableHatchCutscene", true)
+	cutsceneTitle:SetAttribute("UsesDefaultHatchLayout", true)
+end
+cutsceneTitle.Visible = false
+
+local cutsceneSubtitle = getEditableChild(hatchOverlay, "TextLabel", "RngCutsceneSubtitle")
+if cutsceneSubtitle:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	cutsceneSubtitle.AnchorPoint = Vector2.new(0.5, 0.5)
+	cutsceneSubtitle.Size = UDim2.fromOffset(660, 48)
+	cutsceneSubtitle.Position = UDim2.fromScale(0.5, 0.31)
+	cutsceneSubtitle.BackgroundTransparency = 1
+	cutsceneSubtitle.Font = Enum.Font.GothamBlack
+	cutsceneSubtitle.Text = "A rare Color is breaking out"
+	cutsceneSubtitle.TextScaled = true
+	cutsceneSubtitle.TextColor3 = Color3.fromRGB(230, 240, 255)
+	cutsceneSubtitle.TextStrokeTransparency = 0.35
+	cutsceneSubtitle.TextStrokeColor3 = DARK
+	cutsceneSubtitle.ZIndex = 935
+	ensureTextSizeLimit(cutsceneSubtitle, 12, 28)
+	cutsceneSubtitle:SetAttribute("EditableHatchCutscene", true)
+	cutsceneSubtitle:SetAttribute("UsesDefaultHatchLayout", true)
+end
+cutsceneSubtitle.Visible = false
+
+local effectBurst = getEditableChild(hatchOverlay, "Frame", "EffectBurst")
+if effectBurst:GetAttribute("UsesDefaultHatchLayout") ~= true then
+	effectBurst.Size = UDim2.fromScale(1, 1)
+	effectBurst.Position = UDim2.fromScale(0, 0)
+	effectBurst.BackgroundTransparency = 1
+	effectBurst.BorderSizePixel = 0
+	effectBurst.Visible = true
+	effectBurst.ZIndex = 912
+	effectBurst:SetAttribute("EditableHatchEffect", true)
+	effectBurst:SetAttribute("UsesDefaultHatchLayout", true)
+end
 local effectSparks = {}
 if effectBurst then
-	for index = 1, 60 do
+	for index = 1, MAX_EFFECT_SPARKS do
 		local spark = effectBurst:FindFirstChild("Spark" .. tostring(index))
-		if spark and spark:IsA("GuiObject") then
-			table.insert(effectSparks, spark)
+		if not spark or not spark:IsA("GuiObject") then
+			if spark then
+				spark:Destroy()
+			end
+			spark = Instance.new("Frame")
+			spark.Name = "Spark" .. tostring(index)
+			spark.AnchorPoint = Vector2.new(0.5, 0.5)
+			spark.Size = UDim2.fromOffset(10, 10)
+			spark.Position = UDim2.fromScale(0.5, 0.46)
+			spark.BackgroundColor3 = WHITE
+			spark.BackgroundTransparency = 1
+			spark.BorderSizePixel = 0
+			spark.Visible = false
+			spark.ZIndex = 912
+			spark:SetAttribute("EditableHatchEffect", true)
+			spark:SetAttribute("UsesDefaultHatchLayout", true)
+			ensureCorner(spark, 999)
+			spark.Parent = effectBurst
 		end
+		table.insert(effectSparks, spark)
 	end
 end
 
-local function resetRngEffects()
+local hatchOverlayBasePosition = hatchOverlay.Position
+local hatchOverlayBaseSize = hatchOverlay.Size
+local activeScreenShake = 0
+
+local function resetRngEffects(preserveCutscene)
+	if preserveCutscene ~= true then
+		activeScreenShake += 1
+		hatchOverlay.Position = hatchOverlayBasePosition
+		hatchOverlay.Size = hatchOverlayBaseSize
+	end
 	if rarityFlash and rarityFlash:IsA("GuiObject") then
 		rarityFlash.Visible = false
 		rarityFlash.BackgroundTransparency = 1
@@ -1043,60 +1200,263 @@ local function resetRngEffects()
 		spark.BackgroundTransparency = 1
 		spark.Position = UDim2.new(0.5, 0, 0.46, 0)
 	end
+	if preserveCutscene == true then
+		return
+	end
+	if cutsceneBackdrop and cutsceneBackdrop:IsA("GuiObject") then
+		cutsceneBackdrop.Visible = false
+		cutsceneBackdrop.BackgroundTransparency = 1
+	end
+	if cutsceneShockwave and cutsceneShockwave:IsA("GuiObject") then
+		cutsceneShockwave.Visible = false
+		cutsceneShockwave.Size = UDim2.fromOffset(80, 80)
+		cutsceneShockwave.BackgroundTransparency = 1
+		local stroke = cutsceneShockwave:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Transparency = 1
+		end
+	end
+	if cutsceneTitle and cutsceneTitle:IsA("TextLabel") then
+		cutsceneTitle.Visible = false
+		cutsceneTitle.TextTransparency = 0
+		cutsceneTitle.TextStrokeTransparency = 0
+		cutsceneTitle.Position = UDim2.fromScale(0.5, 0.23)
+	end
+	if cutsceneSubtitle and cutsceneSubtitle:IsA("TextLabel") then
+		cutsceneSubtitle.Visible = false
+		cutsceneSubtitle.TextTransparency = 0
+		cutsceneSubtitle.TextStrokeTransparency = 0.35
+		cutsceneSubtitle.Position = UDim2.fromScale(0.5, 0.31)
+	end
 end
 
 local function getRngRevealTier(entry)
 	if not entry then
 		return 1
 	end
-	if entry.hasMutation == true or entry.isShiny == true then
-		return 4
-	end
+
 	local rarity = tostring(entry.rarity or "")
-	if rarity == "Secret" or rarity == "Legendary" then
+	local score = RARITY_SCORE[rarity] or 1
+	if entry.isShiny == true then
+		score = math.max(score, 4)
+	end
+	if entry.hasMutation == true then
+		local mutationScore = RARITY_SCORE[tostring(entry.mutationRarity or "")] or 2
+		score = math.max(score, mutationScore + 1)
+		if entry.mutationType == "Corrupted" then
+			score += 0.75
+		end
+	end
+	if tonumber(entry.combinedHatchChance) and entry.combinedHatchChance <= 0.025 then
+		score = math.max(score, 5)
+	elseif tonumber(entry.combinedHatchChance) and entry.combinedHatchChance <= 0.12 then
+		score = math.max(score, 4)
+	end
+
+	if score >= 5 then
+		return 5
+	elseif score >= 4 then
 		return 4
-	elseif rarity == "Epic" then
+	elseif score >= 3 then
 		return 3
-	elseif rarity == "Rare" then
+	elseif score >= 2 then
 		return 2
 	end
 	return 1
 end
 
+local function getHatchOddsText(entry)
+	if not entry then
+		return ""
+	end
+
+	local petOdds = tonumber(entry.hatchPetChance)
+	local mutationOdds = tonumber(entry.mutationChance)
+	local combinedOdds = tonumber(entry.combinedHatchChance)
+	if entry.hasMutation == true and combinedOdds then
+		return "Color: " .. formatRollOdds(petOdds) .. "  |  Mutation combo: " .. formatRollOdds(combinedOdds)
+	end
+	if petOdds then
+		return "Color odds: " .. formatRollOdds(petOdds)
+	end
+	if mutationOdds and entry.hasMutation == true then
+		return "Mutation odds: " .. formatRollOdds(mutationOdds)
+	end
+	return ""
+end
+
+local function shakeHatchScreen(token, tier, duration, magnitude)
+	activeScreenShake += 1
+	local shakeId = activeScreenShake
+	duration = duration or (tier >= 5 and 1.15 or tier >= 4 and 0.72 or 0.32)
+	magnitude = magnitude or (tier >= 5 and 26 or tier >= 4 and 14 or 7)
+	local started = os.clock()
+
+	task.spawn(function()
+		while token == hatchToken and shakeId == activeScreenShake and os.clock() - started < duration do
+			local decay = 1 - ((os.clock() - started) / duration)
+			local offsetX = math.random(-magnitude, magnitude) * decay
+			local offsetY = math.random(-magnitude, magnitude) * decay
+			hatchOverlay.Position = UDim2.new(
+				hatchOverlayBasePosition.X.Scale,
+				hatchOverlayBasePosition.X.Offset + offsetX,
+				hatchOverlayBasePosition.Y.Scale,
+				hatchOverlayBasePosition.Y.Offset + offsetY
+			)
+			task.wait()
+		end
+
+		if token == hatchToken and shakeId == activeScreenShake then
+			hatchOverlay.Position = hatchOverlayBasePosition
+			hatchOverlay.Size = hatchOverlayBaseSize
+		end
+	end)
+end
+
+local function playCutsceneUi(entry, tier, accentColor)
+	if tier < 4 then
+		return
+	end
+
+	local color = accentColor or WHITE
+	if cutsceneBackdrop and cutsceneBackdrop:IsA("GuiObject") then
+		cutsceneBackdrop.BackgroundColor3 = color:Lerp(Color3.fromRGB(2, 4, 12), 0.72)
+		cutsceneBackdrop.BackgroundTransparency = tier >= 5 and 0.28 or 0.55
+		cutsceneBackdrop.Visible = true
+		TweenService:Create(cutsceneBackdrop, TweenInfo.new(tier >= 5 and 1.1 or 0.62), {
+			BackgroundTransparency = 1,
+		}):Play()
+	end
+
+	if cutsceneTitle and cutsceneTitle:IsA("TextLabel") then
+		cutsceneTitle.Text = tier >= 5 and "REALITY-BREAKING HATCH!" or "MASSIVE HATCH!"
+		if entry and entry.hasMutation then
+			cutsceneTitle.Text = string.upper(tostring(entry.mutationName or "Mutation")) .. " MUTATION!"
+		end
+		cutsceneTitle.TextColor3 = color
+		cutsceneTitle.TextTransparency = 0
+		cutsceneTitle.TextStrokeTransparency = 0
+		cutsceneTitle.Position = UDim2.fromScale(0.5, 0.27)
+		cutsceneTitle.Visible = true
+		TweenService:Create(cutsceneTitle, TweenInfo.new(0.26, Enum.EasingStyle.Back), {
+			Position = UDim2.fromScale(0.5, 0.22),
+		}):Play()
+		task.delay(tier >= 5 and 1.35 or 0.95, function()
+			if cutsceneTitle and cutsceneTitle.Parent then
+				TweenService:Create(cutsceneTitle, TweenInfo.new(0.22), {
+					TextTransparency = 1,
+					TextStrokeTransparency = 1,
+				}):Play()
+			end
+		end)
+	end
+
+	if cutsceneSubtitle and cutsceneSubtitle:IsA("TextLabel") then
+		cutsceneSubtitle.Text = getHatchOddsText(entry)
+		cutsceneSubtitle.TextColor3 = WHITE:Lerp(color, 0.18)
+		cutsceneSubtitle.TextTransparency = 0
+		cutsceneSubtitle.TextStrokeTransparency = 0.35
+		cutsceneSubtitle.Visible = true
+		task.delay(tier >= 5 and 1.35 or 0.95, function()
+			if cutsceneSubtitle and cutsceneSubtitle.Parent then
+				TweenService:Create(cutsceneSubtitle, TweenInfo.new(0.22), {
+					TextTransparency = 1,
+					TextStrokeTransparency = 1,
+				}):Play()
+			end
+		end)
+	end
+
+	if cutsceneShockwave and cutsceneShockwave:IsA("GuiObject") then
+		cutsceneShockwave.BackgroundColor3 = color
+		cutsceneShockwave.BackgroundTransparency = tier >= 5 and 0.72 or 0.82
+		cutsceneShockwave.Size = UDim2.fromOffset(80, 80)
+		cutsceneShockwave.Visible = true
+		local stroke = cutsceneShockwave:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Color = color:Lerp(WHITE, 0.3)
+			stroke.Transparency = 0.05
+		end
+		TweenService:Create(cutsceneShockwave, TweenInfo.new(tier >= 5 and 0.75 or 0.48, Enum.EasingStyle.Quad), {
+			BackgroundTransparency = 1,
+			Size = tier >= 5 and UDim2.fromOffset(920, 920) or UDim2.fromOffset(620, 620),
+		}):Play()
+		if stroke then
+			TweenService:Create(stroke, TweenInfo.new(tier >= 5 and 0.75 or 0.48), {
+				Transparency = 1,
+			}):Play()
+		end
+	end
+end
+
+local function spawnHatchChargeParticle(token, color)
+	if not effectBurst or not effectBurst.Parent or token ~= hatchToken then
+		return
+	end
+
+	local particle = Instance.new("Frame")
+	particle.Name = "HatchChargeParticle"
+	particle.AnchorPoint = Vector2.new(0.5, 0.5)
+	particle.Position = UDim2.new(0.5, math.random(-26, 26), 0.46, math.random(-22, 22))
+	local size = math.random(5, 12)
+	particle.Size = UDim2.fromOffset(size, size)
+	particle.BackgroundColor3 = math.random(1, 4) == 1 and WHITE or color
+	particle.BackgroundTransparency = 0.1
+	particle.BorderSizePixel = 0
+	particle.Rotation = math.random(0, 360)
+	particle.ZIndex = 914
+	particle:SetAttribute("EditableHatchRuntimeEffect", true)
+	particle.Parent = effectBurst
+	ensureCorner(particle, math.random(3, 999))
+
+	local angle = math.rad(math.random(0, 359))
+	local distance = math.random(54, 140)
+	TweenService:Create(particle, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0.5, math.cos(angle) * distance, 0.46, math.sin(angle) * distance),
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(1, 1),
+		Rotation = particle.Rotation + math.random(-180, 180),
+	}):Play()
+	Debris:AddItem(particle, 0.62)
+end
+
 local function playRngRevealEffects(entry, rarityColor)
-	resetRngEffects()
+	resetRngEffects(true)
 	local tier = getRngRevealTier(entry)
-	local burstCount = math.min(#effectSparks, tier == 4 and 60 or tier == 3 and 42 or tier == 2 and 28 or 18)
-	local spreadMin = tier == 4 and 150 or tier == 3 and 120 or 90
-	local spreadMax = tier == 4 and 310 or tier == 3 and 245 or 185
+	local burstCount =
+		math.min(#effectSparks, tier >= 5 and 96 or tier == 4 and 72 or tier == 3 and 48 or tier == 2 and 30 or 18)
+	local spreadMin = tier >= 5 and 185 or tier == 4 and 150 or tier == 3 and 120 or 90
+	local spreadMax = tier >= 5 and 390 or tier == 4 and 310 or tier == 3 and 245 or 185
 	local flashColor = entry and (entry.mutationTypeColor or entry.auraColor) or rarityColor
 	flashColor = flashColor or rarityColor or WHITE
 
 	if rarityFlash and rarityFlash:IsA("GuiObject") then
 		rarityFlash.BackgroundColor3 = flashColor
-		rarityFlash.BackgroundTransparency = tier >= 3 and 0.62 or 0.82
+		rarityFlash.BackgroundTransparency = tier >= 5 and 0.18 or tier >= 3 and 0.62 or 0.82
 		rarityFlash.Visible = true
-		TweenService:Create(rarityFlash, TweenInfo.new(tier >= 3 and 0.9 or 0.45), {
+		TweenService:Create(rarityFlash, TweenInfo.new(tier >= 5 and 1.25 or tier >= 3 and 0.9 or 0.45), {
 			BackgroundTransparency = 1,
 		}):Play()
 	end
 
 	if rarityBanner and rarityBanner:IsA("TextLabel") then
-		if tier >= 4 then
+		if tier >= 5 then
+			rarityBanner.Text = entry.hasMutation and "IMPOSSIBLE MUTATION!" or "JACKPOT COLOR!"
+		elseif tier >= 4 then
 			rarityBanner.Text = entry.hasMutation and "MUTATION RNG!" or "LEGENDARY RNG!"
 		elseif tier == 3 then
 			rarityBanner.Text = "EPIC HATCH!"
 		elseif tier == 2 then
 			rarityBanner.Text = "RARE HATCH!"
 		else
-			rarityBanner.Text = "NEW COLOR!"
+			rarityBanner.Text = "COMMON HATCH"
 		end
 		rarityBanner.TextColor3 = flashColor
 		rarityBanner.Visible = true
 		TweenService:Create(rarityBanner, TweenInfo.new(0.45, Enum.EasingStyle.Back), {
 			Position = UDim2.fromScale(0.5, tier >= 3 and 0.15 or 0.18),
 		}):Play()
-		task.delay(tier >= 3 and 1.7 or 1.1, function()
+		task.delay(tier >= 5 and 2.15 or tier >= 3 and 1.7 or 1.1, function()
 			if rarityBanner and rarityBanner.Parent then
 				TweenService:Create(rarityBanner, TweenInfo.new(0.28), {
 					TextTransparency = 1,
@@ -1109,8 +1469,9 @@ local function playRngRevealEffects(entry, rarityColor)
 	for index = 1, burstCount do
 		local spark = effectSparks[index]
 		if spark then
-			local size = math.random(tier >= 3 and 9 or 6, tier >= 3 and 18 or 12)
-			local angle = math.rad((360 / burstCount) * index + math.random(-8, 8))
+			local size =
+				math.random(tier >= 5 and 12 or tier >= 3 and 9 or 6, tier >= 5 and 26 or tier >= 3 and 18 or 12)
+			local angle = math.rad((360 / burstCount) * index + math.random(-12, 12))
 			local distance = math.random(spreadMin, spreadMax)
 			spark.Size = UDim2.fromOffset(size, size)
 			spark.Position = UDim2.new(0.5, 0, 0.46, 0)
@@ -1180,9 +1541,11 @@ local function hideHatchResult()
 	resultName.Visible = false
 	resultRarity.Visible = false
 	resultStats.Visible = false
+	resultOdds.Visible = false
 	resultName.Text = ""
 	resultRarity.Text = ""
 	resultStats.Text = ""
+	resultOdds.Text = ""
 end
 
 local function prepareHatchResult(entry, pet, rarityColor, hasMutation)
@@ -1204,8 +1567,8 @@ local function prepareHatchResult(entry, pet, rarityColor, hasMutation)
 			resultRarity.Text ..= "\nStack now: x" .. tostring(entry.duplicateCount)
 		end
 		resultRarity.TextColor3 = mutationColor
-		resultRarity.Size = UDim2.new(1, -28, 0, entry.wasDuplicate and 60 or 46)
-		resultStats.Position = UDim2.new(0, 14, 0, entry.wasDuplicate and 112 or 98)
+		resultRarity.Size = UDim2.new(1, -28, 0, entry.wasDuplicate and 64 or 52)
+		resultStats.Position = UDim2.new(0, 14, 0, entry.wasDuplicate and 116 or 102)
 	else
 		resultRarity.Text = tostring(entry.rarity or pet.rarity) .. " " .. PetData.GetCompanionTypeName()
 		if entry.wasDuplicate and tonumber(entry.duplicateCount) then
@@ -1217,6 +1580,11 @@ local function prepareHatchResult(entry, pet, rarityColor, hasMutation)
 	end
 
 	resultStats.Text = tostring(entry.effectivePower or entry.finalPower or 0) .. "  \226\156\138  |  EQUIP MANUALLY"
+	local oddsText = getHatchOddsText(entry)
+	resultOdds.Visible = oddsText ~= ""
+	resultOdds.Text = oddsText
+	resultOdds.TextColor3 = hasMutation and mutationColor:Lerp(Color3.fromRGB(40, 35, 55), 0.25)
+		or rarityColor:Lerp(Color3.fromRGB(40, 45, 70), 0.35)
 end
 
 local function revealPreparedHatchResult(spotlight)
@@ -1226,11 +1594,11 @@ local function revealPreparedHatchResult(spotlight)
 	resultCard.Visible = true
 	resultCard.Position = resultCardHomePosition
 	local largeReveal = resultCard:GetAttribute("LargeReveal") == true
-	resultCard.Size = largeReveal and UDim2.new(0, 300, 0, 120) or UDim2.new(0, 240, 0, 92)
+	resultCard.Size = largeReveal and UDim2.new(0, 320, 0, 140) or UDim2.new(0, 260, 0, 112)
 	TweenService:Create(resultCard, TweenInfo.new(0.32, Enum.EasingStyle.Back), {
-		Size = largeReveal and UDim2.new(0, 440, 0, 164)
-			or spotlight and UDim2.new(0, 380, 0, 130)
-			or UDim2.new(0, 320, 0, 112),
+		Size = largeReveal and UDim2.new(0, 500, 0, 194)
+			or spotlight and UDim2.new(0, 430, 0, 154)
+			or UDim2.new(0, 360, 0, 136),
 	}):Play()
 end
 
@@ -1502,6 +1870,7 @@ end
 
 local function animateEditableHatchEgg(token)
 	task.spawn(function()
+		local lastParticleAt = 0
 		while hatchPending and token == hatchToken and hatchOverlay.Visible and hatchEgg.Visible do
 			local elapsed = os.clock() - hatchStartedAt
 			local intensity = math.clamp(elapsed / 1.7, 0.25, 1)
@@ -1530,12 +1899,19 @@ local function animateEditableHatchEgg(token)
 				end
 			end
 
+			if os.clock() - lastParticleAt > math.max(0.035, 0.11 - intensity * 0.045) then
+				lastParticleAt = os.clock()
+				spawnHatchChargeParticle(token, hatchEgg.BackgroundColor3:Lerp(WHITE, 0.22))
+			end
+
 			task.wait()
 		end
 	end)
 end
 
-local function popEditableHatchEgg(token)
+local function popEditableHatchEgg(token, tier, accentColor)
+	tier = tier or 1
+	accentColor = accentColor or hatchEgg.BackgroundColor3
 	for _, crack in ipairs(hatchEggCracks) do
 		crack.Visible = true
 	end
@@ -1549,14 +1925,47 @@ local function popEditableHatchEgg(token)
 
 	TweenService:Create(hatchEgg, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
 		Size = UDim2.new(
-			hatchEggBaseSize.X.Scale * 1.35,
-			math.floor(hatchEggBaseSize.X.Offset * 1.35),
-			hatchEggBaseSize.Y.Scale * 1.35,
-			math.floor(hatchEggBaseSize.Y.Offset * 1.35)
+			hatchEggBaseSize.X.Scale * (tier >= 5 and 1.8 or tier >= 4 and 1.55 or 1.35),
+			math.floor(hatchEggBaseSize.X.Offset * (tier >= 5 and 1.8 or tier >= 4 and 1.55 or 1.35)),
+			hatchEggBaseSize.Y.Scale * (tier >= 5 and 1.8 or tier >= 4 and 1.55 or 1.35),
+			math.floor(hatchEggBaseSize.Y.Offset * (tier >= 5 and 1.8 or tier >= 4 and 1.55 or 1.35))
 		),
 		BackgroundTransparency = 1,
 		Rotation = hatchEggBaseRotation,
 	}):Play()
+
+	local shardCount = tier >= 5 and 44 or tier >= 4 and 32 or tier >= 3 and 24 or 14
+	for index = 1, shardCount do
+		local shard = Instance.new("Frame")
+		shard.Name = "EggExplosionShard"
+		shard.AnchorPoint = Vector2.new(0.5, 0.5)
+		shard.Position = hatchEggBasePosition
+		local shardSize = math.random(tier >= 4 and 8 or 5, tier >= 4 and 18 or 12)
+		shard.Size = UDim2.fromOffset(shardSize, math.max(3, math.floor(shardSize * 0.55)))
+		shard.BackgroundColor3 = index % 4 == 0 and WHITE or hatchEgg.BackgroundColor3:Lerp(accentColor, math.random())
+		shard.BackgroundTransparency = 0.04
+		shard.BorderSizePixel = 0
+		shard.Rotation = math.random(0, 360)
+		shard.ZIndex = 916
+		shard:SetAttribute("EditableHatchRuntimeEffect", true)
+		shard.Parent = effectBurst or hatchOverlay
+		ensureCorner(shard, math.random(3, 8))
+
+		local angle = math.rad((360 / shardCount) * index + math.random(-20, 20))
+		local distance = math.random(tier >= 5 and 210 or 105, tier >= 5 and 430 or tier >= 4 and 320 or 210)
+		TweenService:Create(shard, TweenInfo.new(tier >= 5 and 0.86 or 0.62, Enum.EasingStyle.Quad), {
+			Position = UDim2.new(
+				hatchEggBasePosition.X.Scale,
+				hatchEggBasePosition.X.Offset + math.cos(angle) * distance,
+				hatchEggBasePosition.Y.Scale,
+				hatchEggBasePosition.Y.Offset + math.sin(angle) * distance
+			),
+			BackgroundTransparency = 1,
+			Rotation = shard.Rotation + math.random(-360, 360),
+			Size = UDim2.fromOffset(1, 1),
+		}):Play()
+		Debris:AddItem(shard, 0.95)
+	end
 
 	task.wait(0.18)
 	if token == hatchToken then
@@ -2130,7 +2539,8 @@ local function revealHatch(entry)
 	local rarityColor = RARITY_COLOR[entry.rarity] or WHITE
 	local hasMutation = entry.hasMutation == true
 	local mutationColor = entry.mutationTypeColor or entry.auraColor or rarityColor
-	local specialMutation = hasMutation and (entry.mutationRarity == "Legendary" or entry.mutationType == "Corrupted")
+	local revealTier = getRngRevealTier(entry)
+	local specialMutation = revealTier >= 4
 	local spotlightReveal = shouldSpotlightHatch(entry, pet)
 	if spotlightReveal then
 		closeEditableModalWindowsForSpotlight()
@@ -2142,7 +2552,12 @@ local function revealHatch(entry)
 	TweenService:Create(hatchViewport, TweenInfo.new(0.18, Enum.EasingStyle.Back), {
 		Size = specialMutation and UDim2.new(0, 450, 0, 360) or UDim2.new(0, 410, 0, 330),
 	}):Play()
-	popEditableHatchEgg(token)
+	if revealTier >= 4 then
+		playCutsceneUi(entry, revealTier, hasMutation and mutationColor or rarityColor)
+		shakeHatchScreen(token, revealTier)
+		task.wait(revealTier >= 5 and 0.38 or 0.12)
+	end
+	popEditableHatchEgg(token, revealTier, hasMutation and mutationColor or rarityColor)
 	task.wait(0.07)
 	if token ~= hatchToken then
 		return
@@ -2163,6 +2578,8 @@ local function revealHatch(entry)
 		hatchText.Text = string.upper(tostring(entry.mutationName or "Mutation")) .. " MUTATION!"
 	elseif entry.wasDuplicate and tonumber(entry.duplicateCount) then
 		hatchText.Text = "DUPLICATE! STACK x" .. tostring(entry.duplicateCount)
+	elseif revealTier <= 1 then
+		hatchText.Text = "COMMON COLOR"
 	else
 		hatchText.Text = "YOU HATCHED!"
 	end

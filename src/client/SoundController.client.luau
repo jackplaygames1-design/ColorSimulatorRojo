@@ -8,6 +8,8 @@ local AudioIds = require(ReplicatedStorage:WaitForChild("AudioIds"))
 local SOUND_EVENT_NAME = "ColorSimulatorPlaySound"
 local SOUND_FOLDER_NAME = "ColorSimulatorClientSounds"
 
+local RNG = Random.new()
+local lastPlayedAt = {}
 local soundGroups = {}
 local soundFolder = SoundService:FindFirstChild(SOUND_FOLDER_NAME)
 if not soundFolder then
@@ -58,12 +60,34 @@ local function normalizeSoundId(soundId)
 	return trimmed
 end
 
-local function getSoundId(categoryName, soundName)
+local function getSoundConfig(categoryName, soundName)
 	local category = AudioIds[categoryName]
 	if type(category) ~= "table" then
 		return nil
 	end
-	return normalizeSoundId(category[soundName])
+
+	local entry = category[soundName]
+	local soundId = entry
+	local config = {}
+	if type(entry) == "table" then
+		config = entry
+		soundId = entry.Id or entry.SoundId or entry.AssetId
+	end
+
+	local normalized = normalizeSoundId(soundId)
+	if not normalized then
+		return nil
+	end
+
+	return {
+		SoundId = normalized,
+		Volume = tonumber(config.Volume),
+		PlaybackSpeed = tonumber(config.PlaybackSpeed),
+		PlaybackSpeedVariance = tonumber(config.PlaybackSpeedVariance or config.Variance),
+		RollOffMaxDistance = tonumber(config.RollOffMaxDistance),
+		RollOffMinDistance = tonumber(config.RollOffMinDistance),
+		EmitterSize = tonumber(config.EmitterSize),
+	}
 end
 
 local function destroyAfterPlayback(sound)
@@ -73,24 +97,54 @@ local function destroyAfterPlayback(sound)
 	Debris:AddItem(sound, math.max(3, sound.TimeLength + 2))
 end
 
+local function applySoundConfig(sound, config, categoryName)
+	sound.SoundId = config.SoundId
+	sound.Volume = config.Volume or AudioIds.Defaults.Volume or 0.65
+	sound.SoundGroup = soundGroups[categoryName] or soundGroups.SFX or soundGroups.Master
+
+	local playbackSpeed = config.PlaybackSpeed or 1
+	local variance = config.PlaybackSpeedVariance or 0
+	if variance > 0 then
+		playbackSpeed += RNG:NextNumber(-variance, variance)
+	end
+	sound.PlaybackSpeed = math.max(0.05, playbackSpeed)
+end
+
 local function createSound(categoryName, soundName, parent)
-	local soundId = getSoundId(categoryName, soundName)
-	if not soundId then
+	local config = getSoundConfig(categoryName, soundName)
+	if not config then
 		return nil
 	end
 
 	local sound = Instance.new("Sound")
 	sound.Name = categoryName .. "_" .. tostring(soundName)
-	sound.SoundId = soundId
-	sound.Volume = AudioIds.Defaults.Volume or 0.65
-	sound.SoundGroup = soundGroups[categoryName] or soundGroups.SFX or soundGroups.Master
+	applySoundConfig(sound, config, categoryName)
 	sound.Parent = parent or soundFolder
 	return sound
 end
 
 local SoundController = {}
 
+local function shouldSkipDuplicate(categoryName, soundName)
+	if categoryName ~= "UI" then
+		return false
+	end
+
+	local cooldown = soundName == "Hover" and 0.08 or 0.04
+	local key = tostring(categoryName) .. ":" .. tostring(soundName)
+	local now = os.clock()
+	if lastPlayedAt[key] and now - lastPlayedAt[key] < cooldown then
+		return true
+	end
+	lastPlayedAt[key] = now
+	return false
+end
+
 function SoundController.Play(categoryName, soundName)
+	if shouldSkipDuplicate(categoryName, soundName) then
+		return nil
+	end
+
 	local sound = createSound(categoryName, soundName, soundFolder)
 	if not sound then
 		return nil
@@ -126,11 +180,16 @@ function SoundController.PlayAtPosition(name, position)
 		return nil
 	end
 
-	local soundId = getSoundId("SFX", name)
-		or getSoundId("Tools", name)
-		or getSoundId("Currency", name)
-		or getSoundId("Hatch", name)
-	if not soundId then
+	local categoryName = nil
+	local config = nil
+	for _, candidate in ipairs({ "SFX", "Tools", "Currency", "Hatch" }) do
+		config = getSoundConfig(candidate, name)
+		if config then
+			categoryName = candidate
+			break
+		end
+	end
+	if not config then
 		return nil
 	end
 
@@ -147,12 +206,10 @@ function SoundController.PlayAtPosition(name, position)
 
 	local sound = Instance.new("Sound")
 	sound.Name = "Position_" .. tostring(name)
-	sound.SoundId = soundId
-	sound.Volume = AudioIds.Defaults.Volume or 0.65
-	sound.RollOffMaxDistance = AudioIds.Defaults.RollOffMaxDistance or 90
-	sound.RollOffMinDistance = AudioIds.Defaults.RollOffMinDistance or 8
-	sound.EmitterSize = AudioIds.Defaults.EmitterSize or 8
-	sound.SoundGroup = soundGroups.SFX or soundGroups.Master
+	applySoundConfig(sound, config, categoryName or "SFX")
+	sound.RollOffMaxDistance = config.RollOffMaxDistance or AudioIds.Defaults.RollOffMaxDistance or 90
+	sound.RollOffMinDistance = config.RollOffMinDistance or AudioIds.Defaults.RollOffMinDistance or 8
+	sound.EmitterSize = config.EmitterSize or AudioIds.Defaults.EmitterSize or 8
 	sound.Parent = emitter
 
 	sound.Ended:Connect(function()

@@ -13,6 +13,8 @@
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).ApplyGamepassIcons()
 -- Worlds-only refresh:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateWorldsWindow()
+-- Index-only refresh:
+-- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateIndexWindow()
 -- Zork/tutorial windows refresh:
 -- require(game.ReplicatedStorage.StudioMenuWindowsBuilder).UpdateZorkWindows()
 -- Power-up toast refresh:
@@ -3895,6 +3897,411 @@ local function buildInventoryWindow(modalWindows)
 	)
 end
 
+local function markIndexEditable(object, role)
+	if object then
+		object:SetAttribute("EditableIndexUI", true)
+		if role and role ~= "" then
+			object:SetAttribute("IndexUIRole", role)
+		end
+	end
+	return object
+end
+
+local function makeIndexCategoryButton(parent, name, textValue, order, color)
+	local tab = conceptButton(parent, name, textValue, UDim2.fromOffset(0, 0), UDim2.new(1, -16, 0, 58), color)
+	tab.LayoutOrder = order
+	tab.TextSize = 25
+	tab.TextColor3 = order == 1 and Color3.fromRGB(255, 255, 255) or TEXT_DARK
+	tab:SetAttribute("IndexCategory", string.gsub(name, "Tab$", ""))
+	markIndexEditable(tab, "CategoryTab")
+	return tab
+end
+
+local function makeIndexTopFilter(parent, name, textValue, order)
+	local filter = conceptButton(
+		parent,
+		name,
+		textValue,
+		UDim2.fromOffset(0, 0),
+		UDim2.fromOffset(92, 38),
+		order == 1 and Color3.fromRGB(80, 222, 236) or Color3.fromRGB(255, 255, 255)
+	)
+	filter.LayoutOrder = order
+	filter.TextSize = 16
+	filter.TextColor3 = order == 1 and Color3.fromRGB(255, 255, 255) or TEXT_DARK
+	filter:SetAttribute("IndexFilter", string.gsub(name, "Filter$", ""))
+	markIndexEditable(filter, "TopFilter")
+	return filter
+end
+
+local function makeIndexCard(parent, name, order)
+	local card = conceptButton(
+		parent,
+		name,
+		"",
+		UDim2.fromOffset(0, 0),
+		UDim2.fromOffset(128, 128),
+		Color3.fromRGB(255, 255, 255)
+	)
+	card.LayoutOrder = order
+	card.Text = ""
+	card.ClipsDescendants = true
+	card:SetAttribute("IndexCardSlot", true)
+	markIndexEditable(card, "GridCard")
+
+	local shadow = frame(card, "IconShadow", UDim2.fromScale(0.18, 0.64), UDim2.fromScale(0.64, 0.14), OUTLINE)
+	shadow.BackgroundTransparency = 0.82
+	shadow.ZIndex = card.ZIndex + 1
+	applyCorner(shadow, 999)
+	markIndexEditable(shadow, "IconShadow")
+
+	local icon = conceptPanel(
+		card,
+		"IconFrame",
+		UDim2.fromScale(0.16, 0.08),
+		UDim2.fromScale(0.68, 0.58),
+		Color3.fromRGB(118, 219, 255),
+		14,
+		3
+	)
+	icon.ZIndex = card.ZIndex + 2
+	markIndexEditable(icon, "IconFrame")
+
+	local iconText = conceptLabel(
+		icon,
+		"IconText",
+		"??",
+		UDim2.fromScale(0.05, 0.05),
+		UDim2.fromScale(0.9, 0.9),
+		30,
+		Enum.TextXAlignment.Center
+	)
+	iconText.TextYAlignment = Enum.TextYAlignment.Center
+	iconText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	iconText.TextStrokeColor3 = OUTLINE
+	iconText.TextStrokeTransparency = 0
+	iconText.ZIndex = icon.ZIndex + 1
+	markIndexEditable(iconText, "IconText")
+
+	local lockOverlay = conceptPanel(
+		icon,
+		"LockOverlay",
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(1, 1),
+		Color3.fromRGB(32, 37, 48),
+		14,
+		0
+	)
+	lockOverlay.BackgroundTransparency = 0.32
+	lockOverlay.ZIndex = icon.ZIndex + 2
+	markIndexEditable(lockOverlay, "LockOverlay")
+	local lockText = conceptLabel(
+		lockOverlay,
+		"LockText",
+		"?",
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(1, 1),
+		32,
+		Enum.TextXAlignment.Center
+	)
+	lockText.TextYAlignment = Enum.TextYAlignment.Center
+	lockText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	lockText.ZIndex = lockOverlay.ZIndex + 1
+	markIndexEditable(lockText, "LockText")
+
+	local nameLabel = conceptLabel(
+		card,
+		"NameLabel",
+		"???",
+		UDim2.fromScale(0.08, 0.69),
+		UDim2.fromScale(0.84, 0.14),
+		15,
+		Enum.TextXAlignment.Center
+	)
+	nameLabel.TextScaled = true
+	nameLabel.TextYAlignment = Enum.TextYAlignment.Center
+	local nameLimit = nameLabel:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	nameLimit.MinTextSize = 9
+	nameLimit.MaxTextSize = 15
+	nameLimit.Parent = nameLabel
+	markIndexEditable(nameLabel, "NameLabel")
+
+	local status = conceptLabel(
+		card,
+		"StatusLabel",
+		"Not Found",
+		UDim2.fromScale(0.08, 0.84),
+		UDim2.fromScale(0.84, 0.12),
+		12,
+		Enum.TextXAlignment.Center
+	)
+	status.TextColor3 = MUTED
+	status.TextScaled = true
+	local statusLimit = status:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	statusLimit.MinTextSize = 8
+	statusLimit.MaxTextSize = 12
+	statusLimit.Parent = status
+	markIndexEditable(status, "StatusLabel")
+
+	local badge = conceptPanel(
+		card,
+		"CollectedBadge",
+		UDim2.fromScale(0.56, 0.07),
+		UDim2.fromScale(0.34, 0.16),
+		Color3.fromRGB(93, 231, 88),
+		10,
+		2
+	)
+	badge.ZIndex = card.ZIndex + 4
+	markIndexEditable(badge, "CollectedBadge")
+	local badgeText = conceptLabel(
+		badge,
+		"BadgeText",
+		"OWNED",
+		UDim2.fromScale(0, 0),
+		UDim2.fromScale(1, 1),
+		10,
+		Enum.TextXAlignment.Center
+	)
+	badgeText.TextYAlignment = Enum.TextYAlignment.Center
+	badgeText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	badgeText.TextStrokeColor3 = OUTLINE
+	badgeText.TextStrokeTransparency = 0.25
+	badgeText.ZIndex = badge.ZIndex + 1
+	markIndexEditable(badgeText, "BadgeText")
+
+	return card
+end
+
+local function buildIndexWindow(modalWindows)
+	local window, content = conceptWindow(modalWindows, "IndexWindow", "COLLECTION!")
+	window:SetAttribute("EditableIndexUI", true)
+	window:SetAttribute("OpenedByIndexStation", true)
+	window:SetAttribute("DesktopWidthScale", 0.76)
+	window:SetAttribute("DesktopHeightScale", 0.72)
+	content.BackgroundColor3 = Color3.fromRGB(252, 254, 255)
+	content.ClipsDescendants = false
+	markIndexEditable(content, "Content")
+
+	local title = window:FindFirstChild("Title")
+	if title and title:IsA("TextLabel") then
+		title.Text = "COLLECTION!"
+		title.TextSize = 50
+		markIndexEditable(title, "Title")
+	end
+
+	local badge = conceptPanel(
+		content,
+		"CollectionBadge",
+		UDim2.fromScale(0.02, -0.055),
+		UDim2.fromScale(0.095, 0.145),
+		Color3.fromRGB(221, 251, 255),
+		16,
+		4
+	)
+	badge.Rotation = -8
+	badge.ZIndex = content.ZIndex + 4
+	markIndexEditable(badge, "CollectionBadge")
+	local badgeIcon = conceptLabel(
+		badge,
+		"BadgeIcon",
+		"IX",
+		UDim2.fromScale(0.06, 0.06),
+		UDim2.fromScale(0.88, 0.88),
+		32,
+		Enum.TextXAlignment.Center
+	)
+	badgeIcon.TextYAlignment = Enum.TextYAlignment.Center
+	badgeIcon.TextColor3 = Color3.fromRGB(44, 165, 255)
+	badgeIcon.ZIndex = badge.ZIndex + 1
+	markIndexEditable(badgeIcon, "BadgeIcon")
+
+	local sidebar = conceptPanel(
+		content,
+		"CategoryTabs",
+		UDim2.fromScale(0.025, 0.12),
+		UDim2.fromScale(0.24, 0.64),
+		Color3.fromRGB(247, 250, 255),
+		16,
+		2
+	)
+	sidebar.BackgroundTransparency = 1
+	markIndexEditable(sidebar, "CategoryTabs")
+	local tabLayout = Instance.new("UIListLayout")
+	tabLayout.Name = "CategoryTabLayout"
+	tabLayout.FillDirection = Enum.FillDirection.Vertical
+	tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	tabLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+	tabLayout.Padding = UDim.new(0, 10)
+	tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	tabLayout.Parent = sidebar
+	makeIndexCategoryButton(sidebar, "PetsTab", "Pets", 1, Color3.fromRGB(91, 225, 242))
+	makeIndexCategoryButton(sidebar, "GearTab", "Gear", 2, Color3.fromRGB(232, 237, 248))
+	makeIndexCategoryButton(sidebar, "PlacesTab", "Places", 3, Color3.fromRGB(232, 237, 248))
+
+	local rewardButton = conceptButton(
+		content,
+		"RewardsButton",
+		"Rewards",
+		UDim2.fromScale(0.03, 0.82),
+		UDim2.fromScale(0.22, 0.1),
+		Color3.fromRGB(102, 236, 45)
+	)
+	rewardButton.TextSize = 28
+	rewardButton:SetAttribute("IndexCategory", "Rewards")
+	markIndexEditable(rewardButton, "RewardsButton")
+
+	local topFilters = conceptPanel(
+		content,
+		"TopFilters",
+		UDim2.fromScale(0.34, 0.035),
+		UDim2.fromScale(0.32, 0.075),
+		Color3.fromRGB(255, 255, 255),
+		20,
+		3
+	)
+	topFilters.ClipsDescendants = true
+	markIndexEditable(topFilters, "TopFilters")
+	local filterLayout = Instance.new("UIListLayout")
+	filterLayout.Name = "FilterLayout"
+	filterLayout.FillDirection = Enum.FillDirection.Horizontal
+	filterLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	filterLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	filterLayout.Padding = UDim.new(0, 8)
+	filterLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	filterLayout.Parent = topFilters
+	makeIndexTopFilter(topFilters, "AllFilter", "ALL", 1)
+	makeIndexTopFilter(topFilters, "FoundFilter", "OWNED", 2)
+	makeIndexTopFilter(topFilters, "MissingFilter", "???", 3)
+
+	local search = textBox(content, "SearchBox", "Search", UDim2.fromScale(0.69, 0.035), UDim2.fromScale(0.25, 0.075))
+	search.TextSize = 22
+	search.TextXAlignment = Enum.TextXAlignment.Center
+	search.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	applyStroke(search, OUTLINE, 3)
+	markIndexEditable(search, "SearchBox")
+
+	local grid = ensureClass(content, "ScrollingFrame", "GridPanel")
+	clearChildren(grid)
+	grid.Position = UDim2.fromScale(0.29, 0.14)
+	grid.Size = UDim2.fromScale(0.67, 0.7)
+	grid.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	grid.BackgroundTransparency = 0
+	grid.BorderSizePixel = 0
+	grid.ScrollBarThickness = 7
+	grid.ScrollBarImageColor3 = Color3.fromRGB(110, 120, 145)
+	grid.ScrollingDirection = Enum.ScrollingDirection.Y
+	grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	grid.CanvasSize = UDim2.fromOffset(0, 0)
+	grid.ClipsDescendants = true
+	applyCorner(grid, 18)
+	applyStroke(grid, Color3.fromRGB(218, 224, 236), 0)
+	markIndexEditable(grid, "GridPanel")
+	local gridPadding = Instance.new("UIPadding")
+	gridPadding.Name = "GridPadding"
+	gridPadding.PaddingTop = UDim.new(0, 12)
+	gridPadding.PaddingBottom = UDim.new(0, 20)
+	gridPadding.PaddingLeft = UDim.new(0, 12)
+	gridPadding.PaddingRight = UDim.new(0, 12)
+	gridPadding.Parent = grid
+	local gridLayout = Instance.new("UIGridLayout")
+	gridLayout.Name = "IndexGridLayout"
+	gridLayout.CellSize = UDim2.fromOffset(126, 126)
+	gridLayout.CellPadding = UDim2.fromOffset(20, 18)
+	gridLayout.FillDirection = Enum.FillDirection.Horizontal
+	gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	gridLayout.Parent = grid
+	local template = makeIndexCard(grid, "IndexCardTemplate", 0)
+	template.Visible = false
+	for index = 1, 48 do
+		local slot = makeIndexCard(grid, "IndexSlot" .. tostring(index), index)
+		slot.Visible = false
+	end
+
+	local emptyText = conceptLabel(
+		content,
+		"EmptyText",
+		"Nothing found.",
+		UDim2.fromScale(0.32, 0.43),
+		UDim2.fromScale(0.58, 0.08),
+		24,
+		Enum.TextXAlignment.Center
+	)
+	emptyText.Visible = false
+	markIndexEditable(emptyText, "EmptyText")
+
+	local footer = conceptPanel(
+		content,
+		"PageControls",
+		UDim2.fromScale(0.47, 0.86),
+		UDim2.fromScale(0.22, 0.08),
+		Color3.fromRGB(255, 255, 255),
+		18,
+		3
+	)
+	markIndexEditable(footer, "PageControls")
+	local pageBack = conceptButton(
+		footer,
+		"PageBack",
+		"<",
+		UDim2.fromScale(0.03, 0.12),
+		UDim2.fromScale(0.22, 0.76),
+		Color3.fromRGB(232, 237, 248)
+	)
+	pageBack.TextColor3 = TEXT_DARK
+	pageBack.TextSize = 26
+	markIndexEditable(pageBack, "PageBack")
+	local pageLabel = conceptLabel(
+		footer,
+		"PageLabel",
+		"1",
+		UDim2.fromScale(0.28, 0),
+		UDim2.fromScale(0.44, 1),
+		24,
+		Enum.TextXAlignment.Center
+	)
+	pageLabel.TextYAlignment = Enum.TextYAlignment.Center
+	markIndexEditable(pageLabel, "PageLabel")
+	local pageNext = conceptButton(
+		footer,
+		"PageNext",
+		">",
+		UDim2.fromScale(0.75, 0.12),
+		UDim2.fromScale(0.22, 0.76),
+		Color3.fromRGB(232, 237, 248)
+	)
+	pageNext.TextColor3 = TEXT_DARK
+	pageNext.TextSize = 26
+	markIndexEditable(pageNext, "PageNext")
+
+	local counter = conceptLabel(
+		content,
+		"CollectedCounter",
+		"0/0",
+		UDim2.fromScale(0.76, 0.845),
+		UDim2.fromScale(0.2, 0.095),
+		38,
+		Enum.TextXAlignment.Center
+	)
+	counter.TextColor3 = Color3.fromRGB(63, 214, 245)
+	counter.TextStrokeColor3 = OUTLINE
+	counter.TextStrokeTransparency = 0
+	counter.TextYAlignment = Enum.TextYAlignment.Center
+	markIndexEditable(counter, "CollectedCounter")
+	local counterLabel = conceptLabel(
+		content,
+		"CollectedLabel",
+		"Collected",
+		UDim2.fromScale(0.76, 0.795),
+		UDim2.fromScale(0.2, 0.045),
+		21,
+		Enum.TextXAlignment.Center
+	)
+	counterLabel.TextYAlignment = Enum.TextYAlignment.Center
+	markIndexEditable(counterLabel, "CollectedLabel")
+end
+
 local function makeSettingsRow(parent, name, label, description, order, defaultText)
 	local rowColors = {
 		Color3.fromRGB(232, 255, 241),
@@ -4505,6 +4912,25 @@ end
 
 Builder.UpdateTradingWindow = Builder.UpdateTradeWindow
 
+function Builder.UpdateIndexWindow()
+	if not canBuildConceptMenus("UpdateIndexWindow") then
+		return
+	end
+
+	local mainHud = StarterGui:FindFirstChild("MainHUD")
+	if not mainHud or not mainHud:IsA("ScreenGui") then
+		warn("StudioMenuWindowsBuilder: missing StarterGui.MainHUD for IndexWindow.")
+		return
+	end
+
+	local modalWindows = ensureClass(mainHud, "Folder", "ModalWindows")
+	buildIndexWindow(modalWindows)
+	print("StudioMenuWindowsBuilder: updated editable StarterGui.MainHUD.ModalWindows.IndexWindow.")
+end
+
+Builder.BuildIndexWindow = Builder.UpdateIndexWindow
+Builder.UpdateCollectionWindow = Builder.UpdateIndexWindow
+
 local function ensurePhysicalDialogueChild(parent, className, name)
 	local existing = parent:FindFirstChild(name)
 	if existing and existing:IsA(className) then
@@ -4960,6 +5386,7 @@ function Builder.BuildConceptMenus()
 	buildSettingsWindow(modalWindows)
 	buildTradeWindow(modalWindows)
 	buildRankWindow(modalWindows)
+	buildIndexWindow(modalWindows)
 	makeShopWindow(modalWindows)
 	makeWorldsWindow(modalWindows)
 	makeBrushShopWindow(modalWindows)

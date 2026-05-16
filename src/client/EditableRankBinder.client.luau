@@ -79,9 +79,9 @@ end
 
 local function isMobileLayout()
 	local viewport = getViewportSize()
-	return UserInputService.TouchEnabled
-		and not UserInputService.KeyboardEnabled
-		and math.min(viewport.X, viewport.Y) <= 900
+	local minAxis = math.min(viewport.X, viewport.Y)
+	local maxAxis = math.max(viewport.X, viewport.Y)
+	return UserInputService.TouchEnabled and (minAxis <= 1024 or maxAxis <= 1280)
 end
 
 local function captureOriginalLayout(object)

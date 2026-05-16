@@ -25,12 +25,44 @@ AudioIds.Groups = {
 }
 
 AudioIds.UI = {
-	Click = "",
-	Open = "",
-	Close = "",
-	Tab = "",
-	Error = "",
-	Confirm = "",
+	Click = {
+		Id = "rbxasset://sounds/button.wav",
+		Volume = 0.38,
+		PlaybackSpeed = 1.08,
+		PlaybackSpeedVariance = 0.05,
+	},
+	Hover = {
+		Id = "rbxasset://sounds/electronicpingshort.wav",
+		Volume = 0.08,
+		PlaybackSpeed = 1.35,
+		PlaybackSpeedVariance = 0.04,
+	},
+	Open = {
+		Id = "rbxasset://sounds/electronicpingshort.wav",
+		Volume = 0.24,
+		PlaybackSpeed = 1.08,
+	},
+	Close = {
+		Id = "rbxasset://sounds/button.wav",
+		Volume = 0.25,
+		PlaybackSpeed = 0.92,
+	},
+	Tab = {
+		Id = "rbxasset://sounds/button.wav",
+		Volume = 0.28,
+		PlaybackSpeed = 1.18,
+		PlaybackSpeedVariance = 0.03,
+	},
+	Error = {
+		Id = "rbxasset://sounds/button.wav",
+		Volume = 0.32,
+		PlaybackSpeed = 0.72,
+	},
+	Confirm = {
+		Id = "rbxasset://sounds/electronicpingshort.wav",
+		Volume = 0.3,
+		PlaybackSpeed = 1.18,
+	},
 }
 
 AudioIds.SFX = {

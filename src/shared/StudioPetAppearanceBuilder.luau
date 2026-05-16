@@ -1,7 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
-local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local PetModelUtil = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetModelUtil"))
@@ -10,9 +9,13 @@ local StudioPetAppearanceBuilder = {}
 
 local SOURCE_NAME = "PetAppearanceStudio"
 local ORIGIN = Vector3.new(50000, 5000, 50000)
-local ROW_SPACING = 35
+local ROW_SPACING = 150
 local PET_SPACING = 14
-local MUTATION_SPACING = 8
+local MUTATION_SPACING = 18
+local MUTATION_ROW_SPACING = 10
+local MUTATION_VARIANTS_PER_ROW = 7
+local MUTATION_SECTION_SPACING = (MUTATION_VARIANTS_PER_ROW + 2) * PET_SPACING
+local PREVIEW_LABEL_MAX_DISTANCE = 42
 
 local function isVisualObject(object)
 	return object and (object:IsA("Model") or object:IsA("BasePart"))
@@ -246,6 +249,7 @@ local function addPreviewLabel(object, text)
 	billboard.Size = UDim2.fromOffset(190, 64)
 	billboard.StudsOffset = Vector3.new(0, 5, 0)
 	billboard.AlwaysOnTop = true
+	billboard.MaxDistance = PREVIEW_LABEL_MAX_DISTANCE
 	billboard.Parent = holder
 
 	local label = Instance.new("TextLabel")
@@ -261,18 +265,122 @@ local function addPreviewLabel(object, text)
 	label.Parent = billboard
 end
 
-local function removeMutationVariantFolders(petsFolder)
-	for _, child in ipairs(petsFolder:GetChildren()) do
-		if child:IsA("Folder") and string.match(child.Name, "_Mutations$") then
-			child:Destroy()
+local function getMutationFolderName(petId)
+	return tostring(petId) .. "_Mutations"
+end
+
+local function getMutationOrder()
+	local ids = {}
+	for _, mutationId in ipairs(ColorMutationData.RollOrder or {}) do
+		local mutation = ColorMutationData.get(mutationId)
+		if mutation and mutation.Id ~= ColorMutationData.NoneId then
+			table.insert(ids, mutation.Id)
 		end
 	end
+	table.sort(ids, function(a, b)
+		local mutationA = ColorMutationData.get(a)
+		local mutationB = ColorMutationData.get(b)
+		local orderA = tonumber(mutationA and mutationA.SortOrder) or 0
+		local orderB = tonumber(mutationB and mutationB.SortOrder) or 0
+		if orderA ~= orderB then
+			return orderA < orderB
+		end
+		return tostring(a) < tostring(b)
+	end)
+	return ids
+end
+
+local function applyMutationVariantAttributes(model, eggId, entry, mutation)
+	model:SetAttribute("MutationVariant", true)
+	model:SetAttribute("EditableMutationVariant", true)
+	model:SetAttribute("EggId", eggId)
+	model:SetAttribute("PetId", entry.petId)
+	model:SetAttribute("SourcePetId", entry.petId)
+	model:SetAttribute("MutationId", mutation.Id)
+	model:SetAttribute("MutationName", mutation.DisplayName or mutation.Id)
+	model:SetAttribute("MutationType", mutation.Type or "None")
+	model:SetAttribute("MutationRarity", mutation.Rarity or "Common")
+	model:SetAttribute("MutationWeight", tonumber(mutation.Weight) or 0)
+	model:SetAttribute("MutationVisualTheme", mutation.VisualTheme or "")
+	model:SetAttribute("MutationEffect", mutation.Description or "")
+end
+
+local function createMutationVariantTemplate(eggId, entry, mutation)
+	local model = PetModelUtil.ClonePetModel(entry.petId, { anchored = true, removeBillboards = true })
+	if not model or not model:IsA("Model") then
+		return nil
+	end
+
+	model.Name = mutation.Id
+	PetModelUtil.ApplyMutationVisuals(model, mutation.Id)
+	applyMutationVariantAttributes(model, eggId, entry, mutation)
+	return model
+end
+
+local function ensureSectionMarker(folder, petId)
+	local marker = folder:FindFirstChild("SectionLabelMarker")
+	if not marker or not marker:IsA("BasePart") then
+		if marker then
+			marker:Destroy()
+		end
+		marker = Instance.new("Part")
+		marker.Name = "SectionLabelMarker"
+		marker.Shape = Enum.PartType.Ball
+		marker.Size = Vector3.new(1.2, 1.2, 1.2)
+		marker.Anchored = true
+		marker.CanCollide = false
+		marker.CanTouch = false
+		marker.CanQuery = false
+		marker.CastShadow = false
+		marker.Transparency = 0.8
+		marker.Color = Color3.fromRGB(130, 220, 255)
+		marker.Parent = folder
+	end
+	marker:SetAttribute("PreviewOnly", true)
+	marker:SetAttribute("MutationSectionMarker", true)
+	marker:SetAttribute("PetId", petId)
+	return marker
+end
+
+local function ensureMutationVariantsForPet(petsFolder, eggId, entry)
+	local folder = getOrCreateFolder(petsFolder, getMutationFolderName(entry.petId))
+	folder:SetAttribute("MutationVariantsSection", true)
+	folder:SetAttribute("EditableMutationVariants", true)
+	folder:SetAttribute("PetId", entry.petId)
+	folder:SetAttribute("EggId", eggId)
+	ensureSectionMarker(folder, entry.petId)
+
+	local created = 0
+	for _, mutationId in ipairs(getMutationOrder()) do
+		local mutation = ColorMutationData.get(mutationId)
+		if not mutation or mutation.Id == ColorMutationData.NoneId then
+			continue
+		end
+
+		local variant = folder:FindFirstChild(mutation.Id)
+		if not isVisualObject(variant) then
+			if variant then
+				variant:Destroy()
+			end
+			variant = createMutationVariantTemplate(eggId, entry, mutation)
+			if variant then
+				variant.Parent = folder
+				created += 1
+			end
+		end
+		if variant then
+			applyMutationVariantAttributes(variant, eggId, entry, mutation)
+		end
+	end
+
+	return created
 end
 
 function StudioPetAppearanceBuilder.Build()
 	local source = getOrCreateSource()
 	local createdPets = 0
 	local createdEggs = 0
+	local createdVariants = 0
 
 	for _, eggId in ipairs(PetData.EggOrder or {}) do
 		local egg = PetData.Eggs[eggId]
@@ -291,7 +399,6 @@ function StudioPetAppearanceBuilder.Build()
 		end
 
 		local petsFolder = getOrCreateFolder(eggFolder, "Pets")
-		removeMutationVariantFolders(petsFolder)
 		for _, entry in ipairs(egg.pets or {}) do
 			if not entry.petId then
 				continue
@@ -307,12 +414,23 @@ function StudioPetAppearanceBuilder.Build()
 			end
 			if petObject then
 				applyPetAttributes(petObject, eggId, entry)
+				createdVariants += ensureMutationVariantsForPet(petsFolder, eggId, entry)
 			end
 		end
 	end
 
 	StudioPetAppearanceBuilder.Arrange()
-	print("StudioPetAppearanceBuilder: ready at Workspace." .. SOURCE_NAME .. " with editable pet templates only.")
+	print(
+		"StudioPetAppearanceBuilder: ready at Workspace."
+			.. SOURCE_NAME
+			.. " with "
+			.. tostring(createdEggs)
+			.. " egg templates, "
+			.. tostring(createdPets)
+			.. " pet templates, and "
+			.. tostring(createdVariants)
+			.. " new mutation variants."
+	)
 	return source
 end
 
@@ -335,24 +453,12 @@ function StudioPetAppearanceBuilder.Arrange()
 		local petsFolder = eggFolder:FindFirstChild("Pets")
 		if petsFolder then
 			local column = 1
+			local petColumnById = {}
 			for _, pet in ipairs(getSortedChildren(petsFolder)) do
-				if pet:IsA("Folder") then
-					local mutationColumn = column
-					for _, mutationModel in ipairs(getSortedChildren(pet)) do
-						if isVisualObject(mutationModel) then
-							local mutationPosition = rowOrigin
-								+ Vector3.new(mutationColumn * PET_SPACING, 0, MUTATION_SPACING)
-							placeOnGround(mutationModel, mutationPosition, 0)
-							addPreviewLabel(
-								mutationModel,
-								mutationModel:GetAttribute("MutationId") or mutationModel.Name
-							)
-							mutationColumn += 1
-						end
-					end
-				elseif isVisualObject(pet) then
+				if isVisualObject(pet) then
 					local petPosition = rowOrigin + Vector3.new(column * PET_SPACING, 0, 0)
 					placeOnGround(pet, petPosition, 0)
+					petColumnById[pet.Name] = column
 
 					local rarity = pet:GetAttribute("Rarity")
 					local weight = pet:GetAttribute("Weight")
@@ -366,6 +472,58 @@ function StudioPetAppearanceBuilder.Arrange()
 					addPreviewLabel(pet, labelText)
 					column += 1
 				end
+			end
+
+			local variantSection = 0
+			for _, folder in ipairs(getSortedChildren(petsFolder)) do
+				if not (folder:IsA("Folder") and folder:GetAttribute("MutationVariantsSection") == true) then
+					continue
+				end
+
+				local petId = tostring(folder:GetAttribute("PetId") or string.gsub(folder.Name, "_Mutations$", ""))
+				local baseColumn = petColumnById[petId] or 1
+				local sectionX = baseColumn * PET_SPACING + variantSection * MUTATION_SECTION_SPACING
+				local marker = ensureSectionMarker(folder, petId)
+				placeOnGround(marker, rowOrigin + Vector3.new(sectionX, 0, MUTATION_SPACING - 8), 0)
+				addPreviewLabel(marker, "MUTATION VARIANTS\n" .. petId .. "\nEdit models below")
+
+				local mutationIndex = 0
+				for _, mutationModel in ipairs(getSortedChildren(folder)) do
+					if mutationModel.Name == "SectionLabelMarker" or not isVisualObject(mutationModel) then
+						continue
+					end
+
+					local mutationId = tostring(mutationModel:GetAttribute("MutationId") or mutationModel.Name)
+					local mutation = ColorMutationData.get(mutationId)
+					mutationIndex += 1
+					local localColumn = (mutationIndex - 1) % MUTATION_VARIANTS_PER_ROW
+					local localRow = math.floor((mutationIndex - 1) / MUTATION_VARIANTS_PER_ROW)
+					local mutationPosition = rowOrigin
+						+ Vector3.new(
+							sectionX + localColumn * PET_SPACING,
+							0,
+							MUTATION_SPACING + localRow * MUTATION_ROW_SPACING
+						)
+					placeOnGround(mutationModel, mutationPosition, 0)
+					addPreviewLabel(
+						mutationModel,
+						petId
+							.. "\n"
+							.. tostring(mutation and mutation.DisplayName or mutationId)
+							.. "\n"
+							.. tostring(
+								mutation and mutation.Rarity or mutationModel:GetAttribute("MutationRarity") or ""
+							)
+							.. " "
+							.. tostring(mutation and mutation.Type or mutationModel:GetAttribute("MutationType") or "")
+							.. "\nWeight: "
+							.. tostring(
+								mutation and mutation.Weight or mutationModel:GetAttribute("MutationWeight") or 0
+							)
+					)
+				end
+
+				variantSection += 1
 			end
 		end
 

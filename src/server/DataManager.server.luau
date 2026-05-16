@@ -75,6 +75,11 @@ local DEFAULT_DATA = {
 	LockedPets = {}, -- variant keys protected from deletion
 	OwnedPaintTools = { "StarterBrush" },
 	EquippedPaintTool = "StarterBrush",
+	DiscoveredIndex = {
+		Pets = {},
+		Gear = { "StarterBrush" },
+		Places = { "Red" },
+	},
 	Settings = {
 		Music = true,
 		SFX = true,
@@ -561,6 +566,137 @@ local function countMap(value)
 	return total
 end
 
+local function normalizeIndexList(value, resolver, defaults)
+	local seen = {}
+	local ordered = {}
+
+	local function add(rawValue)
+		local resolved = resolver and resolver(rawValue) or tostring(rawValue or "")
+		resolved = tostring(resolved or "")
+		if resolved == "" or seen[resolved] then
+			return
+		end
+		seen[resolved] = true
+		table.insert(ordered, resolved)
+	end
+
+	for _, defaultValue in ipairs(defaults or {}) do
+		add(defaultValue)
+	end
+	if type(value) == "string" then
+		for _, item in ipairs(string.split(value, ",")) do
+			add(item)
+		end
+	elseif type(value) == "table" then
+		for key, item in pairs(value) do
+			if item == true then
+				add(key)
+			else
+				add(item)
+			end
+		end
+	end
+	return ordered
+end
+
+local function resolveIndexPetId(petId)
+	local resolved = PetData.resolvePetId and PetData.resolvePetId(petId) or tostring(petId or "")
+	if PetData.Pets and PetData.Pets[resolved] then
+		return resolved
+	end
+	return ""
+end
+
+local function normalizeIndexPetList(value)
+	return normalizeIndexList(value, resolveIndexPetId)
+end
+
+local function resolveIndexGearId(toolId)
+	toolId = tostring(toolId or "")
+	if ToolData.ResolveBrushId then
+		toolId = ToolData.ResolveBrushId(toolId)
+	end
+	if toolId ~= "" and (not ToolData.isValid or ToolData.isValid(toolId)) then
+		return toolId
+	end
+	return ""
+end
+
+local function normalizeIndexGearList(value)
+	return normalizeIndexList(value, resolveIndexGearId, { "StarterBrush" })
+end
+
+local function normalizeIndexPlaceList(value)
+	return normalizeUnlockedColorList(value)
+end
+
+local function appendUnique(list, value)
+	value = tostring(value or "")
+	if value == "" then
+		return false
+	end
+	for _, existing in ipairs(list) do
+		if existing == value then
+			return false
+		end
+	end
+	table.insert(list, value)
+	return true
+end
+
+local function appendPetDiscoveriesFromInventory(list, inventory)
+	local changed = false
+	for _, record in ipairs(inventory or {}) do
+		if type(record) == "table" then
+			local resolved = resolveIndexPetId(record.petId or record.PetId or record.id or record.Id)
+			if appendUnique(list, resolved) then
+				changed = true
+			end
+		elseif type(record) == "string" then
+			local decoded = decodePetRecord(record)
+			local resolved = decoded and resolveIndexPetId(decoded.petId)
+			if appendUnique(list, resolved) then
+				changed = true
+			end
+		end
+	end
+	return changed
+end
+
+local function appendListDiscoveries(list, values, resolver)
+	local changed = false
+	for _, value in ipairs(values or {}) do
+		local resolved = resolver and resolver(value) or value
+		if appendUnique(list, resolved) then
+			changed = true
+		end
+	end
+	return changed
+end
+
+local function normalizeDiscoveredIndex(data)
+	data = type(data) == "table" and data or {}
+	local existing = type(data.DiscoveredIndex) == "table" and data.DiscoveredIndex or {}
+	local pets = normalizeIndexPetList(existing.Pets or existing.PetIds or existing.Colors)
+	appendPetDiscoveriesFromInventory(pets, data.PetInventory)
+
+	local gear = normalizeIndexGearList(existing.Gear or existing.Brushes or existing.PaintTools)
+	appendListDiscoveries(gear, normalizePaintToolList(data.OwnedPaintTools), resolveIndexGearId)
+
+	local places =
+		normalizeIndexPlaceList(existing.Places or existing.Worlds or existing.Sectors or data.UnlockedColors)
+	appendListDiscoveries(places, normalizeUnlockedColorList(data.UnlockedColors), function(colorType)
+		local world = ColorData.getWorldByColor(colorType)
+		return world and world.primaryColor or ""
+	end)
+
+	return {
+		Pets = pets,
+		Gear = gear,
+		Places = places,
+	}
+end
+
 local function countUnlockedSectors(data)
 	return countList(data and data.UnlockedColors)
 end
@@ -1000,6 +1136,7 @@ local function migrateData(saved)
 	data.Pets = deepCopy(data.PetInventory)
 	data.Colors = deepCopy(data.PetInventory)
 	data.LockedPets = type(data.LockedPets) == "table" and data.LockedPets or {}
+	data.DiscoveredIndex = normalizeDiscoveredIndex(data)
 
 	data.EquippedPets = {}
 	local seenEquipped = {}
@@ -1069,6 +1206,7 @@ local function validateProfileData(player, data, context)
 
 	data.OwnedPaintTools = normalizePaintToolList(data.OwnedPaintTools)
 	data.EquippedPaintTool = normalizeEquippedPaintTool(data.EquippedPaintTool, data.OwnedPaintTools)
+	data.DiscoveredIndex = normalizeDiscoveredIndex(data)
 	data.Settings = normalizeSettings(data.Settings)
 	data.Upgrades = type(data.Upgrades) == "table" and data.Upgrades or {}
 	for key, value in pairs(data.Upgrades) do
@@ -1135,6 +1273,7 @@ end
 local DATA_FOLDERS = {
 	leaderstats = true,
 	ColorStorage = true,
+	IndexData = true,
 	Upgrades = true,
 	RankData = true,
 	PetData = true,
@@ -1491,6 +1630,69 @@ local function applyData(player, data)
 	end
 	watchValueForDirty(player, equippedTool, "paint-tool-equipped")
 
+	data.DiscoveredIndex = normalizeDiscoveredIndex(data)
+	local indexFolder = Instance.new("Folder")
+	indexFolder.Name = "IndexData"
+	indexFolder.Parent = player
+
+	local discoveredPets = Instance.new("StringValue")
+	discoveredPets.Name = "DiscoveredPets"
+	discoveredPets.Value = table.concat(data.DiscoveredIndex.Pets or {}, ",")
+	discoveredPets.Parent = indexFolder
+	watchValueForDirty(player, discoveredPets, "index-pets")
+
+	local discoveredGear = Instance.new("StringValue")
+	discoveredGear.Name = "DiscoveredGear"
+	discoveredGear.Value = table.concat(data.DiscoveredIndex.Gear or {}, ",")
+	discoveredGear.Parent = indexFolder
+	watchValueForDirty(player, discoveredGear, "index-gear")
+
+	local discoveredPlaces = Instance.new("StringValue")
+	discoveredPlaces.Name = "DiscoveredPlaces"
+	discoveredPlaces.Value = table.concat(data.DiscoveredIndex.Places or {}, ",")
+	discoveredPlaces.Parent = indexFolder
+	watchValueForDirty(player, discoveredPlaces, "index-places")
+
+	local function setCsvIfChanged(valueObject, list)
+		local nextValue = table.concat(list or {}, ",")
+		if valueObject.Value ~= nextValue then
+			valueObject.Value = nextValue
+		end
+	end
+
+	local function refreshDiscoveredPets()
+		local list = normalizeIndexPetList(discoveredPets.Value)
+		if appendPetDiscoveriesFromInventory(list, parsePetInventoryValue(invValue.Value)) then
+			setCsvIfChanged(discoveredPets, list)
+		end
+	end
+
+	local function refreshDiscoveredGear()
+		local list = normalizeIndexGearList(discoveredGear.Value)
+		if appendListDiscoveries(list, normalizePaintToolList(ownedTools.Value), resolveIndexGearId) then
+			setCsvIfChanged(discoveredGear, list)
+		end
+	end
+
+	local function refreshDiscoveredPlaces()
+		local list = normalizeIndexPlaceList(discoveredPlaces.Value)
+		if
+			appendListDiscoveries(list, normalizeUnlockedColorList(unlockedColors.Value), function(colorType)
+				local world = ColorData.getWorldByColor(colorType)
+				return world and world.primaryColor or ""
+			end)
+		then
+			setCsvIfChanged(discoveredPlaces, list)
+		end
+	end
+
+	invValue:GetPropertyChangedSignal("Value"):Connect(refreshDiscoveredPets)
+	ownedTools:GetPropertyChangedSignal("Value"):Connect(refreshDiscoveredGear)
+	unlockedColors:GetPropertyChangedSignal("Value"):Connect(refreshDiscoveredPlaces)
+	refreshDiscoveredPets()
+	refreshDiscoveredGear()
+	refreshDiscoveredPlaces()
+
 	local settingsFolder = Instance.new("Folder")
 	settingsFolder.Name = "Settings"
 	settingsFolder.Parent = player
@@ -1661,6 +1863,19 @@ local function collectData(player)
 	end
 	data.OwnedPaintTools = normalizePaintToolList(data.OwnedPaintTools)
 	data.EquippedPaintTool = normalizeEquippedPaintTool(data.EquippedPaintTool, data.OwnedPaintTools)
+
+	local indexFolder = player:FindFirstChild("IndexData")
+	if indexFolder then
+		local petsValue = indexFolder:FindFirstChild("DiscoveredPets")
+		local gearValue = indexFolder:FindFirstChild("DiscoveredGear")
+		local placesValue = indexFolder:FindFirstChild("DiscoveredPlaces")
+		data.DiscoveredIndex = {
+			Pets = normalizeIndexPetList(petsValue and petsValue.Value or {}),
+			Gear = normalizeIndexGearList(gearValue and gearValue.Value or {}),
+			Places = normalizeIndexPlaceList(placesValue and placesValue.Value or {}),
+		}
+	end
+	data.DiscoveredIndex = normalizeDiscoveredIndex(data)
 
 	local settingsFolder = player:FindFirstChild("Settings")
 	if settingsFolder then

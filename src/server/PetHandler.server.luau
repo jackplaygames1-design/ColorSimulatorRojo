@@ -11,6 +11,7 @@ local ColorPersonalityData = require(ReplicatedStorage:WaitForChild("ColorPerson
 local ColorTraitData = require(ReplicatedStorage:WaitForChild("ColorTraitData"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
+local GroundPaintService = require(script.Parent:WaitForChild("GroundPaintService"))
 local GroupRewardsService = require(script.Parent:WaitForChild("GroupRewardsService"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local RankService = require(script.Parent:WaitForChild("RankService"))
@@ -1365,6 +1366,13 @@ hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	entry.manualEquipRequired = true
 	entry.traitsUnlockedForEgg = canRollTraits
 	entry.mutationsUnlockedForEgg = canRollMutations
+	entry.hatchLuckMultiplier = luckMult
+	entry.hatchPetChance = PetData.getEggRollChance(eggId, petId, luckMult)
+	entry.mutationChance = canRollMutations and ColorMutationData.getRollChance(mutationId, luckMult) or nil
+	entry.combinedHatchChance = entry.hatchPetChance
+	if entry.hatchPetChance and entry.mutationChance and mutationId ~= ColorMutationData.NoneId then
+		entry.combinedHatchChance = (entry.hatchPetChance * entry.mutationChance) / 100
+	end
 	if DEBUG_LOGS then
 		print(
 			"Hatched Color "
@@ -1715,7 +1723,9 @@ workspace.DescendantAdded:Connect(registerObject)
 --   PET AUTO-ATTACK LOOP
 -- ========================
 local PET_ATTACK_RANGE = tonumber(GameBalance.Pets and GameBalance.Pets.AttackRange) or 16
-local PET_ATTACK_INTERVAL = tonumber(GameBalance.Pets and GameBalance.Pets.AttackInterval) or 0.65
+local PET_ATTACK_INTERVAL = tonumber(GameBalance.GroundPaint and GameBalance.GroundPaint.PetCollectInterval)
+	or tonumber(GameBalance.Pets and GameBalance.Pets.AttackInterval)
+	or 0.65
 local PET_DAMAGE_SCALE = tonumber(GameBalance.Pets and GameBalance.Pets.DamageScale) or 0.35
 local MIN_PET_DAMAGE_FRACTION = tonumber(GameBalance.Pets and GameBalance.Pets.MinDamageFraction) or 0.08
 local lastAttack = {}
@@ -1806,6 +1816,42 @@ RunService.Heartbeat:Connect(function()
 		local unlockedColors = storage and storage:FindFirstChild("UnlockedColors")
 		local physicalZoneColors = getPhysicalZoneColors(root)
 		local attackRange = PET_ATTACK_RANGE * (tonumber(petStats.pickupRangeMult) or 1)
+		local groundPaintConfig = GameBalance.GroundPaint or {}
+		local groundResult = GroundPaintService.CollectNearestPaint(
+			player,
+			root.Position,
+			attackRange,
+			(tonumber(groundPaintConfig.PetCollectRadius) or 4) * (tonumber(petStats.pickupRangeMult) or 1),
+			math.clamp(
+				(tonumber(groundPaintConfig.BaseBrushPower) or 0.24)
+					* (tonumber(groundPaintConfig.PetPowerScale) or 0.35)
+					* math.max(1, petStats.breakPower),
+				0.03,
+				1.25
+			)
+		)
+		local groundRewardUnits = GroundPaintService.GetPaintRewardUnits(groundResult)
+		if groundRewardUnits > 0 then
+			lastAttack[player] = now
+			local colorType = groundResult.ColorType
+			local reward = math.max(
+				1,
+				math.floor(
+					groundRewardUnits * petStats.colorMult * getInstantCoinMultiplier(player, colorType, petStats)
+				)
+			)
+			petBreakRewardEvent:FireClient(player, {
+				Amount = reward,
+				ColorType = colorType,
+				Position = groundResult.Position,
+			})
+			reportColorSpillCleaned(player, nil, colorType)
+			if not awardCoins(player, reward) then
+				warn("PetHandler: failed to award pet ground paint coins for " .. tostring(player.Name))
+			end
+			petAtkEvent:FireClient(player, playerEquipped[player], groundResult.Position, colorType)
+			continue
+		end
 
 		local nearest = getPriorityTarget(player, root, unlockedColors, physicalZoneColors, attackRange)
 		local nearestDist = attackRange
