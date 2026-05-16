@@ -44,6 +44,9 @@ GameBalance.Contamination = {
 	BaseReward = 4,
 	RewardMultiplier = 0.35,
 	PetRewardMultiplier = 0.24,
+	InitialBuildDelay = 5,
+	BuildBatchSize = 12,
+	BuildBatchDelay = 0.03,
 	SpawnExclusionPadding = 48,
 	SafeNameFragments = {
 		"origin",

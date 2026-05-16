@@ -2,6 +2,7 @@
 -- This script never creates or clones the loading screen; edit LoadingGui in Studio.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
@@ -70,6 +71,8 @@ loadingGui.ResetOnSpawn = false
 loadingGui.IgnoreGuiInset = true
 loadingGui.DisplayOrder = math.max(loadingGui.DisplayOrder, 100000)
 loadingGui.Enabled = true
+playerGui:SetAttribute("ColorSimulatorLoadingGuiShownEarly", true)
+RunService.RenderStepped:Wait()
 
 local root = loadingGui:FindFirstChild("LoadingRoot")
 local statusText = loadingGui:FindFirstChild("StatusText", true)

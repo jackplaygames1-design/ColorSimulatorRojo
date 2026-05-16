@@ -1182,18 +1182,20 @@ end
 local foundZones = 0
 local populationConfig = getZonePopulationConfig()
 local populateAllOnStartup = populationConfig.PopulateAllZonesOnStartup == true
+local populateStartZonesOnStartup = populationConfig.PopulateStartZonesOnStartup == true
 for _, obj in ipairs(workspace:GetDescendants()) do
 	if obj:IsA("BasePart") and configureColorZonePart(obj) then
 		foundZones = foundZones + 1
 		local colorType = obj:GetAttribute("ColorType")
-		if populateAllOnStartup or colorType == "Red" then
-			populateZone(obj)
+		if populateAllOnStartup or (populateStartZonesOnStartup and colorType == "Red") then
+			task.spawn(populateZone, obj)
 		end
 	end
 end
 
 local function hookPlayer(player)
-	task.delay(2, function()
+	local initialDelay = tonumber(populationConfig.InitialPlayerPopulateDelay) or 3.5
+	task.delay(initialDelay, function()
 		requestPopulateForPlayer(player)
 	end)
 

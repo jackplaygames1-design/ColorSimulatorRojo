@@ -18,6 +18,9 @@ local BASE_TRANSPARENCY = tonumber(config.BaseTransparency) or 0.24
 local BASE_REWARD = tonumber(config.BaseReward) or 4
 local REWARD_MULTIPLIER = tonumber(config.RewardMultiplier) or 0.35
 local SPAWN_EXCLUSION_PADDING = tonumber(config.SpawnExclusionPadding) or 48
+local INITIAL_BUILD_DELAY = tonumber(config.InitialBuildDelay) or 5
+local BUILD_BATCH_SIZE = tonumber(config.BuildBatchSize) or 12
+local BUILD_BATCH_DELAY = tonumber(config.BuildBatchDelay) or 0.03
 
 local generatedFolder = Workspace:FindFirstChild("GroundContamination")
 if not generatedFolder then
@@ -203,6 +206,7 @@ local function populateZone(zone)
 	local cellSizeX = zone.Size.X / xCount
 	local cellSizeZ = zone.Size.Z / zCount
 	local created = 0
+	local workedThisBatch = 0
 
 	for x = 1, xCount do
 		local localX = -zone.Size.X * 0.5 + cellSizeX * (x - 0.5)
@@ -210,6 +214,11 @@ local function populateZone(zone)
 			local localZ = -zone.Size.Z * 0.5 + cellSizeZ * (z - 0.5)
 			if makeCell(zone, colorType, localX, localZ, cellSizeX, cellSizeZ, created + 1) then
 				created += 1
+			end
+			workedThisBatch += 1
+			if workedThisBatch >= BUILD_BATCH_SIZE then
+				workedThisBatch = 0
+				task.wait(BUILD_BATCH_DELAY)
 			end
 		end
 	end
@@ -227,10 +236,11 @@ local function populateZone(zone)
 end
 
 task.defer(function()
-	task.wait(1.5)
+	task.wait(INITIAL_BUILD_DELAY)
 	for _, obj in ipairs(Workspace:GetDescendants()) do
 		if obj:IsA("BasePart") then
 			populateZone(obj)
+			task.wait()
 		end
 	end
 end)

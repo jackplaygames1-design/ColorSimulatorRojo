@@ -4,8 +4,11 @@
     "$className": "DataModel",
 
     "ReplicatedFirst": {
-      "Client": {
-        "$path": "src/replicatedfirst"
+      "LoadingGui": {
+        "$path": "src/replicatedfirst/LoadingGui.model.json"
+      },
+      "LoadingScreenBootstrap": {
+        "$path": "src/replicatedfirst/LoadingScreenBootstrap.client.luau"
       }
     },
 
