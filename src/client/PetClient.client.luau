@@ -136,14 +136,21 @@ local function destroyOwnedClientPetModels(knownPetIds)
 	local folder = workspace:FindFirstChild(CLIENT_PET_FOLDER_NAME)
 	if folder then
 		for _, child in ipairs(folder:GetChildren()) do
-			if child:GetAttribute("ClientPetOwnerUserId") == nil or child:GetAttribute("ClientPetOwnerUserId") == player.UserId then
+			if
+				child:GetAttribute("ClientPetOwnerUserId") == nil
+				or child:GetAttribute("ClientPetOwnerUserId") == player.UserId
+			then
 				child:Destroy()
 			end
 		end
 	end
 
 	for _, child in ipairs(workspace:GetChildren()) do
-		if child ~= folder and child.Name ~= PET_APPEARANCE_SOURCE_NAME and modelLooksLikeOwnedOrbitingPet(child, knownPetIds) then
+		if
+			child ~= folder
+			and child.Name ~= PET_APPEARANCE_SOURCE_NAME
+			and modelLooksLikeOwnedOrbitingPet(child, knownPetIds)
+		then
 			child:Destroy()
 		end
 	end
