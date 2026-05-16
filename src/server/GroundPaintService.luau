@@ -252,6 +252,7 @@ local function looksLikeGroundSurface(part)
 		or part:GetAttribute("ShopStation") == true
 		or part:GetAttribute("GroundPaintIgnore") == true
 		or part:IsA("SpawnLocation")
+		or part:FindFirstAncestor("DynamicGameplay") ~= nil
 		or hasBlockedSurfaceName(part)
 	then
 		return false
@@ -272,6 +273,33 @@ local function looksLikeGroundSurface(part)
 		or part:GetAttribute("ZoneFloor") == true
 		or part:GetAttribute("ContaminationAllowed") == true
 		or hasSurfaceName(part)
+end
+
+local function looksLikeFallbackGroundSurface(part)
+	if not part:IsA("BasePart") then
+		return false
+	end
+	if
+		part:GetAttribute("NoColorSpawn") == true
+		or part:GetAttribute("NoContamination") == true
+		or part:GetAttribute("DecorativeOnly") == true
+		or part:GetAttribute("BreakableType") ~= nil
+		or part:GetAttribute("GemDeposit") == true
+		or part:GetAttribute("EggStation") == true
+		or part:GetAttribute("ShopStation") == true
+		or part:GetAttribute("GroundPaintIgnore") == true
+		or part:IsA("SpawnLocation")
+		or part:FindFirstAncestor("DynamicGameplay") ~= nil
+		or hasBlockedSurfaceName(part)
+	then
+		return false
+	end
+
+	local horizontalArea = part.Size.X * part.Size.Z
+	return horizontalArea >= 4000
+		and part.Size.X >= 55
+		and part.Size.Z >= 55
+		and part.Size.Y <= math.max(12, math.min(part.Size.X, part.Size.Z) * 0.25)
 end
 
 local function calculateGrid(part)
@@ -423,8 +451,8 @@ local function fireSnapshotTo(player)
 	end
 end
 
-local function buildSurface(part)
-	if surfaceByPart[part] or not looksLikeGroundSurface(part) then
+local function buildSurface(part, force)
+	if surfaceByPart[part] or (not force and not looksLikeGroundSurface(part)) then
 		return nil
 	end
 
@@ -483,6 +511,29 @@ local function buildSurface(part)
 	return surface
 end
 
+local function buildFallbackSurfaces()
+	local candidates = {}
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if obj:IsA("BasePart") and not surfaceByPart[obj] and looksLikeFallbackGroundSurface(obj) then
+			table.insert(candidates, obj)
+		end
+	end
+
+	table.sort(candidates, function(a, b)
+		return (a.Size.X * a.Size.Z) > (b.Size.X * b.Size.Z)
+	end)
+
+	for _, part in ipairs(candidates) do
+		if totalLogicalCells >= MAX_CELLS_TOTAL then
+			break
+		end
+		buildSurface(part, true)
+		if #surfaces >= 6 then
+			break
+		end
+	end
+end
+
 local function buildAllSurfaces()
 	cleanupOldPhysicalPaint()
 	table.clear(surfaces)
@@ -501,6 +552,10 @@ local function buildAllSurfaces()
 		if obj:IsA("BasePart") then
 			buildSurface(obj)
 		end
+	end
+
+	if #surfaces == 0 then
+		buildFallbackSurfaces()
 	end
 end
 
@@ -835,7 +890,9 @@ function GroundPaintService.Start()
 	task.defer(function()
 		task.wait(0.75)
 		buildAllSurfaces()
-		if debugConfig.PrintBoot ~= false then
+		if #surfaces == 0 then
+			warn("GroundPaintService failed: surfaces=0 logicalCells=0; no paintable surfaces discovered.")
+		elseif debugConfig.PrintBoot ~= false then
 			print(string.format("GroundPaintService ready: surfaces=%d logicalCells=%d", #surfaces, totalLogicalCells))
 		end
 		for _, player in ipairs(Players:GetPlayers()) do

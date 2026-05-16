@@ -1009,7 +1009,7 @@ local function populateZone(zone)
 		return
 	end
 	if DEBUG_LOGS then
-		print("Populating zone: " .. zone.Name .. " (" .. colorType .. ")")
+		print("ZoneSpawner debug: populate request for " .. zone.Name .. " (" .. colorType .. ")")
 	end
 
 	local spawned = 0

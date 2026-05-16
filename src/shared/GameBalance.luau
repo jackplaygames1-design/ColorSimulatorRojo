@@ -124,7 +124,7 @@ GameBalance.GroundPaint = {
 		GlowTransparency = 0.55,
 		GlowYOffset = 0.045,
 
-		BaseSurfaceColor = Color3.fromRGB(8, 8, 8),
+		BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
 
 		Thickness = {
 			Enabled = true,
