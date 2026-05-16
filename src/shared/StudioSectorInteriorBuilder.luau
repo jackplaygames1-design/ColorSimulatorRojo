@@ -372,6 +372,12 @@ function Builder.BuildOrangeMutationInterior(options)
 	)
 	floor:SetAttribute("MutationUnlockArea", true)
 	setInteriorAttrs(floor, colorType)
+	floor:SetAttribute("GroundPaintSurface", true)
+	floor:SetAttribute("PlayableSectorFloor", true)
+	floor:SetAttribute("ZoneFloor", true)
+	floor:SetAttribute("ColorZone", true)
+	floor:SetAttribute("DecorativeOnly", false)
+	floor:SetAttribute("ZoneId", "OrangeGrove")
 
 	local wallHeight = 180
 	local wallY = interiorOrigin.Y + wallHeight * 0.5

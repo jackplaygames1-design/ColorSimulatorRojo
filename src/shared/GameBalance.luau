@@ -99,6 +99,7 @@ GameBalance.GroundPaint = {
 	RewardPerCoverageUnit = 10,
 
 	SurfaceDiscovery = {
+		RequireExplicitPaintable = true,
 		PreferredNames = {
 			"RedFloor1",
 			"RedZoneFloor",
@@ -112,6 +113,21 @@ GameBalance.GroundPaint = {
 			"ceiling",
 			"roof",
 			"upper",
+			"origin",
+			"fence",
+			"fences",
+			"index",
+			"wall",
+			"gate",
+			"spawn",
+			"trigger",
+			"volume",
+			"bounds",
+			"boundary",
+			"decor",
+			"shop",
+			"egg",
+			"pipe",
 		},
 	},
 

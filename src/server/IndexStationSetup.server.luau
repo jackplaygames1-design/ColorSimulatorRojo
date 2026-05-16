@@ -47,6 +47,14 @@ local function ensurePrompt(object)
 	if not host then
 		return
 	end
+	for _, descendant in ipairs(object:GetDescendants()) do
+		if descendant:IsA("BasePart") and descendant:GetAttribute("GroundPaintSurface") ~= true then
+			descendant:SetAttribute("GroundPaintIgnore", true)
+		end
+	end
+	if host:GetAttribute("GroundPaintSurface") ~= true then
+		host:SetAttribute("GroundPaintIgnore", true)
+	end
 
 	local prompt = host:FindFirstChild(PROMPT_NAME)
 	if prompt and not prompt:IsA("ProximityPrompt") then

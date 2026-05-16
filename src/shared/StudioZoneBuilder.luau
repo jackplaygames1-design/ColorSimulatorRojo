@@ -3465,7 +3465,13 @@ function StudioZoneBuilder.BuildEditableRedZone()
 		"RedZone"
 	)
 	if floor then
-		setAttributes(floor, { ZoneFloor = true, ColorType = "Red" })
+		setAttributes(floor, {
+			GroundPaintSurface = true,
+			PlayableSectorFloor = true,
+			ZoneFloor = true,
+			ColorType = "Red",
+			ZoneId = "StarterField",
+		})
 	end
 
 	local collection = getOrCreateEditablePart(

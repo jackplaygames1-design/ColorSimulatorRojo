@@ -4139,17 +4139,11 @@ local function buildIndexWindow(modalWindows)
 	makeIndexCategoryButton(sidebar, "GearTab", "Gear", 2, Color3.fromRGB(232, 237, 248))
 	makeIndexCategoryButton(sidebar, "PlacesTab", "Places", 3, Color3.fromRGB(232, 237, 248))
 
-	local rewardButton = conceptButton(
-		content,
-		"RewardsButton",
-		"Rewards",
-		UDim2.fromScale(0.03, 0.82),
-		UDim2.fromScale(0.22, 0.1),
-		Color3.fromRGB(102, 236, 45)
-	)
-	rewardButton.TextSize = 28
-	rewardButton:SetAttribute("IndexCategory", "Rewards")
-	markIndexEditable(rewardButton, "RewardsButton")
+	local legacyRewardButton = content:FindFirstChild("RewardsButton")
+	if legacyRewardButton and legacyRewardButton:IsA("GuiObject") then
+		legacyRewardButton.Visible = false
+		legacyRewardButton:SetAttribute("IndexCategory", nil)
+	end
 
 	local topFilters = conceptPanel(
 		content,

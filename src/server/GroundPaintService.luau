@@ -38,6 +38,7 @@ local MAX_DELTAS_PER_PACKET = math.max(tonumber(networkingConfig.MaxDeltasPerPac
 local SNAPSHOT_RADIUS = math.max(tonumber(networkingConfig.SnapshotRadius) or 420, 80)
 local SEND_ONLY_NEARBY = networkingConfig.SendOnlyNearbyPlayers == true
 local surfaceDiscoveryConfig = config.SurfaceDiscovery or {}
+local REQUIRE_EXPLICIT_PAINTABLE = surfaceDiscoveryConfig.RequireExplicitPaintable == true
 
 local DEFAULT_PREFERRED_SURFACE_NAMES = {
 	"RedFloor1",
@@ -53,6 +54,21 @@ local DEFAULT_BLOCKED_DISCOVERY_KEYWORDS = {
 	"ceiling",
 	"roof",
 	"upper",
+	"origin",
+	"fence",
+	"fences",
+	"index",
+	"wall",
+	"gate",
+	"spawn",
+	"trigger",
+	"volume",
+	"bounds",
+	"boundary",
+	"decor",
+	"shop",
+	"egg",
+	"pipe",
 }
 
 local snapshotRemote
@@ -349,6 +365,12 @@ local function hasLargeFlatPaintGeometry(part, minArea, minSide)
 		and part.Size.Y <= math.max(10, smallestHorizontal * 0.28)
 end
 
+local function hasExplicitPaintableAttribute(part)
+	return part:GetAttribute("GroundPaintSurface") == true
+		or part:GetAttribute("PlayableSectorFloor") == true
+		or part:GetAttribute("ZoneFloor") == true
+end
+
 local function isCommonPaintSurfaceBlocker(part)
 	return part:GetAttribute("NoColorSpawn") == true
 		or part:GetAttribute("NoContamination") == true
@@ -360,7 +382,6 @@ local function isCommonPaintSurfaceBlocker(part)
 		or part:GetAttribute("GroundPaintIgnore") == true
 		or part:IsA("SpawnLocation")
 		or part:FindFirstAncestor("DynamicGameplay") ~= nil
-		or hasBlockedSurfaceName(part)
 end
 
 local function looksLikeFallbackGroundSurface(part)
@@ -378,44 +399,90 @@ local function looksLikeFallbackGroundSurface(part)
 		and part.Size.Y <= math.max(12, math.min(part.Size.X, part.Size.Z) * 0.25)
 end
 
-getPaintSurfaceCandidateScore = function(part, allowFallback)
-	if not part:IsA("BasePart") or isCommonPaintSurfaceBlocker(part) then
-		return nil
+local function getPaintSurfaceRejectReason(part, allowFallback)
+	if not part:IsA("BasePart") then
+		return "not a BasePart"
+	end
+
+	local explicitlyGroundPainted = part:GetAttribute("GroundPaintSurface") == true
+	if part:GetAttribute("GroundPaintIgnore") == true then
+		return "ignored"
+	end
+	if
+		part:GetAttribute("NoColorSpawn") == true
+		or part:GetAttribute("NoContamination") == true
+		or part:GetAttribute("DecorativeOnly") == true
+		or part:GetAttribute("BreakableType") ~= nil
+		or part:GetAttribute("GemDeposit") == true
+		or part:GetAttribute("EggStation") == true
+		or part:GetAttribute("ShopStation") == true
+		or part:IsA("SpawnLocation")
+		or part:FindFirstAncestor("DynamicGameplay") ~= nil
+	then
+		return "ignored"
+	end
+	if not explicitlyGroundPainted and (hasBlockedSurfaceName(part) or hasBlockedDiscoveryKeyword(part)) then
+		return "blocked keyword"
+	end
+	if REQUIRE_EXPLICIT_PAINTABLE and not hasExplicitPaintableAttribute(part) then
+		return "no explicit attribute"
+	end
+	if part.Transparency >= 1 then
+		return "invisible"
+	end
+	if not explicitlyGroundPainted and not part.CanCollide then
+		return "not collidable"
 	end
 	if not hasLargeFlatPaintGeometry(part, 1400, 32) then
+		return "too thick"
+	end
+	if not REQUIRE_EXPLICIT_PAINTABLE and not allowFallback and not hasExplicitPaintableAttribute(part) then
+		return "no explicit attribute"
+	end
+
+	return nil
+end
+
+getPaintSurfaceCandidateScore = function(part, allowFallback)
+	if getPaintSurfaceRejectReason(part, allowFallback) ~= nil then
 		return nil
 	end
 
 	local preferredName = hasPreferredSurfaceName(part)
-	if preferredName then
+	if preferredName and not REQUIRE_EXPLICIT_PAINTABLE then
 		return 100000 + part.Size.X * part.Size.Z
 	end
 
-	if hasBlockedDiscoveryKeyword(part) then
-		return nil
+	if part:GetAttribute("GroundPaintSurface") == true then
+		return 100000 + part.Size.X * part.Size.Z
 	end
-
 	if part:GetAttribute("PlayableSectorFloor") == true then
 		return 90000 + part.Size.X * part.Size.Z
 	end
 	if part:GetAttribute("ZoneFloor") == true then
 		return 85000 + part.Size.X * part.Size.Z
 	end
-	if part:GetAttribute("ContaminationAllowed") == true then
+	if not REQUIRE_EXPLICIT_PAINTABLE and part:GetAttribute("ContaminationAllowed") == true then
 		return 80000 + part.Size.X * part.Size.Z
 	end
 
-	-- Only trust GroundPaintSurface as an authored mark if this service has not
-	-- already stamped a runtime id onto the part in the current Studio session.
-	if part:GetAttribute("GroundPaintSurface") == true and part:GetAttribute("GroundPaintSurfaceId") == nil then
-		return 75000 + part.Size.X * part.Size.Z
-	end
-
-	if allowFallback and part.CanCollide and hasDirectSurfaceName(part) and hasColorName(part) then
+	if
+		not REQUIRE_EXPLICIT_PAINTABLE
+		and allowFallback
+		and part.CanCollide
+		and hasDirectSurfaceName(part)
+		and hasColorName(part)
+	then
 		return 60000 + part.Size.X * part.Size.Z
 	end
 
-	if allowFallback and part.CanCollide and looksLikeFallbackGroundSurface(part) and hasSurfaceName(part) then
+	if
+		not REQUIRE_EXPLICIT_PAINTABLE
+		and allowFallback
+		and part.CanCollide
+		and looksLikeFallbackGroundSurface(part)
+		and hasSurfaceName(part)
+	then
 		return part.Size.X * part.Size.Z
 	end
 
@@ -557,6 +624,90 @@ local function logSelectedSurface(surface)
 	)
 end
 
+local AUTHORED_PAINT_SURFACE_REPAIRS = {
+	redfloor1 = {
+		ColorType = "Red",
+		ZoneId = "StarterField",
+	},
+	redzonefloor = {
+		ColorType = "Red",
+		ZoneId = "StarterField",
+	},
+	redwastelandsfloor = {
+		ColorType = "Red",
+		ZoneId = "StarterField",
+	},
+	orangeinteriorfloor = {
+		ColorType = "Orange",
+		ZoneId = "OrangeGrove",
+	},
+	orangesectorfloor = {
+		ColorType = "Orange",
+		ZoneId = "OrangeGrove",
+	},
+	greeninteriorfloor = {
+		ColorType = "Green",
+		ZoneId = "GreenForest",
+	},
+	greensectorfloor = {
+		ColorType = "Green",
+		ZoneId = "GreenForest",
+	},
+	greenzonefloor = {
+		ColorType = "Green",
+		ZoneId = "GreenForest",
+	},
+}
+
+local DECORATIVE_IGNORE_ANCESTOR_NAMES = {
+	fence = true,
+	fences = true,
+	index = true,
+	collectionindex = true,
+	indexstation = true,
+}
+
+local function hasDecorativeIgnoreAncestor(part)
+	local current = part
+	while current and current ~= Workspace do
+		if DECORATIVE_IGNORE_ANCESTOR_NAMES[compactName(current.Name)] == true then
+			return true
+		end
+		current = current.Parent
+	end
+	return false
+end
+
+local function markAuthoredPaintSurface(part, repair)
+	part:SetAttribute("GroundPaintSurface", true)
+	part:SetAttribute("PlayableSectorFloor", true)
+	part:SetAttribute("ZoneFloor", true)
+	part:SetAttribute("ColorZone", true)
+	part:SetAttribute("ColorType", repair.ColorType)
+	part:SetAttribute("ZoneId", repair.ZoneId)
+	part:SetAttribute("DecorativeOnly", false)
+	part:SetAttribute("NoColorSpawn", false)
+	part:SetAttribute("NoContamination", false)
+	part:SetAttribute("GroundPaintIgnore", false)
+end
+
+local function repairGroundPaintAttributesForPart(part)
+	local repair = AUTHORED_PAINT_SURFACE_REPAIRS[compactName(part.Name)]
+	if repair then
+		markAuthoredPaintSurface(part, repair)
+	elseif part:GetAttribute("GroundPaintSurface") ~= true and hasDecorativeIgnoreAncestor(part) then
+		part:SetAttribute("GroundPaintIgnore", true)
+	end
+end
+
+local function repairAuthoredGroundPaintAttributes()
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			repairGroundPaintAttributesForPart(obj)
+		end
+	end
+end
+
 local function isSurfaceNearPlayer(surface, player)
 	if not player or not surface or not surface.Part then
 		return true
@@ -646,6 +797,7 @@ end
 
 local function collectSurfaceCandidates(allowFallback)
 	local candidates = {}
+	local rejected = {}
 	for _, obj in ipairs(Workspace:GetDescendants()) do
 		if obj:IsA("BasePart") and not surfaceByPart[obj] then
 			local score = getPaintSurfaceCandidateScore(obj, allowFallback)
@@ -655,6 +807,16 @@ local function collectSurfaceCandidates(allowFallback)
 					Score = score,
 					Path = obj:GetFullName(),
 				})
+			elseif debugConfig.PrintSurfaceDiscovery == true then
+				local area = obj.Size.X * obj.Size.Z
+				if area >= 1400 and obj.Size.X >= 32 and obj.Size.Z >= 32 then
+					table.insert(rejected, {
+						Part = obj,
+						Area = area,
+						Reason = getPaintSurfaceRejectReason(obj, allowFallback) or "unknown",
+						Path = obj:GetFullName(),
+					})
+				end
 			end
 		end
 	end
@@ -666,7 +828,39 @@ local function collectSurfaceCandidates(allowFallback)
 		return a.Path < b.Path
 	end)
 
-	return candidates
+	table.sort(rejected, function(a, b)
+		if a.Area ~= b.Area then
+			return a.Area > b.Area
+		end
+		return a.Path < b.Path
+	end)
+
+	return candidates, rejected
+end
+
+local function logRejectedSurfaceCandidates(rejected)
+	if debugConfig.PrintSurfaceDiscovery ~= true then
+		return
+	end
+	local maxRejected = math.min(#rejected, 12)
+	for index = 1, maxRejected do
+		local item = rejected[index]
+		local part = item.Part
+		if part and part.Parent then
+			print(
+				string.format(
+					"GroundPaint rejected[%d]: part=%s reason=%s size=%s pos=%s transparency=%.2f canCollide=%s",
+					index,
+					item.Path,
+					tostring(item.Reason),
+					tostring(part.Size),
+					tostring(part.Position),
+					part.Transparency,
+					tostring(part.CanCollide)
+				)
+			)
+		end
+	end
 end
 
 local function buildSurfacesFromCandidates(candidates, limit)
@@ -682,11 +876,14 @@ local function buildSurfacesFromCandidates(candidates, limit)
 end
 
 local function buildFallbackSurfaces()
-	buildSurfacesFromCandidates(collectSurfaceCandidates(true), 6)
+	local candidates, rejected = collectSurfaceCandidates(true)
+	buildSurfacesFromCandidates(candidates, 6)
+	logRejectedSurfaceCandidates(rejected)
 end
 
 local function buildAllSurfaces()
 	cleanupOldPhysicalPaint()
+	repairAuthoredGroundPaintAttributes()
 	table.clear(surfaces)
 	table.clear(surfacesById)
 	table.clear(surfaceByPart)
@@ -699,9 +896,11 @@ local function buildAllSurfaces()
 		child:Destroy()
 	end
 
-	buildSurfacesFromCandidates(collectSurfaceCandidates(false))
+	local candidates, rejected = collectSurfaceCandidates(false)
+	buildSurfacesFromCandidates(candidates)
+	logRejectedSurfaceCandidates(rejected)
 
-	if #surfaces == 0 then
+	if #surfaces == 0 and not REQUIRE_EXPLICIT_PAINTABLE then
 		buildFallbackSurfaces()
 	end
 end
@@ -1038,7 +1237,13 @@ function GroundPaintService.Start()
 		task.wait(0.75)
 		buildAllSurfaces()
 		if #surfaces == 0 then
-			warn("GroundPaintService failed: surfaces=0 logicalCells=0; no paintable surfaces discovered.")
+			if REQUIRE_EXPLICIT_PAINTABLE then
+				warn(
+					"GroundPaintService failed: no explicit GroundPaintSurface / PlayableSectorFloor / ZoneFloor parts found."
+				)
+			else
+				warn("GroundPaintService failed: surfaces=0 logicalCells=0; no paintable surfaces discovered.")
+			end
 		elseif debugConfig.PrintBoot ~= false then
 			print(string.format("GroundPaintService ready: surfaces=%d logicalCells=%d", #surfaces, totalLogicalCells))
 		end
@@ -1062,6 +1267,7 @@ function GroundPaintService.Start()
 		if obj:IsA("BasePart") then
 			task.defer(function()
 				task.wait(0.15)
+				repairGroundPaintAttributesForPart(obj)
 				local surface = buildSurface(obj)
 				if surface and deltaRemote then
 					deltaRemote:FireAllClients({

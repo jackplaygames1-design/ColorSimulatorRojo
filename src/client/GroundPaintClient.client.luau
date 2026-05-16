@@ -204,7 +204,7 @@ end
 
 local function upsertSurface(data)
 	if type(data) ~= "table" or typeof(data.Part) ~= "Instance" or not data.Part:IsA("BasePart") then
-		return
+		return false
 	end
 
 	local oldSurface = surfaces[data.SurfaceId]
@@ -237,6 +237,7 @@ local function upsertSurface(data)
 	surfaces[surface.SurfaceId] = surface
 	makeCoatPlanes(surface)
 	makeThicknessLips(surface)
+	return #(surface.Coats or {}) > 0
 end
 
 local function getCoatPartCount()
@@ -409,13 +410,38 @@ local function makeClearStamp(stampData)
 end
 
 local function applySnapshot(payload)
+	local incoming = payload.Surfaces or {}
+	local validSurfaces = {}
+	for _, surfaceData in ipairs(incoming) do
+		if
+			type(surfaceData) == "table"
+			and surfaceData.SurfaceId ~= nil
+			and typeof(surfaceData.Part) == "Instance"
+			and surfaceData.Part:IsA("BasePart")
+			and surfaceData.Part.Parent ~= nil
+		then
+			table.insert(validSurfaces, surfaceData)
+		else
+			warn(
+				"GroundPaintClient invalid snapshot surface:",
+				type(surfaceData) == "table" and surfaceData.SurfaceId or nil,
+				type(surfaceData) == "table" and surfaceData.Part or nil
+			)
+		end
+	end
+
+	if #incoming > 0 and #validSurfaces == 0 then
+		warn("GroundPaintClient ignored snapshot because it had surfaces but 0 valid replicated parts.")
+		return
+	end
+
 	clearVisuals()
-	for _, surfaceData in ipairs(payload.Surfaces or {}) do
+	for _, surfaceData in ipairs(validSurfaces) do
 		upsertSurface(surfaceData)
 	end
 
 	if debugConfig.PrintClientVisuals == true then
-		local surfaceCount = #(payload.Surfaces or {})
+		local surfaceCount = #validSurfaces
 		local coatParts = getCoatPartCount()
 		print(string.format("GroundPaintClient snapshot: surfaces=%d coatParts=%d", surfaceCount, coatParts))
 		for _, surface in pairs(surfaces) do

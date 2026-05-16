@@ -47,7 +47,6 @@ local CATEGORY_LABELS = {
 	Pets = "Pets",
 	Gear = "Gear",
 	Places = "Places",
-	Rewards = "Rewards",
 }
 
 local FILTER_LABELS = {
@@ -426,16 +425,11 @@ local function createRuntimeWindow()
 		tab:SetAttribute("IndexCategory", tabInfo[3])
 	end
 
-	local rewards = button(
-		content,
-		"RewardsButton",
-		"Rewards",
-		UDim2.fromScale(0.03, 0.82),
-		UDim2.fromScale(0.22, 0.1),
-		Color3.fromRGB(102, 236, 45)
-	)
-	rewards.TextSize = 28
-	rewards:SetAttribute("IndexCategory", "Rewards")
+	local rewards = content:FindFirstChild("RewardsButton")
+	if rewards and rewards:IsA("GuiObject") then
+		rewards.Visible = false
+		rewards:SetAttribute("IndexCategory", nil)
+	end
 
 	local topFilters =
 		panel(content, "TopFilters", UDim2.fromScale(0.34, 0.035), UDim2.fromScale(0.32, 0.075), CARD, 20, 3)
@@ -805,54 +799,6 @@ local function buildPlaceEntries()
 	return entries
 end
 
-local function countDiscovered(entries)
-	local count = 0
-	for _, entry in ipairs(entries or {}) do
-		if entry.discovered then
-			count += 1
-		end
-	end
-	return count
-end
-
-local function buildRewardEntries(pets, gear, places)
-	local petCount = countDiscovered(pets)
-	local gearCount = countDiscovered(gear)
-	local placeCount = countDiscovered(places)
-	return {
-		{
-			id = "PetsReward",
-			name = "Pets",
-			meta = tostring(petCount) .. "/" .. tostring(#pets),
-			iconText = "PT",
-			color = BLUE,
-			status = "Collection progress",
-			discovered = true,
-			sortOrder = 1,
-		},
-		{
-			id = "GearReward",
-			name = "Gear",
-			meta = tostring(gearCount) .. "/" .. tostring(#gear),
-			iconText = "GR",
-			color = GREEN,
-			status = "Owned tools",
-			discovered = true,
-			sortOrder = 2,
-		},
-		{
-			id = "PlacesReward",
-			name = "Places",
-			meta = tostring(placeCount) .. "/" .. tostring(#places),
-			iconText = "PL",
-			color = Color3.fromRGB(255, 194, 55),
-			status = "Unlocked sectors",
-			discovered = true,
-			sortOrder = 3,
-		},
-	}
-end
-
 local function getCatalog()
 	local pets = buildPetEntries()
 	local gear = buildGearEntries()
@@ -861,7 +807,6 @@ local function getCatalog()
 		Pets = pets,
 		Gear = gear,
 		Places = places,
-		Rewards = buildRewardEntries(pets, gear, places),
 	}
 end
 
@@ -918,15 +863,15 @@ local function setCardEntry(card, entry)
 
 	local lockOverlay = findDescendant(card, "LockOverlay")
 	if lockOverlay and lockOverlay:IsA("GuiObject") then
-		lockOverlay.Visible = not entry.discovered and currentCategory ~= "Rewards"
+		lockOverlay.Visible = not entry.discovered
 	end
 
 	local badge = findDescendant(card, "CollectedBadge")
 	if badge and badge:IsA("GuiObject") then
-		badge.Visible = entry.discovered == true and currentCategory ~= "Rewards"
+		badge.Visible = entry.discovered == true
 	end
 
-	local visibleEntry = entry.discovered == true or currentCategory == "Rewards"
+	local visibleEntry = entry.discovered == true
 	setCardText(card, "IconText", visibleEntry and entry.iconText or "?")
 	setCardText(card, "NameLabel", visibleEntry and entry.name or "???")
 	setCardText(card, "StatusLabel", visibleEntry and (entry.meta or entry.status) or "Not Found")
@@ -947,11 +892,6 @@ local function updateTabVisuals()
 				end
 			end
 		end
-	end
-
-	local rewardsButton = ui.content and ui.content:FindFirstChild("RewardsButton")
-	if rewardsButton and rewardsButton:IsA("GuiObject") then
-		setButtonVisual(rewardsButton, currentCategory == "Rewards", GREEN)
 	end
 
 	if ui.topFilters then
@@ -1158,15 +1098,6 @@ local function bindConnections()
 				end, "category-" .. child.Name)
 			end
 		end
-	end
-
-	local rewardsButton = ui.content and ui.content:FindFirstChild("RewardsButton")
-	if rewardsButton and rewardsButton:IsA("GuiObject") then
-		connectButton(rewardsButton, function()
-			currentCategory = "Rewards"
-			currentPage = 1
-			render()
-		end, "category-Rewards")
 	end
 
 	if ui.topFilters then
