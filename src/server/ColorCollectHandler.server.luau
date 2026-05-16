@@ -1063,6 +1063,7 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 	local lastMessage = "No Color in range."
 	local seen = {}
 	local root = getPlayerRoot(player)
+	local groundPaintCells = 0
 
 	for _, part in ipairs(candidates) do
 		if collected >= maxTargets then
@@ -1100,6 +1101,7 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 		local groundCollected, groundAwarded =
 			processGroundBrush(player, toolConfig, toolStats, root, range, groundPayload)
 		if groundCollected > 0 then
+			groundPaintCells = groundCollected
 			collected += groundCollected
 			total += groundAwarded
 			lastMessage = "Ground cleaned."
@@ -1116,12 +1118,14 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 
 	local success = total > 0
 	if DEBUG_LOGS and success then
+		local targetLabel = groundPaintCells > 0 and " ground paint cells" or " Color targets"
 		print(
 			"PaintToolSweep: "
 				.. player.Name
-				.. " broke "
+				.. " cleaned "
 				.. tostring(collected)
-				.. " Color blobs for "
+				.. targetLabel
+				.. " for "
 				.. tostring(total)
 				.. " Coins via "
 				.. mode

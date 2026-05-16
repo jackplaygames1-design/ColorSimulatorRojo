@@ -129,9 +129,10 @@ local function getPlaneGrid(maxPlanes, coverageX, coverageZ)
 end
 
 local function getSurfaceTopCFrame(surface, localX, localZ, yOffset)
-	local basePart = surface.Part
-	local topY = basePart.Size.Y * 0.5 + yOffset
-	return basePart.CFrame * CFrame.new(localX, topY, localZ)
+	local size = surface.Size or (surface.Part and surface.Part.Size) or Vector3.new(1, 1, 1)
+	local cframe = surface.CFrame or (surface.Part and surface.Part.CFrame) or CFrame.new()
+	local topY = size.Y * 0.5 + yOffset
+	return cframe * CFrame.new(localX, topY, localZ)
 end
 
 local function makeCoatPlanes(surface)
@@ -222,7 +223,14 @@ local function makeThicknessLips(surface)
 end
 
 local function upsertSurface(data)
-	if type(data) ~= "table" or typeof(data.Part) ~= "Instance" or not data.Part:IsA("BasePart") then
+	if type(data) ~= "table" then
+		return false
+	end
+
+	local part = typeof(data.Part) == "Instance" and data.Part:IsA("BasePart") and data.Part or nil
+	local surfaceCFrame = typeof(data.SurfaceCFrame) == "CFrame" and data.SurfaceCFrame or (part and part.CFrame)
+	local surfaceSize = typeof(data.SurfaceSize) == "Vector3" and data.SurfaceSize or (part and part.Size)
+	if typeof(surfaceCFrame) ~= "CFrame" or typeof(surfaceSize) ~= "Vector3" then
 		return false
 	end
 
@@ -237,13 +245,16 @@ local function upsertSurface(data)
 
 	local surface = {
 		SurfaceId = data.SurfaceId,
-		Part = data.Part,
+		Part = part,
+		CFrame = surfaceCFrame,
+		Size = surfaceSize,
+		PartPath = data.PartPath,
 		ColorType = data.ColorType,
 		PaintColor = typeof(data.PaintColor) == "Color3" and data.PaintColor or Color3.fromRGB(255, 0, 0),
 		BaseSurfaceColor = typeof(data.BaseSurfaceColor) == "Color3" and data.BaseSurfaceColor
 			or (visualConfig.BaseSurfaceColor or Color3.fromRGB(8, 8, 8)),
-		CoverageX = asNumber(data.CoverageX, data.Part.Size.X),
-		CoverageZ = asNumber(data.CoverageZ, data.Part.Size.Z),
+		CoverageX = asNumber(data.CoverageX, surfaceSize.X),
+		CoverageZ = asNumber(data.CoverageZ, surfaceSize.Z),
 		OffsetX = asNumber(data.OffsetX, 0),
 		OffsetZ = asNumber(data.OffsetZ, 0),
 		Folder = surfaceFolder,
@@ -313,6 +324,38 @@ local function pruneGlobalStamps()
 	end
 end
 
+local function removeStamp(surface, stamp)
+	if not surface or not stamp then
+		return
+	end
+	for index = #surface.Stamps, 1, -1 do
+		if surface.Stamps[index] == stamp then
+			table.remove(surface.Stamps, index)
+			break
+		end
+	end
+	if stamp.Folder then
+		stamp.Folder:Destroy()
+	end
+	activeStampCount = math.max(activeStampCount - 1, 0)
+end
+
+local function absorbNearbyStamp(surface, localPoint, radius)
+	for _, stamp in ipairs(surface.Stamps) do
+		if stamp.CenterLocal and stamp.Radius then
+			local dx = stamp.CenterLocal.X - localPoint.X
+			local dz = stamp.CenterLocal.Y - localPoint.Z
+			local mergeDistance = math.max(radius, stamp.Radius) * 0.35
+			if dx * dx + dz * dz <= mergeDistance * mergeDistance then
+				local nextRadius = math.max(radius, stamp.Radius * 1.08)
+				removeStamp(surface, stamp)
+				return nextRadius
+			end
+		end
+	end
+	return radius
+end
+
 local function emitLiftParticles(position, color, radius)
 	local anchor = Instance.new("Part")
 	anchor.Name = "GroundPaintLiftParticles"
@@ -344,8 +387,8 @@ local function emitLiftParticles(position, color, radius)
 end
 
 local function fadeAndDestroyStamp(surface, stamp)
-	local holdTime = math.max(asNumber(stampConfig.MinStampLifetime, 2.25), asNumber(regenConfig.DelayAfterBrush, 2.25))
-	local fadeTime = asNumber(stampConfig.FadeOutTime, 1.35)
+	local holdTime = math.max(asNumber(stampConfig.MinStampLifetime, 5), asNumber(regenConfig.DelayAfterBrush, 5))
+	local fadeTime = asNumber(stampConfig.FadeOutTime, 1)
 
 	task.delay(holdTime, function()
 		if not stamp.Folder or not stamp.Folder.Parent then
@@ -379,20 +422,27 @@ local function makeClearStamp(stampData)
 	end
 
 	local surface = surfaces[stampData.SurfaceId]
-	if not surface or not surface.Part or not surface.Part.Parent then
+	if not surface then
 		return
 	end
 
-	local localPoint = surface.Part.CFrame:PointToObjectSpace(stampData.Position)
+	local surfaceCFrame = surface.CFrame or (surface.Part and surface.Part.CFrame)
+	if typeof(surfaceCFrame) ~= "CFrame" then
+		return
+	end
+
+	local localPoint = surfaceCFrame:PointToObjectSpace(stampData.Position)
 	local radius = math.max(asNumber(stampData.Radius, 7), 1)
-	local ringCount = math.clamp(math.floor(asNumber(stampConfig.RingCount, 5)), 2, 9)
+	radius = absorbNearbyStamp(surface, localPoint, radius)
+	local ringCount = math.clamp(math.floor(asNumber(stampConfig.RingCount, 7)), 2, 11)
 	local baseColor = typeof(surface.BaseSurfaceColor) == "Color3" and surface.BaseSurfaceColor
 		or typeof(stampData.BaseSurfaceColor) == "Color3" and stampData.BaseSurfaceColor
 		or visualConfig.BaseSurfaceColor
 		or surface.BaseSurfaceColor
 		or Color3.fromRGB(5, 5, 5)
-	local centerTransparency = asNumber(stampConfig.ClearCenterTransparency, 0)
-	local edgeTransparency = asNumber(stampConfig.ClearEdgeTransparency, 0.42)
+	local centerTransparency =
+		asNumber(stampConfig.CenterTransparency, asNumber(stampConfig.ClearCenterTransparency, 0))
+	local edgeTransparency = asNumber(stampConfig.EdgeTransparency, asNumber(stampConfig.ClearEdgeTransparency, 0.65))
 	local yOffset = asNumber(visualConfig.ClearStampYOffset, 0.055)
 
 	local stampFolder = Instance.new("Folder")
@@ -402,6 +452,8 @@ local function makeClearStamp(stampData)
 	local stamp = {
 		Folder = stampFolder,
 		Parts = {},
+		CenterLocal = Vector2.new(localPoint.X, localPoint.Z),
+		Radius = radius,
 		CreatedAt = os.clock(),
 	}
 
@@ -409,8 +461,8 @@ local function makeClearStamp(stampData)
 		local alpha = ring / ringCount
 		local disc = Instance.new("Part")
 		disc.Name = "ClearDisc"
-		disc.Shape = Enum.PartType.Cylinder
-		disc.Size = Vector3.new(radius * 2 * alpha, 0.035, radius * 2 * alpha)
+		disc.Shape = Enum.PartType.Ball
+		disc.Size = Vector3.new(radius * 2 * alpha, 0.06, radius * 2 * alpha)
 		disc.CFrame = getSurfaceTopCFrame(surface, localPoint.X, localPoint.Z, yOffset + ring * 0.003)
 		disc.Anchored = true
 		disc.CanCollide = false
@@ -420,7 +472,7 @@ local function makeClearStamp(stampData)
 		disc.Material = Enum.Material.SmoothPlastic
 		disc.Color = baseColor
 		disc.Transparency = (ring == 1) and centerTransparency
-			or math.clamp(edgeTransparency + (alpha * 0.22), centerTransparency, 0.72)
+			or math.clamp(edgeTransparency + (alpha * 0.12), centerTransparency, 0.82)
 		disc.Parent = stampFolder
 		table.insert(stamp.Parts, disc)
 	end
@@ -437,19 +489,21 @@ local function applySnapshot(payload)
 	local incoming = payload.Surfaces or {}
 	local validSurfaces = {}
 	for _, surfaceData in ipairs(incoming) do
-		if
-			type(surfaceData) == "table"
-			and surfaceData.SurfaceId ~= nil
+		local hasReplicatedPart = type(surfaceData) == "table"
 			and typeof(surfaceData.Part) == "Instance"
 			and surfaceData.Part:IsA("BasePart")
 			and surfaceData.Part.Parent ~= nil
-		then
+		local hasGeometry = type(surfaceData) == "table"
+			and typeof(surfaceData.SurfaceCFrame) == "CFrame"
+			and typeof(surfaceData.SurfaceSize) == "Vector3"
+		if type(surfaceData) == "table" and surfaceData.SurfaceId ~= nil and (hasReplicatedPart or hasGeometry) then
 			table.insert(validSurfaces, surfaceData)
 		else
 			warn(
 				"GroundPaintClient invalid snapshot surface:",
 				type(surfaceData) == "table" and surfaceData.SurfaceId or nil,
-				type(surfaceData) == "table" and surfaceData.Part or nil
+				type(surfaceData) == "table" and surfaceData.Part or nil,
+				type(surfaceData) == "table" and surfaceData.PartPath or nil
 			)
 		end
 	end
@@ -538,7 +592,7 @@ end)
 
 RunService.Heartbeat:Connect(function()
 	for surfaceId, surface in pairs(surfaces) do
-		if not surface.Part or not surface.Part.Parent then
+		if surface.Part and not surface.Part.Parent then
 			destroySurface(surface)
 			surfaces[surfaceId] = nil
 		end

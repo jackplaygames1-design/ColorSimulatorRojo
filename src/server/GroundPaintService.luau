@@ -35,8 +35,10 @@ local REGEN_PER_SECOND = math.max(tonumber(regenConfig.CoveragePerSecond) or 0.2
 local REGEN_TICK_HZ = math.max(tonumber(regenConfig.TickHz) or 8, 1)
 local DELTA_HZ = math.max(tonumber(networkingConfig.DeltaHz) or 12, 1)
 local MAX_DELTAS_PER_PACKET = math.max(tonumber(networkingConfig.MaxDeltasPerPacket) or 150, 1)
+local MAX_STAMPS_PER_PACKET = math.max(tonumber(networkingConfig.MaxStampsPerPacket) or 45, 1)
 local SNAPSHOT_RADIUS = math.max(tonumber(networkingConfig.SnapshotRadius) or 420, 80)
 local SEND_ONLY_NEARBY = networkingConfig.SendOnlyNearbyPlayers == true
+local SEND_LOGICAL_CELL_DELTAS = networkingConfig.SendLogicalCellDeltas == true
 local surfaceDiscoveryConfig = config.SurfaceDiscovery or {}
 local REQUIRE_EXPLICIT_PAINTABLE = surfaceDiscoveryConfig.RequireExplicitPaintable == true
 
@@ -177,6 +179,24 @@ local function getBaseSurfaceColor(colorType, part)
 		return zoneConfig.BaseSurfaceColor
 	end
 	return visualConfig.BaseSurfaceColor or Color3.fromRGB(8, 8, 8)
+end
+
+local function getSurfaceHardness(colorType, part)
+	local attrHardness = part and tonumber(part:GetAttribute("GroundPaintHardness"))
+	if attrHardness and attrHardness > 0 then
+		return attrHardness
+	end
+
+	local zoneConfig = getZoneColorConfig(colorType, part)
+	if zoneConfig then
+		local zoneHardness = tonumber(zoneConfig.Hardness)
+		if zoneHardness and zoneHardness > 0 then
+			return zoneHardness
+		end
+	end
+
+	local hardnessByColor = config.ColorHardness or {}
+	return math.max(tonumber(hardnessByColor[colorType]) or 1, 0.05)
 end
 
 local function getSurfaceColorAttribute(instance)
@@ -588,9 +608,14 @@ local function buildSnapshotForSurface(surface)
 	return {
 		SurfaceId = surface.Id,
 		Part = surface.Part,
+		PartName = surface.Part and surface.Part.Name or nil,
+		PartPath = surface.Part and surface.Part:GetFullName() or nil,
+		SurfaceCFrame = surface.Part and surface.Part.CFrame or surface.CFrame,
+		SurfaceSize = surface.Part and surface.Part.Size or surface.Size,
 		ColorType = surface.ColorType,
 		PaintColor = surface.PaintColor,
 		BaseSurfaceColor = surface.BaseSurfaceColor,
+		Hardness = surface.Hardness,
 		CoverageX = surface.CoverageX,
 		CoverageZ = surface.CoverageZ,
 		XCount = surface.XCount,
@@ -765,9 +790,12 @@ local function buildSurface(part, force)
 	local surface = {
 		Id = id,
 		Part = part,
+		CFrame = part.CFrame,
+		Size = part.Size,
 		ColorType = colorType,
 		PaintColor = getPaintColor(colorType, part),
 		BaseSurfaceColor = getBaseSurfaceColor(colorType, part),
+		Hardness = getSurfaceHardness(colorType, part),
 		CoverageX = coverageX,
 		CoverageZ = coverageZ,
 		XCount = xCount,
@@ -1009,6 +1037,7 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 	radius =
 		math.clamp(tonumber(radius) or tonumber(brushConfig.BaseRadius) or 7, 1, tonumber(brushConfig.MaxRadius) or 42)
 	power = math.clamp(tonumber(power) or tonumber(brushConfig.BasePower) or 0.28, 0.01, 1.5)
+	local effectivePower = power / math.max(tonumber(surface.Hardness) or 1, 0.05)
 
 	local now = os.clock()
 	local localPoint = surface.Part.CFrame:PointToObjectSpace(worldPosition)
@@ -1033,7 +1062,7 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 					local normalized = distance / math.max(radius * softEdgeMultiplier, 0.001)
 					local falloff = math.clamp(1 - normalized, 0, 1)
 					falloff = math.clamp(falloff ^ 0.55, 0.12, 1)
-					local amount = math.min(coverage - EMPTY_COVERAGE, power * falloff)
+					local amount = math.min(coverage - EMPTY_COVERAGE, effectivePower * falloff)
 					if amount > 0.001 then
 						setCellCoverage(surface, index, coverage - amount)
 						surface.LastBrushAt[index] = now
@@ -1193,12 +1222,23 @@ local function buildLogicalUpdates()
 	return updates
 end
 
+local function clearPendingCellChanges()
+	for surfaceId in pairs(pendingCellChanges) do
+		pendingCellChanges[surfaceId] = nil
+	end
+end
+
 local function flushClientChanges()
 	if next(pendingCellChanges) == nil and #pendingStamps == 0 then
 		return
 	end
 
-	local logicalUpdates = buildLogicalUpdates()
+	local logicalUpdates = {}
+	if SEND_LOGICAL_CELL_DELTAS then
+		logicalUpdates = buildLogicalUpdates()
+	else
+		clearPendingCellChanges()
+	end
 	local stamps = pendingStamps
 	pendingStamps = {}
 
@@ -1207,6 +1247,9 @@ local function flushClientChanges()
 		for _, stamp in ipairs(stamps) do
 			if isStampNearPlayer(stamp, player) then
 				table.insert(visibleStamps, stamp)
+				if #visibleStamps >= MAX_STAMPS_PER_PACKET then
+					break
+				end
 			end
 		end
 		if #visibleStamps > 0 or #logicalUpdates > 0 then

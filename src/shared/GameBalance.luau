@@ -133,8 +133,8 @@ GameBalance.GroundPaint = {
 
 	Regen = {
 		Enabled = true,
-		DelayAfterBrush = 2.25,
-		CoveragePerSecond = 0.22,
+		DelayAfterBrush = 5.0,
+		CoveragePerSecond = 0.35,
 		TickHz = 8,
 	},
 
@@ -142,18 +142,18 @@ GameBalance.GroundPaint = {
 		Enabled = true,
 		Mode = "SoftStampMask",
 
-		PaintYOffset = 0.18,
-		ClearStampYOffset = 0.24,
+		PaintYOffset = 0.12,
+		ClearStampYOffset = 0.22,
 
 		MaxCoatPlanesPerSurface = 16,
 		MaxActiveClearStamps = 260,
 		MaxActiveClearStampsPerSurface = 90,
 
-		PaintMaterial = Enum.Material.Neon,
-		PaintTransparency = 0,
+		PaintMaterial = Enum.Material.SmoothPlastic,
+		PaintTransparency = 0.03,
 		PaintReflectance = 0.03,
 
-		UseNeonGlow = true,
+		UseNeonGlow = false,
 		GlowTransparency = 0.25,
 		GlowYOffset = 0.045,
 
@@ -167,15 +167,21 @@ GameBalance.GroundPaint = {
 		},
 
 		BrushStamp = {
-			Softness = 0.65,
-			RingCount = 5,
-			MinStampLifetime = 2.25,
-			FadeOutTime = 0.85,
-			ClearCenterTransparency = 0,
-			ClearEdgeTransparency = 0.42,
+			Softness = 0.7,
+			RingCount = 7,
+			MinStampLifetime = 5.0,
+			FadeOutTime = 1.0,
+			CenterTransparency = 0,
+			EdgeTransparency = 0.65,
 			UseConcentricDiscsFallback = true,
 			TextureAssetId = "",
 		},
+	},
+
+	ColorHardness = {
+		Red = 1,
+		Orange = 1.75,
+		Green = 2.5,
 	},
 
 	DefaultColorType = "Red",
@@ -184,31 +190,37 @@ GameBalance.GroundPaint = {
 			ColorType = "Red",
 			PaintColor = Color3.fromRGB(235, 35, 32),
 			BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
+			Hardness = 1,
 		},
 		Red = {
 			ColorType = "Red",
 			PaintColor = Color3.fromRGB(235, 35, 32),
 			BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
+			Hardness = 1,
 		},
 		OrangeGrove = {
 			ColorType = "Orange",
 			PaintColor = Color3.fromRGB(255, 132, 28),
 			BaseSurfaceColor = Color3.fromRGB(8, 8, 8),
+			Hardness = 1.75,
 		},
 		Orange = {
 			ColorType = "Orange",
 			PaintColor = Color3.fromRGB(255, 132, 28),
 			BaseSurfaceColor = Color3.fromRGB(8, 8, 8),
+			Hardness = 1.75,
 		},
 		GreenForest = {
 			ColorType = "Green",
 			PaintColor = Color3.fromRGB(62, 220, 88),
 			BaseSurfaceColor = Color3.fromRGB(8, 8, 8),
+			Hardness = 2.5,
 		},
 		Green = {
 			ColorType = "Green",
 			PaintColor = Color3.fromRGB(62, 220, 88),
 			BaseSurfaceColor = Color3.fromRGB(8, 8, 8),
+			Hardness = 2.5,
 		},
 	},
 
@@ -236,9 +248,11 @@ GameBalance.GroundPaint = {
 
 	Networking = {
 		SnapshotRadius = 420,
-		DeltaHz = 12,
-		MaxDeltasPerPacket = 150,
+		DeltaHz = 8,
+		MaxDeltasPerPacket = 80,
+		MaxStampsPerPacket = 45,
 		SendOnlyNearbyPlayers = true,
+		SendLogicalCellDeltas = false,
 	},
 
 	Debug = {
