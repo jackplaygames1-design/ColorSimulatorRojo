@@ -16,6 +16,7 @@ local visualConfig = config.Visual or {}
 local stampConfig = visualConfig.BrushStamp or {}
 local thicknessConfig = visualConfig.Thickness or {}
 local regenConfig = config.Regen or {}
+local debugConfig = config.Debug or {}
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local snapshotRemote = Events:WaitForChild("PaintFieldSnapshot")
@@ -129,7 +130,7 @@ local function makeCoatPlanes(surface)
 
 			local coat = Instance.new("Part")
 			coat.Name = "PaintCoat"
-			coat.Size = Vector3.new(math.max(segmentX + 0.08, 0.5), 0.045, math.max(segmentZ + 0.08, 0.5))
+			coat.Size = Vector3.new(math.max(segmentX + 0.08, 0.5), 0.18, math.max(segmentZ + 0.08, 0.5))
 			coat.CFrame = getSurfaceTopCFrame(surface, localX, localZ, yOffset)
 			configurePaintPart(coat, surface.PaintColor, paintTransparency, material)
 			coat.Parent = surface.Folder
@@ -219,7 +220,7 @@ local function upsertSurface(data)
 		SurfaceId = data.SurfaceId,
 		Part = data.Part,
 		ColorType = data.ColorType,
-		PaintColor = typeof(data.PaintColor) == "Color3" and data.PaintColor or Color3.fromRGB(235, 35, 32),
+		PaintColor = typeof(data.PaintColor) == "Color3" and data.PaintColor or Color3.fromRGB(255, 0, 0),
 		BaseSurfaceColor = typeof(data.BaseSurfaceColor) == "Color3" and data.BaseSurfaceColor
 			or (visualConfig.BaseSurfaceColor or Color3.fromRGB(8, 8, 8)),
 		CoverageX = asNumber(data.CoverageX, data.Part.Size.X),
@@ -236,6 +237,23 @@ local function upsertSurface(data)
 	surfaces[surface.SurfaceId] = surface
 	makeCoatPlanes(surface)
 	makeThicknessLips(surface)
+end
+
+local function getCoatPartCount()
+	local count = 0
+	for _, surface in pairs(surfaces) do
+		count += #(surface.Coats or {})
+	end
+	return count
+end
+
+local function colorToDebugString(color)
+	return string.format(
+		"rgb(%d,%d,%d)",
+		math.floor(color.R * 255 + 0.5),
+		math.floor(color.G * 255 + 0.5),
+		math.floor(color.B * 255 + 0.5)
+	)
 end
 
 local function pruneSurfaceStamps(surface)
@@ -394,6 +412,26 @@ local function applySnapshot(payload)
 	clearVisuals()
 	for _, surfaceData in ipairs(payload.Surfaces or {}) do
 		upsertSurface(surfaceData)
+	end
+
+	if debugConfig.PrintClientVisuals == true then
+		local surfaceCount = #(payload.Surfaces or {})
+		local coatParts = getCoatPartCount()
+		print(string.format("GroundPaintClient snapshot: surfaces=%d coatParts=%d", surfaceCount, coatParts))
+		for _, surface in pairs(surfaces) do
+			print(
+				string.format(
+					"GroundPaintClient surface: id=%s color=%s transparency=%.3f yOffset=%.3f coverage=%.1fx%.1f coats=%d",
+					tostring(surface.SurfaceId),
+					colorToDebugString(surface.PaintColor),
+					asNumber(visualConfig.PaintTransparency, 0.06),
+					asNumber(visualConfig.PaintYOffset, 0.035),
+					surface.CoverageX,
+					surface.CoverageZ,
+					#(surface.Coats or {})
+				)
+			)
+		end
 	end
 end
 

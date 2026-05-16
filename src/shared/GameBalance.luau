@@ -109,19 +109,19 @@ GameBalance.GroundPaint = {
 		Enabled = true,
 		Mode = "SoftStampMask",
 
-		PaintYOffset = 0.035,
-		ClearStampYOffset = 0.055,
+		PaintYOffset = 0.18,
+		ClearStampYOffset = 0.24,
 
 		MaxCoatPlanesPerSurface = 16,
 		MaxActiveClearStamps = 260,
 		MaxActiveClearStampsPerSurface = 90,
 
-		PaintMaterial = Enum.Material.SmoothPlastic,
-		PaintTransparency = 0.06,
+		PaintMaterial = Enum.Material.Neon,
+		PaintTransparency = 0,
 		PaintReflectance = 0.03,
 
-		UseNeonGlow = false,
-		GlowTransparency = 0.55,
+		UseNeonGlow = true,
+		GlowTransparency = 0.25,
 		GlowYOffset = 0.045,
 
 		BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
@@ -209,6 +209,7 @@ GameBalance.GroundPaint = {
 	Debug = {
 		Enabled = false,
 		PrintBoot = true,
+		PrintClientVisuals = true,
 		PrintSurfaceDiscovery = false,
 		PrintSweepRejects = false,
 		DrawSurfaceIds = false,
