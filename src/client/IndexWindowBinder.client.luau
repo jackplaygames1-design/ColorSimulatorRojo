@@ -799,6 +799,16 @@ local function buildPlaceEntries()
 	return entries
 end
 
+local function countDiscovered(entries)
+	local count = 0
+	for _, entry in ipairs(entries or {}) do
+		if entry.discovered then
+			count += 1
+		end
+	end
+	return count
+end
+
 local function getCatalog()
 	local pets = buildPetEntries()
 	local gear = buildGearEntries()

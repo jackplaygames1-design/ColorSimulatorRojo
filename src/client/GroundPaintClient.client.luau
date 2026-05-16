@@ -325,7 +325,7 @@ local function emitLiftParticles(position, color, radius)
 end
 
 local function fadeAndDestroyStamp(surface, stamp)
-	local holdTime = asNumber(stampConfig.MinStampLifetime, 0.45) + asNumber(regenConfig.DelayAfterBrush, 0.45)
+	local holdTime = math.max(asNumber(stampConfig.MinStampLifetime, 2.25), asNumber(regenConfig.DelayAfterBrush, 2.25))
 	local fadeTime = asNumber(stampConfig.FadeOutTime, 1.35)
 
 	task.delay(holdTime, function()
@@ -367,9 +367,13 @@ local function makeClearStamp(stampData)
 	local localPoint = surface.Part.CFrame:PointToObjectSpace(stampData.Position)
 	local radius = math.max(asNumber(stampData.Radius, 7), 1)
 	local ringCount = math.clamp(math.floor(asNumber(stampConfig.RingCount, 5)), 2, 9)
-	local baseColor = typeof(stampData.BaseSurfaceColor) == "Color3" and stampData.BaseSurfaceColor
+	local baseColor = typeof(surface.BaseSurfaceColor) == "Color3" and surface.BaseSurfaceColor
+		or typeof(stampData.BaseSurfaceColor) == "Color3" and stampData.BaseSurfaceColor
+		or visualConfig.BaseSurfaceColor
 		or surface.BaseSurfaceColor
-	local rimTransparency = asNumber(thicknessConfig.StrokeRimTransparency, 0.35)
+		or Color3.fromRGB(5, 5, 5)
+	local centerTransparency = asNumber(stampConfig.ClearCenterTransparency, 0)
+	local edgeTransparency = asNumber(stampConfig.ClearEdgeTransparency, 0.42)
 	local yOffset = asNumber(visualConfig.ClearStampYOffset, 0.055)
 
 	local stampFolder = Instance.new("Folder")
@@ -396,7 +400,8 @@ local function makeClearStamp(stampData)
 		disc.CastShadow = false
 		disc.Material = Enum.Material.SmoothPlastic
 		disc.Color = baseColor
-		disc.Transparency = (ring == 1) and 0.01 or math.clamp(rimTransparency + (alpha * 0.28), 0.18, 0.82)
+		disc.Transparency = (ring == 1) and centerTransparency
+			or math.clamp(edgeTransparency + (alpha * 0.22), centerTransparency, 0.72)
 		disc.Parent = stampFolder
 		table.insert(stamp.Parts, disc)
 	end

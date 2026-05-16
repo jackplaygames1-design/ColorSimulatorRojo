@@ -133,7 +133,7 @@ GameBalance.GroundPaint = {
 
 	Regen = {
 		Enabled = true,
-		DelayAfterBrush = 0.45,
+		DelayAfterBrush = 2.25,
 		CoveragePerSecond = 0.22,
 		TickHz = 8,
 	},
@@ -169,8 +169,10 @@ GameBalance.GroundPaint = {
 		BrushStamp = {
 			Softness = 0.65,
 			RingCount = 5,
-			MinStampLifetime = 0.45,
-			FadeOutTime = 1.35,
+			MinStampLifetime = 2.25,
+			FadeOutTime = 0.85,
+			ClearCenterTransparency = 0,
+			ClearEdgeTransparency = 0.42,
 			UseConcentricDiscsFallback = true,
 			TextureAssetId = "",
 		},
