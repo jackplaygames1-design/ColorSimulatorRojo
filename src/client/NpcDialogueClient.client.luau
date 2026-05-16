@@ -628,6 +628,14 @@ local advance
 
 local function performAction(action)
 	if action == "OpenBrushShop" then
+		local colorType = activeContext and activeContext.colorType or ""
+		local activeWorldColor = tostring(player:GetAttribute("ActiveWorldColor") or "")
+		if (colorType == "" or colorType == "Red") and activeWorldColor ~= "" and activeWorldColor ~= "Red" then
+			colorType = activeWorldColor
+		end
+		if colorType ~= "" then
+			mainHud:SetAttribute("ActiveBrushShopColor", colorType)
+		end
 		local keepNpcChromeHidden = activeAdornee ~= nil
 		closeDialogue(keepNpcChromeHidden)
 		requestWindow("BrushShopWindow")

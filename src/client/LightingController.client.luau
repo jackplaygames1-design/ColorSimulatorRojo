@@ -10,7 +10,9 @@ local player = Players.LocalPlayer
 
 local areaParts = {}
 local currentPresetName = nil
+local currentSkyName = nil
 local lastScan = 0
+local activeTweens = {}
 
 local function ensureEffect(className, name)
 	local existing = Lighting:FindFirstChild(name)
@@ -56,8 +58,89 @@ local function tweenProperties(instance, properties, tweenInfo)
 	end
 
 	if next(tweenable) then
-		TweenService:Create(instance, tweenInfo, tweenable):Play()
+		local tweenKey = tostring(instance)
+		if activeTweens[tweenKey] then
+			activeTweens[tweenKey]:Cancel()
+		end
+		local tween = TweenService:Create(instance, tweenInfo, tweenable)
+		activeTweens[tweenKey] = tween
+		tween.Completed:Connect(function()
+			if activeTweens[tweenKey] == tween then
+				activeTweens[tweenKey] = nil
+			end
+		end)
+		tween:Play()
 	end
+end
+
+local function findSkyInFolder(skyName)
+	local folderName = LightingPresets.SkyFolderName
+	local skyFolder = folderName and Lighting:FindFirstChild(folderName)
+	if not skyFolder then
+		return nil
+	end
+
+	local namedSky = skyFolder:FindFirstChild(skyName)
+	if namedSky and namedSky:IsA("Sky") then
+		return namedSky
+	end
+
+	local defaultSkyName = LightingPresets.DefaultSkyName
+	local defaultSky = defaultSkyName and skyFolder:FindFirstChild(defaultSkyName)
+	if defaultSky and defaultSky:IsA("Sky") then
+		return defaultSky
+	end
+
+	return nil
+end
+
+local function findAttributedSky(skyName, presetName)
+	for _, child in ipairs(Lighting:GetChildren()) do
+		if child:IsA("Sky") and child.Name ~= (LightingPresets.ActiveSkyName or "ColorSimulatorActiveSky") then
+			local lightingPreset = child:GetAttribute("LightingPreset")
+			local sectorSky = child:GetAttribute("SectorSky")
+			if
+				lightingPreset == skyName
+				or lightingPreset == presetName
+				or sectorSky == skyName
+				or sectorSky == presetName
+			then
+				return child
+			end
+		end
+	end
+
+	return nil
+end
+
+local function applySky(presetName, preset)
+	local skyName = preset.Sky or presetName
+	if type(skyName) ~= "string" or skyName == "" then
+		return
+	end
+
+	local template = findSkyInFolder(skyName) or findAttributedSky(skyName, presetName)
+	if not template then
+		return
+	end
+
+	local activeSkyName = LightingPresets.ActiveSkyName or "ColorSimulatorActiveSky"
+	local activeSky = Lighting:FindFirstChild(activeSkyName)
+	local sourceName = template:GetAttribute("SourceSkyName") or template.Name
+	if activeSky and activeSky:IsA("Sky") and currentSkyName == sourceName then
+		return
+	end
+
+	if activeSky and activeSky:IsA("Sky") then
+		activeSky:Destroy()
+	end
+
+	local sky = template:Clone()
+	sky.Name = activeSkyName
+	sky:SetAttribute("ColorSimulatorLightingController", true)
+	sky:SetAttribute("SourceSkyName", sourceName)
+	sky.Parent = Lighting
+	currentSkyName = sourceName
 end
 
 local function applyPreset(presetName)
@@ -75,6 +158,7 @@ local function applyPreset(presetName)
 		TweenInfo.new(LightingPresets.TransitionTime or 0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	local effects = getEffects()
 
+	applySky(presetName, preset)
 	tweenProperties(Lighting, preset.Lighting, tweenInfo)
 	tweenProperties(effects.Atmosphere, preset.Atmosphere, tweenInfo)
 	tweenProperties(effects.Bloom, preset.Bloom, tweenInfo)
@@ -130,11 +214,15 @@ local function rescanAreaParts()
 				table.insert(areaParts, {
 					Part = descendant,
 					Preset = rule.Preset,
+					Priority = tonumber(rule.Priority) or 0,
 				})
 				break
 			end
 		end
 	end
+	table.sort(areaParts, function(a, b)
+		return (a.Priority or 0) > (b.Priority or 0)
+	end)
 	lastScan = os.clock()
 end
 

@@ -22,6 +22,55 @@ GameBalance.Collection = {
 	AllowTouchCollectionFallback = false,
 }
 
+GameBalance.Contamination = {
+	Enabled = true,
+	TileSize = 34,
+	MaxCellsPerZone = 96,
+	HeightOffset = 0.055,
+	BaseTransparency = 0.24,
+	CleanTransparency = 1,
+	DefaultRegenDelay = 8,
+	RegenDelayByColor = {
+		Red = 9,
+		Orange = 8,
+		Green = 7,
+		Blue = 7,
+		Yellow = 7,
+		Purple = 6,
+		Pink = 6,
+		Neon = 6,
+		Rainbow = 5,
+	},
+	BaseReward = 4,
+	RewardMultiplier = 0.35,
+	PetRewardMultiplier = 0.24,
+	SpawnExclusionPadding = 48,
+	SafeNameFragments = {
+		"origin",
+		"zork",
+		"shop",
+		"safe",
+		"tutorial",
+		"spawn",
+		"pipe",
+		"portal",
+		"teleport",
+		"gate",
+		"egg",
+	},
+	AllowColors = {
+		Red = true,
+		Orange = true,
+		Green = true,
+		Blue = true,
+		Yellow = true,
+		Purple = true,
+		Pink = true,
+		Neon = true,
+		Rainbow = true,
+	},
+}
+
 GameBalance.FeatureFlags = {
 	GemDepositsEnabled = true,
 	WildColorsEnabled = true,
@@ -78,6 +127,8 @@ GameBalance.ZonePopulation = {
 	SpawnBatchDelay = 0.03,
 	RepopulateCooldown = 20,
 	PopulateAllZonesOnStartup = false,
+	PopulateStartZonesOnStartup = false,
+	InitialPlayerPopulateDelay = 3.5,
 }
 
 GameBalance.HatchCooldown = 2.5

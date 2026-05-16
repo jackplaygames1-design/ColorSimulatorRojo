@@ -264,6 +264,14 @@ ColorData.Breakables = {
 		health = 50,
 		size = Vector3.new(4.5, 4.5, 4.5),
 	},
+	GroundContamination = {
+		clusterSize = "Ground",
+		baseReward = 4,
+		rewardMin = 4,
+		rewardMax = 4,
+		health = 14,
+		size = Vector3.new(12, 0.08, 12),
+	},
 }
 
 return ColorData

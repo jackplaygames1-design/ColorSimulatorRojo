@@ -1883,7 +1883,10 @@ RunService.Heartbeat:Connect(function()
 				nearest.CanCollide = false
 				objectHealth[nearest] = 0
 
-				task.delay(5, function()
+				local respawnDelay = tonumber(nearest:GetAttribute("ContaminationRegenDelay"))
+					or tonumber(nearest:GetAttribute("RespawnDelay"))
+					or 5
+				task.delay(respawnDelay, function()
 					if nearest and nearest.Parent then
 						local data = ColorData.Breakables[nearest:GetAttribute("BreakableType")]
 						if data then
@@ -1894,7 +1897,7 @@ RunService.Heartbeat:Connect(function()
 							end
 							objectHealth[nearest] = data.health
 							objectMaxHealth[nearest] = data.health
-							nearest.Transparency = 0
+							nearest.Transparency = nearest:GetAttribute("CollectorBaseTransparency") or 0
 							nearest.CanCollide = false
 							nearest.CanTouch = false
 							nearest.CanQuery = true

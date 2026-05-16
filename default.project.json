@@ -3,6 +3,12 @@
   "tree": {
     "$className": "DataModel",
 
+    "ReplicatedFirst": {
+      "Client": {
+        "$path": "src/replicatedfirst"
+      }
+    },
+
     "ReplicatedStorage": {
       "ColorData": {
         "$path": "src/shared/ColorData.luau"

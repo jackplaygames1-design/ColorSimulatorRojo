@@ -41,6 +41,14 @@ local function makeTool(data)
 	data.VisualType = data.VisualType or "Brush"
 	data.MaxTargets = data.MaxTargets or 8
 	data.MaxServerRange = data.MaxServerRange or 24
+	data.BrushRange = data.BrushRange or data.Range
+	data.BrushStrokeWidth = data.BrushStrokeWidth or data.Width
+	data.BrushRadius = data.BrushRadius or math.max(4, (tonumber(data.Width) or 7) * 0.7)
+	data.BrushPower = data.BrushPower or data.CollectPowerMultiplier or data.PowerMultiplier or 1
+	data.BrushTickRate = data.BrushTickRate or math.clamp((tonumber(data.Cooldown) or 0.45) * 0.32, 0.08, 0.18)
+	data.BrushRewardMultiplier = data.BrushRewardMultiplier or 0.38
+	data.MaxGroundTargets = data.MaxGroundTargets
+		or math.clamp(math.floor((tonumber(data.MaxTargets) or 8) * 0.75), 3, 14)
 	return data
 end
 
@@ -1005,6 +1013,15 @@ function ToolData.GetEffectiveStats(brushId, passiveSource)
 		SweepWidthMultiplier = sweepWidth,
 		UseSpeedMultiplier = useSpeed,
 		PickupRadiusMultiplier = pickupRadius,
+		BrushPower = tonumber(tool.BrushPower) or collectPower,
+		BrushRadius = tonumber(tool.BrushRadius) or math.max(4, (tonumber(tool.Width) or 7) * 0.7),
+		BrushRange = tonumber(tool.BrushRange) or tonumber(tool.Range) or 9,
+		BrushStrokeWidth = tonumber(tool.BrushStrokeWidth) or tonumber(tool.Width) or 7,
+		BrushTickRate = tonumber(tool.BrushTickRate)
+			or math.clamp((tonumber(tool.Cooldown) or 0.45) * 0.32, 0.08, 0.18),
+		BrushRewardMultiplier = tonumber(tool.BrushRewardMultiplier) or 0.38,
+		MaxGroundTargets = tonumber(tool.MaxGroundTargets)
+			or math.clamp(math.floor((tonumber(tool.MaxTargets) or 8) * 0.75), 3, 14),
 		ActiveName = tool.ActiveName or "Basic Swipe",
 		ActiveDescription = tool.ActiveDescription or "",
 		ActiveEffectType = tool.ActiveEffectType or "Sweep",

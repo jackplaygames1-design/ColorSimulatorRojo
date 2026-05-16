@@ -33,6 +33,10 @@ local function loadToolData()
 			VisualType = "Brush",
 			MaxTargets = 8,
 			MaxServerRange = 24,
+			BrushRadius = 5,
+			BrushTickRate = 0.14,
+			BrushRewardMultiplier = 0.38,
+			MaxGroundTargets = 6,
 		},
 	}
 	function fallback.get(toolId)
@@ -46,6 +50,10 @@ local function loadToolData()
 			SweepWidthMultiplier = tool.SweepWidthMultiplier or 1,
 			UseSpeedMultiplier = tool.UseSpeedMultiplier or 1,
 			PickupRadiusMultiplier = tool.PickupRadiusMultiplier or 1,
+			BrushRadius = tool.BrushRadius or 5,
+			BrushTickRate = tool.BrushTickRate or 0.14,
+			BrushRewardMultiplier = tool.BrushRewardMultiplier or 0.38,
+			MaxGroundTargets = tool.MaxGroundTargets or 6,
 		}
 	end
 	return fallback
@@ -75,6 +83,9 @@ local brushEquipped = true
 local equippedToolId = "StarterBrush"
 local brushVisual
 local brushMotor
+local brushHeld = false
+local lastPointerPosition
+local lastGroundVisualAt = 0
 
 local equipState = ReplicatedStorage:FindFirstChild("PaintToolEquippedState")
 if not equipState then
@@ -132,6 +143,94 @@ local function getClientRange(toolConfig)
 	local stats = getToolEffectiveStats(toolConfig)
 	local buffMultiplier = hasActiveWildBuff("BrushFrenzy") and 1.25 or 1
 	return math.min(range * (stats.PickupRadiusMultiplier or 1) * buffMultiplier, toolConfig.MaxServerRange or 24)
+end
+
+local function isGroundContamination(part)
+	return part
+		and part:IsA("BasePart")
+		and (
+			part:GetAttribute("GroundContamination") == true
+			or part:GetAttribute("BreakableType") == "GroundContamination"
+		)
+end
+
+local function getInputPosition(input)
+	local position = input and input.Position
+	if typeof(position) == "Vector3" then
+		return Vector2.new(position.X, position.Y)
+	end
+	return UserInputService:GetMouseLocation()
+end
+
+local function findGroundBrushPayload(toolConfig)
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return nil
+	end
+
+	local pointer = lastPointerPosition or UserInputService:GetMouseLocation()
+	local ray = camera:ViewportPointToRay(pointer.X, pointer.Y)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { player.Character, brushVisual }
+	params.IgnoreWater = true
+
+	local result = workspace:Raycast(ray.Origin, ray.Direction * 600, params)
+	if not result or not isGroundContamination(result.Instance) then
+		return nil
+	end
+
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root then
+		local maxRange = tonumber(toolConfig.MaxServerRange) or getClientRange(toolConfig)
+		if (root.Position - result.Position).Magnitude > maxRange + 12 then
+			return nil
+		end
+	end
+
+	return {
+		Position = result.Position,
+		Normal = result.Normal,
+		Target = result.Instance,
+	}
+end
+
+local function showGroundBrushEffect(payload, toolConfig)
+	if type(payload) ~= "table" or typeof(payload.Position) ~= "Vector3" then
+		return
+	end
+
+	local now = os.clock()
+	if now - lastGroundVisualAt < 0.045 then
+		return
+	end
+	lastGroundVisualAt = now
+
+	local stats = getToolEffectiveStats(toolConfig)
+	local radius = tonumber(stats.BrushRadius)
+		or tonumber(toolConfig.BrushRadius)
+		or math.max(4, (toolConfig.Width or 7) * 0.7)
+	local ring = Instance.new("Part")
+	ring.Name = "LocalBrushCleanPulse"
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanTouch = false
+	ring.CanQuery = false
+	ring.CastShadow = false
+	ring.Material = Enum.Material.Neon
+	ring.Color = toolConfig.PaintColor or toolConfig.AccentColor or Color3.fromRGB(91, 230, 235)
+	ring.Transparency = 0.62
+	ring.Size = Vector3.new(radius * 2, 0.045, radius * 2)
+	ring.CFrame = CFrame.new(payload.Position + (payload.Normal or Vector3.yAxis) * 0.1)
+	ring.Parent = workspace
+
+	TweenService:Create(ring, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Transparency = 1,
+		Size = Vector3.new(radius * 2.35, 0.045, radius * 2.35),
+	}):Play()
+	Debris:AddItem(ring, 0.28)
 end
 
 local function getUpgradeMultiplier(name, defaultValue)
@@ -340,6 +439,9 @@ end
 local function setBrushEquipped(equipped)
 	brushEquipped = equipped == true
 	equipState.Value = brushEquipped
+	if not brushEquipped then
+		brushHeld = false
+	end
 
 	local character = player.Character
 	if brushEquipped and character then
@@ -475,6 +577,7 @@ local function findSweepCandidates(root, toolConfig)
 			and (part:GetAttribute("BreakableType") or part:GetAttribute("GemDeposit"))
 			and not part:GetAttribute("IsCollected")
 			and part.Transparency < 1
+			and not isGroundContamination(part)
 		then
 			local offset = part.Position - root.Position
 			local distance = offset.Magnitude
@@ -515,6 +618,7 @@ local function findWalkoverCandidates(root, toolConfig)
 			and (part:GetAttribute("BreakableType") or part:GetAttribute("GemDeposit"))
 			and not part:GetAttribute("IsCollected")
 			and part.Transparency < 1
+			and not isGroundContamination(part)
 		then
 			table.insert(found, part)
 		end
@@ -532,20 +636,24 @@ local function findWalkoverCandidates(root, toolConfig)
 	return capped
 end
 
-local function activateBrush(tool)
+local function activateBrush(tool, groundPayload)
 	if not brushEquipped then
 		return
 	end
 
 	local toolConfig = ToolData.get(equippedToolId)
+	local toolStats = getToolEffectiveStats(toolConfig)
 
 	local now = os.clock()
 	if now < localCooldownUntil then
 		return
 	end
-	local useSpeedMultiplier = math.max(tonumber(getToolEffectiveStats(toolConfig).UseSpeedMultiplier) or 1, 0.01)
+	local useSpeedMultiplier = math.max(tonumber(toolStats.UseSpeedMultiplier) or 1, 0.01)
 	useSpeedMultiplier *= getUpgradeMultiplier("PaintSpeed", 1)
-	localCooldownUntil = now + ((toolConfig.Cooldown or 0.45) / useSpeedMultiplier)
+	local baseCooldown = groundPayload
+			and (tonumber(toolStats.BrushTickRate) or tonumber(toolConfig.BrushTickRate) or 0.14)
+		or (toolConfig.Cooldown or 0.45)
+	localCooldownUntil = now + (baseCooldown / useSpeedMultiplier)
 
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -557,9 +665,12 @@ local function activateBrush(tool)
 
 	local candidates, range, width = findSweepCandidates(root, toolConfig)
 	showSweepArc(root, range, width)
+	if groundPayload then
+		showGroundBrushEffect(groundPayload, toolConfig)
+	end
 	playSweepSound()
 	task.spawn(animateTool, tool)
-	paintSweepEvent:FireServer(toolConfig.Id, candidates, "sweep")
+	paintSweepEvent:FireServer(toolConfig.Id, candidates, "sweep", groundPayload)
 end
 
 local function autoCollectBrush()
@@ -657,9 +768,24 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		if brushEquipped and not activeTool then
-			activateBrush(nil)
+		if brushEquipped then
+			brushHeld = true
+			lastPointerPosition = getInputPosition(input)
+			local toolConfig = ToolData.get(equippedToolId)
+			activateBrush(activeTool, findGroundBrushPayload(toolConfig))
 		end
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		lastPointerPosition = getInputPosition(input)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		brushHeld = false
 	end
 end)
 
@@ -694,8 +820,15 @@ end
 
 task.spawn(function()
 	while true do
-		task.wait(0.08)
+		task.wait(0.04)
 		autoCollectBrush()
+		if brushHeld and brushEquipped then
+			local toolConfig = ToolData.get(equippedToolId)
+			local groundPayload = findGroundBrushPayload(toolConfig)
+			if groundPayload then
+				activateBrush(activeTool, groundPayload)
+			end
+		end
 	end
 end)
 

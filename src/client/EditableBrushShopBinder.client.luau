@@ -6,6 +6,7 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
+local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
 local Events = ReplicatedStorage:WaitForChild("Events")
 local purchaseEvent = Events:WaitForChild("PurchasePaintTool")
@@ -51,7 +52,9 @@ template.Visible = false
 
 local ownedValue
 local equippedValue
+local activeShopColor = nil
 local cardsByToolId = {}
+local reusableCards = {}
 
 local function csvSet(value)
 	local set = {}
@@ -97,6 +100,67 @@ local function setButton(card, tool)
 	button:SetAttribute("ToolId", tool.Id)
 end
 
+local function normalizeShopColor(colorType)
+	colorType = tostring(colorType or "")
+	if colorType == "" then
+		return nil
+	end
+
+	local world = ColorData.getWorldByColor and ColorData.getWorldByColor(colorType)
+	if world and world.primaryColor then
+		return world.primaryColor
+	end
+
+	for _, worldData in ipairs(ColorData.Worlds or {}) do
+		if
+			colorType == worldData.id
+			or colorType == worldData.ZoneId
+			or colorType == worldData.DisplayName
+			or colorType == worldData.name
+		then
+			return worldData.primaryColor or worldData.id
+		end
+	end
+
+	return colorType
+end
+
+local function getCurrentWorldColor()
+	local storage = player:FindFirstChild("ColorStorage")
+	local currentWorld = storage and storage:FindFirstChild("CurrentWorld")
+	if currentWorld and currentWorld:IsA("StringValue") then
+		return normalizeShopColor(currentWorld.Value)
+	end
+	return nil
+end
+
+local function getActiveShopColor()
+	return normalizeShopColor(mainHud:GetAttribute("ActiveBrushShopColor"))
+		or normalizeShopColor(player:GetAttribute("ActiveWorldColor"))
+		or getCurrentWorldColor()
+		or "Red"
+end
+
+local function setShopCopy(colorType)
+	local world = ColorData.getWorldByColor and ColorData.getWorldByColor(colorType)
+	local displayName = (world and (world.DisplayName or world.name)) or tostring(colorType or "Sector")
+	setText(content, "IntroText", displayName .. " brushes. Buy once, then equip or unequip.")
+end
+
+local function collectReusableCards()
+	table.clear(reusableCards)
+	for _, child in ipairs(grid:GetChildren()) do
+		if child:IsA("GuiObject") and child ~= template then
+			if child:GetAttribute("BrushShopStudioCard") == true or string.find(child.Name, "Card", 1, true) then
+				table.insert(reusableCards, child)
+			end
+		end
+	end
+	table.sort(reusableCards, function(a, b)
+		return (a.LayoutOrder or 0) < (b.LayoutOrder or 0)
+	end)
+end
+
 local function updateCard(card, tool)
 	local owned = csvSet(ownedValue and ownedValue.Value or "")
 	local equipped = equippedValue and equippedValue.Value == tool.Id
@@ -133,32 +197,26 @@ local function updateCard(card, tool)
 	end
 end
 
-local function getFirstSectorBrushes()
-	local result = {}
-	for _, tool in ipairs(ToolData.GetOrderedBrushes()) do
-		if tool.RequiredColor == "Red" then
-			table.insert(result, tool)
-		end
-	end
-	return result
+local function getShopBrushes()
+	return ToolData.GetBrushesForWorldColor(activeShopColor or getActiveShopColor())
 end
 
 local function render()
+	activeShopColor = getActiveShopColor()
 	table.clear(cardsByToolId)
+	collectReusableCards()
+	setShopCopy(activeShopColor)
 
-	for index, tool in ipairs(getFirstSectorBrushes()) do
-		local card = grid:FindFirstChild(tool.Id .. "Card")
-		if not card or not card:IsA("GuiObject") then
-			for _, child in ipairs(grid:GetChildren()) do
-				if child:IsA("GuiObject") and child:GetAttribute("ToolId") == tool.Id then
-					card = child
-					break
-				end
-			end
-		end
+	for _, card in ipairs(reusableCards) do
+		card.Visible = false
+		card:SetAttribute("ToolId", nil)
+	end
+
+	for index, tool in ipairs(getShopBrushes()) do
+		local card = reusableCards[index]
 		if not card or not card:IsA("GuiObject") then
 			warn(
-				"EditableBrushShopBinder: missing Studio-authored card for "
+				"EditableBrushShopBinder: not enough Studio-authored brush cards for "
 					.. tool.Id
 					.. ". Run StudioMenuWindowsBuilder.UpdateZorkWindows() in edit mode."
 			)
@@ -169,6 +227,7 @@ local function render()
 		card.LayoutOrder = index
 		card.Visible = true
 		setButton(card, tool)
+		updateCard(card, tool)
 		cardsByToolId[tool.Id] = card
 	end
 end
@@ -177,7 +236,12 @@ local function refresh()
 	if not ownedValue or not equippedValue then
 		return
 	end
-	for _, tool in ipairs(getFirstSectorBrushes()) do
+	local nextColor = getActiveShopColor()
+	if nextColor ~= activeShopColor then
+		render()
+		return
+	end
+	for _, tool in ipairs(getShopBrushes()) do
 		local card = cardsByToolId[tool.Id]
 		if card then
 			updateCard(card, tool)
@@ -203,8 +267,10 @@ end
 
 purchaseEvent.OnClientEvent:Connect(refresh)
 equipEvent.OnClientEvent:Connect(refresh)
+mainHud:GetAttributeChangedSignal("ActiveBrushShopColor"):Connect(render)
+player:GetAttributeChangedSignal("ActiveWorldColor"):Connect(render)
 
 render()
 task.spawn(hookPaintTools)
 
-print("[EditableBrushShopBinder] first-sector BrushShopWindow ready.")
+print("[EditableBrushShopBinder] sector-aware BrushShopWindow ready.")

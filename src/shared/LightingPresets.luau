@@ -3,8 +3,11 @@ local LightingPresets = {}
 LightingPresets.Enabled = true
 LightingPresets.UpdateInterval = 0.35
 LightingPresets.ScanInterval = 2
-LightingPresets.TransitionTime = 0.7
+LightingPresets.TransitionTime = 2.15
 LightingPresets.ManualPresetAttribute = "LightingPreset"
+LightingPresets.SkyFolderName = "ColorSimulatorSectorSkies"
+LightingPresets.ActiveSkyName = "ColorSimulatorActiveSky"
+LightingPresets.DefaultSkyName = "Spawn"
 
 LightingPresets.EffectNames = {
 	Atmosphere = "ColorSimulatorAtmosphere",
@@ -15,88 +18,91 @@ LightingPresets.EffectNames = {
 
 LightingPresets.Presets = {
 	Spawn = {
+		Sky = "Spawn",
 		Lighting = {
-			Brightness = 1.55,
-			ClockTime = 6.05,
-			ExposureCompensation = -0.2,
-			EnvironmentDiffuseScale = 0.28,
-			EnvironmentSpecularScale = 0.22,
-			Ambient = Color3.fromRGB(70, 78, 86),
-			OutdoorAmbient = Color3.fromRGB(86, 92, 96),
-			FogColor = Color3.fromRGB(91, 101, 104),
-			FogStart = 90,
-			FogEnd = 780,
+			Brightness = 2.35,
+			ClockTime = 14.25,
+			ExposureCompensation = 0.04,
+			EnvironmentDiffuseScale = 0.46,
+			EnvironmentSpecularScale = 0.36,
+			Ambient = Color3.fromRGB(136, 128, 104),
+			OutdoorAmbient = Color3.fromRGB(186, 172, 132),
+			FogColor = Color3.fromRGB(158, 145, 115),
+			FogStart = 180,
+			FogEnd = 1050,
 		},
 		Atmosphere = {
-			Color = Color3.fromRGB(116, 126, 128),
-			Decay = Color3.fromRGB(66, 72, 66),
-			Density = 0.43,
-			Offset = -0.08,
-			Glare = 0.01,
-			Haze = 2.25,
+			Color = Color3.fromRGB(184, 174, 142),
+			Decay = Color3.fromRGB(105, 98, 76),
+			Density = 0.3,
+			Offset = 0,
+			Glare = 0.04,
+			Haze = 2,
 		},
 		Bloom = {
-			Intensity = 0.08,
+			Intensity = 0.1,
 			Size = 18,
 			Threshold = 1.55,
 		},
 		ColorCorrection = {
-			Brightness = -0.08,
-			Contrast = 0.14,
-			Saturation = -0.24,
-			TintColor = Color3.fromRGB(194, 205, 198),
+			Brightness = 0.02,
+			Contrast = 0.08,
+			Saturation = -0.16,
+			TintColor = Color3.fromRGB(224, 214, 186),
 		},
 		DepthOfField = {
 			Enabled = true,
-			FarIntensity = 0.16,
-			FocusDistance = 95,
-			InFocusRadius = 58,
-			NearIntensity = 0.04,
+			FarIntensity = 0.11,
+			FocusDistance = 115,
+			InFocusRadius = 70,
+			NearIntensity = 0.025,
 		},
 	},
 
 	RedZone = {
+		Sky = "RedZone",
 		Lighting = {
-			Brightness = 1.75,
-			ClockTime = 20.2,
-			ExposureCompensation = -0.16,
-			EnvironmentDiffuseScale = 0.3,
-			EnvironmentSpecularScale = 0.36,
-			Ambient = Color3.fromRGB(95, 28, 32),
-			OutdoorAmbient = Color3.fromRGB(130, 42, 38),
-			FogColor = Color3.fromRGB(112, 22, 30),
-			FogStart = 120,
-			FogEnd = 920,
+			Brightness = 2.65,
+			ClockTime = 15.35,
+			ExposureCompensation = 0.06,
+			EnvironmentDiffuseScale = 0.5,
+			EnvironmentSpecularScale = 0.34,
+			Ambient = Color3.fromRGB(180, 112, 84),
+			OutdoorAmbient = Color3.fromRGB(224, 150, 100),
+			FogColor = Color3.fromRGB(196, 98, 66),
+			FogStart = 220,
+			FogEnd = 1350,
 		},
 		Atmosphere = {
-			Color = Color3.fromRGB(144, 43, 46),
-			Decay = Color3.fromRGB(74, 12, 18),
-			Density = 0.38,
-			Offset = -0.05,
-			Glare = 0.03,
-			Haze = 2.1,
+			Color = Color3.fromRGB(218, 126, 82),
+			Decay = Color3.fromRGB(132, 45, 30),
+			Density = 0.28,
+			Offset = 0.02,
+			Glare = 0.08,
+			Haze = 2.25,
 		},
 		Bloom = {
-			Intensity = 0.18,
-			Size = 24,
-			Threshold = 1.42,
+			Intensity = 0.13,
+			Size = 20,
+			Threshold = 1.52,
 		},
 		ColorCorrection = {
-			Brightness = -0.06,
-			Contrast = 0.18,
-			Saturation = 0.08,
-			TintColor = Color3.fromRGB(255, 155, 145),
+			Brightness = 0.045,
+			Contrast = 0.09,
+			Saturation = -0.02,
+			TintColor = Color3.fromRGB(255, 205, 170),
 		},
 		DepthOfField = {
 			Enabled = true,
-			FarIntensity = 0.2,
-			FocusDistance = 88,
-			InFocusRadius = 56,
-			NearIntensity = 0.04,
+			FarIntensity = 0.14,
+			FocusDistance = 110,
+			InFocusRadius = 72,
+			NearIntensity = 0.025,
 		},
 	},
 
 	OrangeSector = {
+		Sky = "OrangeSector",
 		Lighting = {
 			Brightness = 2.75,
 			ClockTime = 16,
@@ -138,6 +144,7 @@ LightingPresets.Presets = {
 	},
 
 	MutationPipes = {
+		Sky = "MutationPipes",
 		Lighting = {
 			Brightness = 2.05,
 			ClockTime = 20.65,
@@ -179,6 +186,7 @@ LightingPresets.Presets = {
 	},
 
 	HatchArea = {
+		Sky = "HatchArea",
 		Lighting = {
 			Brightness = 2.9,
 			ClockTime = 13.8,
@@ -225,11 +233,13 @@ LightingPresets.DefaultPreset = "Spawn"
 LightingPresets.AreaRules = {
 	{
 		Preset = "MutationPipes",
+		Priority = 100,
 		PlayerAttribute = "InsideSectorInterior",
 		AttributeValue = true,
 	},
 	{
 		Preset = "MutationPipes",
+		Priority = 95,
 		PartAttributes = {
 			MutationUnlockArea = true,
 			SectorInterior = true,
@@ -243,6 +253,7 @@ LightingPresets.AreaRules = {
 	},
 	{
 		Preset = "HatchArea",
+		Priority = 40,
 		PartAttributes = {
 			EggStation = true,
 		},
@@ -252,7 +263,27 @@ LightingPresets.AreaRules = {
 		},
 	},
 	{
+		Preset = "Spawn",
+		Priority = 30,
+		PartAttributes = {
+			ZoneId = "Lobby",
+			LobbyFloor = true,
+			LobbySpawn = true,
+			OriginSector = true,
+			OriginSectorFloor = true,
+			StartSector = true,
+		},
+		NameContains = {
+			"Lobby",
+			"SpawnWorld",
+			"OriginSector",
+			"OriginSpawn",
+			"StartSector",
+		},
+	},
+	{
 		Preset = "RedZone",
+		Priority = 20,
 		PartAttributes = {
 			ColorType = "Red",
 			AreaColor = "Red",
@@ -266,6 +297,7 @@ LightingPresets.AreaRules = {
 	},
 	{
 		Preset = "OrangeSector",
+		Priority = 20,
 		PartAttributes = {
 			ColorType = "Orange",
 			AreaColor = "Orange",
@@ -280,6 +312,7 @@ LightingPresets.AreaRules = {
 	},
 	{
 		Preset = "Spawn",
+		Priority = 10,
 		PartAttributes = {
 			ZoneId = "Lobby",
 			LobbyFloor = true,

@@ -455,6 +455,15 @@ local function canAccessBreakableColor(player, colorType, root)
 	return unlocked == nil
 end
 
+local function isGroundContamination(part)
+	return part
+		and part:IsA("BasePart")
+		and (
+			part:GetAttribute("GroundContamination") == true
+			or part:GetAttribute("BreakableType") == "GroundContamination"
+		)
+end
+
 local function resetBreakable(part)
 	if not part or not part.Parent then
 		return
@@ -516,7 +525,10 @@ local function hideAndRespawn(part)
 
 	part:SetAttribute("Respawning", true)
 
-	task.delay(RESPAWN_DELAY, function()
+	local respawnDelay = tonumber(part:GetAttribute("ContaminationRegenDelay"))
+		or tonumber(part:GetAttribute("RespawnDelay"))
+		or RESPAWN_DELAY
+	task.delay(respawnDelay, function()
 		resetBreakable(part)
 	end)
 end
@@ -606,6 +618,71 @@ local function collectBreakable(player, part, options)
 		reportDailyQuestProgress(player, "BrushUses", 1)
 	end
 	return true, reward, "Coins"
+end
+
+local function processGroundBrush(player, toolConfig, toolStats, root, range, groundPayload)
+	if type(groundPayload) ~= "table" or typeof(groundPayload.Position) ~= "Vector3" or not root then
+		return 0, 0
+	end
+
+	local hitPosition = groundPayload.Position
+	local maxServerRange = tonumber(toolConfig.MaxServerRange) or range or 24
+	if (root.Position - hitPosition).Magnitude > maxServerRange + 12 then
+		return 0, 0
+	end
+
+	local upgrades = player:FindFirstChild("Upgrades")
+	local brushSize = upgrades and upgrades:FindFirstChild("BrushSize")
+	local radius = tonumber(toolStats.BrushRadius)
+		or tonumber(toolConfig.BrushRadius)
+		or math.max(4, (tonumber(toolConfig.Width) or 7) * 0.7)
+	if brushSize then
+		radius *= math.max(tonumber(brushSize.Value) or 1, 0.1)
+	end
+	radius = math.clamp(radius, 3, 30)
+
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { player.Character }
+
+	local parts = workspace:GetPartBoundsInRadius(hitPosition, radius, params)
+	table.sort(parts, function(a, b)
+		return (a.Position - hitPosition).Magnitude < (b.Position - hitPosition).Magnitude
+	end)
+
+	local maxTargets =
+		math.clamp(tonumber(toolStats.MaxGroundTargets) or tonumber(toolConfig.MaxGroundTargets) or 6, 1, 18)
+	local powerMultiplier = (tonumber(toolStats.BrushPower) or tonumber(toolStats.CollectPowerMultiplier) or 1)
+		* (tonumber(toolStats.BrushRewardMultiplier) or tonumber(toolConfig.BrushRewardMultiplier) or 0.38)
+
+	local seen = {}
+	local collected = 0
+	local total = 0
+	for _, part in ipairs(parts) do
+		if collected >= maxTargets then
+			break
+		end
+		if isGroundContamination(part) and not seen[part] then
+			seen[part] = true
+			local partRadius = math.max(part.Size.X, part.Size.Z) * 0.5
+			if (part.Position - hitPosition).Magnitude <= radius + partRadius then
+				markPetPriorityTarget(player, part)
+				local ok, awarded = collectBreakable(player, part, {
+					maxRange = maxServerRange + radius + partRadius,
+					skipCooldown = true,
+					powerMultiplier = powerMultiplier,
+					source = "brush",
+					mode = "ground",
+				})
+				if ok and awarded > 0 then
+					collected += 1
+					total += awarded
+				end
+			end
+		end
+	end
+
+	return collected, total
 end
 
 local function getPlayerFromHit(hit)
@@ -860,7 +937,7 @@ collectEvent.OnServerEvent:Connect(function(player, part, ...)
 	collectEvent:FireClient(player, ok, awarded, message)
 end)
 
-paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode, ...)
+paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode, groundPayload, ...)
 	if select("#", ...) > 0 then
 		warnUnexpectedClientValuesOnce(player, "PaintToolSweep")
 	end
@@ -949,6 +1026,9 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 			if part:GetAttribute("GemDeposit") then
 				continue
 			end
+			if isGroundContamination(part) then
+				continue
+			end
 			local inRange = mode == "walk" and isInsideWalkPickup(player, part, range)
 				or isInsideToolSweep(player, part, range, width)
 			if inRange then
@@ -966,6 +1046,16 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 					total += awarded
 				end
 			end
+		end
+	end
+
+	if mode == "sweep" and root then
+		local groundCollected, groundAwarded =
+			processGroundBrush(player, toolConfig, toolStats, root, range, groundPayload)
+		if groundCollected > 0 then
+			collected += groundCollected
+			total += groundAwarded
+			lastMessage = "Ground cleaned."
 		end
 	end
 

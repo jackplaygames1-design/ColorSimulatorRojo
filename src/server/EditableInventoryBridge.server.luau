@@ -353,6 +353,9 @@ local function buildBrushRows(player)
 						.. string.format("%.2f", tonumber(tool.PowerMultiplier or tool.CollectPowerMultiplier) or 1),
 					"Range: " .. tostring(tool.Range or "-"),
 					"Width: " .. tostring(tool.Width or "-"),
+					"Ground radius: " .. tostring(math.floor(tonumber(stats.BrushRadius or tool.BrushRadius) or 0)),
+					"Brush tick: "
+						.. string.format("%.2fs", tonumber(stats.BrushTickRate or tool.BrushTickRate) or 0.14),
 					"Speed: x" .. string.format("%.2f", tonumber(tool.UseSpeedMultiplier) or 1),
 					"Active: " .. tostring(stats.ActiveName or tool.ActiveName or "Basic Swipe"),
 					tostring(stats.ActiveDescription or tool.ActiveDescription or ""),

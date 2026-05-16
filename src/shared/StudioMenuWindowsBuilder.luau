@@ -2508,7 +2508,7 @@ local function makeBrushShopWindow(windowsFolder)
 	local header = text(
 		content,
 		"IntroText",
-		"First sector brushes only. Buy once, then equip or unequip.",
+		"Sector brushes. Buy once, then equip or unequip.",
 		UDim2.fromOffset(18, 12),
 		UDim2.new(1, -36, 0, 28),
 		15

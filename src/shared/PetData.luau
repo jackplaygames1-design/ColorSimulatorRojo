@@ -82,6 +82,16 @@ end
 function PetData.makeVariantKey(petId, personalityId, mutationId, traitId)
 	-- The second argument remains named personalityId for old callers. Variant identity now uses
 	-- the real Color Trait plus Mutation so different hatched variants do not merge together.
+	local variantPetId, variantTraitId, variantMutationId = PetData.splitVariantKey(tostring(petId or ""))
+	if variantPetId then
+		petId = variantPetId
+		if traitId == nil or PetData.normalizeTraitId(traitId) == ColorTraitData.DefaultId then
+			traitId = variantTraitId
+		end
+		if mutationId == nil or PetData.normalizeMutationId(mutationId) == ColorMutationData.NoneId then
+			mutationId = variantMutationId
+		end
+	end
 	mutationId = PetData.normalizeMutationId(mutationId)
 	traitId = PetData.normalizeTraitId(traitId)
 	if traitId == ColorTraitData.DefaultId and mutationId == ColorMutationData.NoneId then

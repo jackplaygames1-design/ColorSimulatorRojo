@@ -59,9 +59,16 @@ local function parseInventory(str)
 			stackIndex = 3
 		end
 		if petId and petId ~= "" then
+			local variantPetId, variantTraitId, variantMutationId = PetData.splitVariantKey(variantKey or petId)
+			if variantPetId then
+				petId = variantPetId
+			end
 			local traitId = PetData.normalizeTraitId(segments[stackIndex + 1])
 			local personalityId = PetData.normalizePersonalityId(segments[stackIndex + 3] or "Neutral")
-			local mutationId = PetData.normalizeMutationId(segments[stackIndex + 4] or "None")
+			local mutationId = PetData.normalizeMutationId(segments[stackIndex + 4] or variantMutationId or "None")
+			if variantTraitId and (not segments[stackIndex + 1] or segments[stackIndex + 1] == "") then
+				traitId = variantTraitId
+			end
 			variantKey = variantKey or PetData.makeVariantKey(petId, personalityId, mutationId, traitId)
 			inventory[variantKey] = {
 				traitId = traitId,

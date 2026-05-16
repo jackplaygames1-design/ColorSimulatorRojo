@@ -329,6 +329,16 @@ local function isPipeTriggerPart(part)
 	return part:GetAttribute("PipeTeleportTrigger") == true or string.find(lowered, "trigger", 1, true) ~= nil
 end
 
+local function isPipeTouchablePart(part)
+	local lowered = string.lower(part.Name or "")
+	return isPipeTriggerPart(part)
+		or string.find(lowered, "ring", 1, true) ~= nil
+		or string.find(lowered, "inner", 1, true) ~= nil
+		or string.find(lowered, "outer", 1, true) ~= nil
+		or string.find(lowered, "pipe", 1, true) ~= nil
+		or part:GetAttribute("PipeTeleport") == true
+end
+
 local function configurePipeObject(pipeObject)
 	local lowered = string.lower(pipeObject.Name or "")
 	if not AUTO_PIPE_NAMES[lowered] and not string.match(lowered, "pipe") then
@@ -340,6 +350,7 @@ local function configurePipeObject(pipeObject)
 	if
 		pipeObject:IsA("BasePart")
 		and not isPipeTriggerPart(pipeObject)
+		and not hasExplicitInteriorPipeMarker(pipeObject)
 		and (
 			string.find(lowered, "ring", 1, true)
 			or string.find(lowered, "inner", 1, true)
@@ -376,7 +387,7 @@ local function configurePipeObject(pipeObject)
 		or isInsideBounds(getObjectPosition(pipeObject), boundsCFrame, boundsSize, 20)
 
 	for _, part in ipairs(getPipeParts(pipeObject)) do
-		local shouldHookPart = isPipeTriggerPart(part) or pipeObject:IsA("BasePart")
+		local shouldHookPart = isPipeTouchablePart(part) or pipeObject:IsA("BasePart")
 		part.Anchored = true
 		part.CanQuery = true
 		if not shouldHookPart then

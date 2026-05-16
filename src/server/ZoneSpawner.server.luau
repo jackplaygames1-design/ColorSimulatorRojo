@@ -25,6 +25,7 @@ local CLUSTER_COUNT_MULTIPLIER = 1
 local DEBUG_LOGS = false
 local SPAWN_RETRY_LIMIT = 28
 local DEFAULT_EXCLUSION_PADDING = 8
+local SPAWN_EXCLUSION_PADDING = 56
 local EGG_EXCLUSION_PADDING = 34
 local SHOP_EXCLUSION_PADDING = 10
 local PROGRESSION_CONFIG = GameBalance.Progression or {}
@@ -111,11 +112,43 @@ local function hasProtectedEggAncestor(part)
 	return false
 end
 
-local function hasNoSpawnNameOrAttribute(part)
+local function isSpawnLocationBlocker(part)
 	if not part or not part:IsA("BasePart") then
 		return false
 	end
 	if part:IsA("SpawnLocation") then
+		return true
+	end
+	if
+		part:GetAttribute("AreaSpawn") == true
+		or part:GetAttribute("WorldSpawn") == true
+		or part:GetAttribute("SectorSpawn") == true
+		or part:GetAttribute("LobbySpawn") == true
+		or part:GetAttribute("SectorInteriorSpawn") == true
+		or part:GetAttribute("AreaSpawnColor") ~= nil
+		or part:GetAttribute("SpawnColor") ~= nil
+	then
+		return true
+	end
+
+	local loweredName = string.lower(part.Name or "")
+	return loweredName == "spawnlocation"
+		or loweredName == "spawnpoint"
+		or loweredName == "spawnpad"
+		or loweredName == "sectorspawn"
+		or loweredName == "arrivalspawn"
+		or loweredName == "travelspawn"
+		or loweredName == "interiorspawn"
+		or loweredName == "orangeinteriorspawn"
+		or string.match(loweredName, "^.+spawnpad$")
+		or string.match(loweredName, "^.+sectorspawn$")
+end
+
+local function hasNoSpawnNameOrAttribute(part)
+	if not part or not part:IsA("BasePart") then
+		return false
+	end
+	if isSpawnLocationBlocker(part) then
 		return true
 	end
 	if
@@ -308,6 +341,12 @@ end
 
 local function configureColorZonePart(part)
 	if shouldNeverBeColorZone(part) then
+		if isSpawnLocationBlocker(part) then
+			part:SetAttribute("NoColorSpawn", true)
+			if part:GetAttribute("ColorBlobSpawn") == true then
+				part:SetAttribute("ColorBlobSpawn", false)
+			end
+		end
 		if part:GetAttribute("ColorZone") == true then
 			part:SetAttribute("ColorZone", false)
 		end
@@ -427,7 +466,7 @@ local function isProtectedSpawnBlocker(part, zone)
 		return false
 	end
 	if
-		part:IsA("SpawnLocation")
+		isSpawnLocationBlocker(part)
 		or hasNoSpawnNameOrAttribute(part)
 		or part:GetAttribute("NoColorSpawn") == true
 		or part:GetAttribute("SafeZone") == true
@@ -501,16 +540,8 @@ local function collectSpawnExclusions(zone)
 end
 
 local function getExclusionPadding(part, defaultPadding)
-	if
-		part:IsA("SpawnLocation")
-		or part:GetAttribute("AreaSpawn") == true
-		or part:GetAttribute("WorldSpawn") == true
-		or part:GetAttribute("SectorSpawn") == true
-		or part:GetAttribute("LobbySpawn") == true
-		or part:GetAttribute("SafeZone") == true
-		or hasNoSpawnNameOrAttribute(part)
-	then
-		return math.max(defaultPadding or DEFAULT_EXCLUSION_PADDING, 36)
+	if isSpawnLocationBlocker(part) or part:GetAttribute("SafeZone") == true or hasNoSpawnNameOrAttribute(part) then
+		return math.max(defaultPadding or DEFAULT_EXCLUSION_PADDING, SPAWN_EXCLUSION_PADDING)
 	end
 	if
 		part.Name == "SpawnEgg"
@@ -859,6 +890,23 @@ local function removeInvalidRuntimeBreakables(zone, colorType)
 	return removed
 end
 
+local function removeRuntimeBreakablesOnSpawnBlockers()
+	local exclusions = collectSpawnExclusions(nil)
+	local parent = getRuntimeBlobParent()
+	local removed = 0
+	for _, obj in ipairs(parent:GetChildren()) do
+		if isRuntimeBlobPart(obj) and not isPositionAllowed(obj.Position, exclusions, DEFAULT_EXCLUSION_PADDING) then
+			objectHealth[obj] = nil
+			obj:Destroy()
+			removed += 1
+		end
+	end
+	if DEBUG_LOGS and removed > 0 then
+		print("ZoneSpawner: removed " .. tostring(removed) .. " Color blobs from protected spawn areas.")
+	end
+	return removed
+end
+
 local function scheduleRespawn(part, breakableType, colorType, delay)
 	part:SetAttribute("Respawning", true)
 	task.wait(delay)
@@ -932,6 +980,17 @@ local function populateZone(zone)
 
 	local startedAt = os.clock()
 	local colorType = zone:GetAttribute("ColorType") or "Red"
+	if isSpawnLocationBlocker(zone) or hasNoSpawnNameOrAttribute(zone) then
+		zone:SetAttribute("NoColorSpawn", true)
+		if zone:GetAttribute("ColorZone") == true then
+			zone:SetAttribute("ColorZone", false)
+		end
+		if DEBUG_LOGS then
+			warn("ZoneSpawner: refused to populate protected spawn area " .. zone:GetFullName())
+		end
+		finish()
+		return
+	end
 	if not isSectorPlayable(colorType) then
 		finish()
 		return
@@ -958,6 +1017,7 @@ local function populateZone(zone)
 	end
 
 	removeInvalidRuntimeBreakables(zone, colorType)
+	removeRuntimeBreakablesOnSpawnBlockers()
 	local existingCount = countExistingActiveBlobs(colorType, zone)
 	local repopulateCooldown = tonumber(populationConfig.RepopulateCooldown) or 20
 	if existingCount >= targetCount then

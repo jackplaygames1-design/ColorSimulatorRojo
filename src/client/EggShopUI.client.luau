@@ -483,6 +483,9 @@ if screenGui:IsA("GuiObject") then
 	screenGui.Visible = true
 end
 local rootScreenGui = screenGui and screenGui:FindFirstAncestorOfClass("ScreenGui")
+if rootScreenGui then
+	rootScreenGui.Enabled = true
+end
 local externalGuiEnabledState = {}
 local defaultPlayerGuiNames = {
 	Chat = true,
@@ -2023,6 +2026,9 @@ local function showError(message)
 	if screenGui:IsA("GuiObject") then
 		screenGui.Visible = true
 	end
+	if rootScreenGui then
+		rootScreenGui.Enabled = true
+	end
 	hatchOverlay.Visible = true
 	updateHatchFocusState()
 	hideEditableHatchEgg()
@@ -2054,6 +2060,9 @@ local function startHatchAnimation(eggId)
 
 	if screenGui:IsA("GuiObject") then
 		screenGui.Visible = true
+	end
+	if rootScreenGui then
+		rootScreenGui.Enabled = true
 	end
 	hatchToken += 1
 	local token = hatchToken
