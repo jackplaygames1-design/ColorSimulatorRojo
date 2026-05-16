@@ -1034,7 +1034,11 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 	end
 	cooldowns[player] = now
 
-	if type(candidates) ~= "table" then
+	local groundConfig = GameBalance.GroundPaint or {}
+	local groundPaintPrimary = mode == "sweep" and groundConfig.Enabled ~= false
+	local skipLegacyBrushBlobs = groundPaintPrimary and groundConfig.DisableLegacyBrushBlobCollection == true
+
+	if type(candidates) ~= "table" and not groundPaintPrimary then
 		paintSweepEvent:FireClient(player, {
 			success = false,
 			total = 0,
@@ -1042,6 +1046,9 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 			message = "No Color in range.",
 		})
 		return
+	end
+	if type(candidates) ~= "table" then
+		candidates = {}
 	end
 
 	if mode == "walk" and not canWalkCollectDuringTutorial(player, candidates) then
@@ -1065,33 +1072,35 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 	local root = getPlayerRoot(player)
 	local groundPaintCells = 0
 
-	for _, part in ipairs(candidates) do
-		if collected >= maxTargets then
-			break
-		end
-		if typeof(part) == "Instance" and not seen[part] then
-			seen[part] = true
-			if part:GetAttribute("GemDeposit") then
-				continue
+	if not skipLegacyBrushBlobs then
+		for _, part in ipairs(candidates) do
+			if collected >= maxTargets then
+				break
 			end
-			if isGroundContamination(part) then
-				continue
-			end
-			local inRange = mode == "walk" and isInsideWalkPickup(player, part, range)
-				or isInsideToolSweep(player, part, range, width)
-			if inRange then
-				markPetPriorityTarget(player, part)
-				local ok, awarded, message = collectBreakable(player, part, {
-					maxRange = range,
-					skipCooldown = true,
-					powerMultiplier = toolStats.CollectPowerMultiplier or toolConfig.PowerMultiplier or 1,
-					source = "brush",
-					mode = mode,
-				})
-				lastMessage = message or lastMessage
-				if ok and awarded > 0 then
-					collected += 1
-					total += awarded
+			if typeof(part) == "Instance" and not seen[part] then
+				seen[part] = true
+				if part:GetAttribute("GemDeposit") then
+					continue
+				end
+				if isGroundContamination(part) then
+					continue
+				end
+				local inRange = mode == "walk" and isInsideWalkPickup(player, part, range)
+					or isInsideToolSweep(player, part, range, width)
+				if inRange then
+					markPetPriorityTarget(player, part)
+					local ok, awarded, message = collectBreakable(player, part, {
+						maxRange = range,
+						skipCooldown = true,
+						powerMultiplier = toolStats.CollectPowerMultiplier or toolConfig.PowerMultiplier or 1,
+						source = "brush",
+						mode = mode,
+					})
+					lastMessage = message or lastMessage
+					if ok and awarded > 0 then
+						collected += 1
+						total += awarded
+					end
 				end
 			end
 		end
@@ -1118,18 +1127,18 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 
 	local success = total > 0
 	if DEBUG_LOGS and success then
-		local targetLabel = groundPaintCells > 0 and " ground paint cells" or " Color targets"
-		print(
-			"PaintToolSweep: "
-				.. player.Name
-				.. " cleaned "
-				.. tostring(collected)
-				.. targetLabel
-				.. " for "
-				.. tostring(total)
-				.. " Coins via "
-				.. mode
-		)
+		if groundPaintCells > 0 then
+			print(
+				string.format(
+					"PaintToolSweep: %s cleaned %d paint cells for %d Coins",
+					player.Name,
+					groundPaintCells,
+					total
+				)
+			)
+		else
+			print(string.format("PaintToolSweep: %s broke %d legacy blobs for %d Coins", player.Name, collected, total))
+		end
 	end
 	paintSweepEvent:FireClient(player, {
 		success = success,

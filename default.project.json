@@ -162,6 +162,9 @@
         "PaintFieldDelta": {
           "$className": "RemoteEvent"
         },
+        "PaintFieldClientReady": {
+          "$className": "RemoteEvent"
+        },
         "HatchEgg": {
           "$className": "RemoteEvent"
         },

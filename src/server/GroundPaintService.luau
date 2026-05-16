@@ -19,6 +19,7 @@ local debugConfig = config.Debug or {}
 local STARTED = false
 local SNAPSHOT_REMOTE_NAME = "PaintFieldSnapshot"
 local DELTA_REMOTE_NAME = "PaintFieldDelta"
+local READY_REMOTE_NAME = "PaintFieldClientReady"
 local SURFACE_FOLDER_NAME = "GroundPaintRuntime"
 
 local CELL_SIZE = math.max(tonumber(config.CellSize) or 6, 2)
@@ -38,7 +39,8 @@ local MAX_DELTAS_PER_PACKET = math.max(tonumber(networkingConfig.MaxDeltasPerPac
 local MAX_STAMPS_PER_PACKET = math.max(tonumber(networkingConfig.MaxStampsPerPacket) or 45, 1)
 local SNAPSHOT_RADIUS = math.max(tonumber(networkingConfig.SnapshotRadius) or 420, 80)
 local SEND_ONLY_NEARBY = networkingConfig.SendOnlyNearbyPlayers == true
-local SEND_LOGICAL_CELL_DELTAS = networkingConfig.SendLogicalCellDeltas == true
+local SEND_LOGICAL_CELL_CHANGES = networkingConfig.SendLogicalCellChanges == true
+	or networkingConfig.SendLogicalCellDeltas == true
 local surfaceDiscoveryConfig = config.SurfaceDiscovery or {}
 local REQUIRE_EXPLICIT_PAINTABLE = surfaceDiscoveryConfig.RequireExplicitPaintable == true
 
@@ -75,6 +77,7 @@ local DEFAULT_BLOCKED_DISCOVERY_KEYWORDS = {
 
 local snapshotRemote
 local deltaRemote
+local readyRemote
 local surfaces = {}
 local surfacesById = {}
 local surfaceByPart = {}
@@ -82,6 +85,7 @@ local nextSurfaceId = 0
 local totalLogicalCells = 0
 local pendingCellChanges = {}
 local pendingStamps = {}
+local paintReadyPlayers = {}
 local regenAccumulator = 0
 local deltaAccumulator = 0
 local rewardWindows = {}
@@ -165,38 +169,69 @@ local function getZoneColorConfig(colorType, part)
 	return nil
 end
 
-local function getPaintColor(colorType, part)
-	local zoneConfig = getZoneColorConfig(colorType, part)
-	if zoneConfig and typeof(zoneConfig.PaintColor) == "Color3" then
-		return zoneConfig.PaintColor
-	end
-	return getColorInfo(colorType)
-end
-
 local function getBaseSurfaceColor(colorType, part)
 	local zoneConfig = getZoneColorConfig(colorType, part)
+	local colorSettings = (config.ColorSettings or {})[colorType]
+	local attrBaseColor = part and part:GetAttribute("BaseSurfaceColor")
+	if typeof(attrBaseColor) == "Color3" then
+		return attrBaseColor
+	end
 	if zoneConfig and typeof(zoneConfig.BaseSurfaceColor) == "Color3" then
 		return zoneConfig.BaseSurfaceColor
+	end
+	if colorSettings and typeof(colorSettings.BaseSurfaceColor) == "Color3" then
+		return colorSettings.BaseSurfaceColor
 	end
 	return visualConfig.BaseSurfaceColor or Color3.fromRGB(8, 8, 8)
 end
 
-local function getSurfaceHardness(colorType, part)
-	local attrHardness = part and tonumber(part:GetAttribute("GroundPaintHardness"))
-	if attrHardness and attrHardness > 0 then
-		return attrHardness
+local function getSurfacePaintSettings(colorType, part)
+	local colorSettings = (config.ColorSettings or {})[colorType] or {}
+	local zoneConfig = getZoneColorConfig(colorType, part) or {}
+
+	local paintColor = part and part:GetAttribute("PaintColor")
+	if typeof(paintColor) ~= "Color3" then
+		paintColor = zoneConfig.PaintColor
+	end
+	if typeof(paintColor) ~= "Color3" then
+		paintColor = colorSettings.PaintColor
+	end
+	if typeof(paintColor) ~= "Color3" then
+		paintColor = getColorInfo(colorType)
 	end
 
-	local zoneConfig = getZoneColorConfig(colorType, part)
-	if zoneConfig then
-		local zoneHardness = tonumber(zoneConfig.Hardness)
-		if zoneHardness and zoneHardness > 0 then
-			return zoneHardness
-		end
-	end
+	local baseColor = getBaseSurfaceColor(colorType, part)
 
-	local hardnessByColor = config.ColorHardness or {}
-	return math.max(tonumber(hardnessByColor[colorType]) or 1, 0.05)
+	local hardness = tonumber(part and part:GetAttribute("PaintHardness"))
+		or tonumber(part and part:GetAttribute("GroundPaintHardness"))
+		or tonumber(zoneConfig.Hardness)
+		or tonumber(colorSettings.Hardness)
+		or tonumber((config.ColorHardness or {})[colorType])
+		or 1
+
+	local regenDelay = tonumber(part and part:GetAttribute("PaintRegenDelay"))
+		or tonumber(zoneConfig.RegenDelay)
+		or tonumber(colorSettings.RegenDelay)
+		or REGEN_DELAY
+
+	local regenPerSecond = tonumber(part and part:GetAttribute("PaintRegenPerSecond"))
+		or tonumber(zoneConfig.RegenPerSecond)
+		or tonumber(colorSettings.RegenPerSecond)
+		or REGEN_PER_SECOND
+
+	local rewardMultiplier = tonumber(part and part:GetAttribute("PaintRewardMultiplier"))
+		or tonumber(zoneConfig.RewardMultiplier)
+		or tonumber(colorSettings.RewardMultiplier)
+		or 1
+
+	return {
+		PaintColor = paintColor,
+		BaseSurfaceColor = baseColor,
+		PaintHardness = math.max(hardness, 0.05),
+		PaintRegenDelay = math.max(regenDelay, 0),
+		PaintRegenPerSecond = math.max(regenPerSecond, 0),
+		PaintRewardMultiplier = math.max(rewardMultiplier, 0),
+	}
 end
 
 local function getSurfaceColorAttribute(instance)
@@ -607,7 +642,6 @@ end
 local function buildSnapshotForSurface(surface)
 	return {
 		SurfaceId = surface.Id,
-		Part = surface.Part,
 		PartName = surface.Part and surface.Part.Name or nil,
 		PartPath = surface.Part and surface.Part:GetFullName() or nil,
 		SurfaceCFrame = surface.Part and surface.Part.CFrame or surface.CFrame,
@@ -615,7 +649,10 @@ local function buildSnapshotForSurface(surface)
 		ColorType = surface.ColorType,
 		PaintColor = surface.PaintColor,
 		BaseSurfaceColor = surface.BaseSurfaceColor,
-		Hardness = surface.Hardness,
+		PaintHardness = surface.PaintHardness,
+		PaintRegenDelay = surface.PaintRegenDelay,
+		PaintRegenPerSecond = surface.PaintRegenPerSecond,
+		PaintRewardMultiplier = surface.PaintRewardMultiplier,
 		CoverageX = surface.CoverageX,
 		CoverageZ = surface.CoverageZ,
 		XCount = surface.XCount,
@@ -764,7 +801,7 @@ local function buildSnapshot(player)
 end
 
 local function fireSnapshotTo(player)
-	if deltaRemote and player and player.Parent then
+	if deltaRemote and player and player.Parent and paintReadyPlayers[player] == true then
 		deltaRemote:FireClient(player, buildSnapshot(player))
 	end
 end
@@ -785,6 +822,7 @@ local function buildSurface(part, force)
 		return nil
 	end
 
+	local paintSettings = getSurfacePaintSettings(colorType, part)
 	nextSurfaceId += 1
 	local id = "gp_" .. tostring(nextSurfaceId)
 	local surface = {
@@ -793,9 +831,12 @@ local function buildSurface(part, force)
 		CFrame = part.CFrame,
 		Size = part.Size,
 		ColorType = colorType,
-		PaintColor = getPaintColor(colorType, part),
-		BaseSurfaceColor = getBaseSurfaceColor(colorType, part),
-		Hardness = getSurfaceHardness(colorType, part),
+		PaintColor = paintSettings.PaintColor,
+		BaseSurfaceColor = paintSettings.BaseSurfaceColor,
+		PaintHardness = paintSettings.PaintHardness,
+		PaintRegenDelay = paintSettings.PaintRegenDelay,
+		PaintRegenPerSecond = paintSettings.PaintRegenPerSecond,
+		PaintRewardMultiplier = paintSettings.PaintRewardMultiplier,
 		CoverageX = coverageX,
 		CoverageZ = coverageZ,
 		XCount = xCount,
@@ -1003,6 +1044,7 @@ local function queueStamp(surface, worldPosition, radius, power, source)
 		ColorType = surface.ColorType,
 		PaintColor = surface.PaintColor,
 		BaseSurfaceColor = surface.BaseSurfaceColor,
+		RegenDelay = surface.PaintRegenDelay,
 		Source = source or "brush",
 		Softness = tonumber((visualConfig.BrushStamp or {}).Softness) or 0.65,
 	})
@@ -1037,7 +1079,7 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 	radius =
 		math.clamp(tonumber(radius) or tonumber(brushConfig.BaseRadius) or 7, 1, tonumber(brushConfig.MaxRadius) or 42)
 	power = math.clamp(tonumber(power) or tonumber(brushConfig.BasePower) or 0.28, 0.01, 1.5)
-	local effectivePower = power / math.max(tonumber(surface.Hardness) or 1, 0.05)
+	local maxHealth = math.max(tonumber(surface.PaintHardness) or 1, 0.05)
 
 	local now = os.clock()
 	local localPoint = surface.Part.CFrame:PointToObjectSpace(worldPosition)
@@ -1062,11 +1104,15 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 					local normalized = distance / math.max(radius * softEdgeMultiplier, 0.001)
 					local falloff = math.clamp(1 - normalized, 0, 1)
 					falloff = math.clamp(falloff ^ 0.55, 0.12, 1)
-					local amount = math.min(coverage - EMPTY_COVERAGE, effectivePower * falloff)
-					if amount > 0.001 then
-						setCellCoverage(surface, index, coverage - amount)
+					local currentHealth = coverage * maxHealth
+					local damage = power * falloff
+					local newHealth = math.max(0, currentHealth - damage)
+					local healthRemoved = currentHealth - newHealth
+					if healthRemoved > 0.001 then
+						local newCoverage = newHealth / maxHealth
+						setCellCoverage(surface, index, newCoverage)
 						surface.LastBrushAt[index] = now
-						removedCoverageUnits += amount * surface.CellAreaScale
+						removedCoverageUnits += healthRemoved * surface.CellAreaScale
 						cellsChanged += 1
 						if #positions < 8 then
 							table.insert(positions, getCellWorldPosition(surface, index))
@@ -1081,7 +1127,7 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 		return nil
 	end
 
-	local rewardUnits = removedCoverageUnits * REWARD_PER_COVERAGE_UNIT
+	local rewardUnits = removedCoverageUnits * REWARD_PER_COVERAGE_UNIT * (tonumber(surface.PaintRewardMultiplier) or 1)
 	rewardUnits = clampRewardForPlayer(sourcePlayer, rewardUnits)
 	queueStamp(surface, worldPosition, radius, power, source)
 
@@ -1162,20 +1208,25 @@ function GroundPaintService.GetPaintRewardUnits(result)
 end
 
 local function regenStep(dt)
-	if not REGEN_ENABLED or REGEN_PER_SECOND <= 0 then
+	if not REGEN_ENABLED then
 		return
 	end
 
 	local now = os.clock()
 	for _, surface in ipairs(surfaces) do
 		if surface.Part and surface.Part.Parent then
+			local regenDelay = math.max(tonumber(surface.PaintRegenDelay) or REGEN_DELAY, 0)
+			local regenPerSecond = math.max(tonumber(surface.PaintRegenPerSecond) or REGEN_PER_SECOND, 0)
+			if regenPerSecond <= 0 then
+				continue
+			end
 			for index = 1, surface.TotalCells do
 				local coverage = surface.Coverage[index] or START_COVERAGE
 				if
 					coverage < FULL_COVERAGE - 0.001
-					and now - (surface.LastBrushAt[index] or -math.huge) >= REGEN_DELAY
+					and now - (surface.LastBrushAt[index] or -math.huge) >= regenDelay
 				then
-					setCellCoverage(surface, index, math.min(FULL_COVERAGE, coverage + REGEN_PER_SECOND * dt))
+					setCellCoverage(surface, index, math.min(FULL_COVERAGE, coverage + regenPerSecond * dt))
 				end
 			end
 		end
@@ -1234,7 +1285,7 @@ local function flushClientChanges()
 	end
 
 	local logicalUpdates = {}
-	if SEND_LOGICAL_CELL_DELTAS then
+	if SEND_LOGICAL_CELL_CHANGES then
 		logicalUpdates = buildLogicalUpdates()
 	else
 		clearPendingCellChanges()
@@ -1243,6 +1294,9 @@ local function flushClientChanges()
 	pendingStamps = {}
 
 	for _, player in ipairs(Players:GetPlayers()) do
+		if paintReadyPlayers[player] ~= true then
+			continue
+		end
 		local visibleStamps = {}
 		for _, stamp in ipairs(stamps) do
 			if isStampNearPlayer(stamp, player) then
@@ -1270,11 +1324,18 @@ function GroundPaintService.Start()
 	STARTED = true
 	snapshotRemote = ensureRemoteFunction(SNAPSHOT_REMOTE_NAME)
 	deltaRemote = ensureRemoteEvent(DELTA_REMOTE_NAME)
+	readyRemote = ensureRemoteEvent(READY_REMOTE_NAME)
 	getSurfaceFolder()
 
 	snapshotRemote.OnServerInvoke = function(player)
 		return buildSnapshot(player)
 	end
+
+	readyRemote.OnServerEvent:Connect(function(player)
+		if player and player.Parent then
+			paintReadyPlayers[player] = true
+		end
+	end)
 
 	task.defer(function()
 		task.wait(0.75)
@@ -1304,6 +1365,7 @@ function GroundPaintService.Start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		rewardWindows[player] = nil
+		paintReadyPlayers[player] = nil
 	end)
 
 	Workspace.DescendantAdded:Connect(function(obj)
@@ -1313,10 +1375,14 @@ function GroundPaintService.Start()
 				repairGroundPaintAttributesForPart(obj)
 				local surface = buildSurface(obj)
 				if surface and deltaRemote then
-					deltaRemote:FireAllClients({
-						Type = "SurfaceAdded",
-						Surfaces = { buildSnapshotForSurface(surface) },
-					})
+					for _, player in ipairs(Players:GetPlayers()) do
+						if paintReadyPlayers[player] == true then
+							deltaRemote:FireClient(player, {
+								Type = "SurfaceAdded",
+								Surfaces = { buildSnapshotForSurface(surface) },
+							})
+						end
+					end
 				end
 			end)
 		end

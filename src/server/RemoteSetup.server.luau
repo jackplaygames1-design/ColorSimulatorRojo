@@ -15,6 +15,7 @@ local remoteEvents = {
 	"PaintToolSweep",
 	"ColorEffectVFX",
 	"PaintFieldDelta",
+	"PaintFieldClientReady",
 	"HatchEgg",
 	"EquipPet",
 	"LockPet",

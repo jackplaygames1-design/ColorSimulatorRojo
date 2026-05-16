@@ -88,6 +88,7 @@ GameBalance.GroundPaint = {
 	DisableOldZoneSpawnerColors = true,
 	DisableOldWildColorPopulation = true,
 	DisableOldGroundContaminationParts = true,
+	DisableLegacyBrushBlobCollection = true,
 
 	CellSize = 6,
 	MaxLogicalCellsPerSurface = 6500,
@@ -184,6 +185,63 @@ GameBalance.GroundPaint = {
 		Green = 2.5,
 	},
 
+	ColorSettings = {
+		Red = {
+			Hardness = 1,
+			RegenDelay = 5,
+			RegenPerSecond = 0.35,
+			RewardMultiplier = 1,
+			PaintColor = Color3.fromRGB(235, 35, 32),
+			BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
+		},
+		Orange = {
+			Hardness = 2.5,
+			RegenDelay = 6,
+			RegenPerSecond = 0.25,
+			RewardMultiplier = 2.5,
+			PaintColor = Color3.fromRGB(255, 132, 28),
+			BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
+		},
+		Green = {
+			Hardness = 5,
+			RegenDelay = 7,
+			RegenPerSecond = 0.18,
+			RewardMultiplier = 8,
+			PaintColor = Color3.fromRGB(70, 220, 90),
+			BaseSurfaceColor = Color3.fromRGB(5, 5, 5),
+		},
+	},
+
+	Sectors = {
+		Red = {
+			FolderName = "RedWastelands",
+			ZoneId = "StarterField",
+			ColorType = "Red",
+			Position = Vector3.new(-400, 620, 60),
+			Size = Vector3.new(307, 0.2, 314),
+			Hardness = 1,
+			UnlockCost = 0,
+		},
+		Orange = {
+			FolderName = "OrangeSector",
+			ZoneId = "OrangeGrove",
+			ColorType = "Orange",
+			Position = Vector3.new(0, 620, 60),
+			Size = Vector3.new(307, 0.2, 314),
+			Hardness = 2.5,
+			UnlockCost = 15000,
+		},
+		Green = {
+			FolderName = "GreenSector",
+			ZoneId = "GreenForest",
+			ColorType = "Green",
+			Position = Vector3.new(400, 620, 60),
+			Size = Vector3.new(307, 0.2, 314),
+			Hardness = 5,
+			UnlockCost = 150000,
+		},
+	},
+
 	DefaultColorType = "Red",
 	ZoneColors = {
 		StarterField = {
@@ -248,11 +306,11 @@ GameBalance.GroundPaint = {
 
 	Networking = {
 		SnapshotRadius = 420,
-		DeltaHz = 8,
+		DeltaHz = 10,
 		MaxDeltasPerPacket = 80,
-		MaxStampsPerPacket = 45,
+		MaxStampsPerPacket = 30,
 		SendOnlyNearbyPlayers = true,
-		SendLogicalCellDeltas = false,
+		SendLogicalCellChanges = false,
 	},
 
 	Debug = {

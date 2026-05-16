@@ -21,6 +21,7 @@ local debugConfig = config.Debug or {}
 local Events = ReplicatedStorage:WaitForChild("Events")
 local snapshotRemote = Events:WaitForChild("PaintFieldSnapshot")
 local deltaRemote = Events:WaitForChild("PaintFieldDelta")
+local readyRemote = Events:WaitForChild("PaintFieldClientReady")
 
 local folder = Workspace:FindFirstChild("ClientGroundPaint")
 if not folder then
@@ -33,6 +34,7 @@ local surfaces = {}
 local activeStampCount = 0
 local lastSnapshotAttempt = 0
 local snapshotRetryQueued = false
+local clientReadySent = false
 local requestSnapshot
 
 local function asNumber(value, fallback)
@@ -111,6 +113,14 @@ local function queueSnapshotRetry(delaySeconds)
 	end)
 end
 
+local function sendClientReady()
+	if clientReadySent then
+		return
+	end
+	clientReadySent = true
+	readyRemote:FireServer()
+end
+
 local function getPlaneGrid(maxPlanes, coverageX, coverageZ)
 	maxPlanes = math.max(1, math.floor(maxPlanes or 16))
 	local aspect = math.max(coverageX, 1) / math.max(coverageZ, 1)
@@ -129,8 +139,8 @@ local function getPlaneGrid(maxPlanes, coverageX, coverageZ)
 end
 
 local function getSurfaceTopCFrame(surface, localX, localZ, yOffset)
-	local size = surface.Size or (surface.Part and surface.Part.Size) or Vector3.new(1, 1, 1)
-	local cframe = surface.CFrame or (surface.Part and surface.Part.CFrame) or CFrame.new()
+	local size = surface.SurfaceSize or surface.Size or (surface.Part and surface.Part.Size) or Vector3.new(1, 1, 1)
+	local cframe = surface.SurfaceCFrame or surface.CFrame or (surface.Part and surface.Part.CFrame) or CFrame.new()
 	local topY = size.Y * 0.5 + yOffset
 	return cframe * CFrame.new(localX, topY, localZ)
 end
@@ -246,6 +256,8 @@ local function upsertSurface(data)
 	local surface = {
 		SurfaceId = data.SurfaceId,
 		Part = part,
+		SurfaceCFrame = surfaceCFrame,
+		SurfaceSize = surfaceSize,
 		CFrame = surfaceCFrame,
 		Size = surfaceSize,
 		PartPath = data.PartPath,
@@ -387,7 +399,11 @@ local function emitLiftParticles(position, color, radius)
 end
 
 local function fadeAndDestroyStamp(surface, stamp)
-	local holdTime = math.max(asNumber(stampConfig.MinStampLifetime, 5), asNumber(regenConfig.DelayAfterBrush, 5))
+	local holdTime = math.max(
+		asNumber(stamp.Duration, 5),
+		asNumber(stampConfig.MinStampLifetime, 5),
+		asNumber(regenConfig.DelayAfterBrush, 5)
+	)
 	local fadeTime = asNumber(stampConfig.FadeOutTime, 1)
 
 	task.delay(holdTime, function()
@@ -418,16 +434,19 @@ end
 
 local function makeClearStamp(stampData)
 	if type(stampData) ~= "table" or typeof(stampData.Position) ~= "Vector3" then
+		warn("GroundPaintClient failed to create stamp: invalid stamp payload")
 		return
 	end
 
 	local surface = surfaces[stampData.SurfaceId]
 	if not surface then
+		warn("GroundPaintClient failed to create stamp: missing surfaceId=" .. tostring(stampData.SurfaceId))
 		return
 	end
 
-	local surfaceCFrame = surface.CFrame or (surface.Part and surface.Part.CFrame)
+	local surfaceCFrame = surface.SurfaceCFrame or surface.CFrame or (surface.Part and surface.Part.CFrame)
 	if typeof(surfaceCFrame) ~= "CFrame" then
+		warn("GroundPaintClient failed to create stamp: missing cframe surfaceId=" .. tostring(stampData.SurfaceId))
 		return
 	end
 
@@ -440,6 +459,7 @@ local function makeClearStamp(stampData)
 		or visualConfig.BaseSurfaceColor
 		or surface.BaseSurfaceColor
 		or Color3.fromRGB(5, 5, 5)
+	local centerColor = Color3.fromRGB(0, 0, 0)
 	local centerTransparency =
 		asNumber(stampConfig.CenterTransparency, asNumber(stampConfig.ClearCenterTransparency, 0))
 	local edgeTransparency = asNumber(stampConfig.EdgeTransparency, asNumber(stampConfig.ClearEdgeTransparency, 0.65))
@@ -454,11 +474,12 @@ local function makeClearStamp(stampData)
 		Parts = {},
 		CenterLocal = Vector2.new(localPoint.X, localPoint.Z),
 		Radius = radius,
+		Duration = asNumber(stampData.RegenDelay, asNumber(regenConfig.DelayAfterBrush, 5)),
 		CreatedAt = os.clock(),
 	}
 
 	for ring = ringCount, 1, -1 do
-		local alpha = ring / ringCount
+		local alpha = 0.5 + 0.5 * (ring / ringCount)
 		local disc = Instance.new("Part")
 		disc.Name = "ClearDisc"
 		disc.Shape = Enum.PartType.Ball
@@ -470,7 +491,7 @@ local function makeClearStamp(stampData)
 		disc.CanQuery = false
 		disc.CastShadow = false
 		disc.Material = Enum.Material.SmoothPlastic
-		disc.Color = baseColor
+		disc.Color = (ring == 1) and centerColor or baseColor
 		disc.Transparency = (ring == 1) and centerTransparency
 			or math.clamp(edgeTransparency + (alpha * 0.12), centerTransparency, 0.82)
 		disc.Parent = stampFolder
@@ -483,6 +504,14 @@ local function makeClearStamp(stampData)
 	pruneGlobalStamps()
 	fadeAndDestroyStamp(surface, stamp)
 	emitLiftParticles(stampData.Position, surface.PaintColor, radius)
+	print(
+		string.format(
+			"GroundPaintClient stamp: surface=%s radius=%.2f position=%s",
+			tostring(stampData.SurfaceId),
+			radius,
+			tostring(stampData.Position)
+		)
+	)
 end
 
 local function applySnapshot(payload)
@@ -509,7 +538,7 @@ local function applySnapshot(payload)
 	end
 
 	if #incoming > 0 and #validSurfaces == 0 then
-		warn("GroundPaintClient ignored snapshot because it had surfaces but 0 valid replicated parts.")
+		warn("GroundPaintClient ignored snapshot because it had surfaces but 0 valid surface geometry records.")
 		queueSnapshotRetry(1.25)
 		return
 	end
@@ -546,6 +575,7 @@ local function applySnapshot(payload)
 			)
 		end
 	end
+	sendClientReady()
 end
 
 requestSnapshot = function(force)
@@ -576,10 +606,18 @@ deltaRemote.OnClientEvent:Connect(function(payload)
 			upsertSurface(surfaceData)
 		end
 	elseif payload.Type == "Delta" then
+		print(
+			string.format(
+				"GroundPaintClient delta: stamps=%d surfaces=%d",
+				#(payload.Stamps or {}),
+				#(payload.Surfaces or {})
+			)
+		)
 		local missingSurface = false
 		for _, stamp in ipairs(payload.Stamps or {}) do
 			if type(stamp) == "table" and stamp.SurfaceId and not surfaces[stamp.SurfaceId] then
 				missingSurface = true
+				warn("GroundPaintClient failed to create stamp: missing surfaceId=" .. tostring(stamp.SurfaceId))
 			else
 				makeClearStamp(stamp)
 			end
