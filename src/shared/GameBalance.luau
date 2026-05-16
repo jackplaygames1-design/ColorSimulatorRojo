@@ -98,6 +98,23 @@ GameBalance.GroundPaint = {
 	SurfaceInset = 5,
 	RewardPerCoverageUnit = 10,
 
+	SurfaceDiscovery = {
+		PreferredNames = {
+			"RedFloor1",
+			"RedZoneFloor",
+			"OrangeInteriorFloor",
+			"OrangeSectorFloor",
+			"GreenInteriorFloor",
+			"GreenSectorFloor",
+			"GreenZoneFloor",
+		},
+		BlockedKeywords = {
+			"ceiling",
+			"roof",
+			"upper",
+		},
+	},
+
 	Regen = {
 		Enabled = true,
 		DelayAfterBrush = 0.45,

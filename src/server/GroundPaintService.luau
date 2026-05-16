@@ -37,6 +37,23 @@ local DELTA_HZ = math.max(tonumber(networkingConfig.DeltaHz) or 12, 1)
 local MAX_DELTAS_PER_PACKET = math.max(tonumber(networkingConfig.MaxDeltasPerPacket) or 150, 1)
 local SNAPSHOT_RADIUS = math.max(tonumber(networkingConfig.SnapshotRadius) or 420, 80)
 local SEND_ONLY_NEARBY = networkingConfig.SendOnlyNearbyPlayers == true
+local surfaceDiscoveryConfig = config.SurfaceDiscovery or {}
+
+local DEFAULT_PREFERRED_SURFACE_NAMES = {
+	"RedFloor1",
+	"RedZoneFloor",
+	"OrangeInteriorFloor",
+	"OrangeSectorFloor",
+	"GreenInteriorFloor",
+	"GreenSectorFloor",
+	"GreenZoneFloor",
+}
+
+local DEFAULT_BLOCKED_DISCOVERY_KEYWORDS = {
+	"ceiling",
+	"roof",
+	"upper",
+}
 
 local snapshotRemote
 local deltaRemote
@@ -50,6 +67,8 @@ local pendingStamps = {}
 local regenAccumulator = 0
 local deltaAccumulator = 0
 local rewardWindows = {}
+
+local getPaintSurfaceCandidateScore
 
 local function getEventsFolder()
 	local events = ReplicatedStorage:FindFirstChild("Events")
@@ -238,12 +257,100 @@ local function hasBlockedSurfaceName(instance)
 	return false
 end
 
-local function looksLikeGroundSurface(part)
-	if not part:IsA("BasePart") then
-		return false
+local function compactName(name)
+	return string.lower(tostring(name or "")):gsub("[^%w]", "")
+end
+
+local function buildNameSet(values)
+	local set = {}
+	for _, value in ipairs(values or {}) do
+		local key = compactName(value)
+		if key ~= "" then
+			set[key] = true
+		end
 	end
-	if
-		part:GetAttribute("NoColorSpawn") == true
+	return set
+end
+
+local preferredSurfaceNames = buildNameSet(surfaceDiscoveryConfig.PreferredNames or DEFAULT_PREFERRED_SURFACE_NAMES)
+local blockedDiscoveryKeywords = surfaceDiscoveryConfig.BlockedKeywords or DEFAULT_BLOCKED_DISCOVERY_KEYWORDS
+
+local function hasPreferredSurfaceName(part)
+	local current = part
+	while current and current ~= Workspace do
+		if preferredSurfaceNames[compactName(current.Name)] == true then
+			return true
+		end
+		current = current.Parent
+	end
+	return false
+end
+
+local function hasBlockedDiscoveryKeyword(part)
+	local current = part
+	while current and current ~= Workspace do
+		local name = string.lower(current.Name or "")
+		for _, keyword in ipairs(blockedDiscoveryKeywords) do
+			local loweredKeyword = string.lower(tostring(keyword or ""))
+			if loweredKeyword ~= "" and name:find(loweredKeyword, 1, true) then
+				return true
+			end
+		end
+		current = current.Parent
+	end
+	return false
+end
+
+local function hasDirectSurfaceName(part)
+	local names = {
+		string.lower(part.Name or ""),
+		part.Parent and string.lower(part.Parent.Name or "") or "",
+	}
+	for _, name in ipairs(names) do
+		if
+			name:find("floor", 1, true)
+			or name:find("ground", 1, true)
+			or name:find("wasteland", 1, true)
+			or name:find("field", 1, true)
+			or name:find("grove", 1, true)
+			or name:find("forest", 1, true)
+		then
+			return true
+		end
+	end
+	return false
+end
+
+local function hasColorName(part)
+	local current = part
+	while current and current ~= Workspace do
+		local name = string.lower(current.Name or "")
+		for _, world in ipairs(ColorData.Worlds or {}) do
+			local colorType = world.primaryColor
+			local zoneId = world.ZoneId
+			if colorType and name:find(string.lower(colorType), 1, true) then
+				return true
+			end
+			if zoneId and name:find(string.lower(zoneId), 1, true) then
+				return true
+			end
+		end
+		current = current.Parent
+	end
+	return false
+end
+
+local function hasLargeFlatPaintGeometry(part, minArea, minSide)
+	local horizontalArea = part.Size.X * part.Size.Z
+	local smallestHorizontal = math.max(1, math.min(part.Size.X, part.Size.Z))
+	return horizontalArea >= minArea
+		and part.Size.X >= minSide
+		and part.Size.Z >= minSide
+		and part.Size.Y <= math.max(10, smallestHorizontal * 0.28)
+end
+
+local function isCommonPaintSurfaceBlocker(part)
+	return part:GetAttribute("NoColorSpawn") == true
 		or part:GetAttribute("NoContamination") == true
 		or part:GetAttribute("DecorativeOnly") == true
 		or part:GetAttribute("BreakableType") ~= nil
@@ -254,44 +361,13 @@ local function looksLikeGroundSurface(part)
 		or part:IsA("SpawnLocation")
 		or part:FindFirstAncestor("DynamicGameplay") ~= nil
 		or hasBlockedSurfaceName(part)
-	then
-		return false
-	end
-
-	local horizontalArea = part.Size.X * part.Size.Z
-	local largeFlatSurface = horizontalArea >= 1400
-		and part.Size.X >= 32
-		and part.Size.Z >= 32
-		and part.Size.Y <= math.max(10, math.min(part.Size.X, part.Size.Z) * 0.35)
-	if not largeFlatSurface then
-		return false
-	end
-
-	return part:GetAttribute("GroundPaintSurface") == true
-		or part:GetAttribute("PlayableSectorFloor") == true
-		or part:GetAttribute("ColorZone") == true
-		or part:GetAttribute("ZoneFloor") == true
-		or part:GetAttribute("ContaminationAllowed") == true
-		or hasSurfaceName(part)
 end
 
 local function looksLikeFallbackGroundSurface(part)
 	if not part:IsA("BasePart") then
 		return false
 	end
-	if
-		part:GetAttribute("NoColorSpawn") == true
-		or part:GetAttribute("NoContamination") == true
-		or part:GetAttribute("DecorativeOnly") == true
-		or part:GetAttribute("BreakableType") ~= nil
-		or part:GetAttribute("GemDeposit") == true
-		or part:GetAttribute("EggStation") == true
-		or part:GetAttribute("ShopStation") == true
-		or part:GetAttribute("GroundPaintIgnore") == true
-		or part:IsA("SpawnLocation")
-		or part:FindFirstAncestor("DynamicGameplay") ~= nil
-		or hasBlockedSurfaceName(part)
-	then
+	if isCommonPaintSurfaceBlocker(part) or hasBlockedDiscoveryKeyword(part) then
 		return false
 	end
 
@@ -300,6 +376,50 @@ local function looksLikeFallbackGroundSurface(part)
 		and part.Size.X >= 55
 		and part.Size.Z >= 55
 		and part.Size.Y <= math.max(12, math.min(part.Size.X, part.Size.Z) * 0.25)
+end
+
+getPaintSurfaceCandidateScore = function(part, allowFallback)
+	if not part:IsA("BasePart") or isCommonPaintSurfaceBlocker(part) then
+		return nil
+	end
+	if not hasLargeFlatPaintGeometry(part, 1400, 32) then
+		return nil
+	end
+
+	local preferredName = hasPreferredSurfaceName(part)
+	if preferredName then
+		return 100000 + part.Size.X * part.Size.Z
+	end
+
+	if hasBlockedDiscoveryKeyword(part) then
+		return nil
+	end
+
+	if part:GetAttribute("PlayableSectorFloor") == true then
+		return 90000 + part.Size.X * part.Size.Z
+	end
+	if part:GetAttribute("ZoneFloor") == true then
+		return 85000 + part.Size.X * part.Size.Z
+	end
+	if part:GetAttribute("ContaminationAllowed") == true then
+		return 80000 + part.Size.X * part.Size.Z
+	end
+
+	-- Only trust GroundPaintSurface as an authored mark if this service has not
+	-- already stamped a runtime id onto the part in the current Studio session.
+	if part:GetAttribute("GroundPaintSurface") == true and part:GetAttribute("GroundPaintSurfaceId") == nil then
+		return 75000 + part.Size.X * part.Size.Z
+	end
+
+	if allowFallback and part.CanCollide and hasDirectSurfaceName(part) and hasColorName(part) then
+		return 60000 + part.Size.X * part.Size.Z
+	end
+
+	if allowFallback and part.CanCollide and looksLikeFallbackGroundSurface(part) and hasSurfaceName(part) then
+		return part.Size.X * part.Size.Z
+	end
+
+	return nil
 end
 
 local function calculateGrid(part)
@@ -415,6 +535,28 @@ local function buildSnapshotForSurface(surface)
 	}
 end
 
+local function logSelectedSurface(surface)
+	if debugConfig.PrintSurfaceDiscovery ~= true and debugConfig.PrintClientVisuals ~= true then
+		return
+	end
+	if not surface or not surface.Part then
+		return
+	end
+
+	print(
+		string.format(
+			"GroundPaint surface[%s]: part=%s color=%s size=%s pos=%s transparency=%.2f canCollide=%s",
+			surface.Id,
+			surface.Part:GetFullName(),
+			tostring(surface.ColorType),
+			tostring(surface.Part.Size),
+			tostring(surface.Part.Position),
+			surface.Part.Transparency,
+			tostring(surface.Part.CanCollide)
+		)
+	)
+end
+
 local function isSurfaceNearPlayer(surface, player)
 	if not player or not surface or not surface.Part then
 		return true
@@ -452,7 +594,7 @@ local function fireSnapshotTo(player)
 end
 
 local function buildSurface(part, force)
-	if surfaceByPart[part] or (not force and not looksLikeGroundSurface(part)) then
+	if surfaceByPart[part] or getPaintSurfaceCandidateScore(part, force == true) == nil then
 		return nil
 	end
 
@@ -497,41 +639,50 @@ local function buildSurface(part, force)
 	surfaceByPart[part] = surface
 	totalLogicalCells += totalCells
 
-	if debugConfig.PrintSurfaceDiscovery == true then
-		print(
-			string.format(
-				"GroundPaint surface: %s color=%s cells=%d",
-				part:GetFullName(),
-				tostring(colorType),
-				totalCells
-			)
-		)
-	end
+	logSelectedSurface(surface)
 
 	return surface
 end
 
-local function buildFallbackSurfaces()
+local function collectSurfaceCandidates(allowFallback)
 	local candidates = {}
 	for _, obj in ipairs(Workspace:GetDescendants()) do
-		if obj:IsA("BasePart") and not surfaceByPart[obj] and looksLikeFallbackGroundSurface(obj) then
-			table.insert(candidates, obj)
+		if obj:IsA("BasePart") and not surfaceByPart[obj] then
+			local score = getPaintSurfaceCandidateScore(obj, allowFallback)
+			if score then
+				table.insert(candidates, {
+					Part = obj,
+					Score = score,
+					Path = obj:GetFullName(),
+				})
+			end
 		end
 	end
 
 	table.sort(candidates, function(a, b)
-		return (a.Size.X * a.Size.Z) > (b.Size.X * b.Size.Z)
+		if a.Score ~= b.Score then
+			return a.Score > b.Score
+		end
+		return a.Path < b.Path
 	end)
 
-	for _, part in ipairs(candidates) do
+	return candidates
+end
+
+local function buildSurfacesFromCandidates(candidates, limit)
+	for _, candidate in ipairs(candidates) do
 		if totalLogicalCells >= MAX_CELLS_TOTAL then
 			break
 		end
-		buildSurface(part, true)
-		if #surfaces >= 6 then
+		buildSurface(candidate.Part, true)
+		if limit and #surfaces >= limit then
 			break
 		end
 	end
+end
+
+local function buildFallbackSurfaces()
+	buildSurfacesFromCandidates(collectSurfaceCandidates(true), 6)
 end
 
 local function buildAllSurfaces()
@@ -548,11 +699,7 @@ local function buildAllSurfaces()
 		child:Destroy()
 	end
 
-	for _, obj in ipairs(Workspace:GetDescendants()) do
-		if obj:IsA("BasePart") then
-			buildSurface(obj)
-		end
-	end
+	buildSurfacesFromCandidates(collectSurfaceCandidates(false))
 
 	if #surfaces == 0 then
 		buildFallbackSurfaces()
