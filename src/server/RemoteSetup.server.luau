@@ -81,6 +81,24 @@ for _, name in ipairs(remoteFunctions) do
 	end
 end
 
+local bindableEvents = {
+	"PaintFieldLocalBrush",
+}
+
+for _, name in ipairs(bindableEvents) do
+	local existing = events:FindFirstChild(name)
+	if existing and not existing:IsA("BindableEvent") then
+		warn("RemoteSetup: replacing invalid Events." .. name)
+		existing:Destroy()
+		existing = nil
+	end
+	if not existing then
+		local bindable = Instance.new("BindableEvent")
+		bindable.Name = name
+		bindable.Parent = events
+	end
+end
+
 local remotes = ReplicatedStorage:FindFirstChild("Remotes")
 if not remotes then
 	remotes = Instance.new("Folder")

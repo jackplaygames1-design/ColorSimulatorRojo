@@ -72,6 +72,13 @@ if not paintSweepEvent then
 	return
 end
 
+local localBrushEvent = Events:FindFirstChild("PaintFieldLocalBrush")
+if not localBrushEvent then
+	localBrushEvent = Instance.new("BindableEvent")
+	localBrushEvent.Name = "PaintFieldLocalBrush"
+	localBrushEvent.Parent = Events
+end
+
 local sweepGui = ClientUIRoot.GetLayer(playerGui, "PaintToolFeedbackUI")
 
 local activeTool
@@ -87,6 +94,7 @@ local brushMotor
 local brushHeld = false
 local lastPointerPosition
 local lastGroundVisualAt = 0
+local groundBrushSequence = 0
 
 local equipState = ReplicatedStorage:FindFirstChild("PaintToolEquippedState")
 if not equipState then
@@ -795,11 +803,39 @@ local function activateBrush(tool, groundPayload)
 	end
 	ensureBrushVisual(character)
 
+	if groundPayload then
+		local range = getClientRange(toolConfig)
+		local width = (toolConfig.Width or 7) * (toolStats.SweepWidthMultiplier or 1)
+		width *= getUpgradeMultiplier("BrushSize", 1)
+		local predictedRadius = getGroundBrushRadius(toolConfig)
+		showSweepArc(root, range, width)
+		showGroundBrushEffect(groundPayload, toolConfig)
+		if localBrushEvent:IsA("BindableEvent") then
+			localBrushEvent:Fire({
+				Position = groundPayload.Position,
+				Radius = predictedRadius,
+				Source = "local",
+			})
+		end
+		playSweepSound()
+		task.spawn(animateTool, tool)
+
+		groundBrushSequence += 1
+		paintSweepEvent:FireServer({
+			Type = "GroundPaintBrush",
+			Position = groundPayload.Position,
+			hitPosition = groundPayload.Position,
+			Normal = groundPayload.Normal,
+			ClientTime = os.clock(),
+			Sequence = groundBrushSequence,
+			Radius = predictedRadius,
+			ToolId = toolConfig.Id,
+		})
+		return
+	end
+
 	local candidates, range, width = findSweepCandidates(root, toolConfig)
 	showSweepArc(root, range, width)
-	if groundPayload then
-		showGroundBrushEffect(groundPayload, toolConfig)
-	end
 	playSweepSound()
 	task.spawn(animateTool, tool)
 	paintSweepEvent:FireServer(toolConfig.Id, candidates, "sweep", groundPayload)

@@ -469,6 +469,9 @@ local function resolveGroundBrushPosition(player, root, range, groundPayload)
 	if type(groundPayload) == "table" and typeof(groundPayload.Position) == "Vector3" then
 		return groundPayload.Position
 	end
+	if type(groundPayload) == "table" and typeof(groundPayload.hitPosition) == "Vector3" then
+		return groundPayload.hitPosition
+	end
 	if not root then
 		return nil
 	end
@@ -647,17 +650,17 @@ local fireEffectVfx
 
 local function processGroundBrush(player, toolConfig, toolStats, root, range, groundPayload)
 	if not root then
-		return 0, 0
+		return 0, 0, nil
 	end
 
 	local hitPosition = resolveGroundBrushPosition(player, root, range, groundPayload)
 	if not hitPosition then
-		return 0, 0
+		return 0, 0, nil
 	end
 
 	local maxServerRange = tonumber(toolConfig.MaxServerRange) or range or 24
 	if (root.Position - hitPosition).Magnitude > maxServerRange + 12 then
-		return 0, 0
+		return 0, 0, nil
 	end
 
 	local groundConfig = GameBalance.GroundPaint or {}
@@ -684,7 +687,10 @@ local function processGroundBrush(player, toolConfig, toolStats, root, range, gr
 	local result = GroundPaintService.Brush(player, hitPosition, radius, paintPower)
 	local rewardUnits = GroundPaintService.GetPaintRewardUnits(result)
 	if rewardUnits <= 0 then
-		return 0, 0
+		if DEBUG_LOGS then
+			print(("PaintToolSweep: %s hit ground paint but removed 0 paint cells"):format(player.Name))
+		end
+		return 0, 0, nil
 	end
 
 	local colorType = result.ColorType
@@ -696,7 +702,7 @@ local function processGroundBrush(player, toolConfig, toolStats, root, range, gr
 	reward = math.max(reward, 1)
 
 	if not awardCoins(player, reward) then
-		return 0, 0
+		return 0, 0, nil
 	end
 
 	if tutorialPatchClearedEvent then
@@ -712,7 +718,7 @@ local function processGroundBrush(player, toolConfig, toolStats, root, range, gr
 		fireEffectVfx(player, "BrushActive", root.Position, result.Positions, toolConfig.Id)
 	end
 
-	return math.max(1, tonumber(result.CellsChanged) or 1), reward
+	return math.max(1, tonumber(result.CellsChanged) or 1), reward, result
 end
 
 local function getPlayerFromHit(hit)
@@ -972,6 +978,13 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 		warnUnexpectedClientValuesOnce(player, "PaintToolSweep")
 	end
 
+	if type(toolId) == "table" and toolId.Type == "GroundPaintBrush" then
+		groundPayload = toolId
+		toolId = nil
+		candidates = {}
+		mode = "sweep"
+	end
+
 	local tool, toolConfig = getEquippedPaintTool(player)
 	if not toolConfig then
 		paintSweepEvent:FireClient(player, {
@@ -983,7 +996,7 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 		return
 	end
 
-	if tool and toolId and toolConfig.Id ~= toolId then
+	if tool and type(toolId) == "string" and toolConfig.Id ~= toolId then
 		paintSweepEvent:FireClient(player, {
 			success = false,
 			total = 0,
@@ -1070,7 +1083,56 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 	local lastMessage = "No Color in range."
 	local seen = {}
 	local root = getPlayerRoot(player)
-	local groundPaintCells = 0
+
+	if groundPaintPrimary then
+		local groundCollected = 0
+		local groundAwarded = 0
+		local groundResult = nil
+		if root then
+			groundCollected, groundAwarded, groundResult =
+				processGroundBrush(player, toolConfig, toolStats, root, range, groundPayload)
+		end
+
+		if groundCollected > 0 and groundAwarded > 0 then
+			local stamps = {}
+			if groundResult and groundResult.Stamp then
+				table.insert(stamps, groundResult.Stamp)
+			end
+			paintSweepEvent:FireClient(player, {
+				success = true,
+				total = groundAwarded,
+				collected = groundCollected,
+				message = "+" .. tostring(groundAwarded) .. " Coins",
+				GroundPaint = true,
+				Stamps = stamps,
+				groundStamp = groundResult and groundResult.Stamp or nil,
+			})
+			collectEvent:FireClient(player, true, groundAwarded, "Coins")
+
+			if DEBUG_LOGS then
+				print(
+					string.format(
+						"PaintToolSweep: %s cleaned %d paint cells for %d Coins",
+						player.Name,
+						groundCollected,
+						groundAwarded
+					)
+				)
+			end
+			return
+		end
+
+		if skipLegacyBrushBlobs then
+			paintSweepEvent:FireClient(player, {
+				success = false,
+				total = 0,
+				collected = 0,
+				message = "No paint under brush.",
+				GroundPaint = true,
+			})
+			return
+		end
+	end
 
 	if not skipLegacyBrushBlobs then
 		for _, part in ipairs(candidates) do
@@ -1106,39 +1168,17 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 		end
 	end
 
-	if mode == "sweep" and root then
-		local groundCollected, groundAwarded =
-			processGroundBrush(player, toolConfig, toolStats, root, range, groundPayload)
-		if groundCollected > 0 then
-			groundPaintCells = groundCollected
-			collected += groundCollected
-			total += groundAwarded
-			lastMessage = "Ground cleaned."
-		end
-	end
-
 	local activeAwarded = 0
 	if mode == "sweep" and collected > 0 and root then
 		activeAwarded = advanceBrushStreak(player, toolConfig, root, range)
 	end
-	local procAwarded = mode == "sweep" and tryBrushEffectProcs(player) or 0
+	local procAwarded = mode == "sweep" and collected > 0 and tryBrushEffectProcs(player) or 0
 	total += activeAwarded
 	total += procAwarded
 
 	local success = total > 0
 	if DEBUG_LOGS and success then
-		if groundPaintCells > 0 then
-			print(
-				string.format(
-					"PaintToolSweep: %s cleaned %d paint cells for %d Coins",
-					player.Name,
-					groundPaintCells,
-					total
-				)
-			)
-		else
-			print(string.format("PaintToolSweep: %s broke %d legacy blobs for %d Coins", player.Name, collected, total))
-		end
+		print(string.format("PaintToolSweep: %s broke %d legacy blobs for %d Coins", player.Name, collected, total))
 	end
 	paintSweepEvent:FireClient(player, {
 		success = success,

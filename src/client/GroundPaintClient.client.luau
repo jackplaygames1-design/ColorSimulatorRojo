@@ -19,6 +19,7 @@ local regenConfig = config.Regen or {}
 local debugConfig = config.Debug or {}
 
 local Events = ReplicatedStorage:WaitForChild("Events")
+local paintSweepEvent = Events:WaitForChild("PaintToolSweep")
 local snapshotRemote = Events:WaitForChild("PaintFieldSnapshot")
 local deltaRemote = Events:WaitForChild("PaintFieldDelta")
 local readyRemote = Events:WaitForChild("PaintFieldClientReady")
@@ -28,6 +29,13 @@ if not folder then
 	folder = Instance.new("Folder")
 	folder.Name = "ClientGroundPaint"
 	folder.Parent = Workspace
+end
+
+local localBrushEvent = Events:FindFirstChild("PaintFieldLocalBrush")
+if not localBrushEvent then
+	localBrushEvent = Instance.new("BindableEvent")
+	localBrushEvent.Name = "PaintFieldLocalBrush"
+	localBrushEvent.Parent = Events
 end
 
 local surfaces = {}
@@ -398,6 +406,34 @@ local function emitLiftParticles(position, color, radius)
 	Debris:AddItem(anchor, 0.8)
 end
 
+local function findLocalSurfaceAtPosition(worldPosition)
+	local bestSurface = nil
+	local bestDistance = math.huge
+
+	for _, surface in pairs(surfaces) do
+		local cframe = surface.SurfaceCFrame or surface.CFrame or (surface.Part and surface.Part.CFrame)
+		local size = surface.SurfaceSize or surface.Size or (surface.Part and surface.Part.Size)
+		if typeof(cframe) == "CFrame" and typeof(size) == "Vector3" then
+			local localPoint = cframe:PointToObjectSpace(worldPosition)
+			local halfX = (surface.CoverageX or size.X) * 0.5 + 4
+			local halfZ = (surface.CoverageZ or size.Z) * 0.5 + 4
+			if
+				math.abs(localPoint.X - (surface.OffsetX or 0)) <= halfX
+				and math.abs(localPoint.Z - (surface.OffsetZ or 0)) <= halfZ
+			then
+				local topY = size.Y * 0.5
+				local distance = math.abs(localPoint.Y - topY)
+				if distance < bestDistance then
+					bestSurface = surface
+					bestDistance = distance
+				end
+			end
+		end
+	end
+
+	return bestSurface
+end
+
 local function fadeAndDestroyStamp(surface, stamp)
 	local holdTime = math.max(
 		asNumber(stamp.Duration, 5),
@@ -479,21 +515,27 @@ local function makeClearStamp(stampData)
 	}
 
 	for ring = ringCount, 1, -1 do
-		local alpha = 0.5 + 0.5 * (ring / ringCount)
+		local t = ring / ringCount
+		local discRadius = radius * (0.35 + 0.65 * t)
 		local disc = Instance.new("Part")
 		disc.Name = "ClearDisc"
-		disc.Shape = Enum.PartType.Ball
-		disc.Size = Vector3.new(radius * 2 * alpha, 0.06, radius * 2 * alpha)
-		disc.CFrame = getSurfaceTopCFrame(surface, localPoint.X, localPoint.Z, yOffset + ring * 0.003)
+		disc.Shape = Enum.PartType.Cylinder
+		disc.Size = Vector3.new(0.08, discRadius * 2, discRadius * 2)
+		disc.CFrame = getSurfaceTopCFrame(surface, localPoint.X, localPoint.Z, yOffset + ring * 0.01)
+			* CFrame.Angles(0, 0, math.rad(90))
 		disc.Anchored = true
 		disc.CanCollide = false
 		disc.CanTouch = false
 		disc.CanQuery = false
 		disc.CastShadow = false
 		disc.Material = Enum.Material.SmoothPlastic
-		disc.Color = (ring == 1) and centerColor or baseColor
-		disc.Transparency = (ring == 1) and centerTransparency
-			or math.clamp(edgeTransparency + (alpha * 0.12), centerTransparency, 0.82)
+		if ring == 1 then
+			disc.Color = centerColor
+			disc.Transparency = centerTransparency
+		else
+			disc.Color = baseColor
+			disc.Transparency = math.clamp(edgeTransparency + (t * 0.18), 0.2, 0.82)
+		end
 		disc.Parent = stampFolder
 		table.insert(stamp.Parts, disc)
 	end
@@ -627,6 +669,50 @@ deltaRemote.OnClientEvent:Connect(function(payload)
 		end
 	end
 end)
+
+paintSweepEvent.OnClientEvent:Connect(function(payload)
+	if type(payload) ~= "table" or payload.GroundPaint ~= true then
+		return
+	end
+
+	local stamps = payload.Stamps or {}
+	if #stamps == 0 and type(payload.groundStamp) == "table" then
+		stamps = { payload.groundStamp }
+	end
+	if debugConfig.PrintClientVisuals == true then
+		print(string.format("GroundPaintClient PaintToolSweep response: stamps=%d", #stamps))
+	end
+
+	for _, stamp in ipairs(stamps) do
+		makeClearStamp(stamp)
+	end
+end)
+
+if localBrushEvent:IsA("BindableEvent") then
+	localBrushEvent.Event:Connect(function(payload)
+		if type(payload) ~= "table" or typeof(payload.Position) ~= "Vector3" then
+			return
+		end
+
+		local surface = findLocalSurfaceAtPosition(payload.Position)
+		if not surface then
+			if debugConfig.PrintClientVisuals == true then
+				warn("GroundPaintClient local stamp missed surface at " .. tostring(payload.Position))
+			end
+			return
+		end
+
+		makeClearStamp({
+			SurfaceId = surface.SurfaceId,
+			Position = payload.Position,
+			Radius = payload.Radius or 7,
+			BaseSurfaceColor = surface.BaseSurfaceColor or Color3.fromRGB(5, 5, 5),
+			PaintColor = surface.PaintColor,
+			RegenDelay = asNumber(regenConfig.DelayAfterBrush, 5),
+			Source = "local",
+		})
+	end)
+end
 
 RunService.Heartbeat:Connect(function()
 	for surfaceId, surface in pairs(surfaces) do

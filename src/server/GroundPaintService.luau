@@ -1036,7 +1036,7 @@ local function clampRewardForPlayer(player, amount)
 end
 
 local function queueStamp(surface, worldPosition, radius, power, source)
-	table.insert(pendingStamps, {
+	local stamp = {
 		SurfaceId = surface.Id,
 		Position = worldPosition,
 		Radius = radius,
@@ -1044,10 +1044,13 @@ local function queueStamp(surface, worldPosition, radius, power, source)
 		ColorType = surface.ColorType,
 		PaintColor = surface.PaintColor,
 		BaseSurfaceColor = surface.BaseSurfaceColor,
-		RegenDelay = surface.PaintRegenDelay,
+		RegenDelay = tonumber(surface.PaintRegenDelay) or tonumber(regenConfig.DelayAfterBrush) or 5,
 		Source = source or "brush",
 		Softness = tonumber((visualConfig.BrushStamp or {}).Softness) or 0.65,
-	})
+		CreatedAt = os.clock(),
+	}
+	table.insert(pendingStamps, stamp)
+	return stamp
 end
 
 local function getCellBounds(surface, localPoint, radius)
@@ -1129,7 +1132,7 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 
 	local rewardUnits = removedCoverageUnits * REWARD_PER_COVERAGE_UNIT * (tonumber(surface.PaintRewardMultiplier) or 1)
 	rewardUnits = clampRewardForPlayer(sourcePlayer, rewardUnits)
-	queueStamp(surface, worldPosition, radius, power, source)
+	local stamp = queueStamp(surface, worldPosition, radius, power, source)
 
 	return {
 		SurfaceId = surface.Id,
@@ -1139,6 +1142,7 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 		CellsChanged = cellsChanged,
 		RewardUnits = rewardUnits,
 		Positions = positions,
+		Stamp = stamp,
 	}
 end
 

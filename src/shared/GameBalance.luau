@@ -144,7 +144,7 @@ GameBalance.GroundPaint = {
 		Mode = "SoftStampMask",
 
 		PaintYOffset = 0.12,
-		ClearStampYOffset = 0.22,
+		ClearStampYOffset = 0.38,
 
 		MaxCoatPlanesPerSurface = 16,
 		MaxActiveClearStamps = 260,
@@ -168,12 +168,12 @@ GameBalance.GroundPaint = {
 		},
 
 		BrushStamp = {
-			Softness = 0.7,
-			RingCount = 7,
+			Softness = 0.72,
+			RingCount = 5,
 			MinStampLifetime = 5.0,
 			FadeOutTime = 1.0,
 			CenterTransparency = 0,
-			EdgeTransparency = 0.65,
+			EdgeTransparency = 0.55,
 			UseConcentricDiscsFallback = true,
 			TextureAssetId = "",
 		},
