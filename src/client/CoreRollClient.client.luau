@@ -25,6 +25,7 @@ local core = CoreDefinitions.Get(RED_CORE_ID)
 local warned = {}
 local rollBusy = false
 local currentCurrencyAmount = 0
+local mutationsUnlocked = player:GetAttribute("MutationsUnlocked") == true
 local oddsOpen = false
 
 local coreGui = playerGui:WaitForChild("CoreRNGGui", 10)
@@ -192,10 +193,12 @@ local function populateOddsPanel()
 	for _, row in ipairs(CoreDefinitions.GetOddsRows(RED_CORE_ID)) do
 		table.insert(lines, row.Rarity .. " - 1 in " .. tostring(row.OneIn))
 	end
-	table.insert(lines, "")
-	table.insert(lines, "POSSIBLE MUTATIONS")
-	for _, row in ipairs(CoreDefinitions.GetMutationRows()) do
-		table.insert(lines, row.DisplayName)
+	if mutationsUnlocked == true then
+		table.insert(lines, "")
+		table.insert(lines, "POSSIBLE MUTATIONS")
+		for _, row in ipairs(CoreDefinitions.GetMutationRows()) do
+			table.insert(lines, row.DisplayName)
+		end
 	end
 
 	local labels = {}
@@ -465,7 +468,16 @@ coreRollState.OnClientEvent:Connect(function(payload)
 		return
 	end
 	currentCurrencyAmount = tonumber(payload.Amount) or currentCurrencyAmount
+	if payload.MutationsUnlocked ~= nil then
+		mutationsUnlocked = payload.MutationsUnlocked == true
+		populateOddsPanel()
+	end
 	updateStatus(payload.Message)
+end)
+
+player:GetAttributeChangedSignal("MutationsUnlocked"):Connect(function()
+	mutationsUnlocked = player:GetAttribute("MutationsUnlocked") == true
+	populateOddsPanel()
 end)
 
 coreRollResult.OnClientEvent:Connect(function(success, payload)

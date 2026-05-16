@@ -28,7 +28,7 @@ GameBalance.CoreRNG = {
 	RedCore = {
 		RequireProximity = true,
 		InteractionRadius = 28,
-		Cost = 5000,
+		Cost = 1000,
 		Currency = "Red",
 	},
 	ChatAnnouncements = {
@@ -39,6 +39,59 @@ GameBalance.CoreRNG = {
 	},
 	Debug = {
 		PrintRolls = true,
+	},
+}
+
+GameBalance.GameMode = {
+	UseGroundPaint = false,
+	UseBreakables = true,
+}
+
+GameBalance.Breakables = {
+	Enabled = true,
+	DefaultZoneId = "RedSector",
+	DefaultColorType = "Red",
+	Debug = {
+		PrintBoot = true,
+		PrintSpawns = false,
+		PrintDamage = false,
+	},
+	Spawner = {
+		TickInterval = 1,
+		SpawnAttempts = 18,
+		MinSpawnSpacing = 6,
+		LargeSpawnSpacing = 13,
+	},
+	Pets = {
+		Enabled = true,
+		TargetRange = 60,
+		RetargetInterval = 0.5,
+		AttackInterval = 0.75,
+		BaseDamageIfNoPets = 0,
+		PowerScale = 1,
+		MinDamage = 1,
+		MutationBonuses = {
+			Overflow = {
+				DamageMultiplier = 1.15,
+			},
+			Prism = {
+				DamageMultiplier = 1.1,
+				AttackIntervalMultiplier = 0.92,
+			},
+			Corrupted = {
+				DamageMultiplier = 1.08,
+				ChestDamageMultiplier = 1.25,
+			},
+			Radioactive = {
+				DamageMultiplier = 1.12,
+			},
+		},
+		GlitchedDamageMultiplier = 1.5,
+	},
+	Rewards = {
+		MagnetDelay = 0.25,
+		FlyTime = 0.55,
+		MaxVisualDrops = 20,
 	},
 }
 
@@ -103,7 +156,7 @@ GameBalance.Contamination = {
 }
 
 GameBalance.GroundPaint = {
-	Enabled = true,
+	Enabled = false,
 
 	DisableOldZoneSpawnerColors = true,
 	DisableOldWildColorPopulation = true,

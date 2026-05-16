@@ -23,6 +23,8 @@ local remoteEvents = {
 	"MergePet",
 	"PetAttack",
 	"PetBreakReward",
+	"BreakableRewardVFX",
+	"BreakableAnnouncement",
 	"PetsLoaded",
 	"PurchaseUpgrade",
 	"UnlockArea",

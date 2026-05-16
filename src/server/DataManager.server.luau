@@ -45,6 +45,7 @@ local CRITICAL_SAVE_DELAY = 8
 local CRITICAL_SAVE_COOLDOWN = 45
 local CURRENT_DATA_VERSION = 5
 local sessionData
+local COLOR_CURRENCY_TYPES = { "Red", "Orange", "Green" }
 
 local warnedMigrationKeys = {}
 local function warnOnce(key, message)
@@ -64,6 +65,11 @@ local DEFAULT_DATA = {
 	Gems = 0,
 	Diamonds = 0,
 	Rebirths = 0,
+	ColorCurrencies = {
+		Red = 0,
+		Orange = 0,
+		Green = 0,
+	},
 	RankLevel = 1,
 	RankXP = 0,
 	RankTotalXP = 0,
@@ -1506,6 +1512,19 @@ local function applyData(player, data)
 	rebirths.Value = data.Rebirths
 	rebirths.Parent = leaderstats
 
+	local colorCurrencies = Instance.new("Folder")
+	colorCurrencies.Name = "ColorCurrencies"
+	colorCurrencies.Parent = player
+
+	for _, colorType in ipairs(COLOR_CURRENCY_TYPES) do
+		local colorCurrency = Instance.new("IntValue")
+		colorCurrency.Name = colorType
+		colorCurrency.Value =
+			math.max(0, math.floor(tonumber(data.ColorCurrencies and data.ColorCurrencies[colorType]) or 0))
+		colorCurrency.Parent = colorCurrencies
+		watchValueForDirty(player, colorCurrency, string.lower(colorType) .. "-currency")
+	end
+
 	local rankData = RankService.NormalizeData(data)
 	local rankFolder = Instance.new("Folder")
 	rankFolder.Name = "RankData"
@@ -1845,6 +1864,18 @@ local function collectData(player)
 		data.Gems = stats:FindFirstChild("Gems") and stats.Gems.Value or 0
 		data.Diamonds = stats:FindFirstChild("Diamonds") and stats.Diamonds.Value or 0
 		data.Rebirths = stats:FindFirstChild("Rebirths") and stats.Rebirths.Value or 0
+	end
+
+	local colorCurrencies = player:FindFirstChild("ColorCurrencies")
+	if colorCurrencies then
+		data.ColorCurrencies = data.ColorCurrencies or {}
+		for _, colorType in ipairs(COLOR_CURRENCY_TYPES) do
+			local value = colorCurrencies:FindFirstChild(colorType)
+			data.ColorCurrencies[colorType] = value
+					and value:IsA("ValueBase")
+					and math.max(0, math.floor(tonumber(value.Value) or 0))
+				or (data.ColorCurrencies[colorType] or 0)
+		end
 	end
 
 	local rankFolder = player:FindFirstChild("RankData")

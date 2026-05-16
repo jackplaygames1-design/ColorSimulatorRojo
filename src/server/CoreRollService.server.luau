@@ -176,6 +176,15 @@ local function getCurrencyAmount(player, core)
 	return value and tonumber(value.Value) or 0, value
 end
 
+local function hasMutationsUnlocked(player)
+	if player:GetAttribute("MutationsUnlocked") == true then
+		return true
+	end
+	local progress = player:FindFirstChild("TutorialProgress")
+	local unlocked = progress and progress:FindFirstChild("MutationsUnlocked")
+	return unlocked and unlocked:IsA("BoolValue") and unlocked.Value == true
+end
+
 local function sendCoreState(player, core, message)
 	local amount = getCurrencyAmount(player, core)
 	coreRollState:FireClient(player, {
@@ -184,6 +193,7 @@ local function sendCoreState(player, core, message)
 		Amount = amount,
 		Cost = core.Cost,
 		CanAfford = amount >= (tonumber(core.Cost) or 0),
+		MutationsUnlocked = hasMutationsUnlocked(player),
 		Message = message,
 	})
 end
@@ -312,7 +322,10 @@ local function rollCore(player, coreId)
 
 	local rarity = RarityDefinitions.Roll(rng)
 	local colorId, colorData = ColorDefinitions.GetColorForRarity(core.CoreId, rarity, rng)
-	local mutationId, isGlitched = MutationDefinitions.Roll(rng, getLuckMultiplier(player))
+	local mutationId, isGlitched = MutationDefinitions.NoneId, false
+	if hasMutationsUnlocked(player) then
+		mutationId, isGlitched = MutationDefinitions.Roll(rng, getLuckMultiplier(player))
+	end
 	local result = buildRolledColor(player, core, rarity, colorId, colorData, mutationId, isGlitched)
 
 	currencyValue.Value = math.max(0, amount - cost)

@@ -87,6 +87,7 @@ local CLIENT_PET_FOLDER_NAME = "ClientOrbitingColors"
 local spawnedPets = {} -- { { model, variantKey } }
 local allPets = {} -- list of buildPetEntry results
 local equippedPets = {} -- list of variant keys
+local miningTargets = {} -- short-lived visual targets from server pet attacks
 local lastPetStateAt = 0
 local replicatedStateQueued = false
 local warnedEmptyEquippedVisuals = false
@@ -1686,9 +1687,13 @@ petAtkEvent.OnClientEvent:Connect(function(equippedPetIds, targetObj, colorType)
 		temporaryTarget.Parent = workspace
 		targetObj = temporaryTarget
 	end
-	for i, petId in ipairs(equippedPetIds) do
+	for i in ipairs(equippedPetIds) do
 		local petModel = spawnedPets[i] and spawnedPets[i].model
 		if petModel then
+			miningTargets[i] = {
+				Target = targetObj,
+				Until = os.clock() + 0.95,
+			}
 			createDrainBeam(petModel, targetObj, colorType)
 		end
 	end
@@ -1733,8 +1738,45 @@ RunService.Heartbeat:Connect(function()
 			local orbitSpeed = 0.9 - math.min(ring * 0.12, 0.35)
 			local angle = t * orbitSpeed + (ringSlot / ringCount) * math.pi * 2 + ring * 0.45
 			local bob = math.sin(t * 2.4 + i) * 0.35
-			local pos = root.Position + Vector3.new(math.cos(angle) * radius, height + bob, math.sin(angle) * radius)
-			model:PivotTo(CFrame.lookAt(pos, root.Position + Vector3.new(0, 1.8, 0)))
+			local targetInfo = miningTargets[i]
+			if targetInfo and targetInfo.Until < os.clock() then
+				miningTargets[i] = nil
+				targetInfo = nil
+			end
+
+			local targetPosition = nil
+			if targetInfo and targetInfo.Target then
+				if typeof(targetInfo.Target) == "Instance" and targetInfo.Target.Parent then
+					if targetInfo.Target:IsA("Model") then
+						targetPosition = targetInfo.Target:GetPivot().Position
+					elseif targetInfo.Target:IsA("BasePart") then
+						targetPosition = targetInfo.Target.Position
+					elseif targetInfo.Target:IsA("Attachment") then
+						targetPosition = targetInfo.Target.WorldPosition
+					end
+				elseif typeof(targetInfo.Target) == "Vector3" then
+					targetPosition = targetInfo.Target
+				end
+			end
+
+			local pos
+			local lookAt
+			if targetPosition then
+				local attackRadius = 3.8 + (i % 3) * 0.35
+				local attackAngle = t * 1.6 + i * 2.1
+				pos = targetPosition
+					+ Vector3.new(
+						math.cos(attackAngle) * attackRadius,
+						2.5 + bob * 0.45,
+						math.sin(attackAngle) * attackRadius
+					)
+				lookAt = targetPosition + Vector3.new(0, 1.1, 0)
+			else
+				pos = root.Position + Vector3.new(math.cos(angle) * radius, height + bob, math.sin(angle) * radius)
+				lookAt = root.Position + Vector3.new(0, 1.8, 0)
+			end
+
+			model:PivotTo(CFrame.lookAt(pos, lookAt))
 			updateCustomPetVisuals(entry, t)
 		end
 	end

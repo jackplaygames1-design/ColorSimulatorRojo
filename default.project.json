@@ -145,6 +145,15 @@
         "PetModelUtil": {
           "$path": "src/modules/PetModelUtil.luau"
         },
+        "BreakableDefinitions": {
+          "$path": "src/modules/BreakableDefinitions.luau"
+        },
+        "ZoneDefinitions": {
+          "$path": "src/modules/ZoneDefinitions.luau"
+        },
+        "RewardDefinitions": {
+          "$path": "src/modules/RewardDefinitions.luau"
+        },
         "LegendaryColorOrbDefinitions": {
           "$path": "src/modules/LegendaryColorOrbDefinitions.luau"
         },
@@ -155,6 +164,13 @@
 
       "PetModels": {
         "$className": "Folder"
+      },
+
+      "Assets": {
+        "$className": "Folder",
+        "Breakables": {
+          "$className": "Folder"
+        }
       },
 
       "Events": {
@@ -196,6 +212,15 @@
           "$className": "RemoteEvent"
         },
         "PetAttack": {
+          "$className": "RemoteEvent"
+        },
+        "PetBreakReward": {
+          "$className": "RemoteEvent"
+        },
+        "BreakableRewardVFX": {
+          "$className": "RemoteEvent"
+        },
+        "BreakableAnnouncement": {
           "$className": "RemoteEvent"
         },
         "PetsLoaded": {
