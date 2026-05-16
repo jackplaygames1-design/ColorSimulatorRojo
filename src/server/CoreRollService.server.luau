@@ -63,7 +63,10 @@ local function getCorePart(core)
 				score = 70
 			elseif fallbackEggId ~= "" and string.lower(descendant.Name) == string.lower(fallbackEggId) then
 				score = 55
-			elseif string.find(string.lower(descendant.Name), "core", 1, true) and string.find(string.lower(descendant.Name), "red", 1, true) then
+			elseif
+				string.find(string.lower(descendant.Name), "core", 1, true)
+				and string.find(string.lower(descendant.Name), "red", 1, true)
+			then
 				score = 40
 			end
 		elseif descendant:IsA("Model") then
@@ -106,9 +109,9 @@ local function isNearCore(player, core)
 	if not corePart then
 		if not warnedMissingCorePart[core.CoreId] then
 			warn(
-				"CoreRollService: no editable Red Core part found. Add CoreId=\""
+				'CoreRollService: no editable Red Core part found. Add CoreId="'
 					.. tostring(core.CoreId)
-					.. "\" to the Studio model/part."
+					.. '" to the Studio model/part.'
 			)
 			warnedMissingCorePart[core.CoreId] = true
 		end
@@ -314,7 +317,14 @@ local function rollCore(player, coreId)
 
 	currencyValue.Value = math.max(0, amount - cost)
 
-	local granted, entryOrNil, reason = grantCoreColorFunction:Invoke(player, result)
+	local invokeOk, granted, entryOrNil, reason = pcall(function()
+		return grantCoreColorFunction:Invoke(player, result)
+	end)
+	if not invokeOk then
+		currencyValue.Value = amount
+		warn("CoreRollService: inventory grant failed: " .. tostring(granted))
+		return failRoll(player, core, "Inventory is not ready.")
+	end
 	if not granted then
 		currencyValue.Value = amount
 		return failRoll(player, core, tostring(reason or "Inventory full."))

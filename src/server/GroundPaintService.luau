@@ -1138,10 +1138,23 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 		return nil
 	end
 
+	local maxRewardPerSweep = tonumber(brushConfig.MaxRewardPerSweep) or 35
+	local minRewardPerSweep = math.max(tonumber(brushConfig.MinRewardPerSweep) or 1, 0)
+	local minRewardPerChangedCell = math.max(tonumber(brushConfig.MinRewardPerChangedCell) or 1, 0)
 	local rewardUnits = removedCoverageUnits * REWARD_PER_COVERAGE_UNIT
+	if cellsChanged > 0 and rewardUnits > 0 and minRewardPerSweep > 0 then
+		rewardUnits = math.max(rewardUnits, minRewardPerSweep)
+	end
+	if cellsChanged > 0 and minRewardPerChangedCell > 0 then
+		rewardUnits = math.max(rewardUnits, math.min(cellsChanged * minRewardPerChangedCell, maxRewardPerSweep))
+	end
 	rewardUnits = clampRewardForPlayer(sourcePlayer, rewardUnits)
-	rewardUnits = math.floor(math.max(rewardUnits, 0) + 0.5)
-	rewardUnits = math.clamp(rewardUnits, 0, tonumber(brushConfig.MaxRewardPerSweep) or 35)
+	if rewardUnits > 0 and minRewardPerSweep > 0 then
+		rewardUnits = math.max(minRewardPerSweep, math.floor(rewardUnits + 0.5))
+	else
+		rewardUnits = math.floor(math.max(rewardUnits, 0) + 0.5)
+	end
+	rewardUnits = math.clamp(rewardUnits, 0, maxRewardPerSweep)
 	local stamp = queueStamp(surface, worldPosition, radius, power, source)
 
 	return {

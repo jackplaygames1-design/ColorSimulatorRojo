@@ -606,6 +606,97 @@ local function makeSplatter(surface, stamp, localPoint, radius, paintColor, yOff
 	end
 end
 
+local function makeDisplacedPaint(surface, stamp, localPoint, radius, paintColor, yOffset)
+	if stampConfig.DisplacementEnabled == false then
+		return
+	end
+
+	paintColor = typeof(paintColor) == "Color3" and paintColor or Color3.fromRGB(235, 35, 32)
+	local height = math.clamp(asNumber(stampConfig.DisplacementHeight, 0.28), 0.08, 0.65)
+	local transparency = math.clamp(asNumber(stampConfig.DisplacementTransparency, 0.08), 0, 0.8)
+	local wallColor = paintColor:Lerp(Color3.fromRGB(0, 0, 0), 0.18)
+	local edgeRadius = radius * 0.62
+	local wallLength = radius * 1.55
+	local wallThickness = math.clamp(radius * 0.22, 0.45, 1.35)
+
+	local strips = {
+		{
+			x = 0,
+			z = -edgeRadius,
+			angle = 0,
+			size = Vector3.new(wallLength, height, wallThickness),
+		},
+		{
+			x = 0,
+			z = edgeRadius,
+			angle = math.rad(180),
+			size = Vector3.new(wallLength, height, wallThickness),
+		},
+		{
+			x = -edgeRadius,
+			z = 0,
+			angle = math.rad(90),
+			size = Vector3.new(wallLength, height, wallThickness),
+		},
+		{
+			x = edgeRadius,
+			z = 0,
+			angle = math.rad(-90),
+			size = Vector3.new(wallLength, height, wallThickness),
+		},
+	}
+
+	for index, strip in ipairs(strips) do
+		local jitter = math.rad(math.random(-7, 7))
+		local part = Instance.new("Part")
+		part.Name = "PaintDisplacementLip"
+		part.Size = strip.size
+		part.CFrame = getSurfaceTopCFrame(
+			surface,
+			localPoint.X + strip.x,
+			localPoint.Z + strip.z,
+			yOffset + height * 0.5 + 0.03 + index * 0.003
+		) * CFrame.Angles(0, strip.angle + jitter, 0)
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanTouch = false
+		part.CanQuery = false
+		part.CastShadow = false
+		part.Material = Enum.Material.SmoothPlastic
+		part.Color = wallColor
+		part.Transparency = transparency
+		part.Parent = stamp.Folder
+		table.insert(stamp.Parts, part)
+	end
+
+	local clumpCount = math.clamp(math.floor(asNumber(stampConfig.DisplacementClumpCount, 10)), 0, 18)
+	for _ = 1, clumpCount do
+		local angle = math.random() * math.pi * 2
+		local r = radius * (0.48 + math.random() * 0.42)
+		local clump = Instance.new("Part")
+		clump.Name = "PaintDisplacementClump"
+		clump.Shape = Enum.PartType.Ball
+		local clumpSize = math.clamp(radius * (0.08 + math.random() * 0.06), 0.22, 0.85)
+		clump.Size = Vector3.new(clumpSize * 1.25, clumpSize * 0.75, clumpSize)
+		clump.CFrame = getSurfaceTopCFrame(
+			surface,
+			localPoint.X + math.cos(angle) * r,
+			localPoint.Z + math.sin(angle) * r,
+			yOffset + height + 0.05
+		) * CFrame.Angles(0, angle, math.rad(math.random(-12, 12)))
+		clump.Anchored = true
+		clump.CanCollide = false
+		clump.CanTouch = false
+		clump.CanQuery = false
+		clump.CastShadow = false
+		clump.Material = Enum.Material.SmoothPlastic
+		clump.Color = paintColor:Lerp(Color3.fromRGB(0, 0, 0), math.random(8, 24) / 100)
+		clump.Transparency = math.clamp(transparency + 0.02, 0, 0.85)
+		clump.Parent = stamp.Folder
+		table.insert(stamp.Parts, clump)
+	end
+end
+
 local function makeClearStamp(stampData)
 	if type(stampData) ~= "table" or typeof(stampData.Position) ~= "Vector3" then
 		warn("GroundPaintClient failed to create stamp: invalid stamp payload")
@@ -630,9 +721,12 @@ local function makeClearStamp(stampData)
 	radius = math.clamp(radius, 1, MAX_STAMP_RADIUS)
 	radius = absorbNearbyStamp(surface, localPoint, radius, source)
 	if source == "local" then
-		radius = math.clamp(radius, 1, MAX_STAMP_RADIUS)
+		radius = math.clamp(radius * 0.85, 1, MAX_STAMP_RADIUS)
 	end
 	local ringCount = math.clamp(math.floor(asNumber(stampConfig.RingCount, 7)), 2, 11)
+	if source == "local" then
+		ringCount = math.clamp(ringCount, 2, 3)
+	end
 	local baseColor = typeof(surface.BaseSurfaceColor) == "Color3" and surface.BaseSurfaceColor
 		or typeof(stampData.BaseSurfaceColor) == "Color3" and stampData.BaseSurfaceColor
 		or visualConfig.BaseSurfaceColor
@@ -641,6 +735,10 @@ local function makeClearStamp(stampData)
 	local centerTransparency =
 		asNumber(stampConfig.CenterTransparency, asNumber(stampConfig.ClearCenterTransparency, 0))
 	local edgeTransparency = asNumber(stampConfig.EdgeTransparency, asNumber(stampConfig.ClearEdgeTransparency, 0.65))
+	if source == "local" then
+		centerTransparency = math.max(centerTransparency, 0.62)
+		edgeTransparency = math.max(edgeTransparency, 0.86)
+	end
 	local yOffset = asNumber(visualConfig.ClearStampYOffset, 0.055)
 
 	local stampFolder = Instance.new("Folder")
@@ -686,8 +784,11 @@ local function makeClearStamp(stampData)
 		disc.Parent = stampFolder
 		table.insert(stamp.Parts, disc)
 	end
-	makeRimPieces(surface, stamp, localPoint, radius, surface.PaintColor, yOffset)
-	makeSplatter(surface, stamp, localPoint, radius, surface.PaintColor, yOffset)
+	if source ~= "local" then
+		makeDisplacedPaint(surface, stamp, localPoint, radius, surface.PaintColor, yOffset)
+		makeRimPieces(surface, stamp, localPoint, radius, surface.PaintColor, yOffset)
+		makeSplatter(surface, stamp, localPoint, radius, surface.PaintColor, yOffset)
+	end
 
 	table.insert(surface.Stamps, stamp)
 	activeStampCount += 1

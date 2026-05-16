@@ -529,9 +529,16 @@ local function normalizeCoreColorData(variantKey, data)
 	data.CreatedAt = data.createdAt
 	data.power = math.max(1, math.floor(tonumber(data.power or data.Power or data.finalPower) or 1))
 	data.Power = data.power
-	data.rarity = tostring(data.rarity or data.Rarity or (PetData.Pets[data.petId] and PetData.Pets[data.petId].rarity) or "Common")
+	data.rarity = tostring(
+		data.rarity or data.Rarity or (PetData.Pets[data.petId] and PetData.Pets[data.petId].rarity) or "Common"
+	)
 	data.Rarity = data.rarity
-	data.colorName = tostring(data.colorName or data.ColorName or (PetData.Pets[data.petId] and PetData.Pets[data.petId].displayName) or data.petId)
+	data.colorName = tostring(
+		data.colorName
+			or data.ColorName
+			or (PetData.Pets[data.petId] and PetData.Pets[data.petId].displayName)
+			or data.petId
+	)
 	data.ColorName = data.colorName
 	data.isGlitched = normalizeBool(data.isGlitched or data.IsGlitched)
 	data.IsGlitched = data.isGlitched
@@ -906,18 +913,13 @@ local function syncPetFolder(player, dirtyReason)
 				.. ":"
 				.. (data.mutationId or "None")
 			if isCoreColorRecord(data) then
-				encoded ..= ":core:"
-					.. tostring(data.colorId or data.ColorId or variantKey)
-					.. ":"
-					.. tostring(data.coreId or data.CoreId or "RedCore")
-					.. ":"
-					.. tostring(math.floor(tonumber(data.createdAt or data.CreatedAt) or os.time()))
-					.. ":"
-					.. tostring(math.floor(tonumber(data.power or data.Power or 1) or 1))
-					.. ":"
-					.. tostring(data.rarity or data.Rarity or "Common")
-					.. ":"
-					.. tostring(data.isGlitched == true or data.IsGlitched == true)
+				encoded ..= ":core:" .. tostring(data.colorId or data.ColorId or variantKey) .. ":" .. tostring(
+					data.coreId or data.CoreId or "RedCore"
+				) .. ":" .. tostring(math.floor(tonumber(data.createdAt or data.CreatedAt) or os.time())) .. ":" .. tostring(
+					math.floor(tonumber(data.power or data.Power or 1) or 1)
+				) .. ":" .. tostring(data.rarity or data.Rarity or "Common") .. ":" .. tostring(
+					data.isGlitched == true or data.IsGlitched == true
+				)
 			end
 			table.insert(parts, encoded)
 		end
@@ -1028,7 +1030,12 @@ local function grantCoreColorToPlayer(player, coreColor)
 
 	local colorId = tostring(coreColor.ColorId or coreColor.colorId or "")
 	if colorId == "" then
-		colorId = "core_" .. tostring(player.UserId) .. "_" .. tostring(os.time()) .. "_" .. tostring(math.random(100000, 999999))
+		colorId = "core_"
+			.. tostring(player.UserId)
+			.. "_"
+			.. tostring(os.time())
+			.. "_"
+			.. tostring(math.random(100000, 999999))
 	end
 	local variantKey = tostring(coreColor.VariantKey or coreColor.variantKey or colorId)
 	local suffix = 0

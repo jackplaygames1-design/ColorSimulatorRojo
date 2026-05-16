@@ -1305,9 +1305,9 @@ local function updateCustomPetVisuals(entry, now)
 		glitchedHighlight.FillTransparency = 0.48 + math.abs(math.sin(now * 24)) * 0.32
 		glitchedHighlight.OutlineTransparency = 0.02 + math.abs(math.sin(now * 19)) * 0.2
 	end
-	for _, shard in ipairs(visuals.glitchedShards or {}) do
+	for index, shard in ipairs(visuals.glitchedShards or {}) do
 		if shard:IsA("BasePart") and shard.Name == "GlitchedOffsetShard" and shard.Parent then
-			local phase = shard:GetDebugId(0):byte(1) or 1
+			local phase = index * 0.9
 			shard.Transparency = 0.18 + math.abs(math.sin(now * 14 + phase)) * 0.34
 		end
 	end

@@ -572,6 +572,9 @@
 
       "TutorialGui": {
         "$path": "src/startergui/TutorialGui.model.json"
+      },
+      "CoreRNGGui": {
+        "$path": "src/startergui/CoreRNGGui.model.json"
       }
     },
 

@@ -27,7 +27,8 @@ local rollBusy = false
 local currentCurrencyAmount = 0
 local oddsOpen = false
 
-local mainHud = ClientUIRoot.GetRoot(playerGui)
+local coreGui = playerGui:WaitForChild("CoreRNGGui", 10)
+local mainHud = playerGui:FindFirstChild("MainHUD") or coreGui or ClientUIRoot.GetRoot(playerGui)
 local modalRoot = mainHud and mainHud:FindFirstChild("ModalWindows")
 local windowsRoot = modalRoot and (modalRoot:FindFirstChild("Windows") or modalRoot)
 
@@ -61,11 +62,15 @@ local function findWindow(name)
 	if found and found:IsA("GuiObject") then
 		return found
 	end
+	found = coreGui and coreGui:FindFirstChild(name, true)
+	if found and found:IsA("GuiObject") then
+		return found
+	end
 	return nil
 end
 
 local coreWindow = findWindow("CoreRollWindow")
-local hatchReveal = findWindow("HatchReveal") or findWindow("HatchOverlay")
+local hatchReveal = findWindow("HatchReveal") or findWindow("CoreHatchReveal")
 
 if not coreWindow then
 	warnOnce(
@@ -241,7 +246,10 @@ local function getCorePart()
 				score = 70
 			elseif fallbackEggId ~= "" and string.lower(descendant.Name) == string.lower(fallbackEggId) then
 				score = 55
-			elseif string.find(string.lower(descendant.Name), "core", 1, true) and string.find(string.lower(descendant.Name), "red", 1, true) then
+			elseif
+				string.find(string.lower(descendant.Name), "core", 1, true)
+				and string.find(string.lower(descendant.Name), "red", 1, true)
+			then
 				score = 40
 			end
 		elseif descendant:IsA("Model") then
@@ -272,8 +280,9 @@ local function updateCoreWindowVisibility()
 	end
 	local corePart = getCorePart()
 	if not corePart then
-		warnOnce("missing-core-part", "CoreRollClient: add CoreId=\"RedCore\" to the editable Red Core model/part.")
-		setGuiVisible(coreWindow, false)
+		warnOnce("missing-core-part", 'CoreRollClient: add CoreId="RedCore" to the editable Red Core model/part.')
+		updateStatus("Red Core part is not tagged; showing Core UI for testing.")
+		setGuiVisible(coreWindow, true)
 		return
 	end
 
@@ -319,7 +328,12 @@ local function tweenTextPop(label, scale)
 	end
 	local originalSize = label.Size
 	TweenService:Create(label, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Size = UDim2.new(originalSize.X.Scale * scale, originalSize.X.Offset, originalSize.Y.Scale * scale, originalSize.Y.Offset),
+		Size = UDim2.new(
+			originalSize.X.Scale * scale,
+			originalSize.X.Offset,
+			originalSize.Y.Scale * scale,
+			originalSize.Y.Offset
+		),
 	}):Play()
 	task.delay(0.12, function()
 		if label and label.Parent then
@@ -404,7 +418,7 @@ local function sendChatMessage(payload)
 	local success = pcall(function()
 		local channel = TextChatService.TextChannels and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
 		if channel then
-			channel:DisplaySystemMessage("<font color=\"#ff4545\">" .. text .. "</font>")
+			channel:DisplaySystemMessage('<font color="#ff4545">' .. text .. "</font>")
 		else
 			error("No TextChatService channel")
 		end

@@ -1207,8 +1207,9 @@ local function makeCard(item, index)
 	setText(
 		meta,
 		displayedEquipped and ("EQUIPPED" .. stackText)
-			or tostring(item.MutationText or item.GlitchedMutationText or "")
-			~= "" and tostring(item.MutationText or item.GlitchedMutationText)
+			or tostring(item.MutationText or item.GlitchedMutationText or "") ~= "" and tostring(
+				item.MutationText or item.GlitchedMutationText
+			)
 			or (amount > 1 and ("x" .. amount) or tostring(item.Rarity or ""))
 	)
 

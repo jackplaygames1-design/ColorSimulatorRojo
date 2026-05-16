@@ -1,5 +1,5 @@
-local RarityDefinitions = require(script.Parent:WaitForChild("RarityDefinitions"))
 local MutationDefinitions = require(script.Parent:WaitForChild("MutationDefinitions"))
+local RarityDefinitions = require(script.Parent:WaitForChild("RarityDefinitions"))
 
 local CoreDefinitions = {}
 

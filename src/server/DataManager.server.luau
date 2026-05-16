@@ -417,8 +417,12 @@ local function encodePetRecord(record)
 		or record.coreId ~= nil
 		or record.ColorId ~= nil
 		or record.colorId ~= nil
-	local variantKey = isCoreColor and tostring(record.variantKey or record.VariantKey or record.ColorId or record.colorId)
+	local variantKey = isCoreColor
+			and tostring(record.variantKey or record.VariantKey or record.ColorId or record.colorId)
 		or PetData.makeVariantKey(petId, personalityId, mutationId, traitId)
+	if variantKey == "" or variantKey == "nil" then
+		variantKey = PetData.makeVariantKey(petId, personalityId, mutationId, traitId)
+	end
 
 	local encoded = tostring(variantKey)
 		.. ":"
@@ -434,18 +438,13 @@ local function encodePetRecord(record)
 		.. ":"
 		.. tostring(mutationId)
 	if isCoreColor then
-		encoded ..= ":core:"
-			.. tostring(record.ColorId or record.colorId or variantKey)
-			.. ":"
-			.. tostring(record.CoreId or record.coreId or "RedCore")
-			.. ":"
-			.. tostring(math.floor(tonumber(record.CreatedAt or record.createdAt) or os.time()))
-			.. ":"
-			.. tostring(math.floor(tonumber(record.Power or record.power or record.finalPower) or 1))
-			.. ":"
-			.. tostring(record.Rarity or record.rarity or "Common")
-			.. ":"
-			.. tostring(record.IsGlitched == true or record.isGlitched == true)
+		encoded ..= ":core:" .. tostring(record.ColorId or record.colorId or variantKey) .. ":" .. tostring(
+			record.CoreId or record.coreId or "RedCore"
+		) .. ":" .. tostring(math.floor(tonumber(record.CreatedAt or record.createdAt) or os.time())) .. ":" .. tostring(
+			math.floor(tonumber(record.Power or record.power or record.finalPower) or 1)
+		) .. ":" .. tostring(record.Rarity or record.rarity or "Common") .. ":" .. tostring(
+			record.IsGlitched == true or record.isGlitched == true
+		)
 	end
 	return encoded
 end
@@ -484,7 +483,7 @@ local function decodePetRecord(encoded)
 		power = segments[stackIndex + 5] == "core" and tonumber(segments[stackIndex + 9]) or nil,
 		rarity = segments[stackIndex + 5] == "core" and segments[stackIndex + 10] or nil,
 		isGlitched = segments[stackIndex + 5] == "core"
-			and (segments[stackIndex + 11] == "true" or segments[stackIndex + 11] == "1")
+				and (segments[stackIndex + 11] == "true" or segments[stackIndex + 11] == "1")
 			or false,
 	}
 end
@@ -971,7 +970,12 @@ local function normalizePetRecord(record, sourceKey, backupList)
 		normalized.coreId = tostring(normalized.coreId or normalized.CoreId or "RedCore")
 		normalized.createdAt = tonumber(normalized.createdAt or normalized.CreatedAt) or os.time()
 		normalized.power = math.max(1, math.floor(tonumber(normalized.power or normalized.Power) or 1))
-		normalized.rarity = tostring(normalized.rarity or normalized.Rarity or (PetData.Pets[normalized.petId] and PetData.Pets[normalized.petId].rarity) or "Common")
+		normalized.rarity = tostring(
+			normalized.rarity
+				or normalized.Rarity
+				or (PetData.Pets[normalized.petId] and PetData.Pets[normalized.petId].rarity)
+				or "Common"
+		)
 		normalized.isGlitched = normalized.isGlitched == true or normalized.IsGlitched == true
 		normalized.variantKey = tostring(normalized.variantKey or normalized.colorId)
 	end

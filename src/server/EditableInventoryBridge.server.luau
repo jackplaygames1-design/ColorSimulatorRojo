@@ -5,12 +5,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
+local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
 local GamepassBenefits = require(script.Parent:WaitForChild("GamepassBenefits"))
 local ItemsData = require(ReplicatedStorage:WaitForChild("ItemsData"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local PetDefinitions = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("PetDefinitions"))
 local ToolData = require(ReplicatedStorage:WaitForChild("ToolData"))
-local ColorMutationData = require(ReplicatedStorage:WaitForChild("ColorMutationData"))
 
 local remotes = ReplicatedStorage:FindFirstChild("Remotes")
 if not remotes then
@@ -207,7 +207,8 @@ local function applyCoreDisplayFields(entry, record)
 
 	entry.isCoreColor = true
 	entry.IsCoreColor = true
-	entry.variantKey = tostring(record.variantKey or record.VariantKey or record.colorId or record.ColorId or entry.variantKey)
+	entry.variantKey =
+		tostring(record.variantKey or record.VariantKey or record.colorId or record.ColorId or entry.variantKey)
 	entry.ColorId = tostring(record.colorId or record.ColorId or entry.variantKey)
 	entry.ColorName = tostring(record.colorName or record.ColorName or entry.displayName or entry.petId)
 	entry.CoreId = tostring(record.coreId or record.CoreId or "RedCore")
@@ -220,7 +221,8 @@ local function applyCoreDisplayFields(entry, record)
 	entry.displayName = entry.ColorName
 	entry.baseName = entry.ColorName
 	entry.stackAmount = 1
-	entry.mutationId = PetData.normalizeMutationId(record.mutationId or record.MutationId or record.Mutation or entry.mutationId)
+	entry.mutationId =
+		PetData.normalizeMutationId(record.mutationId or record.MutationId or record.Mutation or entry.mutationId)
 	entry.MutationId = entry.mutationId
 	entry.Mutation = entry.mutationId ~= ColorMutationData.NoneId and entry.mutationId or nil
 	entry.hasMutation = entry.mutationId ~= ColorMutationData.NoneId
