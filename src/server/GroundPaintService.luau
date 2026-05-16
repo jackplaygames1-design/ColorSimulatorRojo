@@ -1115,7 +1115,9 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 						local newCoverage = newHealth / maxHealth
 						setCellCoverage(surface, index, newCoverage)
 						surface.LastBrushAt[index] = now
-						removedCoverageUnits += healthRemoved * surface.CellAreaScale
+						removedCoverageUnits += healthRemoved * surface.CellAreaScale * (tonumber(
+							surface.PaintRewardMultiplier
+						) or 1)
 						cellsChanged += 1
 						if #positions < 8 then
 							table.insert(positions, getCellWorldPosition(surface, index))
@@ -1130,7 +1132,7 @@ local function brushSurface(surface, worldPosition, radius, power, sourcePlayer,
 		return nil
 	end
 
-	local rewardUnits = removedCoverageUnits * REWARD_PER_COVERAGE_UNIT * (tonumber(surface.PaintRewardMultiplier) or 1)
+	local rewardUnits = removedCoverageUnits * REWARD_PER_COVERAGE_UNIT
 	rewardUnits = clampRewardForPlayer(sourcePlayer, rewardUnits)
 	local stamp = queueStamp(surface, worldPosition, radius, power, source)
 

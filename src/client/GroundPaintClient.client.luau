@@ -147,8 +147,13 @@ local function getPlaneGrid(maxPlanes, coverageX, coverageZ)
 end
 
 local function getSurfaceTopCFrame(surface, localX, localZ, yOffset)
-	local size = surface.SurfaceSize or surface.Size or (surface.Part and surface.Part.Size) or Vector3.new(1, 1, 1)
-	local cframe = surface.SurfaceCFrame or surface.CFrame or (surface.Part and surface.Part.CFrame) or CFrame.new()
+	local cframe = surface.SurfaceCFrame or surface.CFrame or (surface.Part and surface.Part.CFrame)
+	local size = surface.SurfaceSize or surface.Size or (surface.Part and surface.Part.Size)
+
+	if typeof(cframe) ~= "CFrame" or typeof(size) ~= "Vector3" then
+		return CFrame.new()
+	end
+
 	local topY = size.Y * 0.5 + yOffset
 	return cframe * CFrame.new(localX, topY, localZ)
 end
@@ -415,8 +420,8 @@ local function findLocalSurfaceAtPosition(worldPosition)
 		local size = surface.SurfaceSize or surface.Size or (surface.Part and surface.Part.Size)
 		if typeof(cframe) == "CFrame" and typeof(size) == "Vector3" then
 			local localPoint = cframe:PointToObjectSpace(worldPosition)
-			local halfX = (surface.CoverageX or size.X) * 0.5 + 4
-			local halfZ = (surface.CoverageZ or size.Z) * 0.5 + 4
+			local halfX = (surface.CoverageX or size.X) * 0.5 + 5
+			local halfZ = (surface.CoverageZ or size.Z) * 0.5 + 5
 			if
 				math.abs(localPoint.X - (surface.OffsetX or 0)) <= halfX
 				and math.abs(localPoint.Z - (surface.OffsetZ or 0)) <= halfZ
@@ -495,7 +500,6 @@ local function makeClearStamp(stampData)
 		or visualConfig.BaseSurfaceColor
 		or surface.BaseSurfaceColor
 		or Color3.fromRGB(5, 5, 5)
-	local centerColor = Color3.fromRGB(0, 0, 0)
 	local centerTransparency =
 		asNumber(stampConfig.CenterTransparency, asNumber(stampConfig.ClearCenterTransparency, 0))
 	local edgeTransparency = asNumber(stampConfig.EdgeTransparency, asNumber(stampConfig.ClearEdgeTransparency, 0.65))
@@ -517,20 +521,21 @@ local function makeClearStamp(stampData)
 	for ring = ringCount, 1, -1 do
 		local t = ring / ringCount
 		local discRadius = radius * (0.35 + 0.65 * t)
+
 		local disc = Instance.new("Part")
 		disc.Name = "ClearDisc"
-		disc.Shape = Enum.PartType.Cylinder
-		disc.Size = Vector3.new(0.08, discRadius * 2, discRadius * 2)
-		disc.CFrame = getSurfaceTopCFrame(surface, localPoint.X, localPoint.Z, yOffset + ring * 0.01)
-			* CFrame.Angles(0, 0, math.rad(90))
+		disc.Shape = Enum.PartType.Block
+		disc.Size = Vector3.new(discRadius * 2, 0.08, discRadius * 2)
+		disc.CFrame = getSurfaceTopCFrame(surface, localPoint.X, localPoint.Z, yOffset + ring * 0.012)
 		disc.Anchored = true
 		disc.CanCollide = false
 		disc.CanTouch = false
 		disc.CanQuery = false
 		disc.CastShadow = false
 		disc.Material = Enum.Material.SmoothPlastic
+
 		if ring == 1 then
-			disc.Color = centerColor
+			disc.Color = Color3.fromRGB(0, 0, 0)
 			disc.Transparency = centerTransparency
 		else
 			disc.Color = baseColor

@@ -144,7 +144,7 @@ GameBalance.GroundPaint = {
 		Mode = "SoftStampMask",
 
 		PaintYOffset = 0.12,
-		ClearStampYOffset = 0.38,
+		ClearStampYOffset = 0.45,
 
 		MaxCoatPlanesPerSurface = 16,
 		MaxActiveClearStamps = 260,

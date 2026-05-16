@@ -93,6 +93,7 @@ local brushMotor
 local brushHeld = false
 local lastGroundVisualAt = 0
 local groundBrushSequence = 0
+local lastPointerPosition = nil
 
 local equipState = ReplicatedStorage:FindFirstChild("PaintToolEquippedState")
 if not equipState then
@@ -162,21 +163,6 @@ local function configureNonInteractiveVisual(part)
 	part.Massless = true
 	part:SetAttribute("NonInteractiveVFX", true)
 	part:SetAttribute("BrushVisual", true)
-end
-
-local function getFlatForward(root)
-	local look = root.CFrame.LookVector
-	local flat = Vector3.new(look.X, 0, look.Z)
-	if flat.Magnitude <= 0.001 then
-		return Vector3.zAxis
-	end
-	return flat.Unit
-end
-
-local function getGroundBrushHighlightCenter(root, toolConfig)
-	local range = getClientRange(toolConfig)
-	local distance = math.clamp(range * 0.48, 4, math.min(range, 18))
-	return root.Position + getFlatForward(root) * distance
 end
 
 local function isGroundContamination(part)
@@ -297,6 +283,18 @@ local function getGroundBrushRadius(toolConfig)
 	return math.clamp(radius, 3, 30)
 end
 
+local function getInputPosition(input)
+	if input and typeof(input.Position) == "Vector3" then
+		return Vector2.new(input.Position.X, input.Position.Y)
+	end
+	if lastPointerPosition then
+		return lastPointerPosition
+	end
+
+	local mouseLocation = UserInputService:GetMouseLocation()
+	return Vector2.new(mouseLocation.X, mouseLocation.Y)
+end
+
 local function findNearestGroundContamination(position, radius)
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -323,6 +321,10 @@ local function findGroundBrushPayload(toolConfig)
 	if not root then
 		return nil
 	end
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return nil
+	end
 
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -334,11 +336,17 @@ local function findGroundBrushPayload(toolConfig)
 	if clientGroundPaint then
 		table.insert(filter, clientGroundPaint)
 	end
+	local clientPets = workspace:FindFirstChild("ClientOrbitingColors")
+	if clientPets then
+		table.insert(filter, clientPets)
+	end
 	params.FilterDescendantsInstances = filter
 	params.IgnoreWater = true
 
-	local highlightCenter = getGroundBrushHighlightCenter(root, toolConfig)
-	local result = workspace:Raycast(highlightCenter + Vector3.new(0, 10, 0), Vector3.new(0, -48, 0), params)
+	local pointer = getInputPosition()
+	local ray = camera:ViewportPointToRay(pointer.X, pointer.Y)
+	local rayDistance = math.max((tonumber(toolConfig.MaxServerRange) or getClientRange(toolConfig)) + 80, 160)
+	local result = workspace:Raycast(ray.Origin, ray.Direction * rayDistance, params)
 	if not result or not isBrushableGroundSurface(result.Instance) then
 		return nil
 	end
@@ -358,7 +366,6 @@ local function findGroundBrushPayload(toolConfig)
 		Position = hitPosition,
 		Normal = result.Normal,
 		Target = target,
-		HighlightCenter = highlightCenter,
 	}
 end
 
@@ -834,6 +841,7 @@ local function activateBrush(tool, groundPayload)
 			Type = "GroundPaintBrush",
 			Position = groundPayload.Position,
 			hitPosition = groundPayload.Position,
+			HitPosition = groundPayload.Position,
 			Normal = groundPayload.Normal,
 			ClientTime = os.clock(),
 			Sequence = groundBrushSequence,
@@ -946,11 +954,18 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		lastPointerPosition = getInputPosition(input)
 		if brushEquipped then
 			brushHeld = true
 			local toolConfig = ToolData.get(equippedToolId)
 			activateBrush(activeTool, findGroundBrushPayload(toolConfig))
 		end
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		lastPointerPosition = getInputPosition(input)
 	end
 end)
 
