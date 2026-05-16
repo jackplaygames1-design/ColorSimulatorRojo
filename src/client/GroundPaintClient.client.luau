@@ -32,6 +32,8 @@ end
 local surfaces = {}
 local activeStampCount = 0
 local lastSnapshotAttempt = 0
+local snapshotRetryQueued = false
+local requestSnapshot
 
 local function asNumber(value, fallback)
 	local n = tonumber(value)
@@ -90,6 +92,23 @@ local function clearVisuals()
 	table.clear(surfaces)
 	folder:ClearAllChildren()
 	activeStampCount = 0
+end
+
+local function hasAnySurface()
+	return next(surfaces) ~= nil
+end
+
+local function queueSnapshotRetry(delaySeconds)
+	if snapshotRetryQueued then
+		return
+	end
+	snapshotRetryQueued = true
+	task.delay(delaySeconds or 1.25, function()
+		snapshotRetryQueued = false
+		if requestSnapshot then
+			requestSnapshot(true)
+		end
+	end)
 end
 
 local function getPlaneGrid(maxPlanes, coverageX, coverageZ)
@@ -437,6 +456,15 @@ local function applySnapshot(payload)
 
 	if #incoming > 0 and #validSurfaces == 0 then
 		warn("GroundPaintClient ignored snapshot because it had surfaces but 0 valid replicated parts.")
+		queueSnapshotRetry(1.25)
+		return
+	end
+
+	if #incoming == 0 then
+		if debugConfig.PrintClientVisuals == true then
+			print("GroundPaintClient snapshot empty; keeping visuals and retrying.")
+		end
+		queueSnapshotRetry(1.25)
 		return
 	end
 
@@ -466,8 +494,8 @@ local function applySnapshot(payload)
 	end
 end
 
-local function requestSnapshot()
-	if os.clock() - lastSnapshotAttempt < 1 then
+requestSnapshot = function(force)
+	if force ~= true and os.clock() - lastSnapshotAttempt < 1 then
 		return
 	end
 	lastSnapshotAttempt = os.clock()
@@ -494,8 +522,16 @@ deltaRemote.OnClientEvent:Connect(function(payload)
 			upsertSurface(surfaceData)
 		end
 	elseif payload.Type == "Delta" then
+		local missingSurface = false
 		for _, stamp in ipairs(payload.Stamps or {}) do
-			makeClearStamp(stamp)
+			if type(stamp) == "table" and stamp.SurfaceId and not surfaces[stamp.SurfaceId] then
+				missingSurface = true
+			else
+				makeClearStamp(stamp)
+			end
+		end
+		if missingSurface then
+			queueSnapshotRetry(0.2)
 		end
 	end
 end)
@@ -510,4 +546,12 @@ RunService.Heartbeat:Connect(function()
 end)
 
 print("GroundPaintClient ready")
-requestSnapshot()
+requestSnapshot(true)
+task.delay(1.25, function()
+	requestSnapshot(true)
+end)
+task.delay(3, function()
+	if not hasAnySurface() then
+		requestSnapshot(true)
+	end
+end)
