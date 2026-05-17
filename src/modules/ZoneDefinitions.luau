@@ -37,7 +37,7 @@ ZoneDefinitions.Zones = {
 		ColorType = "Red",
 		AccentColor = Color3.fromRGB(255, 45, 50),
 		CFrame = CFrame.new(-400, 628, 60),
-		MaxActiveBreakables = 95,
+		MaxActiveBreakables = 35,
 		SpawnPartName = "RedWastelandsSpawn",
 	}),
 	OrangeSector = makeSector({

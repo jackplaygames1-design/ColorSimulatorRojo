@@ -18,7 +18,15 @@ end
 
 local function makeOrb(kind, position, color)
 	local orb = Instance.new("Part")
-	orb.Name = "BreakableReward_" .. kind
+	if kind == "Coin" then
+		orb.Name = "CoinOrb"
+	elseif kind == "Gem" then
+		orb.Name = "GemOrb"
+	elseif kind == "Red" or kind == "Color" then
+		orb.Name = "RedOrb"
+	else
+		orb.Name = "RewardOrb_" .. kind
+	end
 	orb.Shape = Enum.PartType.Ball
 	orb.Size = Vector3.new(0.55, 0.55, 0.55)
 	orb.CFrame = CFrame.new(position)
@@ -39,12 +47,13 @@ local function flyOrb(orb, index)
 		orb:Destroy()
 		return
 	end
-	local spread = Vector3.new(math.random(-6, 6), math.random(3, 8), math.random(-6, 6))
-	local popTween = TweenService:Create(orb, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Position = orb.Position + spread,
+	local spread = Vector3.new(math.random(-7, 7), 0, math.random(-7, 7))
+	local landing = orb.Position + spread + Vector3.new(0, math.random(8, 14) / 10, 0)
+	local popTween = TweenService:Create(orb, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = landing,
 	})
 	popTween:Play()
-	task.delay(0.18 + index * 0.018, function()
+	task.delay(0.34 + index * 0.018, function()
 		if not orb or not orb.Parent then
 			return
 		end
@@ -77,8 +86,8 @@ local function spawnRewardVfx(payload)
 			})
 		end
 	end
-	append("Coin", rewards.Coins, Color3.fromRGB(255, 210, 65), 150)
-	append("Gem", rewards.Gems, Color3.fromRGB(70, 255, 145), 45)
+	append("Coin", rewards.Coins, Color3.fromRGB(255, 211, 68), 150)
+	append("Gem", rewards.Gems, Color3.fromRGB(95, 210, 255), 45)
 	append(
 		tostring(payload.ColorType or "Color"),
 		rewards.ColorAmount or rewards.Red,

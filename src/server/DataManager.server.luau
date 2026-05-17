@@ -73,6 +73,8 @@ local DEFAULT_DATA = {
 	RankLevel = 1,
 	RankXP = 0,
 	RankTotalXP = 0,
+	RankQuestProgress = "{}",
+	CompletedRankQuests = 0,
 	UnlockedColors = { "Red" },
 	CurrentWorld = "Red",
 	UnlockedTeleports = { "OriginSector" },
@@ -1196,6 +1198,8 @@ local function migrateData(saved)
 	data.RankLevel = rankData.RankLevel
 	data.RankXP = rankData.RankXP
 	data.RankTotalXP = rankData.RankTotalXP
+	data.RankQuestProgress = rankData.RankQuestProgress
+	data.CompletedRankQuests = rankData.CompletedRankQuests
 	data.OwnedPaintTools = normalizePaintToolList(data.OwnedPaintTools)
 	data.EquippedPaintTool = normalizeEquippedPaintTool(data.EquippedPaintTool, data.OwnedPaintTools)
 	if not hadTutorialCompletionFlag then
@@ -1286,6 +1290,8 @@ local function validateProfileData(player, data, context)
 	data.RankLevel = rankData.RankLevel
 	data.RankXP = rankData.RankXP
 	data.RankTotalXP = rankData.RankTotalXP
+	data.RankQuestProgress = rankData.RankQuestProgress
+	data.CompletedRankQuests = rankData.CompletedRankQuests
 
 	local recordsByKey = {}
 	local backupList = {}
@@ -1883,14 +1889,25 @@ local function collectData(player)
 		local rankLevel = rankFolder:FindFirstChild("RankLevel")
 		local rankXP = rankFolder:FindFirstChild("RankXP")
 		local rankTotalXP = rankFolder:FindFirstChild("RankTotalXP")
+		local rankQuestProgress = rankFolder:FindFirstChild("RankQuestProgress")
+		local completedRankQuests = rankFolder:FindFirstChild("CompletedRankQuests")
 		local normalizedRank = RankService.NormalizeData({
 			RankLevel = rankLevel and rankLevel:IsA("ValueBase") and rankLevel.Value or data.RankLevel,
 			RankXP = rankXP and rankXP:IsA("ValueBase") and rankXP.Value or data.RankXP,
 			RankTotalXP = rankTotalXP and rankTotalXP:IsA("ValueBase") and rankTotalXP.Value or data.RankTotalXP,
+			RankQuestProgress = rankQuestProgress and rankQuestProgress:IsA("ValueBase") and rankQuestProgress.Value
+				or data.RankQuestProgress,
+			CompletedRankQuests = completedRankQuests
+					and completedRankQuests:IsA("ValueBase")
+					and completedRankQuests.Value
+				or data.CompletedRankQuests,
+			Rebirths = data.Rebirths,
 		})
 		data.RankLevel = normalizedRank.RankLevel
 		data.RankXP = normalizedRank.RankXP
 		data.RankTotalXP = normalizedRank.RankTotalXP
+		data.RankQuestProgress = normalizedRank.RankQuestProgress
+		data.CompletedRankQuests = normalizedRank.CompletedRankQuests
 	end
 
 	local storage = player:FindFirstChild("ColorStorage")

@@ -105,16 +105,25 @@ function RarityDefinitions.GetWeight(rarity)
 	return 1 / oneIn
 end
 
-function RarityDefinitions.Roll(rng)
+function RarityDefinitions.Roll(rng, luckMultiplier)
+	luckMultiplier = math.clamp(tonumber(luckMultiplier) or 1, 1, 5)
 	local totalWeight = 0
 	for _, rarity in ipairs(RarityDefinitions.Order) do
-		totalWeight += RarityDefinitions.GetWeight(rarity)
+		local weight = RarityDefinitions.GetWeight(rarity)
+		if rarity ~= "Common" then
+			weight *= luckMultiplier
+		end
+		totalWeight += weight
 	end
 
 	local roll = getRandom(rng) * totalWeight
 	local running = 0
 	for _, rarity in ipairs(RarityDefinitions.Order) do
-		running += RarityDefinitions.GetWeight(rarity)
+		local weight = RarityDefinitions.GetWeight(rarity)
+		if rarity ~= "Common" then
+			weight *= luckMultiplier
+		end
+		running += weight
 		if roll <= running then
 			return rarity
 		end

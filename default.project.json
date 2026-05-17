@@ -154,6 +154,9 @@
         "RewardDefinitions": {
           "$path": "src/modules/RewardDefinitions.luau"
         },
+        "RankDefinitions": {
+          "$path": "src/modules/RankDefinitions.luau"
+        },
         "LegendaryColorOrbDefinitions": {
           "$path": "src/modules/LegendaryColorOrbDefinitions.luau"
         },

@@ -453,8 +453,18 @@ local function styleBottomButtonVisual(button)
 
 	local label = button:FindFirstChild("Label")
 	if label and label:IsA("TextLabel") then
-		label.Text = hasImage and "" or tostring(button:GetAttribute("Label") or BUTTON_LABELS[button.Name] or "")
-		label.Visible = not hasImage
+		local keepDynamicRankText = button.Name == "RankButton"
+			and label.Text ~= ""
+			and label.Text ~= "RANK"
+			and string.find(label.Text, "RANK") ~= nil
+		if keepDynamicRankText then
+			label.Visible = true
+			label.TextWrapped = true
+			label.TextScaled = true
+		else
+			label.Text = hasImage and "" or tostring(button:GetAttribute("Label") or BUTTON_LABELS[button.Name] or "")
+			label.Visible = not hasImage
+		end
 		label.TextScaled = true
 		label.TextWrapped = true
 	end

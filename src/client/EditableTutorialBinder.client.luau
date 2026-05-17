@@ -19,7 +19,59 @@ if not tutorialGui or not tutorialGui:IsA("ScreenGui") then
 	return
 end
 
-local root = tutorialGui:WaitForChild("TutorialRoot", 10)
+local function getQuestPanel(candidate)
+	return candidate and candidate:IsA("GuiObject") and candidate:FindFirstChild("QuestPanel") or nil
+end
+
+local function scoreTutorialRoot(candidate)
+	local panelCandidate = getQuestPanel(candidate)
+	if not (candidate and candidate:IsA("GuiObject") and panelCandidate and panelCandidate:IsA("GuiObject")) then
+		return -math.huge
+	end
+
+	local score = 1
+	local title = panelCandidate:FindFirstChild("QuestTitle")
+	if title and title:IsA("TextLabel") and string.find(title.Text, "Break", 1, true) then
+		score += 10
+	end
+	if candidate:GetAttribute("RuntimeTutorialRoot") == true then
+		score -= 10
+	end
+	return score
+end
+
+local function selectSingleTutorialRoot()
+	local roots = {}
+	for _, child in ipairs(tutorialGui:GetChildren()) do
+		if child.Name == "TutorialRoot" then
+			table.insert(roots, child)
+		end
+	end
+
+	if #roots == 0 then
+		return nil
+	end
+
+	local selected = roots[1]
+	local selectedScore = scoreTutorialRoot(selected)
+	for _, candidate in ipairs(roots) do
+		local score = scoreTutorialRoot(candidate)
+		if score > selectedScore then
+			selected = candidate
+			selectedScore = score
+		end
+	end
+
+	for _, candidate in ipairs(roots) do
+		if candidate ~= selected then
+			candidate:Destroy()
+		end
+	end
+
+	return selected
+end
+
+local root = selectSingleTutorialRoot() or tutorialGui:WaitForChild("TutorialRoot", 10)
 local panel = root and root:FindFirstChild("QuestPanel")
 local titleLabel = panel and panel:FindFirstChild("QuestTitle")
 local bodyLabel = panel and panel:FindFirstChild("QuestBody")
@@ -35,9 +87,12 @@ if not (root and root:IsA("GuiObject") and panel and panel:IsA("GuiObject")) the
 end
 
 local Events = ReplicatedStorage:WaitForChild("Events")
-local collectEvent = Events:WaitForChild("CollectColor")
 local hatchEvent = Events:WaitForChild("HatchEgg")
+local coreRollResult = Events:WaitForChild("CoreRollResult")
 local markTutorialProgressEvent = Events:WaitForChild("MarkTutorialProgress")
+local rankDataUpdated = Events:WaitForChild("RankDataUpdated")
+local rankMenuOpened = Events:WaitForChild("RankMenuOpened")
+local tutorialBreakableProgress = Events:WaitForChild("TutorialBreakableProgress")
 
 local mainHud: Instance? = nil
 local modalWindows: Instance? = nil
@@ -45,32 +100,34 @@ local closed = false
 local currentQuest = 1
 
 local state = {
-	painted = 0,
+	colorSpillsBroken = 0,
 	hatched = 0,
+	colorEquipped = false,
+	breakablesBroken = 0,
+	rankOpened = false,
+	rankXpEarned = 0,
 	inventoryOpened = false,
-	worldsOpened = false,
-	zorkTalked = false,
 }
 
 local QUESTS = {
 	{
-		id = "paint",
-		title = "Quest 1: Paint a color spill",
-		body = "Walk to a glowing color spill and paint it down with your brush.",
-		objective = "Paint 1 color spill",
+		id = "spill",
+		title = "Clean Up a Color Spill",
+		body = "Break a red Color Spill. Your equipped colors will help mine nearby breakables.",
+		objective = "Break 1 Color Spill",
 		target = "",
 		spotlight = "",
 		progress = function()
-			return math.min(state.painted, 1), 1
+			return math.min(state.colorSpillsBroken, 1), 1
 		end,
 		complete = function()
-			return state.painted >= 1
+			return state.colorSpillsBroken >= 1
 		end,
 	},
 	{
 		id = "hatch",
-		title = "Quest 2: Hatch a Color",
-		body = "Go to the egg station and hatch your first living Color.",
+		title = "Hatch a Color",
+		body = "Go to the Red Core and roll one Color. New Colors go to your inventory.",
 		objective = "Hatch 1 Color",
 		target = "",
 		spotlight = "",
@@ -83,44 +140,58 @@ local QUESTS = {
 	},
 	{
 		id = "inventory",
-		title = "Quest 3: Open Inventory",
-		body = "Use Inventory to equip your best Colors, lock favorites, and manage your team.",
-		objective = "Open the Inventory window",
+		title = "Equip Your Color",
+		body = "Open Inventory and manually equip a Color so it can mine breakables.",
+		objective = "Equip 1 Color",
 		target = "BottomButtons.MenuButton",
 		spotlight = "Open the menu, then choose Inventory.",
 		progress = function()
-			return state.inventoryOpened and 1 or 0, 1
+			return state.colorEquipped and 1 or 0, 1
 		end,
 		complete = function()
-			return state.inventoryOpened
+			return state.colorEquipped
 		end,
 	},
 	{
-		id = "worlds",
-		title = "Quest 4: Check sectors",
-		body = "Worlds shows the next sectors, travel options, and where better rewards unlock.",
-		objective = "Open the Worlds window",
-		target = "BottomButtons.WorldsButton",
-		spotlight = "Use this when you are ready for the next sector.",
+		id = "mine",
+		title = "Let Your Colors Mine",
+		body = "Stay near breakables and let your equipped colors keep cleaning the sector.",
+		objective = "Break 5 color breakables",
+		target = "",
+		spotlight = "",
 		progress = function()
-			return state.worldsOpened and 1 or 0, 1
+			return math.min(state.breakablesBroken, 5), 5
 		end,
 		complete = function()
-			return state.worldsOpened
+			return state.breakablesBroken >= 5
 		end,
 	},
 	{
-		id = "zork",
-		title = "Quest 5: Talk to Zork",
-		body = "Zork handles brush help and daily quest direction. Visit him when you want the next goal.",
-		objective = "Talk to Zork",
-		target = "ZorkDialogueUI",
-		spotlight = "Zork dialogue appears here after you talk to him.",
+		id = "rank",
+		title = "Open Your Rank",
+		body = "Ranks track XP, quests, passives, and future rebirth progress.",
+		objective = "Open the Rank menu",
+		target = "BottomButtons.RankButton",
+		spotlight = "Open Rank to see your XP and 10 rank quests.",
 		progress = function()
-			return state.zorkTalked and 1 or 0, 1
+			return state.rankOpened and 1 or 0, 1
 		end,
 		complete = function()
-			return state.zorkTalked
+			return state.rankOpened
+		end,
+	},
+	{
+		id = "rankxp",
+		title = "Earn Rank XP",
+		body = "Collect Coins and Gems from breakables to earn Rank XP.",
+		objective = "Earn 100 Rank XP",
+		target = "",
+		spotlight = "",
+		progress = function()
+			return math.min(state.rankXpEarned, 100), 100
+		end,
+		complete = function()
+			return state.rankXpEarned >= 100
 		end,
 	},
 }
@@ -166,6 +237,24 @@ end
 local function setSpotlightVisible(visible)
 	if spotlight and spotlight:IsA("GuiObject") then
 		spotlight.Visible = visible
+	end
+end
+
+local originalPanelPosition = panel and panel:IsA("GuiObject") and panel.Position or UDim2.new(0, 24, 0.38, -95)
+local function avoidCoreRollOverlap()
+	if not (mainHud and panel and panel:IsA("GuiObject")) then
+		return
+	end
+	local coreWindow = mainHud:FindFirstChild("CoreRollWindow", true)
+	if coreWindow and coreWindow:IsA("GuiObject") and coreWindow.Visible then
+		panel.AnchorPoint = Vector2.new(1, 0)
+		panel.Position = UDim2.new(1, -24, 0, 92)
+		panel.Size = UDim2.fromOffset(330, 178)
+		panel.ZIndex = math.min(panel.ZIndex, 120)
+	else
+		panel.AnchorPoint = Vector2.new(0, 0)
+		panel.Position = originalPanelPosition
+		panel.Size = UDim2.fromOffset(370, 210)
 	end
 end
 
@@ -230,6 +319,7 @@ local function refresh()
 	end
 
 	local quest = QUESTS[currentQuest]
+	avoidCoreRollOverlap()
 	if not quest then
 		setText(titleLabel, "Tutorial complete")
 		setText(
@@ -250,11 +340,8 @@ local function refresh()
 	setText(titleLabel, quest.title)
 	setText(bodyLabel, quest.body)
 	setText(objectiveLabel, quest.objective)
-	setText(
-		progressLabel,
-		tostring(done) .. " / " .. tostring(total) .. "  -  " .. tostring(currentQuest) .. "/" .. tostring(#QUESTS)
-	)
-	setText(statusLabel, "Active tutorial quest")
+	setText(progressLabel, tostring(done) .. " / " .. tostring(total))
+	setText(statusLabel, "Step " .. tostring(currentQuest) .. " / " .. tostring(#QUESTS))
 	refreshSpotlight(quest)
 end
 
@@ -305,14 +392,9 @@ local function noteWindowOpened(windowName)
 
 	if string.find(windowName, "Inventory") then
 		state.inventoryOpened = true
-	elseif string.find(windowName, "World") then
-		state.worldsOpened = true
-	elseif
-		string.find(windowName, "Zork")
-		or string.find(windowName, "DailyQuest")
-		or string.find(windowName, "Brush")
-	then
-		state.zorkTalked = true
+	elseif string.find(windowName, "Rank") or string.find(windowName, "Rebirth") then
+		state.rankOpened = true
+		rankMenuOpened:FireServer()
 	end
 	advanceIfReady()
 end
@@ -329,11 +411,17 @@ local function bindVisibleWindow(name, key)
 
 	if window.Visible then
 		state[key] = true
+		if key == "rankOpened" then
+			rankMenuOpened:FireServer()
+		end
 	end
 
 	window:GetPropertyChangedSignal("Visible"):Connect(function()
 		if window.Visible then
 			state[key] = true
+			if key == "rankOpened" then
+				rankMenuOpened:FireServer()
+			end
 			advanceIfReady()
 		end
 	end)
@@ -358,11 +446,15 @@ local function bindWorldDialogue()
 	end
 end
 
-collectEvent.OnClientEvent:Connect(function(success)
-	if success == false then
+tutorialBreakableProgress.OnClientEvent:Connect(function(payload)
+	if type(payload) ~= "table" then
 		return
 	end
-	state.painted += 1
+	local breakableType = tostring(payload.BreakableType or "")
+	state.breakablesBroken += 1
+	if breakableType == "ColorSpill" then
+		state.colorSpillsBroken += 1
+	end
 	advanceIfReady()
 end)
 
@@ -373,6 +465,56 @@ hatchEvent.OnClientEvent:Connect(function(successOrPayload)
 	state.hatched += 1
 	advanceIfReady()
 end)
+
+coreRollResult.OnClientEvent:Connect(function(success)
+	if success == false then
+		return
+	end
+	state.hatched += 1
+	advanceIfReady()
+end)
+
+rankDataUpdated.OnClientEvent:Connect(function(payload)
+	if type(payload) ~= "table" then
+		return
+	end
+	state.rankXpEarned = math.max(state.rankXpEarned, math.floor(tonumber(payload.RankXP) or 0))
+	advanceIfReady()
+end)
+
+local function updateEquippedTutorialState()
+	local petFolder = player:FindFirstChild("PetData")
+	local equipped = petFolder and petFolder:FindFirstChild("Equipped")
+	if equipped and equipped:IsA("StringValue") and equipped.Value ~= "" then
+		state.colorEquipped = true
+		advanceIfReady()
+	end
+end
+
+local function bindEquippedTutorialState()
+	local petFolder = player:FindFirstChild("PetData")
+	if not petFolder then
+		return
+	end
+	local equipped = petFolder:FindFirstChild("Equipped")
+	if equipped and equipped:IsA("StringValue") then
+		equipped:GetPropertyChangedSignal("Value"):Connect(updateEquippedTutorialState)
+		updateEquippedTutorialState()
+	end
+	petFolder.ChildAdded:Connect(function(child)
+		if child.Name == "Equipped" and child:IsA("StringValue") then
+			child:GetPropertyChangedSignal("Value"):Connect(updateEquippedTutorialState)
+			updateEquippedTutorialState()
+		end
+	end)
+end
+
+player.ChildAdded:Connect(function(child)
+	if child.Name == "PetData" then
+		bindEquippedTutorialState()
+	end
+end)
+bindEquippedTutorialState()
 
 connect(skipButton, function()
 	closeTutorial("IntroTutorialSkipped")
@@ -402,11 +544,7 @@ local function showIfNeeded()
 	end
 
 	bindVisibleWindow("InventoryWindow", "inventoryOpened")
-	bindVisibleWindow("WorldsWindow", "worldsOpened")
-	bindVisibleWindow("ZorkDialogueWindow", "zorkTalked")
-	bindVisibleWindow("DailyQuestsWindow", "zorkTalked")
-	bindVisibleWindow("BrushShopWindow", "zorkTalked")
-	bindWorldDialogue()
+	bindVisibleWindow("RankWindow", "rankOpened")
 
 	closed = false
 	currentQuest = 1

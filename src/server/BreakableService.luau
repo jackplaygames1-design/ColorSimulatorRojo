@@ -3,10 +3,12 @@ local Workspace = game:GetService("Workspace")
 
 local BreakableDefinitions = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BreakableDefinitions"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
+local RankService = require(script.Parent:WaitForChild("RankService"))
 local RewardDropService = require(script.Parent:WaitForChild("RewardDropService"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local announcementEvent = Events:WaitForChild("BreakableAnnouncement")
+local tutorialBreakableProgressEvent = Events:WaitForChild("TutorialBreakableProgress")
 
 local BreakableService = {}
 BreakableService.BreakableBroken = Instance.new("BindableEvent")
@@ -44,6 +46,153 @@ local function configurePart(part)
 	part.CastShadow = false
 end
 
+local function ensureFolder(parent, name)
+	local folder = parent:FindFirstChild(name)
+	if folder and folder:IsA("Folder") then
+		return folder
+	end
+	if folder then
+		folder:Destroy()
+	end
+	folder = Instance.new("Folder")
+	folder.Name = name
+	folder.Parent = parent
+	return folder
+end
+
+local function createHealthBar(primary, displayName, color)
+	local billboard = primary:FindFirstChild("HealthBar")
+	if billboard and billboard:IsA("BillboardGui") then
+		return billboard
+	end
+	if billboard then
+		billboard:Destroy()
+	end
+
+	billboard = Instance.new("BillboardGui")
+	billboard.Name = "HealthBar"
+	billboard.AlwaysOnTop = true
+	billboard.Enabled = false
+	billboard.MaxDistance = 115
+	billboard.Size = UDim2.fromOffset(150, 48)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, primary.Size.Y * 0.5 + 2.4, 0)
+	billboard.Parent = primary
+
+	local root = Instance.new("Frame")
+	root.Name = "Root"
+	root.BackgroundTransparency = 1
+	root.Size = UDim2.fromScale(1, 1)
+	root.Parent = billboard
+
+	local title = Instance.new("TextLabel")
+	title.Name = "NameLabel"
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.GothamBlack
+	title.Text = displayName
+	title.TextColor3 = Color3.new(1, 1, 1)
+	title.TextScaled = true
+	title.TextStrokeTransparency = 0.35
+	title.Size = UDim2.new(1, 0, 0, 19)
+	title.Parent = root
+
+	local back = Instance.new("Frame")
+	back.Name = "BarBack"
+	back.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+	back.BorderSizePixel = 0
+	back.Position = UDim2.new(0.08, 0, 0, 22)
+	back.Size = UDim2.new(0.84, 0, 0, 10)
+	back.Parent = root
+
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.BackgroundColor3 = color
+	fill.BorderSizePixel = 0
+	fill.Size = UDim2.fromScale(1, 1)
+	fill.Parent = back
+
+	local numbers = Instance.new("TextLabel")
+	numbers.Name = "HealthText"
+	numbers.BackgroundTransparency = 1
+	numbers.Font = Enum.Font.GothamBold
+	numbers.Text = "0 / 0"
+	numbers.TextColor3 = Color3.fromRGB(235, 240, 255)
+	numbers.TextScaled = true
+	numbers.TextStrokeTransparency = 0.5
+	numbers.Position = UDim2.new(0, 0, 0, 34)
+	numbers.Size = UDim2.new(1, 0, 0, 13)
+	numbers.Parent = root
+
+	return billboard
+end
+
+local function makePart(name, size, color, material, cframe, shape)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.CFrame = cframe or CFrame.new()
+	part.Shape = shape or Enum.PartType.Block
+	configurePart(part)
+	part:SetAttribute("BreakableVisualPart", true)
+	return part
+end
+
+local function createFallbackTemplate(typeId, definition)
+	local red = COLOR_PALETTES.Red.Primary
+	local model = Instance.new("Model")
+	model.Name = definition.AssetName
+	model:SetAttribute("RuntimeFallbackBreakableAsset", true)
+
+	local primary
+	if typeId == "ColorSpill" then
+		primary =
+			makePart("Puddle", Vector3.new(5, 0.32, 4), red, Enum.Material.SmoothPlastic, nil, Enum.PartType.Cylinder)
+	elseif typeId == "ColorClump" then
+		primary = makePart("Blob", Vector3.new(4, 3.2, 4), red, Enum.Material.SmoothPlastic, nil, Enum.PartType.Ball)
+	elseif typeId == "ColorCrate" then
+		primary = makePart("CrateBody", Vector3.new(5, 4.5, 5), red, Enum.Material.SmoothPlastic)
+	elseif typeId == "ColorChest" then
+		primary = makePart("ChestBody", Vector3.new(7, 4, 5), red, Enum.Material.SmoothPlastic)
+		makePart("ChestLid", Vector3.new(7.4, 1.3, 5.4), red, Enum.Material.SmoothPlastic, CFrame.new(0, 2.4, 0)).Parent =
+			model
+	elseif typeId == "HugeColorChest" then
+		primary = makePart("ChestBody", Vector3.new(12.6, 7.2, 9), red, Enum.Material.SmoothPlastic)
+		makePart("ChestLid", Vector3.new(13.3, 2.3, 9.7), red, Enum.Material.SmoothPlastic, CFrame.new(0, 4.3, 0)).Parent =
+			model
+	else
+		primary = makePart("CoreBase", Vector3.new(10, 2, 10), red, Enum.Material.SmoothPlastic)
+		makePart("CoreOrb", Vector3.new(8, 8, 8), red, Enum.Material.Neon, CFrame.new(0, 5, 0), Enum.PartType.Ball).Parent =
+			model
+	end
+
+	primary.Parent = model
+	model.PrimaryPart = primary
+	createHealthBar(primary, definition.DisplayName or typeId, red)
+	return model
+end
+
+local function ensureFallbackAssetsFolder()
+	local assets = ensureFolder(ReplicatedStorage, "Assets")
+	return ensureFolder(assets, "Breakables")
+end
+
+local function ensureFallbackTemplate(typeId, definition)
+	local folder = ensureFallbackAssetsFolder()
+	local existing = folder:FindFirstChild(definition.AssetName)
+	if existing and existing:IsA("Model") then
+		return existing
+	end
+	if existing then
+		existing:Destroy()
+	end
+
+	warn(("[BreakableSpawner] Missing asset %s, creating fallback asset."):format(tostring(definition.AssetName)))
+	local template = createFallbackTemplate(typeId, definition)
+	template.Parent = folder
+	return template
+end
+
 local function getLibraryFolders()
 	local folders = {}
 	local workspaceLibrary = Workspace:FindFirstChild("BreakableAssetLibrary")
@@ -61,7 +210,7 @@ local function getLibraryFolders()
 	return folders
 end
 
-local function findBreakableTemplate(assetName)
+local function findBreakableTemplate(assetName, typeId)
 	for _, folder in ipairs(getLibraryFolders()) do
 		local template = folder:FindFirstChild(assetName)
 		if template and template:IsA("Model") then
@@ -76,6 +225,10 @@ local function findBreakableTemplate(assetName)
 				tostring(assetName)
 			)
 		)
+	end
+	local definition = BreakableDefinitions.Get(typeId or assetName)
+	if definition then
+		return ensureFallbackTemplate(typeId or assetName, definition)
 	end
 	return nil
 end
@@ -100,7 +253,7 @@ function BreakableService.ValidateAssetLibrary()
 	for _, typeId in ipairs(BreakableDefinitions.Order) do
 		local definition = BreakableDefinitions.Get(typeId)
 		if definition then
-			findBreakableTemplate(definition.AssetName)
+			findBreakableTemplate(definition.AssetName, typeId)
 		end
 	end
 end
@@ -118,6 +271,7 @@ local function configureHealthBar(model, primary, definition)
 				)
 			)
 		end
+		createHealthBar(primary, definition and definition.DisplayName or model.Name, palette.Primary)
 		return
 	end
 
@@ -200,7 +354,7 @@ function BreakableService.SpawnBreakable(typeId, zoneId, cframe, parent, colorTy
 	if not definition then
 		return nil
 	end
-	local template = findBreakableTemplate(definition.AssetName)
+	local template = findBreakableTemplate(definition.AssetName, typeId)
 	if not template then
 		return nil
 	end
@@ -226,6 +380,7 @@ function BreakableService.SpawnBreakable(typeId, zoneId, cframe, parent, colorTy
 	model:SetAttribute("RewardTable", definition.RewardTable)
 	model:SetAttribute("RewardMultiplier", rewardMultiplier)
 	model:SetAttribute("Alive", true)
+	model:SetAttribute("IsBreakable", true)
 	model.Parent = parent
 	local primary = getPreferredPrimaryPart(model)
 	if not primary then
@@ -315,6 +470,11 @@ function BreakableService.DamageBreakable(player, model, damage)
 	model:SetAttribute("Alive", false)
 	activeBreakables[model] = nil
 	if player then
+		RankService.RecordBreakableBroken(player, definition.AssetName)
+		tutorialBreakableProgressEvent:FireClient(player, {
+			BreakableType = definition.AssetName,
+			DisplayName = definition.DisplayName,
+		})
 		RewardDropService.RollAndGrant(
 			player,
 			definition,

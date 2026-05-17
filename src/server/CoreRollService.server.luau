@@ -7,6 +7,7 @@ local ColorDefinitions = require(ReplicatedStorage:WaitForChild("ColorDefinition
 local CoreDefinitions = require(ReplicatedStorage:WaitForChild("CoreDefinitions"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local MutationDefinitions = require(ReplicatedStorage:WaitForChild("MutationDefinitions"))
+local RankService = require(script.Parent:WaitForChild("RankService"))
 local RarityDefinitions = require(ReplicatedStorage:WaitForChild("RarityDefinitions"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
@@ -217,6 +218,7 @@ local function getLuckMultiplier(player)
 	if attributeLuck then
 		luck *= math.max(attributeLuck, 1)
 	end
+	luck *= RankService.GetEggLuckMultiplier(player)
 	return math.clamp(luck, 1, 4)
 end
 
@@ -337,11 +339,13 @@ local function rollCore(player, coreId)
 		return failRoll(player, core, "Need " .. CoreDefinitions.FormatCost(core) .. ".")
 	end
 
-	local rarity = RarityDefinitions.Roll(rng)
+	local luckMultiplier = getLuckMultiplier(player)
+	local rarity = RarityDefinitions.Roll(rng, luckMultiplier)
 	local colorId, colorData = ColorDefinitions.GetColorForRarity(core.CoreId, rarity, rng)
 	local mutationId, isGlitched = MutationDefinitions.NoneId, false
 	if hasMutationsUnlocked(player) then
-		mutationId, isGlitched = MutationDefinitions.Roll(rng, getLuckMultiplier(player))
+		mutationId, isGlitched =
+			MutationDefinitions.Roll(rng, luckMultiplier * RankService.GetMutationChanceMultiplier(player))
 	end
 	local result = buildRolledColor(player, core, rarity, colorId, colorData, mutationId, isGlitched)
 
@@ -374,6 +378,7 @@ local function rollCore(player, coreId)
 	})
 	sendCoreState(player, core, "+" .. result.ColorName)
 	announceRoll(player, result)
+	RankService.RecordHatch(player, result.Rarity)
 
 	if (config.Debug or {}).PrintRolls == true then
 		print(

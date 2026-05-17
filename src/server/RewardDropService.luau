@@ -5,6 +5,7 @@ local RankService = require(script.Parent:WaitForChild("RankService"))
 local RewardDefinitions = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("RewardDefinitions"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
+local collectEvent = Events:WaitForChild("CollectColor")
 local rewardVfxEvent = Events:WaitForChild("BreakableRewardVFX")
 local petBreakRewardEvent = Events:WaitForChild("PetBreakReward")
 
@@ -96,9 +97,10 @@ function RewardDropService.RollAndGrant(player, breakableDefinition, worldPositi
 	colorType = tostring(colorType or "Red")
 	rewardMultiplier = math.max(tonumber(rewardMultiplier) or 1, 0)
 	local rewards = RewardDefinitions.Roll(breakableDefinition and breakableDefinition.RewardTable, rng)
+	local rewardRankMultiplier = RankService.GetRewardMultiplier(player)
 	local granted = {
-		Coins = addLeaderstat(player, "Coins", scaleReward(rewards.Coins, rewardMultiplier)),
-		Gems = addLeaderstat(player, "Gems", scaleReward(rewards.Gems, rewardMultiplier)),
+		Coins = addLeaderstat(player, "Coins", scaleReward(rewards.Coins, rewardMultiplier * rewardRankMultiplier)),
+		Gems = addLeaderstat(player, "Gems", scaleReward(rewards.Gems, rewardMultiplier * rewardRankMultiplier)),
 		ColorType = colorType,
 		ColorAmount = addColorCurrency(player, colorType, scaleReward(rewards.Red, rewardMultiplier)),
 		Items = {},
@@ -110,8 +112,8 @@ function RewardDropService.RollAndGrant(player, breakableDefinition, worldPositi
 		granted.Red = granted.ColorAmount
 	end
 
-	if granted.Coins > 0 then
-		RankService.AwardFromCoins(player, granted.Coins, "rank-breakable-coins")
+	if granted.Coins > 0 or granted.Gems > 0 then
+		RankService.AwardFromRewards(player, granted.Coins, granted.Gems, "rank-breakable-rewards")
 	end
 	for _, item in ipairs(rewards.Items or {}) do
 		local amount = addItemPlaceholder(player, item.ItemId, item.Amount)
@@ -131,6 +133,7 @@ function RewardDropService.RollAndGrant(player, breakableDefinition, worldPositi
 		BreakableType = breakableDefinition and breakableDefinition.AssetName,
 	})
 	if granted.Coins > 0 then
+		collectEvent:FireClient(player, true, granted.Coins, "Coins")
 		petBreakRewardEvent:FireClient(player, {
 			Amount = granted.Coins,
 			ColorType = colorType,

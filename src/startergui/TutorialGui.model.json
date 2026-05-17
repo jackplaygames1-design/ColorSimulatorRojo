@@ -143,7 +143,7 @@
                 "Size": {
                   "UDim2": [[1, -44], [0, 34]]
                 },
-                "Text": "Quest 1: Paint a color spill",
+                "Text": "Quest 1: Break a color spill",
                 "TextColor3": [1, 1, 1],
                 "TextScaled": true,
                 "TextStrokeTransparency": 1,
@@ -174,7 +174,7 @@
                 "Size": {
                   "UDim2": [[1, -44], [0, 52]]
                 },
-                "Text": "Walk to a glowing color spill and paint it down with your brush.",
+                "Text": "Clean up a red Color Spill by breaking it with your colors or brush.",
                 "TextColor3": [0.839216, 0.901961, 1],
                 "TextScaled": true,
                 "TextStrokeTransparency": 1,
@@ -208,7 +208,7 @@
                 "Size": {
                   "UDim2": [[1, -168], [0, 32]]
                 },
-                "Text": "Paint 1 color spill",
+                "Text": "Break 1 color spill",
                 "TextColor3": [0.288235, 1, 0.466667],
                 "TextScaled": true,
                 "TextStrokeTransparency": 1,
@@ -249,7 +249,7 @@
                 "Size": {
                   "UDim2": [[1, -44], [0, 18]]
                 },
-                "Text": "0 / 1  -  1/6",
+                "Text": "0 / 1",
                 "TextColor3": [0.760784, 0.878431, 1],
                 "TextScaled": true,
                 "TextStrokeTransparency": 1,

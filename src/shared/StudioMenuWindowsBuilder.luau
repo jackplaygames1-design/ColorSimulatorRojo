@@ -5257,7 +5257,7 @@ function Builder.BuildTutorialGui()
 	tutorialText(
 		panel,
 		"QuestTitle",
-		"Quest 1: Paint a color spill",
+		"Quest 1: Break a color spill",
 		UDim2.fromOffset(22, 44),
 		UDim2.new(1, -44, 0, 34),
 		24,
@@ -5267,7 +5267,7 @@ function Builder.BuildTutorialGui()
 	local body = tutorialText(
 		panel,
 		"QuestBody",
-		"Walk to a glowing color spill and paint it down with your brush.",
+		"Clean up a red Color Spill by breaking it with your colors or brush.",
 		UDim2.fromOffset(22, 84),
 		UDim2.new(1, -44, 0, 52),
 		16,
@@ -5279,7 +5279,7 @@ function Builder.BuildTutorialGui()
 	local objective = tutorialText(
 		panel,
 		"ObjectiveLabel",
-		"Paint 1 color spill",
+		"Break 1 color spill",
 		UDim2.new(0, 22, 1, -62),
 		UDim2.new(1, -168, 0, 32),
 		14,
@@ -5296,7 +5296,7 @@ function Builder.BuildTutorialGui()
 	tutorialText(
 		panel,
 		"ProgressLabel",
-		"0 / 1  -  1/6",
+		"0 / 1",
 		UDim2.new(0, 22, 1, -26),
 		UDim2.new(1, -44, 0, 18),
 		12,

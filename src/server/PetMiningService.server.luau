@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BreakableService = require(script.Parent:WaitForChild("BreakableService"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local RankService = require(script.Parent:WaitForChild("RankService"))
 
 local Events = ReplicatedStorage:WaitForChild("Events")
 local petAttackEvent = Events:WaitForChild("PetAttack")
@@ -186,6 +187,7 @@ task.spawn(function()
 			end
 			totalDamage =
 				math.max(totalDamage * (tonumber(petConfig.PowerScale) or 1), tonumber(petConfig.MinDamage) or 1)
+			totalDamage *= RankService.GetPetDamageMultiplier(player)
 
 			lastAttackAt[player] = now
 			BreakableService.DamageBreakable(player, target, totalDamage)

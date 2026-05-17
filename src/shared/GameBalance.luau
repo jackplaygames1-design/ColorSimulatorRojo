@@ -54,7 +54,7 @@ GameBalance.Breakables = {
 	DefaultColorType = "Red",
 	Debug = {
 		PrintBoot = true,
-		PrintSpawns = false,
+		PrintSpawns = true,
 		PrintDamage = false,
 	},
 	Spawner = {
@@ -72,7 +72,7 @@ GameBalance.Breakables = {
 		TargetRange = 60,
 		RetargetInterval = 0.5,
 		AttackInterval = 0.75,
-		BaseDamageIfNoPets = 0,
+		BaseDamageIfNoPets = 8,
 		PowerScale = 1,
 		MinDamage = 1,
 		MutationBonuses = {

@@ -15,6 +15,17 @@ end
 local rng = Random.new()
 local spawnQueues = {}
 local missingAuthoringWarnings = {}
+local spawnFailWarnings = {}
+local initializedZones = {}
+local lastActiveLogAt = {}
+
+local INITIAL_RED_MIX = {
+	{ TypeId = "ColorSpill", Count = 15 },
+	{ TypeId = "ColorClump", Count = 8 },
+	{ TypeId = "ColorCrate", Count = 6 },
+	{ TypeId = "ColorChest", Count = 4 },
+	{ TypeId = "HugeColorChest", Count = 1 },
+}
 
 local function warnMissing(key, message)
 	if missingAuthoringWarnings[key] then
@@ -24,11 +35,65 @@ local function warnMissing(key, message)
 	warn(message)
 end
 
-local function getAuthoredZone(zoneDefinition)
+local function ensureFolder(parent, name)
+	local folder = parent:FindFirstChild(name)
+	if folder and folder:IsA("Folder") then
+		return folder
+	end
+	if folder then
+		folder:Destroy()
+	end
+	folder = Instance.new("Folder")
+	folder.Name = name
+	folder.Parent = parent
+	return folder
+end
+
+local function ensurePart(parent, name)
+	local part = parent:FindFirstChild(name)
+	if part and part:IsA("BasePart") then
+		return part
+	end
+	if part then
+		part:Destroy()
+	end
+	part = Instance.new("Part")
+	part.Name = name
+	part.Parent = parent
+	return part
+end
+
+local function ensureFallbackFloor(zoneFolder, zoneDefinition)
+	local floorFolder = ensureFolder(zoneFolder, "Floor")
+	local existing = floorFolder:FindFirstChild("BaseFloor")
+	local wasCreated = not (existing and existing:IsA("BasePart"))
+	local floor = ensurePart(floorFolder, "BaseFloor")
+	if not wasCreated and floor:GetAttribute("RuntimeFallbackSectorFloor") ~= true then
+		return floor
+	end
+	floor.Anchored = true
+	floor.CanCollide = true
+	floor.CanTouch = false
+	floor.CanQuery = true
+	floor.Material = Enum.Material.SmoothPlastic
+	floor.Color = zoneDefinition.BaseFloorColor or zoneDefinition.AccentColor or Color3.fromRGB(235, 35, 32)
+	floor.Transparency = 0
+	floor.Size = zoneDefinition.FloorSize or Vector3.new(307, 0.22, 314)
+	floor.CFrame = zoneDefinition.SpawnAreaCFrame * CFrame.new(0, -1.84, 0)
+	floor:SetAttribute("ZoneId", zoneDefinition.ZoneId)
+	floor:SetAttribute("ColorType", zoneDefinition.ColorType)
+	floor:SetAttribute("GroundPaintIgnore", true)
+	floor:SetAttribute("RuntimeFallbackSectorFloor", true)
+	return floor
+end
+
+local function getOrCreateZone(zoneDefinition)
 	local zonesRoot = Workspace:FindFirstChild("Zones")
 	if not zonesRoot then
-		warnMissing("ZonesRoot", "BreakableSpawner: missing editable Workspace.Zones folder.")
-		return nil, nil, nil
+		warnMissing("ZonesRoot", "[BreakableSpawner] Missing Workspace.Zones, creating fallback Zones folder.")
+		zonesRoot = Instance.new("Folder")
+		zonesRoot.Name = "Zones"
+		zonesRoot.Parent = Workspace
 	end
 
 	local folderName = zoneDefinition.FolderName or zoneDefinition.ZoneId
@@ -36,34 +101,51 @@ local function getAuthoredZone(zoneDefinition)
 	if not zoneFolder or not zoneFolder:IsA("Folder") then
 		warnMissing(
 			"Zone:" .. tostring(folderName),
-			("BreakableSpawner: missing editable Workspace.Zones.%s folder."):format(tostring(folderName))
+			("[BreakableSpawner] Missing Workspace.Zones.%s, creating fallback zone folder."):format(
+				tostring(folderName)
+			)
 		)
-		return nil, nil, nil
+		if zoneFolder then
+			zoneFolder:Destroy()
+		end
+		zoneFolder = Instance.new("Folder")
+		zoneFolder.Name = folderName
+		zoneFolder.Parent = zonesRoot
 	end
 
-	local spawnArea = zoneFolder:FindFirstChild(zoneDefinition.SpawnAreaName, true)
+	ensureFallbackFloor(zoneFolder, zoneDefinition)
+
+	local spawnArea = zoneFolder:FindFirstChild(zoneDefinition.SpawnAreaName)
+	local createdSpawnArea = false
 	if not spawnArea or not spawnArea:IsA("BasePart") then
 		warnMissing(
 			"SpawnArea:" .. tostring(folderName),
-			("BreakableSpawner: missing editable %s.%s BasePart."):format(
+			("[BreakableSpawner] Missing %s.%s, creating fallback BreakableSpawnArea."):format(
 				zoneFolder:GetFullName(),
 				tostring(zoneDefinition.SpawnAreaName)
 			)
 		)
-		return nil, nil, nil
+		if spawnArea then
+			spawnArea:Destroy()
+		end
+		spawnArea = Instance.new("Part")
+		spawnArea.Name = zoneDefinition.SpawnAreaName
+		spawnArea.Parent = zoneFolder
+		spawnArea:SetAttribute("RuntimeFallbackBreakableSpawnArea", true)
+		createdSpawnArea = true
+	end
+	if createdSpawnArea or spawnArea:GetAttribute("RuntimeFallbackBreakableSpawnArea") == true then
+		spawnArea.Anchored = true
+		spawnArea.CanCollide = false
+		spawnArea.CanTouch = false
+		spawnArea.CanQuery = false
+		spawnArea.Transparency = 1
+		spawnArea.Size = zoneDefinition.SpawnAreaSize or Vector3.new(180, 4, 180)
+		spawnArea.CFrame = zoneDefinition.SpawnAreaCFrame
+		spawnArea.Color = zoneDefinition.AccentColor or Color3.fromRGB(235, 35, 32)
 	end
 
-	local breakables = zoneFolder:FindFirstChild(zoneDefinition.BreakablesFolderName)
-	if not breakables or not breakables:IsA("Folder") then
-		warnMissing(
-			"Breakables:" .. tostring(folderName),
-			("BreakableSpawner: missing editable %s.%s folder."):format(
-				zoneFolder:GetFullName(),
-				tostring(zoneDefinition.BreakablesFolderName)
-			)
-		)
-		return nil, nil, nil
-	end
+	local breakables = ensureFolder(zoneFolder, zoneDefinition.BreakablesFolderName)
 
 	zoneFolder:SetAttribute("ZoneId", zoneDefinition.ZoneId)
 	zoneFolder:SetAttribute("WorldZoneId", zoneDefinition.WorldZoneId)
@@ -72,6 +154,10 @@ local function getAuthoredZone(zoneDefinition)
 	spawnArea:SetAttribute("ZoneId", zoneDefinition.WorldZoneId or zoneDefinition.ZoneId)
 	spawnArea:SetAttribute("ColorType", zoneDefinition.ColorType)
 
+	if not initializedZones[zoneDefinition.ZoneId] then
+		initializedZones[zoneDefinition.ZoneId] = true
+		print(("[BreakableSpawner] %s initialized."):format(tostring(zoneDefinition.ZoneId)))
+	end
 	return zoneFolder, spawnArea, breakables
 end
 
@@ -124,14 +210,30 @@ local function findSpawnCFrame(area, folder, definition)
 	local spacing = tonumber(definition.Footprint) or tonumber(config.Spawner and config.Spawner.MinSpawnSpacing) or 6
 	local ignore = { folder, area }
 	for _ = 1, attempts do
-		local result = raycastGround(getRandomPointInArea(area), ignore)
+		local origin = getRandomPointInArea(area)
+		local result = raycastGround(origin, ignore)
 		if result and result.Instance and hasSpacing(folder, result.Position, spacing) then
 			local spawnHeight = tonumber(definition.SpawnHeight) or 1.2
 			return CFrame.new(result.Position + Vector3.new(0, spawnHeight, 0))
 				* CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 		end
 	end
-	return nil
+
+	local key = tostring(folder:GetFullName()) .. ":" .. tostring(definition.AssetName)
+	if not spawnFailWarnings[key] then
+		spawnFailWarnings[key] = true
+		warn(
+			"[BreakableSpawner] Raycast/spacing failed for "
+				.. tostring(definition.AssetName)
+				.. "; using fallback ground position."
+		)
+	end
+	local half = area.Size * 0.5
+	local localX = rng:NextNumber(-half.X, half.X)
+	local localZ = rng:NextNumber(-half.Z, half.Z)
+	local world = area.CFrame:PointToWorldSpace(Vector3.new(localX, -half.Y + 2, localZ))
+	local spawnHeight = tonumber(definition.SpawnHeight) or 1.2
+	return CFrame.new(world + Vector3.new(0, spawnHeight, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 end
 
 local function spawnType(zoneDefinition, area, folder, typeId)
@@ -141,6 +243,7 @@ local function spawnType(zoneDefinition, area, folder, typeId)
 	end
 	local cframe = findSpawnCFrame(area, folder, definition)
 	if not cframe then
+		warn("[BreakableSpawner] No spawn CFrame for " .. tostring(typeId) .. " in " .. tostring(zoneDefinition.ZoneId))
 		return nil
 	end
 	local model = BreakableService.SpawnBreakable(
@@ -151,10 +254,54 @@ local function spawnType(zoneDefinition, area, folder, typeId)
 		zoneDefinition.ColorType,
 		zoneDefinition
 	)
-	if model and config.Debug and config.Debug.PrintSpawns then
-		print("BreakableSpawner: spawned " .. tostring(typeId) .. " in " .. tostring(zoneDefinition.ZoneId))
+	if model and (not config.Debug or config.Debug.PrintSpawns ~= false) then
+		print(
+			("[BreakableSpawner] Spawned %s at %s."):format(
+				tostring(typeId),
+				tostring(model.PrimaryPart and model.PrimaryPart.Position or cframe.Position)
+			)
+		)
 	end
 	return model
+end
+
+local function spawnInitialMix(zoneDefinition, area, folder)
+	if zoneDefinition.ZoneId ~= "RedSector" or getActiveCount(folder) > 0 then
+		return
+	end
+
+	local maxActive = math.min(tonumber(zoneDefinition.MaxActiveBreakables) or 35, 35)
+	local spawned = 0
+	local attempts = 0
+	for _, entry in ipairs(INITIAL_RED_MIX) do
+		for _ = 1, entry.Count do
+			if spawned >= maxActive then
+				break
+			end
+			attempts += 1
+			if spawnType(zoneDefinition, area, folder, entry.TypeId) then
+				spawned += 1
+			end
+		end
+	end
+
+	while spawned < maxActive do
+		attempts += 1
+		local typeId = BreakableDefinitions.GetWeightedRandom(rng)
+		if spawnType(zoneDefinition, area, folder, typeId) then
+			spawned += 1
+		else
+			break
+		end
+	end
+
+	print(
+		("[BreakableSpawner] RedSector initial fill: %d/%d active after %d attempts."):format(
+			spawned,
+			maxActive,
+			attempts
+		)
+	)
 end
 
 local function queueRespawn(zoneId, typeId, delaySeconds)
@@ -173,7 +320,11 @@ end)
 
 for _, zoneId in ipairs(ZoneDefinitions.Order) do
 	spawnQueues[zoneId] = {}
-	getAuthoredZone(ZoneDefinitions.Get(zoneId))
+	local zoneDefinition = ZoneDefinitions.Get(zoneId)
+	local _, area, folder = getOrCreateZone(zoneDefinition)
+	if area and folder then
+		spawnInitialMix(zoneDefinition, area, folder)
+	end
 end
 
 task.spawn(function()
@@ -181,7 +332,7 @@ task.spawn(function()
 	while true do
 		for _, zoneId in ipairs(ZoneDefinitions.Order) do
 			local zoneDefinition = ZoneDefinitions.Get(zoneId)
-			local _, area, folder = getAuthoredZone(zoneDefinition)
+			local _, area, folder = getOrCreateZone(zoneDefinition)
 			if not area or not folder then
 				continue
 			end
@@ -210,6 +361,10 @@ task.spawn(function()
 				else
 					break
 				end
+			end
+			if zoneId == "RedSector" and os.clock() - (lastActiveLogAt[zoneId] or 0) >= 5 then
+				lastActiveLogAt[zoneId] = os.clock()
+				print(("[BreakableSpawner] Active breakables: %d/%d."):format(getActiveCount(folder), maxActive))
 			end
 		end
 		task.wait(tonumber(config.Spawner and config.Spawner.TickInterval) or 1)

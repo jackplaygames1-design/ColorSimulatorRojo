@@ -1,4 +1,6 @@
--- Binds the Studio-authored RankWindow bones. This script never creates UI.
+-- Binds the Studio-authored RankWindow bones. If optional rank controls are
+-- missing, this creates clearly named placeholders inside the existing UI so
+-- they can be copied into Studio and edited later.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -8,6 +10,13 @@ local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local ClientUIRoot = require(ReplicatedStorage:WaitForChild("ClientUIRoot"))
+local Events = ReplicatedStorage:WaitForChild("Events")
+local rankDataUpdated = Events:WaitForChild("RankDataUpdated")
+local rankUpRequest = Events:WaitForChild("RankUpRequest")
+local rankUpResult = Events:WaitForChild("RankUpResult")
+local rebirthRequest = Events:WaitForChild("RebirthRequest")
+local rebirthResult = Events:WaitForChild("RebirthResult")
+local rankMenuOpened = Events:WaitForChild("RankMenuOpened")
 
 local ROOT_PATH = "PlayerGui.MainHUD.ModalWindows.RankWindow"
 local warned = {}
@@ -69,6 +78,109 @@ local ui = {
 	PerkLuck = findDescendant(content, "PerkLuck", "TextLabel", ROOT_PATH .. ".Content.PerkLuck"),
 	PerkSlots = findDescendant(content, "PerkSlots", "TextLabel", ROOT_PATH .. ".Content.PerkSlots"),
 }
+
+local latestPayload = nil
+local rankHudButton = mainHud:FindFirstChild("RankButton", true)
+local rankHudLabel = rankHudButton and rankHudButton:FindFirstChild("Label", true)
+
+local function ensureFrame(parent, name, position, size, color)
+	local frame = parent:FindFirstChild(name)
+	if frame and frame:IsA("Frame") then
+		return frame
+	end
+	frame = Instance.new("Frame")
+	frame.Name = name
+	frame.Position = position
+	frame.Size = size
+	frame.BackgroundColor3 = color or Color3.fromRGB(12, 14, 20)
+	frame.BorderSizePixel = 0
+	frame.Parent = parent
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 10)
+	corner.Parent = frame
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(255, 45, 52)
+	stroke.Thickness = 1
+	stroke.Transparency = 0.25
+	stroke.Parent = frame
+	return frame
+end
+
+local function ensureText(parent, name, position, size, textSize)
+	local label = parent:FindFirstChild(name)
+	if label and label:IsA("TextLabel") then
+		return label
+	end
+	label = Instance.new("TextLabel")
+	label.Name = name
+	label.Position = position
+	label.Size = size
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.TextColor3 = Color3.fromRGB(245, 248, 255)
+	label.TextScaled = true
+	label.TextWrapped = true
+	label.TextSize = textSize or 16
+	label.Parent = parent
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MinTextSize = 9
+	limit.MaxTextSize = textSize or 16
+	limit.Parent = label
+	return label
+end
+
+local function ensureButton(parent, name, position, size, text)
+	local button = parent:FindFirstChild(name)
+	if button and button:IsA("TextButton") then
+		return button
+	end
+	button = Instance.new("TextButton")
+	button.Name = name
+	button.Position = position
+	button.Size = size
+	button.BackgroundColor3 = Color3.fromRGB(170, 18, 22)
+	button.BorderSizePixel = 0
+	button.Font = Enum.Font.GothamBlack
+	button.Text = text
+	button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	button.TextScaled = true
+	button.Parent = parent
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = button
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(255, 55, 62)
+	stroke.Thickness = 2
+	stroke.Parent = button
+	return button
+end
+
+local questPanel = ensureFrame(content, "RankQuestPanel", UDim2.fromScale(0.04, 0.72), UDim2.fromScale(0.92, 0.2))
+local questText = ensureText(questPanel, "QuestListText", UDim2.fromScale(0.03, 0.06), UDim2.fromScale(0.94, 0.88), 13)
+questText.TextXAlignment = Enum.TextXAlignment.Left
+questText.TextYAlignment = Enum.TextYAlignment.Top
+local rankUpButton =
+	ensureButton(content, "RankUpButton", UDim2.fromScale(0.16, 0.93), UDim2.fromScale(0.3, 0.055), "RANK UP")
+local rebirthButton =
+	ensureButton(content, "RebirthButton", UDim2.fromScale(0.54, 0.93), UDim2.fromScale(0.3, 0.055), "REBIRTH")
+
+local rankModal = mainHud:FindFirstChild("RankUpModal")
+if not (rankModal and rankModal:IsA("Frame")) then
+	rankModal =
+		ensureFrame(mainHud, "RankUpModal", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Color3.fromRGB(0, 0, 0))
+	rankModal.BackgroundTransparency = 0.18
+	rankModal.Visible = false
+	rankModal.ZIndex = 9000
+end
+local rankModalCard =
+	ensureFrame(rankModal, "Card", UDim2.fromScale(0.28, 0.24), UDim2.fromScale(0.44, 0.5), Color3.fromRGB(9, 10, 15))
+rankModalCard.ZIndex = 9001
+local modalTitle = ensureText(rankModalCard, "Title", UDim2.fromScale(0.05, 0.08), UDim2.fromScale(0.9, 0.16), 36)
+modalTitle.Font = Enum.Font.GothamBlack
+modalTitle.TextColor3 = Color3.fromRGB(255, 55, 62)
+local modalBody = ensureText(rankModalCard, "Body", UDim2.fromScale(0.08, 0.28), UDim2.fromScale(0.84, 0.42), 18)
+local modalContinue =
+	ensureButton(rankModalCard, "ContinueButton", UDim2.fromScale(0.26, 0.78), UDim2.fromScale(0.48, 0.13), "CONTINUE")
 
 local originalLayouts = {}
 
@@ -153,6 +265,120 @@ local function formatNumber(value)
 	return text
 end
 
+local setProgressFill
+
+local function formatMultiplier(multiplier, label)
+	local bonus = math.floor(((tonumber(multiplier) or 1) - 1) * 100 + 0.5)
+	return bonus > 0 and ("+" .. tostring(bonus) .. "% " .. label) or ("No " .. label)
+end
+
+local function formatPassives(passives)
+	passives = type(passives) == "table" and passives or {}
+	local rows = {
+		formatMultiplier(passives.PetDamageMultiplier, "Pet Mining Damage"),
+		formatMultiplier(passives.RewardMultiplier, "Coins/Gems From Breakables"),
+		formatMultiplier(passives.EggLuckMultiplier, "Egg RNG Luck"),
+	}
+	local mutation = math.floor(((tonumber(passives.MutationChanceMultiplier) or 1) - 1) * 100 + 0.5)
+	if mutation > 0 then
+		table.insert(rows, "+" .. tostring(mutation) .. "% Mutation Chance")
+	end
+	return table.concat(rows, "\n")
+end
+
+local function setButtonEnabled(button, enabled, text)
+	if not button then
+		return
+	end
+	button.Active = enabled == true
+	button.AutoButtonColor = enabled == true
+	button.BackgroundColor3 = enabled and Color3.fromRGB(190, 22, 28) or Color3.fromRGB(46, 50, 60)
+	button.TextTransparency = enabled and 0 or 0.35
+	if text then
+		button.Text = text
+	end
+end
+
+local function setRankHudText(text)
+	if rankHudLabel and rankHudLabel:IsA("TextLabel") then
+		rankHudLabel.Text = text
+		rankHudLabel.Visible = true
+		rankHudLabel.TextWrapped = true
+		rankHudLabel.TextScaled = true
+	elseif rankHudButton and rankHudButton:IsA("TextButton") then
+		rankHudButton.Text = text
+	end
+end
+
+local function summarizeQuests(quests)
+	local rows = {}
+	for _, quest in ipairs(type(quests) == "table" and quests or {}) do
+		local prefix = quest.Completed and "[x] " or "[ ] "
+		table.insert(
+			rows,
+			string.format(
+				"%s%d. %s  %s/%s",
+				prefix,
+				tonumber(quest.Index) or #rows + 1,
+				tostring(quest.Text or "Quest"),
+				formatNumber(quest.Progress),
+				formatNumber(quest.Target)
+			)
+		)
+	end
+	return table.concat(rows, "\n")
+end
+
+local function updateFromPayload(payload, replayProgress)
+	if type(payload) ~= "table" then
+		return false
+	end
+	latestPayload = payload
+
+	local rankLevel = tonumber(payload.RankLevel) or 1
+	local rankName = tostring(payload.RankName or ("Rank " .. tostring(rankLevel)))
+	local xp = tonumber(payload.RankXP) or 0
+	local required = math.max(tonumber(payload.RankXPRequired) or 0, 0)
+	local completed = tonumber(payload.CompletedRankQuests) or 0
+	local questsRequired = math.max(tonumber(payload.QuestsRequired) or 10, 1)
+	local isMaxRank = rankLevel >= (tonumber(payload.MaxRank) or 5)
+	local progress = required <= 0 and 1 or math.clamp(xp / math.max(1, required), 0, 1)
+
+	setText(ui.RankName, "Rank " .. tostring(rankLevel) .. " - " .. rankName)
+	setText(ui.RankIconText, tostring(payload.RankIcon or rankLevel))
+	setText(ui.ProgressTitle, isMaxRank and "Max Rank" or "Rank Progress")
+	setText(ui.ProgressLabel, formatNumber(xp) .. " / " .. formatNumber(required) .. " XP")
+	setText(ui.ProgressPercent, "Quests " .. tostring(completed) .. " / " .. tostring(questsRequired))
+	setText(ui.PerkCoins, formatMultiplier((payload.Passives or {}).RewardMultiplier, "Rewards"))
+	setText(ui.PerkLuck, formatMultiplier((payload.Passives or {}).EggLuckMultiplier, "Hatch Luck"))
+	setText(ui.PerkSlots, formatMultiplier((payload.Passives or {}).PetDamageMultiplier, "Pet Damage"))
+	setText(questText, summarizeQuests(payload.Quests))
+	setProgressFill(progress, replayProgress == true)
+
+	if payload.RebirthAvailable == true then
+		setRankHudText("REBIRTH\nREADY")
+	elseif rankHudButton then
+		setRankHudText(
+			string.format(
+				"RANK %d\n%s/%s XP\nQ %d/%d",
+				rankLevel,
+				formatNumber(xp),
+				formatNumber(required),
+				completed,
+				questsRequired
+			)
+		)
+	end
+
+	setButtonEnabled(rankUpButton, payload.RankUpAvailable == true, payload.RankUpAvailable and "RANK UP" or "LOCKED")
+	setButtonEnabled(
+		rebirthButton,
+		payload.RebirthAvailable == true,
+		payload.RebirthAvailable and "REBIRTH" or ("REBIRTHS: " .. tostring(payload.Rebirths or 0))
+	)
+	return true
+end
+
 local function findValue(names)
 	local rankData = player:FindFirstChild("RankData")
 	local leaderstats = player:FindFirstChild("leaderstats")
@@ -175,7 +401,7 @@ end
 
 local activeProgressTween = nil
 
-local function setProgressFill(progress, replayFromStart)
+setProgressFill = function(progress, replayFromStart)
 	if not ui.ProgressFill then
 		return
 	end
@@ -202,6 +428,9 @@ local function setProgressFill(progress, replayFromStart)
 end
 
 local function update(replayProgress)
+	if latestPayload and updateFromPayload(latestPayload, replayProgress) then
+		return
+	end
 	applyMobileRankLayout()
 	local rankName = findValue({ "RankName", "Rank", "CurrentRank" }) or "RANK I"
 	local rankLevel = tonumber(findValue({ "RankLevel", "Level" })) or 1
@@ -225,6 +454,24 @@ local function update(replayProgress)
 	setText(ui.PerkLuck, "+" .. tostring(luckBonus) .. "% Hatch Luck")
 	setText(ui.PerkSlots, "+" .. tostring(slots) .. " Equip Slot" .. (slots == 1 and "" or "s"))
 	setProgressFill(progress, replayProgress == true)
+end
+
+local function showModal(title, body)
+	modalTitle.Text = title
+	modalBody.Text = body
+	rankModal.Visible = true
+	rankModal.BackgroundTransparency = 1
+	rankModalCard.Position = UDim2.fromScale(0.28, 0.28)
+	TweenService:Create(rankModal, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		BackgroundTransparency = 0.18,
+	}):Play()
+	TweenService:Create(rankModalCard, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = UDim2.fromScale(0.28, 0.24),
+	}):Play()
+end
+
+local function requestRankData()
+	rankMenuOpened:FireServer()
 end
 
 local function connectValue(value)
@@ -295,6 +542,9 @@ end
 
 rankWindow:GetPropertyChangedSignal("Visible"):Connect(function()
 	update(rankWindow.Visible)
+	if rankWindow.Visible then
+		requestRankData()
+	end
 end)
 rankWindow:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyMobileRankLayout)
 local camera = Workspace.CurrentCamera
@@ -312,5 +562,57 @@ end)
 connectLeaderstats()
 connectRankData()
 update()
+
+rankDataUpdated.OnClientEvent:Connect(function(payload)
+	updateFromPayload(payload, rankWindow.Visible)
+end)
+
+rankUpButton.Activated:Connect(function()
+	rankUpRequest:FireServer()
+end)
+
+rebirthButton.Activated:Connect(function()
+	rebirthRequest:FireServer()
+end)
+
+modalContinue.Activated:Connect(function()
+	rankModal.Visible = false
+end)
+
+rankUpResult.OnClientEvent:Connect(function(success, result)
+	result = type(result) == "table" and result or {}
+	if result.RankData then
+		updateFromPayload(result.RankData, true)
+	end
+	if not success then
+		showModal("KEEP GOING!", tostring(result.Message or "Complete Rank XP and all 10 quests first."))
+		return
+	end
+	local body = string.format(
+		"%s -> %s\n\nRewards\n+%s Coins\n+%s Gems\n\nNew Passives\n%s",
+		tostring(result.OldRankName or "Previous Rank"),
+		tostring(result.NewRankName or "New Rank"),
+		formatNumber(result.RewardCoins),
+		formatNumber(result.RewardGems),
+		formatPassives(result.Passives)
+	)
+	showModal("YOU'VE RANKED UP!", body)
+end)
+
+rebirthResult.OnClientEvent:Connect(function(success, result)
+	result = type(result) == "table" and result or {}
+	if result.RankData then
+		updateFromPayload(result.RankData, true)
+	end
+	if not success then
+		showModal("REBIRTH LOCKED", tostring(result.Message or "Reach Rank 5 and complete every requirement first."))
+		return
+	end
+	showModal("REBIRTH COMPLETE!", "Permanent bonuses increased.\n\nRebirths: " .. formatNumber(result.Rebirths or 0))
+end)
+
+if rankWindow.Visible then
+	requestRankData()
+end
 
 print("[EditableRankBinder] RankWindow bound to existing Studio UI.")
