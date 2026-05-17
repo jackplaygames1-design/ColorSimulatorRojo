@@ -90,9 +90,13 @@ local DEFAULT_DATA = {
 	},
 	Settings = {
 		Music = true,
-		SFX = true,
-		Popups = true,
-		LowFX = false,
+		SoundEffects = true,
+		ShowDamageNumbers = true,
+		TradeRequests = true,
+		PetHideMode = false,
+		AutoHatch = false,
+		CameraShake = true,
+		LowDetailFX = false,
 	},
 	Upgrades = {},
 	RedeemedCodes = {}, -- [normalizedCode] = uses
@@ -375,6 +379,9 @@ local function applySettingAttributes(player, settings)
 	for key, value in pairs(normalized) do
 		player:SetAttribute("Setting" .. key, value)
 	end
+	for legacyKey, canonicalKey in pairs(SettingsData.LegacyAliases or {}) do
+		player:SetAttribute("Setting" .. legacyKey, normalized[canonicalKey] == true)
+	end
 end
 
 local function sendSettings(player, success, settingKey, message)
@@ -390,7 +397,13 @@ local function sendSettings(player, success, settingKey, message)
 		settings = normalizeSettings(cached and cached.Settings)
 	end
 
-	settingsUpdatedEvent:FireClient(player, normalizeSettings(settings), success ~= false, settingKey, message)
+	settingsUpdatedEvent:FireClient(
+		player,
+		normalizeSettings(settings),
+		success ~= false,
+		SettingsData.ResolveKey(settingKey),
+		message
+	)
 end
 
 local function encodePetRecord(record)
@@ -1854,6 +1867,7 @@ local function applyData(player, data)
 	applyTutorialProgressValue("MutationsUnlocked")
 	applyTutorialProgressValue("HasSeenMutationTutorial")
 	sendSettings(player, true, nil, "Settings loaded.")
+	print("[SettingsService] Loaded settings for " .. player.Name)
 end
 
 -- ========================
@@ -2378,7 +2392,7 @@ requestSetSettingEvent.OnServerEvent:Connect(function(player, settingKey, value)
 		sendSettings(player, false, settingKey, "Data is still loading.")
 		return
 	end
-	settingKey = tostring(settingKey or "")
+	settingKey = SettingsData.ResolveKey(settingKey)
 	if not SettingsData.IsAllowedKey(settingKey) then
 		warn("Settings: rejected invalid key from " .. player.Name .. ": " .. settingKey)
 		sendSettings(player, false, settingKey, "Invalid setting.")
@@ -2412,6 +2426,11 @@ requestSetSettingEvent.OnServerEvent:Connect(function(player, settingKey, value)
 
 	settingValue.Value = value
 	player:SetAttribute("Setting" .. settingKey, value)
+	for legacyKey, canonicalKey in pairs(SettingsData.LegacyAliases or {}) do
+		if canonicalKey == settingKey then
+			player:SetAttribute("Setting" .. legacyKey, value)
+		end
+	end
 	local cached = sessionData[player]
 	if cached then
 		cached.Settings = normalizeSettings(cached.Settings)
@@ -2419,6 +2438,7 @@ requestSetSettingEvent.OnServerEvent:Connect(function(player, settingKey, value)
 	end
 	markPlayerDirty(player, "settings")
 	sendSettings(player, true, settingKey, "Saved.")
+	print(("[SettingsService] Updated %s = %s for %s"):format(settingKey, tostring(value), player.Name))
 end)
 
 local function printPetData(player)

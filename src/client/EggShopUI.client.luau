@@ -44,6 +44,11 @@ local leaderstats = player:WaitForChild("leaderstats", 10)
 local coinsValue = leaderstats and leaderstats:WaitForChild("Coins", 10)
 local playerGui = player:WaitForChild("PlayerGui")
 
+local function getClientSetting(key, defaultValue)
+	local value = player:GetAttribute("Setting" .. key)
+	return type(value) == "boolean" and value or defaultValue
+end
+
 local function getEggShopLayer()
 	local layer = ClientUIRoot.GetLayer(playerGui, "EggShopUI")
 	if layer then
@@ -1291,6 +1296,9 @@ local function getHatchOddsText(entry)
 end
 
 local function shakeHatchScreen(token, tier, duration, magnitude)
+	if not getClientSetting("CameraShake", true) then
+		return
+	end
 	activeScreenShake += 1
 	local shakeId = activeScreenShake
 	duration = duration or (tier >= 5 and 1.15 or tier >= 4 and 0.72 or 0.32)

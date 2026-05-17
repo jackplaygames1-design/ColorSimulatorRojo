@@ -21,7 +21,7 @@ local CARD_CONFIG = {
 	SFXCard = {
 		title = "Sound Effects",
 		description = "Sound effects.",
-		settingKey = "SFX",
+		settingKey = "SoundEffects",
 		default = true,
 	},
 	GraphicsQualityCard = {
@@ -34,7 +34,7 @@ local CARD_CONFIG = {
 	DamageNumbersCard = {
 		title = "Show Damage Numbers",
 		description = "Popup feedback while collecting.",
-		settingKey = "Popups",
+		settingKey = "ShowDamageNumbers",
 		default = true,
 	},
 	TradeRequestsCard = {
@@ -46,7 +46,7 @@ local CARD_CONFIG = {
 	HidePetsCard = {
 		title = "Pet Hide Mode",
 		description = "Hide pet visuals on your client.",
-		settingKey = "HidePets",
+		settingKey = "PetHideMode",
 		default = false,
 	},
 	AutoHatchCard = {
@@ -64,7 +64,7 @@ local CARD_CONFIG = {
 	LowDetailCard = {
 		title = "Low Detail FX",
 		description = "Reduce visual effects.",
-		settingKey = "LowFX",
+		settingKey = "LowDetailFX",
 		default = false,
 	},
 }
@@ -116,10 +116,19 @@ local function findButton(parent)
 end
 
 local function getSettingValue(settingKey, defaultValue)
+	settingKey = SettingsData.ResolveKey(settingKey)
 	local settingsFolder = player:FindFirstChild("Settings")
 	local value = settingsFolder and settingsFolder:FindFirstChild(settingKey)
 	if value and value:IsA("BoolValue") then
 		return value.Value
+	end
+	for legacyKey, canonicalKey in pairs(SettingsData.LegacyAliases or {}) do
+		if canonicalKey == settingKey then
+			value = settingsFolder and settingsFolder:FindFirstChild(legacyKey)
+			if value and value:IsA("BoolValue") then
+				return value.Value
+			end
+		end
 	end
 	return defaultValue == true
 end
@@ -144,6 +153,10 @@ local function setToggleVisual(button, enabled)
 		return
 	end
 	button.BackgroundColor3 = enabled and Color3.fromRGB(84, 225, 112) or Color3.fromRGB(235, 58, 58)
+	if button:IsA("TextButton") then
+		button.TextColor3 = Color3.fromRGB(255, 255, 255)
+		button.Text = enabled and "ON" or "OFF"
+	end
 end
 
 local function connectButton(button, callback)
@@ -166,6 +179,7 @@ local function configureRowsScroll(scroll)
 	scroll.ClipsDescendants = true
 	scroll.ScrollBarThickness = 8
 	scroll.ScrollBarImageColor3 = Color3.fromRGB(104, 115, 136)
+	scroll.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
 	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
 	scroll.ScrollingEnabled = true
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -180,7 +194,7 @@ local function configureRowsScroll(scroll)
 
 	local padding = scroll:FindFirstChildOfClass("UIPadding") or Instance.new("UIPadding")
 	padding.PaddingTop = UDim.new(0, 4)
-	padding.PaddingBottom = UDim.new(0, 12)
+	padding.PaddingBottom = UDim.new(0, 96)
 	padding.PaddingLeft = UDim.new(0, 4)
 	padding.PaddingRight = UDim.new(0, 4)
 	padding.Parent = scroll
@@ -318,10 +332,12 @@ local function applyCard(cardName)
 			setButtonEnabled(button, true)
 			setToggleVisual(button, enabled)
 			connectButton(button, function()
-				requestSetSettingEvent:FireServer(
-					config.settingKey,
-					not getSettingValue(config.settingKey, config.default)
-				)
+				local nextValue = not getSettingValue(config.settingKey, config.default)
+				if status then
+					status.Text = nextValue and "ON" or "OFF"
+				end
+				setToggleVisual(button, nextValue)
+				requestSetSettingEvent:FireServer(config.settingKey, nextValue)
 			end)
 		end
 	else
@@ -392,7 +408,12 @@ player.ChildAdded:Connect(function(child)
 	end
 end)
 
-settingsUpdatedEvent.OnClientEvent:Connect(render)
+settingsUpdatedEvent.OnClientEvent:Connect(function(settings, success, settingKey)
+	if success ~= false and settingKey and settings and settings[settingKey] ~= nil then
+		print(("[SettingsClient] Applied %s = %s"):format(tostring(settingKey), tostring(settings[settingKey])))
+	end
+	render()
+end)
 render()
 
 print("[EditableSettingsBinder] SettingsWindow cards bound to existing Studio UI.")

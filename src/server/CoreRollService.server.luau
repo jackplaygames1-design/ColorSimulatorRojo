@@ -204,6 +204,7 @@ local function sendCoreState(player, core, message)
 	coreRollState:FireClient(player, {
 		CoreId = core.CoreId,
 		Currency = core.Currency,
+		CurrencyDisplayName = core.CurrencyDisplayName,
 		Amount = amount,
 		Cost = core.Cost,
 		CanAfford = amount >= (tonumber(core.Cost) or 0),

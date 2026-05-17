@@ -1399,10 +1399,19 @@ local function renderUpgrades()
 end
 
 local function getSettingValue(settingKey, defaultValue)
+	settingKey = SettingsData.ResolveKey(settingKey)
 	local folder = player:FindFirstChild("Settings")
 	local value = folder and folder:FindFirstChild(settingKey)
 	if value and value:IsA("BoolValue") then
 		return value.Value
+	end
+	for legacyKey, canonicalKey in pairs(SettingsData.LegacyAliases or {}) do
+		if canonicalKey == settingKey then
+			value = folder and folder:FindFirstChild(legacyKey)
+			if value and value:IsA("BoolValue") then
+				return value.Value
+			end
+		end
 	end
 	return defaultValue
 end
@@ -1416,8 +1425,13 @@ local function renderSettings()
 	local list = ensureBinderList(content)
 	local settings = {
 		{ title = "Music", key = "Music", default = true },
-		{ title = "SFX", key = "SFX", default = true },
-		{ title = "Low Detail", key = "LowFX", default = false },
+		{ title = "Sound Effects", key = "SoundEffects", default = true },
+		{ title = "Show Damage Numbers", key = "ShowDamageNumbers", default = true },
+		{ title = "Trade Requests", key = "TradeRequests", default = true },
+		{ title = "Pet Hide Mode", key = "PetHideMode", default = false },
+		{ title = "Auto Hatch", key = "AutoHatch", default = false },
+		{ title = "Camera Shake", key = "CameraShake", default = true },
+		{ title = "Low Detail FX", key = "LowDetailFX", default = false },
 	}
 
 	for index, setting in ipairs(settings) do
@@ -1434,25 +1448,6 @@ local function renderSettings()
 			Color3.fromRGB(82, 219, 225)
 		)
 	end
-
-	makeWindowCard(
-		list,
-		4,
-		"Hide Pets",
-		"This setting is not in the current settings schema yet.",
-		"COMING SOON",
-		nil,
-		Color3.fromRGB(170, 180, 205)
-	)
-	makeWindowCard(
-		list,
-		5,
-		"Auto Delete",
-		"Auto delete configuration is coming soon.",
-		"COMING SOON",
-		nil,
-		Color3.fromRGB(170, 180, 205)
-	)
 end
 
 local codeStatusLabel = nil

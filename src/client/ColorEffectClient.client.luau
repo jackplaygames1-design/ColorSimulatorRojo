@@ -8,7 +8,14 @@ local Events = ReplicatedStorage:WaitForChild("Events")
 local colorEffectVfxEvent = Events:WaitForChild("ColorEffectVFX")
 
 local function getClientSetting(key, defaultValue)
-	local value = player:GetAttribute("Setting" .. key)
+	local aliases = {
+		LowFX = "LowDetailFX",
+	}
+	local resolvedKey = aliases[key] or key
+	local value = player:GetAttribute("Setting" .. resolvedKey)
+	if type(value) ~= "boolean" and resolvedKey ~= key then
+		value = player:GetAttribute("Setting" .. key)
+	end
 	return type(value) == "boolean" and value or defaultValue
 end
 

@@ -1,4 +1,5 @@
 local Debris = game:GetService("Debris")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
 local Workspace = game:GetService("Workspace")
@@ -9,8 +10,10 @@ local SOUND_EVENT_NAME = "ColorSimulatorPlaySound"
 local SOUND_FOLDER_NAME = "ColorSimulatorClientSounds"
 
 local RNG = Random.new()
+local player = Players.LocalPlayer
 local lastPlayedAt = {}
 local soundGroups = {}
+local originalGroupVolumes = {}
 local soundFolder = SoundService:FindFirstChild(SOUND_FOLDER_NAME)
 if not soundFolder then
 	soundFolder = Instance.new("Folder")
@@ -35,6 +38,51 @@ local function setupSoundGroups()
 		local group = ensureSoundGroup(groupName)
 		group.Volume = tonumber(config.Volume) or 1
 		soundGroups[groupName] = group
+		originalGroupVolumes[groupName] = group.Volume
+	end
+	for _, groupName in ipairs({ "MusicGroup", "SFXGroup" }) do
+		local group = ensureSoundGroup(groupName)
+		soundGroups[groupName] = group
+		if originalGroupVolumes[groupName] == nil then
+			originalGroupVolumes[groupName] = group.Volume
+		end
+	end
+end
+
+local function getClientSetting(key, defaultValue)
+	local value = player:GetAttribute("Setting" .. key)
+	return type(value) == "boolean" and value or defaultValue
+end
+
+local function applyAudioSettings()
+	local musicEnabled = getClientSetting("Music", true)
+	local sfxEnabled = getClientSetting("SoundEffects", true)
+
+	for groupName, group in pairs(soundGroups) do
+		local baseVolume = originalGroupVolumes[groupName]
+			or (AudioIds.Groups and AudioIds.Groups[groupName] and AudioIds.Groups[groupName].Volume)
+			or 1
+		if groupName == "Ambience" or groupName == "MusicGroup" then
+			group.Volume = musicEnabled and baseVolume or 0
+		elseif groupName ~= "Master" then
+			group.Volume = sfxEnabled and baseVolume or 0
+		end
+	end
+
+	for _, container in ipairs({ SoundService, Workspace }) do
+		for _, sound in ipairs(container:GetDescendants()) do
+			if sound:IsA("Sound") and string.find(string.lower(sound.Name), "music", 1, true) then
+				if sound:GetAttribute("SettingsOriginalVolume") == nil then
+					sound:SetAttribute("SettingsOriginalVolume", sound.Volume)
+				end
+				sound.Volume = musicEnabled and (sound:GetAttribute("SettingsOriginalVolume") or 0.5) or 0
+				if musicEnabled and not sound.Playing then
+					pcall(function()
+						sound:Play()
+					end)
+				end
+			end
+		end
 	end
 end
 
@@ -233,6 +281,11 @@ local function ensureSoundEvent()
 end
 
 setupSoundGroups()
+applyAudioSettings()
+
+player:GetAttributeChangedSignal("SettingMusic"):Connect(applyAudioSettings)
+player:GetAttributeChangedSignal("SettingSoundEffects"):Connect(applyAudioSettings)
+player:GetAttributeChangedSignal("SettingSFX"):Connect(applyAudioSettings)
 
 ensureSoundEvent().Event:Connect(function(categoryName, soundName, position)
 	if typeof(position) == "Vector3" then

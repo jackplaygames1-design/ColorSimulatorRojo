@@ -14,7 +14,15 @@ local PetModelUtil = require(Modules:WaitForChild("PetModelUtil"))
 local PetTraits = Modules:FindFirstChild("PetTraits") and require(Modules:FindFirstChild("PetTraits"))
 
 local function getClientSetting(key, defaultValue)
-	local value = player:GetAttribute("Setting" .. key)
+	local aliases = {
+		HidePets = "PetHideMode",
+		LowFX = "LowDetailFX",
+	}
+	local resolvedKey = aliases[key] or key
+	local value = player:GetAttribute("Setting" .. resolvedKey)
+	if type(value) ~= "boolean" and resolvedKey ~= key then
+		value = player:GetAttribute("Setting" .. key)
+	end
 	return type(value) == "boolean" and value or defaultValue
 end
 
@@ -95,6 +103,43 @@ local rebuildOrbitingPets
 local refreshInventoryUI
 local entryMatchesKey
 local isOpen = false
+
+local function applyPetModelHidden(model, hidden)
+	if not model then
+		return
+	end
+	local function setEnabledObjectHidden(object)
+		if object:GetAttribute("PetHideOriginalEnabled") == nil then
+			object:SetAttribute("PetHideOriginalEnabled", object.Enabled)
+		end
+		object.Enabled = hidden and false or (object:GetAttribute("PetHideOriginalEnabled") ~= false)
+	end
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BasePart") or descendant:IsA("Decal") or descendant:IsA("Texture") then
+			if descendant:GetAttribute("PetHideOriginalTransparency") == nil then
+				descendant:SetAttribute("PetHideOriginalTransparency", descendant.Transparency)
+			end
+			descendant.Transparency = hidden and 1 or (descendant:GetAttribute("PetHideOriginalTransparency") or 0)
+		elseif
+			descendant:IsA("ParticleEmitter")
+			or descendant:IsA("Trail")
+			or descendant:IsA("Beam")
+			or descendant:IsA("PointLight")
+			or descendant:IsA("SpotLight")
+			or descendant:IsA("SurfaceLight")
+			or descendant:IsA("Highlight")
+		then
+			setEnabledObjectHidden(descendant)
+		end
+	end
+end
+
+local function applyPetHideMode()
+	local hidden = getClientSetting("PetHideMode", false)
+	for _, entry in ipairs(spawnedPets) do
+		applyPetModelHidden(entry.model, hidden)
+	end
+end
 
 local function getEntryKey(entry)
 	if typeof(entry) == "table" then
@@ -1368,6 +1413,7 @@ function rebuildOrbitingPets()
 			end
 		end
 	end
+	applyPetHideMode()
 end
 
 local petAppearanceConnections = {}
@@ -1605,6 +1651,9 @@ player.CharacterAdded:Connect(function()
 	end
 end)
 
+player:GetAttributeChangedSignal("SettingPetHideMode"):Connect(applyPetHideMode)
+player:GetAttributeChangedSignal("SettingHidePets"):Connect(applyPetHideMode)
+
 player:GetAttributeChangedSignal("ClientHeavyVFXReady"):Connect(function()
 	if player:GetAttribute("ClientHeavyVFXReady") == true and #equippedPets > 0 then
 		rebuildOrbitingPets()
@@ -1694,7 +1743,9 @@ petAtkEvent.OnClientEvent:Connect(function(equippedPetIds, targetObj, colorType)
 				Target = targetObj,
 				Until = os.clock() + 0.95,
 			}
-			createDrainBeam(petModel, targetObj, colorType)
+			if not getClientSetting("LowDetailFX", false) then
+				createDrainBeam(petModel, targetObj, colorType)
+			end
 		end
 	end
 	if temporaryTarget then

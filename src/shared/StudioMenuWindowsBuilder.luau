@@ -4677,17 +4677,17 @@ local function buildRankWindow(modalWindows)
 		content,
 		"CurrentRankHeader",
 		"CURRENT RANK",
-		UDim2.fromScale(0.28, 0.02),
-		UDim2.fromScale(0.44, 0.08),
+		UDim2.fromScale(0.055, 0.02),
+		UDim2.fromScale(0.42, 0.055),
 		24,
-		Enum.TextXAlignment.Center
+		Enum.TextXAlignment.Left
 	).TextColor3 =
 		Color3.fromRGB(90, 140, 210)
 	local badge = conceptPanel(
 		content,
 		"RankBadge",
-		UDim2.fromScale(0.15, 0.17),
-		UDim2.fromScale(0.22, 0.26),
+		UDim2.fromScale(0.055, 0.085),
+		UDim2.fromScale(0.15, 0.18),
 		Color3.fromRGB(239, 248, 255),
 		22,
 		4
@@ -4706,26 +4706,26 @@ local function buildRankWindow(modalWindows)
 		content,
 		"RankName",
 		"RANK I",
-		UDim2.fromScale(0.43, 0.2),
-		UDim2.fromScale(0.4, 0.16),
+		UDim2.fromScale(0.225, 0.095),
+		UDim2.fromScale(0.36, 0.09),
 		54,
-		Enum.TextXAlignment.Center
+		Enum.TextXAlignment.Left
 	)
 
 	conceptLabel(
 		content,
 		"ProgressTitle",
 		"Progress to Next Rank",
-		UDim2.fromScale(0.2, 0.48),
 		UDim2.fromScale(0.6, 0.07),
+		UDim2.fromScale(0.32, 0.055),
 		22,
 		Enum.TextXAlignment.Center
 	)
 	local bar = conceptPanel(
 		content,
 		"ProgressBar",
-		UDim2.fromScale(0.15, 0.57),
-		UDim2.fromScale(0.7, 0.055),
+		UDim2.fromScale(0.58, 0.145),
+		UDim2.fromScale(0.36, 0.05),
 		Color3.fromRGB(255, 255, 255),
 		18,
 		2
@@ -4740,30 +4740,68 @@ local function buildRankWindow(modalWindows)
 		0
 	)
 	fill.BorderSizePixel = 0
-	conceptLabel(content, "ProgressLabel", "0 / 2,500 XP", UDim2.fromScale(0.15, 0.63), UDim2.fromScale(0.3, 0.06), 20)
+	conceptLabel(
+		content,
+		"ProgressLabel",
+		"0 / 2,500 XP",
+		UDim2.fromScale(0.58, 0.205),
+		UDim2.fromScale(0.18, 0.045),
+		20
+	)
 	conceptLabel(
 		content,
 		"ProgressPercent",
 		"0%",
-		UDim2.fromScale(0.7, 0.63),
-		UDim2.fromScale(0.15, 0.06),
+		UDim2.fromScale(0.76, 0.205),
+		UDim2.fromScale(0.18, 0.045),
 		24,
 		Enum.TextXAlignment.Right
 	).TextColor3 =
 		Color3.fromRGB(31, 122, 226)
 
+	local questPanel = conceptPanel(
+		content,
+		"RankQuestPanel",
+		UDim2.fromScale(0.055, 0.31),
+		UDim2.fromScale(0.89, 0.49),
+		Color3.fromRGB(10, 12, 18),
+		12,
+		1
+	)
+	conceptLabel(
+		questPanel,
+		"QuestPanelTitle",
+		"RANK QUESTS",
+		UDim2.fromScale(0.03, 0.025),
+		UDim2.fromScale(0.94, 0.08),
+		18,
+		Enum.TextXAlignment.Left
+	).TextColor3 =
+		Color3.fromRGB(255, 72, 78)
+	local questList = conceptLabel(
+		questPanel,
+		"QuestListText",
+		"[ ] 1. Break 5 Color Spills  0/5\n[ ] 2. Break 3 Color Clumps  0/3\n[ ] 3. Break 1 Color Crate  0/1",
+		UDim2.fromScale(0.03, 0.12),
+		UDim2.fromScale(0.94, 0.84),
+		15,
+		Enum.TextXAlignment.Left
+	)
+	questList.TextYAlignment = Enum.TextYAlignment.Top
+	questList.TextScaled = false
+
 	conceptLabel(
 		content,
 		"PerksTitle",
 		"Unlocked Perks",
-		UDim2.fromScale(0.2, 0.74),
-		UDim2.fromScale(0.6, 0.06),
+		UDim2.fromScale(0.055, 0.815),
+		UDim2.fromScale(0.34, 0.045),
 		22,
-		Enum.TextXAlignment.Center
+		Enum.TextXAlignment.Left
 	)
 	local perks = ensureClass(content, "ScrollingFrame", "Perks")
-	perks.Position = UDim2.fromScale(0.18, 0.82)
-	perks.Size = UDim2.fromScale(0.64, 0.12)
+	perks.Position = UDim2.fromScale(0.055, 0.86)
+	perks.Size = UDim2.fromScale(0.55, 0.105)
 	perks.BackgroundColor3 = Color3.fromRGB(248, 252, 255)
 	perks.BorderSizePixel = 0
 	perks.ScrollBarThickness = 4

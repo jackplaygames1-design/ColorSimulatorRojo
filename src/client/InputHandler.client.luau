@@ -35,7 +35,15 @@ local DEFAULT_HOVER_RANGE = 20
 local pendingCollectPart = nil
 
 local function getClientSetting(key, defaultValue)
-	local value = player:GetAttribute("Setting" .. key)
+	local aliases = {
+		Popups = "ShowDamageNumbers",
+		LowFX = "LowDetailFX",
+	}
+	local resolvedKey = aliases[key] or key
+	local value = player:GetAttribute("Setting" .. resolvedKey)
+	if type(value) ~= "boolean" and resolvedKey ~= key then
+		value = player:GetAttribute("Setting" .. key)
+	end
 	return type(value) == "boolean" and value or defaultValue
 end
 
@@ -233,6 +241,49 @@ end
 local currentHover = nil
 local currentHighlights = {}
 
+local function findBreakableModel(instance)
+	local cursor = instance
+	while cursor and cursor ~= workspace do
+		if cursor:IsA("Model") and cursor:GetAttribute("IsBreakable") == true then
+			return cursor
+		end
+		if cursor:IsA("Model") and cursor:GetAttribute("BreakableId") then
+			return cursor
+		end
+		cursor = cursor.Parent
+	end
+	return nil
+end
+
+local function getBreakableHoverTarget(part)
+	local model = findBreakableModel(part)
+	if model then
+		return model
+	end
+	if part and part:GetAttribute("BreakableType") then
+		return part
+	end
+	return nil
+end
+
+local function getHoverPosition(hoverTarget)
+	if not hoverTarget then
+		return nil
+	end
+	if hoverTarget:IsA("BasePart") then
+		return hoverTarget.Position
+	end
+	if hoverTarget:IsA("Model") then
+		local primary = hoverTarget.PrimaryPart
+		if primary then
+			return primary.Position
+		end
+		local pivot = hoverTarget:GetPivot()
+		return pivot.Position
+	end
+	return nil
+end
+
 local function clearHighlight()
 	for _, hl in ipairs(currentHighlights) do
 		if hl and hl.Parent then
@@ -244,6 +295,9 @@ local function clearHighlight()
 end
 
 local function addHoverHighlight(adornee)
+	if not adornee then
+		return
+	end
 	local hl = Instance.new("Highlight")
 	hl.Name = "HoverHighlight"
 	hl.FillColor = Color3.fromRGB(255, 255, 255)
@@ -252,27 +306,22 @@ local function addHoverHighlight(adornee)
 	hl.OutlineTransparency = 0
 	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	hl.Adornee = adornee
-	hl.Parent = adornee
+	hl.Parent = adornee:IsA("Model") and adornee or adornee
 	table.insert(currentHighlights, hl)
 end
 
-local function setHighlight(part)
-	if currentHover == part then
+local function setHighlight(hoverTarget)
+	if currentHover == hoverTarget then
 		return
 	end
 	clearHighlight()
-	if not part then
+	if not hoverTarget then
 		return
 	end
 
-	addHoverHighlight(part)
-	for _, child in ipairs(part:GetDescendants()) do
-		if child:IsA("BasePart") and child:GetAttribute("PuddleDetail") and child.Transparency < 1 then
-			addHoverHighlight(child)
-		end
-	end
+	addHoverHighlight(hoverTarget)
 
-	currentHover = part
+	currentHover = hoverTarget
 end
 
 -- Update hover every frame
@@ -293,10 +342,12 @@ RunService.Heartbeat:Connect(function()
 	end
 
 	-- Only highlight breakables that are in range
-	if target:GetAttribute("BreakableType") then
-		local dist = (root.Position - target.Position).Magnitude
+	local hoverTarget = getBreakableHoverTarget(target)
+	if hoverTarget then
+		local hoverPosition = getHoverPosition(hoverTarget)
+		local dist = hoverPosition and (root.Position - hoverPosition).Magnitude or math.huge
 		if dist <= getHoverRange() then
-			setHighlight(target)
+			setHighlight(hoverTarget)
 			return
 		end
 	end

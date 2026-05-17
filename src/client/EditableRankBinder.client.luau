@@ -156,9 +156,17 @@ local function ensureButton(parent, name, position, size, text)
 end
 
 local questPanel = ensureFrame(content, "RankQuestPanel", UDim2.fromScale(0.04, 0.72), UDim2.fromScale(0.92, 0.2))
+local questTitle =
+	ensureText(questPanel, "QuestPanelTitle", UDim2.fromScale(0.03, 0.025), UDim2.fromScale(0.94, 0.08), 18)
+questTitle.Text = "RANK QUESTS"
+questTitle.TextColor3 = Color3.fromRGB(255, 72, 78)
+questTitle.TextXAlignment = Enum.TextXAlignment.Left
 local questText = ensureText(questPanel, "QuestListText", UDim2.fromScale(0.03, 0.06), UDim2.fromScale(0.94, 0.88), 13)
 questText.TextXAlignment = Enum.TextXAlignment.Left
 questText.TextYAlignment = Enum.TextYAlignment.Top
+questText.TextScaled = false
+questText.TextSize = 15
+questText.Font = Enum.Font.GothamBold
 local rankUpButton =
 	ensureButton(content, "RankUpButton", UDim2.fromScale(0.16, 0.93), UDim2.fromScale(0.3, 0.055), "RANK UP")
 local rebirthButton =
@@ -221,7 +229,52 @@ local function restoreOriginalLayout(object)
 	end
 end
 
+local function setGuiLayout(object, position, size)
+	if object and object:IsA("GuiObject") then
+		object.Position = position
+		object.Size = size
+	end
+end
+
+local function applyQuestFocusedLayout()
+	local header = content:FindFirstChild("CurrentRankHeader", true)
+	local badge = content:FindFirstChild("RankBadge", true)
+	local progressBar = content:FindFirstChild("ProgressBar", true)
+	local perksTitle = content:FindFirstChild("PerksTitle", true)
+	local perks = content:FindFirstChild("Perks", true)
+
+	setGuiLayout(header, UDim2.fromScale(0.055, 0.02), UDim2.fromScale(0.42, 0.055))
+	setGuiLayout(badge, UDim2.fromScale(0.055, 0.085), UDim2.fromScale(0.15, 0.18))
+	setGuiLayout(ui.RankIconText, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1))
+	setGuiLayout(ui.RankName, UDim2.fromScale(0.225, 0.095), UDim2.fromScale(0.36, 0.09))
+	setGuiLayout(ui.ProgressTitle, UDim2.fromScale(0.6, 0.07), UDim2.fromScale(0.32, 0.055))
+	setGuiLayout(progressBar, UDim2.fromScale(0.58, 0.145), UDim2.fromScale(0.36, 0.05))
+	setGuiLayout(ui.ProgressLabel, UDim2.fromScale(0.58, 0.205), UDim2.fromScale(0.18, 0.045))
+	setGuiLayout(ui.ProgressPercent, UDim2.fromScale(0.76, 0.205), UDim2.fromScale(0.18, 0.045))
+
+	setGuiLayout(questPanel, UDim2.fromScale(0.055, 0.31), UDim2.fromScale(0.89, 0.49))
+	setGuiLayout(questTitle, UDim2.fromScale(0.03, 0.025), UDim2.fromScale(0.94, 0.08))
+	setGuiLayout(questText, UDim2.fromScale(0.03, 0.12), UDim2.fromScale(0.94, 0.84))
+
+	setGuiLayout(perksTitle, UDim2.fromScale(0.055, 0.815), UDim2.fromScale(0.34, 0.045))
+	setGuiLayout(perks, UDim2.fromScale(0.055, 0.86), UDim2.fromScale(0.55, 0.105))
+	setGuiLayout(rankUpButton, UDim2.fromScale(0.64, 0.86), UDim2.fromScale(0.14, 0.07))
+	setGuiLayout(rebirthButton, UDim2.fromScale(0.8, 0.86), UDim2.fromScale(0.14, 0.07))
+
+	if header and header:IsA("TextLabel") then
+		header.TextXAlignment = Enum.TextXAlignment.Left
+	end
+	if ui.RankName then
+		ui.RankName.TextXAlignment = Enum.TextXAlignment.Left
+		ui.RankName.TextScaled = true
+	end
+	if ui.ProgressTitle then
+		ui.ProgressTitle.TextXAlignment = Enum.TextXAlignment.Center
+	end
+end
+
 local function applyMobileRankLayout()
+	applyQuestFocusedLayout()
 	for _, object in ipairs({ ui.PerkCoins, ui.PerkLuck, ui.PerkSlots }) do
 		captureOriginalLayout(object)
 	end
@@ -334,6 +387,7 @@ local function updateFromPayload(payload, replayProgress)
 		return false
 	end
 	latestPayload = payload
+	applyMobileRankLayout()
 
 	local rankLevel = tonumber(payload.RankLevel) or 1
 	local rankName = tostring(payload.RankName or ("Rank " .. tostring(rankLevel)))

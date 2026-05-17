@@ -11,6 +11,11 @@ local Events = ReplicatedStorage:WaitForChild("Events")
 local rewardEvent = Events:WaitForChild("BreakableRewardVFX")
 local announcementEvent = Events:WaitForChild("BreakableAnnouncement")
 
+local function getClientSetting(key, defaultValue)
+	local value = player:GetAttribute("Setting" .. key)
+	return type(value) == "boolean" and value or defaultValue
+end
+
 local function getRoot()
 	local character = player.Character
 	return character and character:FindFirstChild("HumanoidRootPart")
@@ -98,7 +103,7 @@ local function spawnRewardVfx(payload)
 		append(tostring(item.ItemId or "Item"), item.Amount, Color3.fromRGB(170, 80, 255), 1)
 	end
 
-	local maxDrops = 20
+	local maxDrops = getClientSetting("LowDetailFX", false) and 8 or 20
 	for i = 1, math.min(#drops, maxDrops) do
 		local drop = drops[i]
 		local orb = makeOrb(drop.Kind, payload.Position + Vector3.new(0, 2, 0), drop.Color)

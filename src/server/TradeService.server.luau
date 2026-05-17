@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local SettingsData = require(ReplicatedStorage:WaitForChild("SettingsData"))
 local Events = ReplicatedStorage:WaitForChild("Events")
 local dataDirtyEvent = Events:FindFirstChild("PlayerDataDirty")
 
@@ -287,6 +288,9 @@ local function startTrade(player, targetUserId)
 	end
 	if activeSessionByPlayer[target] then
 		return makeState(player, target.Name .. " is already trading.", false)
+	end
+	if not SettingsData.CanReceiveTrades(target) then
+		return makeState(player, "This player has trade requests disabled.", false)
 	end
 
 	nextSessionId += 1

@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -19,6 +20,7 @@ local coreRollRequest = Events:WaitForChild("CoreRollRequest")
 local coreRollResult = Events:WaitForChild("CoreRollResult")
 local coreRollAnnouncement = Events:WaitForChild("CoreRollAnnouncement")
 local coreRollState = Events:WaitForChild("CoreRollState")
+local requestSetSettingEvent = Events:WaitForChild("RequestSetSetting")
 
 local RED_CORE_ID = "RedCore"
 local core = CoreDefinitions.Get(RED_CORE_ID)
@@ -29,6 +31,7 @@ local mutationsUnlocked = player:GetAttribute("MutationsUnlocked") == true
 local oddsOpen = false
 local ROLL_BUTTON_TEXT = "⚄ ROLL"
 local rollRequestSerial = 0
+local autoRolling = false
 
 local coreGui = playerGui:WaitForChild("CoreRNGGui", 10)
 local mainHud = playerGui:FindFirstChild("MainHUD") or coreGui or ClientUIRoot.GetRoot(playerGui)
@@ -131,6 +134,11 @@ local function setButtonText(button, value)
 	end
 end
 
+local function getClientSetting(key, defaultValue)
+	local value = player:GetAttribute("Setting" .. key)
+	return type(value) == "boolean" and value or defaultValue
+end
+
 local function connectButton(button, callback)
 	if not button or not button:IsA("GuiButton") then
 		return
@@ -174,8 +182,12 @@ local function updateCoreStaticText()
 	setText(ui.found, core.FoundText or "8 / 14 Found")
 	setText(ui.cost, "Cost: " .. CoreDefinitions.FormatCost(core))
 	setButtonText(ui.rollButton, ROLL_BUTTON_TEXT)
-	setButtonText(ui.autoButton, "AUTO")
+	setButtonText(ui.autoButton, getClientSetting("AutoHatch", false) and "AUTO ON" or "AUTO")
 	setButtonText(ui.oddsButton, "ODDS")
+end
+
+local function updateAutoButtonText()
+	setButtonText(ui.autoButton, getClientSetting("AutoHatch", false) and "AUTO ON" or "AUTO")
 end
 
 local function updateStatus(message)
@@ -189,6 +201,20 @@ local function updateStatus(message)
 				.. formatNumber(currentCurrencyAmount)
 		)
 	end
+end
+
+local function updateCoreCostFromState(payload)
+	if type(payload) ~= "table" then
+		return
+	end
+	if payload.Cost ~= nil then
+		core.Cost = tonumber(payload.Cost) or core.Cost
+	end
+	if payload.Currency ~= nil then
+		core.Currency = tostring(payload.Currency)
+		core.CurrencyDisplayName = tostring(payload.CurrencyDisplayName or payload.Currency)
+	end
+	setText(ui.cost, "Cost: " .. CoreDefinitions.FormatCost(core))
 end
 
 local function populateOddsPanel()
@@ -284,6 +310,41 @@ local function getRootPart()
 	return character and character:FindFirstChild("HumanoidRootPart")
 end
 
+local function updateCoreWindowPlacement(corePart)
+	if not coreWindow or not corePart then
+		return
+	end
+
+	local camera = Workspace.CurrentCamera
+	if not camera then
+		return
+	end
+
+	local size = coreWindow.AbsoluteSize
+	if size.X <= 0 or size.Y <= 0 then
+		return
+	end
+
+	local worldPosition = corePart.Position + Vector3.new(0, math.max(corePart.Size.Y * 0.5, 2) + 5, 0)
+	local viewportPoint, onScreen = camera:WorldToViewportPoint(worldPosition)
+	local viewportSize = camera.ViewportSize
+	local margin = 16
+	local leftHudSafeX = 285
+
+	local x = viewportPoint.X
+	local y = viewportPoint.Y - 18
+	if not onScreen then
+		x = viewportSize.X * 0.62
+		y = viewportSize.Y * 0.45
+	end
+
+	x = math.clamp(x, math.max(size.X * 0.5 + margin, leftHudSafeX), viewportSize.X - size.X * 0.5 - margin)
+	y = math.clamp(y, size.Y + margin, viewportSize.Y - 118)
+
+	coreWindow.AnchorPoint = Vector2.new(0.5, 1)
+	coreWindow.Position = UDim2.fromOffset(math.floor(x + 0.5), math.floor(y + 0.5))
+end
+
 local function updateCoreWindowVisibility()
 	if not coreWindow then
 		return
@@ -300,6 +361,9 @@ local function updateCoreWindowVisibility()
 	local visible = false
 	if root then
 		visible = (root.Position - corePart.Position).Magnitude <= (tonumber(core.InteractionRadius) or 28)
+	end
+	if visible then
+		updateCoreWindowPlacement(corePart)
 	end
 	setGuiVisible(coreWindow, visible)
 	if not visible then
@@ -449,7 +513,7 @@ setGuiVisible(coreWindow, false)
 setGuiVisible(hatchReveal, false)
 setGuiVisible(ui.oddsPanel, false)
 
-connectButton(ui.rollButton, function()
+local function requestRoll()
 	if rollBusy then
 		return
 	end
@@ -467,10 +531,45 @@ connectButton(ui.rollButton, function()
 			updateStatus("No response. Try rolling again.")
 		end
 	end)
-end)
+end
+
+local function stopAutoRoll()
+	autoRolling = false
+	updateAutoButtonText()
+end
+
+local function startAutoRoll()
+	if autoRolling then
+		return
+	end
+	autoRolling = true
+	updateAutoButtonText()
+	task.spawn(function()
+		while autoRolling and getClientSetting("AutoHatch", false) do
+			if not coreWindow or coreWindow.Visible ~= true then
+				break
+			end
+			if not rollBusy then
+				requestRoll()
+			end
+			task.wait(1.25)
+		end
+		stopAutoRoll()
+	end)
+end
+
+connectButton(ui.rollButton, requestRoll)
 
 connectButton(ui.autoButton, function()
-	updateStatus("Auto rolling is coming soon.")
+	local nextValue = not getClientSetting("AutoHatch", false)
+	requestSetSettingEvent:FireServer("AutoHatch", nextValue)
+	if nextValue then
+		updateStatus("Auto rolling...")
+		startAutoRoll()
+	else
+		updateStatus("Auto rolling stopped.")
+		stopAutoRoll()
+	end
 end)
 
 connectButton(ui.oddsButton, function()
@@ -483,11 +582,20 @@ coreRollState.OnClientEvent:Connect(function(payload)
 		return
 	end
 	currentCurrencyAmount = tonumber(payload.Amount) or currentCurrencyAmount
+	updateCoreCostFromState(payload)
 	if payload.MutationsUnlocked ~= nil then
 		mutationsUnlocked = payload.MutationsUnlocked == true
 		populateOddsPanel()
 	end
 	updateStatus(payload.Message)
+	updateAutoButtonText()
+end)
+
+player:GetAttributeChangedSignal("SettingAutoHatch"):Connect(function()
+	updateAutoButtonText()
+	if not getClientSetting("AutoHatch", false) then
+		stopAutoRoll()
+	end
 end)
 
 player:GetAttributeChangedSignal("MutationsUnlocked"):Connect(function()
