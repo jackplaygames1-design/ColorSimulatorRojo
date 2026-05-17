@@ -1,0 +1,805 @@
+{
+  "className": "Folder",
+  "properties": {
+    "Name": "BreakableAssetLibrary",
+    "Attributes": {
+      "EditableBreakableLibrary": {
+        "Bool": true
+      },
+      "SpawnSourceOnly": {
+        "Bool": true
+      }
+    }
+  },
+  "children": [
+    {
+      "className": "Folder",
+      "properties": {
+        "Name": "Breakables"
+      },
+      "children": [
+        {
+          "className": "Model",
+          "properties": {
+            "Name": "ColorSpill"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "Puddle",
+                "Position": [-40, -500, 0],
+                "Shape": "Ball",
+                "Size": [5, 0.36, 4],
+                "Transparency": 0
+              },
+              "children": [
+                {
+                  "className": "BillboardGui",
+                  "properties": {
+                    "AlwaysOnTop": true,
+                    "Enabled": false,
+                    "MaxDistance": 115,
+                    "Name": "HealthBar",
+                    "Size": {
+                      "UDim2": [[0, 150], [0, 48]]
+                    },
+                    "StudsOffsetWorldSpace": [0, 2.6, 0]
+                  },
+                  "children": [
+                    {
+                      "className": "Frame",
+                      "properties": {
+                        "BackgroundTransparency": 1,
+                        "Name": "Root",
+                        "Size": {
+                          "UDim2": [[1, 0], [1, 0]]
+                        }
+                      },
+                      "children": [
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBlack",
+                            "Name": "NameLabel",
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 19]]
+                            },
+                            "Text": "Color Spill",
+                            "TextColor3": [1, 1, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.35
+                          }
+                        },
+                        {
+                          "className": "Frame",
+                          "properties": {
+                            "BackgroundColor3": [0.039216, 0.039216, 0.054902],
+                            "BorderSizePixel": 0,
+                            "Name": "BarBack",
+                            "Position": {
+                              "UDim2": [[0.08, 0], [0, 22]]
+                            },
+                            "Size": {
+                              "UDim2": [[0.84, 0], [0, 10]]
+                            }
+                          },
+                          "children": [
+                            {
+                              "className": "Frame",
+                              "properties": {
+                                "BackgroundColor3": [0.921569, 0.137255, 0.12549],
+                                "BorderSizePixel": 0,
+                                "Name": "Fill",
+                                "Size": {
+                                  "UDim2": [[1, 0], [1, 0]]
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBold",
+                            "Name": "HealthText",
+                            "Position": {
+                              "UDim2": [[0, 0], [0, 34]]
+                            },
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 13]]
+                            },
+                            "Text": "50 / 50",
+                            "TextColor3": [0.921569, 0.941176, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.5
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "className": "Model",
+          "properties": {
+            "Name": "ColorClump"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "Blob",
+                "Position": [-24, -498.4, 0],
+                "Shape": "Ball",
+                "Size": [4, 3.2, 4]
+              },
+              "children": [
+                {
+                  "className": "BillboardGui",
+                  "properties": {
+                    "AlwaysOnTop": true,
+                    "Enabled": false,
+                    "MaxDistance": 115,
+                    "Name": "HealthBar",
+                    "Size": {
+                      "UDim2": [[0, 150], [0, 48]]
+                    },
+                    "StudsOffsetWorldSpace": [0, 4.2, 0]
+                  },
+                  "children": [
+                    {
+                      "className": "Frame",
+                      "properties": {
+                        "BackgroundTransparency": 1,
+                        "Name": "Root",
+                        "Size": {
+                          "UDim2": [[1, 0], [1, 0]]
+                        }
+                      },
+                      "children": [
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBlack",
+                            "Name": "NameLabel",
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 19]]
+                            },
+                            "Text": "Color Clump",
+                            "TextColor3": [1, 1, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.35
+                          }
+                        },
+                        {
+                          "className": "Frame",
+                          "properties": {
+                            "BackgroundColor3": [0.039216, 0.039216, 0.054902],
+                            "BorderSizePixel": 0,
+                            "Name": "BarBack",
+                            "Position": {
+                              "UDim2": [[0.08, 0], [0, 22]]
+                            },
+                            "Size": {
+                              "UDim2": [[0.84, 0], [0, 10]]
+                            }
+                          },
+                          "children": [
+                            {
+                              "className": "Frame",
+                              "properties": {
+                                "BackgroundColor3": [0.921569, 0.137255, 0.12549],
+                                "BorderSizePixel": 0,
+                                "Name": "Fill",
+                                "Size": {
+                                  "UDim2": [[1, 0], [1, 0]]
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBold",
+                            "Name": "HealthText",
+                            "Position": {
+                              "UDim2": [[0, 0], [0, 34]]
+                            },
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 13]]
+                            },
+                            "Text": "150 / 150",
+                            "TextColor3": [0.921569, 0.941176, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.5
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "className": "Model",
+          "properties": {
+            "Name": "ColorCrate"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "CrateBody",
+                "Position": [-8, -497.75, 0],
+                "Size": [5, 4.5, 5]
+              },
+              "children": [
+                {
+                  "className": "BillboardGui",
+                  "properties": {
+                    "AlwaysOnTop": true,
+                    "Enabled": false,
+                    "MaxDistance": 115,
+                    "Name": "HealthBar",
+                    "Size": {
+                      "UDim2": [[0, 150], [0, 48]]
+                    },
+                    "StudsOffsetWorldSpace": [0, 4.8, 0]
+                  },
+                  "children": [
+                    {
+                      "className": "Frame",
+                      "properties": {
+                        "BackgroundTransparency": 1,
+                        "Name": "Root",
+                        "Size": {
+                          "UDim2": [[1, 0], [1, 0]]
+                        }
+                      },
+                      "children": [
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBlack",
+                            "Name": "NameLabel",
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 19]]
+                            },
+                            "Text": "Color Crate",
+                            "TextColor3": [1, 1, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.35
+                          }
+                        },
+                        {
+                          "className": "Frame",
+                          "properties": {
+                            "BackgroundColor3": [0.039216, 0.039216, 0.054902],
+                            "BorderSizePixel": 0,
+                            "Name": "BarBack",
+                            "Position": {
+                              "UDim2": [[0.08, 0], [0, 22]]
+                            },
+                            "Size": {
+                              "UDim2": [[0.84, 0], [0, 10]]
+                            }
+                          },
+                          "children": [
+                            {
+                              "className": "Frame",
+                              "properties": {
+                                "BackgroundColor3": [0.921569, 0.137255, 0.12549],
+                                "BorderSizePixel": 0,
+                                "Name": "Fill",
+                                "Size": {
+                                  "UDim2": [[1, 0], [1, 0]]
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBold",
+                            "Name": "HealthText",
+                            "Position": {
+                              "UDim2": [[0, 0], [0, 34]]
+                            },
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 13]]
+                            },
+                            "Text": "400 / 400",
+                            "TextColor3": [0.921569, 0.941176, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.5
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "ColorBand",
+                "Position": [-8, -496.1, -2.75],
+                "Size": [5.4, 0.35, 0.35]
+              }
+            },
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "ColorBand",
+                "Position": [-8, -499.4, -2.75],
+                "Size": [5.4, 0.35, 0.35]
+              }
+            }
+          ]
+        },
+        {
+          "className": "Model",
+          "properties": {
+            "Name": "ColorChest"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "ChestBody",
+                "Position": [10, -498, 0],
+                "Size": [7, 4, 5]
+              },
+              "children": [
+                {
+                  "className": "BillboardGui",
+                  "properties": {
+                    "AlwaysOnTop": true,
+                    "Enabled": false,
+                    "MaxDistance": 115,
+                    "Name": "HealthBar",
+                    "Size": {
+                      "UDim2": [[0, 150], [0, 48]]
+                    },
+                    "StudsOffsetWorldSpace": [0, 4.4, 0]
+                  },
+                  "children": [
+                    {
+                      "className": "Frame",
+                      "properties": {
+                        "BackgroundTransparency": 1,
+                        "Name": "Root",
+                        "Size": {
+                          "UDim2": [[1, 0], [1, 0]]
+                        }
+                      },
+                      "children": [
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBlack",
+                            "Name": "NameLabel",
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 19]]
+                            },
+                            "Text": "Color Chest",
+                            "TextColor3": [1, 1, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.35
+                          }
+                        },
+                        {
+                          "className": "Frame",
+                          "properties": {
+                            "BackgroundColor3": [0.039216, 0.039216, 0.054902],
+                            "BorderSizePixel": 0,
+                            "Name": "BarBack",
+                            "Position": {
+                              "UDim2": [[0.08, 0], [0, 22]]
+                            },
+                            "Size": {
+                              "UDim2": [[0.84, 0], [0, 10]]
+                            }
+                          },
+                          "children": [
+                            {
+                              "className": "Frame",
+                              "properties": {
+                                "BackgroundColor3": [0.921569, 0.137255, 0.12549],
+                                "BorderSizePixel": 0,
+                                "Name": "Fill",
+                                "Size": {
+                                  "UDim2": [[1, 0], [1, 0]]
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBold",
+                            "Name": "HealthText",
+                            "Position": {
+                              "UDim2": [[0, 0], [0, 34]]
+                            },
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 13]]
+                            },
+                            "Text": "1200 / 1200",
+                            "TextColor3": [0.921569, 0.941176, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.5
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "ChestLid",
+                "Position": [10, -495.6, 0],
+                "Size": [7.4, 1.3, 5.4]
+              }
+            },
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "ColorLatch",
+                "Position": [10, -497.8, -2.68],
+                "Size": [1.2, 1.2, 0.35]
+              }
+            }
+          ]
+        },
+        {
+          "className": "Model",
+          "properties": {
+            "Name": "HugeColorChest"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "ChestBody",
+                "Position": [30, -496.4, 0],
+                "Size": [12.6, 7.2, 9]
+              },
+              "children": [
+                {
+                  "className": "BillboardGui",
+                  "properties": {
+                    "AlwaysOnTop": true,
+                    "Enabled": false,
+                    "MaxDistance": 115,
+                    "Name": "HealthBar",
+                    "Size": {
+                      "UDim2": [[0, 150], [0, 48]]
+                    },
+                    "StudsOffsetWorldSpace": [0, 6, 0]
+                  },
+                  "children": [
+                    {
+                      "className": "Frame",
+                      "properties": {
+                        "BackgroundTransparency": 1,
+                        "Name": "Root",
+                        "Size": {
+                          "UDim2": [[1, 0], [1, 0]]
+                        }
+                      },
+                      "children": [
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBlack",
+                            "Name": "NameLabel",
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 19]]
+                            },
+                            "Text": "Huge Color Chest",
+                            "TextColor3": [1, 1, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.35
+                          }
+                        },
+                        {
+                          "className": "Frame",
+                          "properties": {
+                            "BackgroundColor3": [0.039216, 0.039216, 0.054902],
+                            "BorderSizePixel": 0,
+                            "Name": "BarBack",
+                            "Position": {
+                              "UDim2": [[0.08, 0], [0, 22]]
+                            },
+                            "Size": {
+                              "UDim2": [[0.84, 0], [0, 10]]
+                            }
+                          },
+                          "children": [
+                            {
+                              "className": "Frame",
+                              "properties": {
+                                "BackgroundColor3": [0.921569, 0.137255, 0.12549],
+                                "BorderSizePixel": 0,
+                                "Name": "Fill",
+                                "Size": {
+                                  "UDim2": [[1, 0], [1, 0]]
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBold",
+                            "Name": "HealthText",
+                            "Position": {
+                              "UDim2": [[0, 0], [0, 34]]
+                            },
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 13]]
+                            },
+                            "Text": "5000 / 5000",
+                            "TextColor3": [0.921569, 0.941176, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.5
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "ChestLid",
+                "Position": [30, -492.08, 0],
+                "Size": [13.32, 2.34, 9.72]
+              }
+            },
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "ColorLatch",
+                "Position": [30, -496.04, -4.82],
+                "Size": [2.16, 2.16, 0.63]
+              }
+            }
+          ]
+        },
+        {
+          "className": "Model",
+          "properties": {
+            "Name": "GiantColorCoreChest"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "CoreBase",
+                "Position": [55, -499, 0],
+                "Size": [10, 2, 10]
+              },
+              "children": [
+                {
+                  "className": "BillboardGui",
+                  "properties": {
+                    "AlwaysOnTop": true,
+                    "Enabled": false,
+                    "MaxDistance": 115,
+                    "Name": "HealthBar",
+                    "Size": {
+                      "UDim2": [[0, 150], [0, 48]]
+                    },
+                    "StudsOffsetWorldSpace": [0, 8, 0]
+                  },
+                  "children": [
+                    {
+                      "className": "Frame",
+                      "properties": {
+                        "BackgroundTransparency": 1,
+                        "Name": "Root",
+                        "Size": {
+                          "UDim2": [[1, 0], [1, 0]]
+                        }
+                      },
+                      "children": [
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBlack",
+                            "Name": "NameLabel",
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 19]]
+                            },
+                            "Text": "Giant Color Core Chest",
+                            "TextColor3": [1, 1, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.35
+                          }
+                        },
+                        {
+                          "className": "Frame",
+                          "properties": {
+                            "BackgroundColor3": [0.039216, 0.039216, 0.054902],
+                            "BorderSizePixel": 0,
+                            "Name": "BarBack",
+                            "Position": {
+                              "UDim2": [[0.08, 0], [0, 22]]
+                            },
+                            "Size": {
+                              "UDim2": [[0.84, 0], [0, 10]]
+                            }
+                          },
+                          "children": [
+                            {
+                              "className": "Frame",
+                              "properties": {
+                                "BackgroundColor3": [0.921569, 0.137255, 0.12549],
+                                "BorderSizePixel": 0,
+                                "Name": "Fill",
+                                "Size": {
+                                  "UDim2": [[1, 0], [1, 0]]
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "className": "TextLabel",
+                          "properties": {
+                            "BackgroundTransparency": 1,
+                            "Font": "GothamBold",
+                            "Name": "HealthText",
+                            "Position": {
+                              "UDim2": [[0, 0], [0, 34]]
+                            },
+                            "Size": {
+                              "UDim2": [[1, 0], [0, 13]]
+                            },
+                            "Text": "25000 / 25000",
+                            "TextColor3": [0.921569, 0.941176, 1],
+                            "TextScaled": true,
+                            "TextStrokeTransparency": 0.5
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "CastShadow": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "Neon",
+                "Name": "CoreOrb",
+                "Position": [55, -494, 0],
+                "Shape": "Ball",
+                "Size": [8, 8, 8]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

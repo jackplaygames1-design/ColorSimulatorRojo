@@ -78,6 +78,11 @@ local PANEL_WIDTH = 650
 local PANEL_HEIGHT = 430
 local CLIENT_HATCH_REQUEST_COOLDOWN = math.max(0.85, tonumber(GameBalance.FastHatchCooldown) or 1.25)
 
+local function isLegacyEggHatchingDisabled()
+	local coreConfig = GameBalance.CoreRNG or {}
+	return coreConfig.Enabled ~= false and coreConfig.DisableLegacyEggHatching == true
+end
+
 local RARITY_COLOR = {
 	Common = Color3.fromRGB(150, 150, 160),
 	Uncommon = Color3.fromRGB(70, 190, 95),
@@ -2664,6 +2669,12 @@ closeBtn.MouseButton1Click:Connect(function()
 end)
 
 local function requestHatch(eggId, fromAutoHatch)
+	if isLegacyEggHatchingDisabled() then
+		autoHatchEnabled = false
+		showError("USE THE RED CORE")
+		return false
+	end
+
 	local now = os.clock()
 	if now < hatchInputLockedUntil then
 		return false
@@ -2720,6 +2731,11 @@ local function hookProximityPrompt(obj)
 			or obj.ObjectText == "Starter Egg"
 		)
 	then
+		if isLegacyEggHatchingDisabled() then
+			obj.Enabled = false
+			obj:SetAttribute("EggShopClientHooked", true)
+			return
+		end
 		if obj:GetAttribute("EggShopClientHooked") == true then
 			return
 		end

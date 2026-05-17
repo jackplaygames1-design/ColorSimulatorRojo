@@ -132,11 +132,11 @@ local function findNumberValue(parent, name)
 		return nil
 	end
 	local direct = parent:FindFirstChild(name)
-	if direct and direct:IsA("ValueBase") and typeof(direct.Value) == "number" then
+	if direct and (direct:IsA("IntValue") or direct:IsA("NumberValue")) then
 		return direct
 	end
 	for _, descendant in ipairs(parent:GetDescendants()) do
-		if descendant.Name == name and descendant:IsA("ValueBase") and typeof(descendant.Value) == "number" then
+		if descendant.Name == name and (descendant:IsA("IntValue") or descendant:IsA("NumberValue")) then
 			return descendant
 		end
 	end
@@ -145,10 +145,24 @@ end
 
 local function getCurrencyValue(player, currencyName)
 	currencyName = tostring(currencyName or "Red")
+	local leaderstats = player:FindFirstChild("leaderstats") or player:WaitForChild("leaderstats", 5)
+
+	if currencyName == "Coins" or currencyName == "Coin" then
+		local coins = findNumberValue(leaderstats, "Coins") or findNumberValue(leaderstats, "Coin")
+		if coins then
+			return coins
+		end
+	elseif currencyName == "Gems" or currencyName == "Diamonds" then
+		local gems = findNumberValue(leaderstats, "Gems") or findNumberValue(leaderstats, "Diamonds")
+		if gems then
+			return gems
+		end
+	end
+
 	local folders = {
 		player:FindFirstChild("ColorCurrencies"),
 		player:FindFirstChild("Currencies"),
-		player:FindFirstChild("leaderstats"),
+		leaderstats,
 		player:FindFirstChild("ColorStorage"),
 		player,
 	}
@@ -161,7 +175,6 @@ local function getCurrencyValue(player, currencyName)
 	end
 
 	if currencyName == "Red" then
-		local leaderstats = player:FindFirstChild("leaderstats")
 		local coins = findNumberValue(leaderstats, "Coins")
 		if coins then
 			return coins
@@ -301,6 +314,10 @@ local function rollCore(player, coreId)
 	local coreOverride = config[core.CoreId] or {}
 	local cost = tonumber(coreOverride.Cost) or tonumber(core.Cost) or 0
 	core.Cost = cost
+	if coreOverride.Currency ~= nil then
+		core.Currency = tostring(coreOverride.Currency)
+		core.CurrencyDisplayName = tostring(coreOverride.CurrencyDisplayName or coreOverride.Currency)
+	end
 
 	local now = os.clock()
 	if now - (lastRollAt[player] or 0) < 0.45 then

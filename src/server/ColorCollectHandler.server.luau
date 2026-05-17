@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 local DEBUG_LOGS = RunService:IsStudio()
 
+local BreakableService = require(script.Parent:WaitForChild("BreakableService"))
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
 local ColorEffectHandler = require(script.Parent:WaitForChild("ColorEffectHandler"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
@@ -463,6 +464,36 @@ local function isGroundContamination(part)
 			part:GetAttribute("GroundContamination") == true
 			or part:GetAttribute("BreakableType") == "GroundContamination"
 		)
+end
+
+local function findHealthBreakableModel(instance)
+	local cursor = instance
+	while cursor and cursor ~= workspace do
+		if cursor:IsA("Model") and cursor:GetAttribute("BreakableId") and cursor:GetAttribute("Alive") == true then
+			return cursor
+		end
+		cursor = cursor.Parent
+	end
+	return nil
+end
+
+local function getBrushBreakableDamage(player, toolConfig, toolStats)
+	local breakableConfig = (GameBalance.Breakables and GameBalance.Breakables.Brush) or {}
+	local damage = tonumber(breakableConfig.BaseDamage) or 55
+	damage *= math.max(tonumber(toolStats.CollectPowerMultiplier) or tonumber(toolConfig.PowerMultiplier) or 1, 0)
+	damage *= math.max(tonumber(toolStats.BrushPower) or 1, 0.1)
+
+	local upgrades = player:FindFirstChild("Upgrades")
+	local playerPower = upgrades and upgrades:FindFirstChild("PlayerPower")
+	if playerPower then
+		damage *= math.max(tonumber(playerPower.Value) or 1, 0.1)
+	end
+	local brushPower = upgrades and upgrades:FindFirstChild("BrushPower")
+	if brushPower then
+		damage *= math.max(tonumber(brushPower.Value) or 1, 0.1)
+	end
+
+	return math.clamp(math.floor(damage + 0.5), 1, tonumber(breakableConfig.MaxDamagePerHit) or 350)
 end
 
 local function resolveGroundBrushPosition(player, root, range, groundPayload)
@@ -1160,21 +1191,53 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 				if isGroundContamination(part) then
 					continue
 				end
-				local inRange = mode == "walk" and isInsideWalkPickup(player, part, range)
-					or isInsideToolSweep(player, part, range, width)
+				local healthBreakable = findHealthBreakableModel(part)
+				local rangePart = healthBreakable and healthBreakable.PrimaryPart or part
+				if healthBreakable and seen[healthBreakable] then
+					continue
+				end
+				if healthBreakable then
+					seen[healthBreakable] = true
+				end
+
+				local inRange
+				if healthBreakable and root and rangePart then
+					inRange = mode == "walk" and isInsideWalkPickup(player, rangePart, range)
+						or ((rangePart.Position - root.Position).Magnitude <= range + 4)
+				else
+					inRange = mode == "walk" and isInsideWalkPickup(player, rangePart, range)
+						or isInsideToolSweep(player, rangePart, range, width)
+				end
 				if inRange then
-					markPetPriorityTarget(player, part)
-					local ok, awarded, message = collectBreakable(player, part, {
-						maxRange = range,
-						skipCooldown = true,
-						powerMultiplier = toolStats.CollectPowerMultiplier or toolConfig.PowerMultiplier or 1,
-						source = "brush",
-						mode = mode,
-					})
-					lastMessage = message or lastMessage
-					if ok and awarded > 0 then
-						collected += 1
-						total += awarded
+					if healthBreakable then
+						markPetPriorityTarget(player, rangePart)
+						local damage = getBrushBreakableDamage(player, toolConfig, toolStats)
+						local damaged, broken = BreakableService.DamageBreakable(player, healthBreakable, damage)
+						if damaged then
+							collected += 1
+							lastMessage = broken and "Color broken!" or "Color damaged."
+							reportDailyQuestProgress(player, "BrushUses", 1)
+							if broken then
+								reportDailyQuestProgress(player, "ColorSpillsCleaned", 1)
+								if healthBreakable:GetAttribute("ColorType") == "Red" then
+									reportDailyQuestProgress(player, "RedWastelandsSpillsCleaned", 1)
+								end
+							end
+						end
+					else
+						markPetPriorityTarget(player, part)
+						local ok, awarded, message = collectBreakable(player, part, {
+							maxRange = range,
+							skipCooldown = true,
+							powerMultiplier = toolStats.CollectPowerMultiplier or toolConfig.PowerMultiplier or 1,
+							source = "brush",
+							mode = mode,
+						})
+						lastMessage = message or lastMessage
+						if ok and awarded > 0 then
+							collected += 1
+							total += awarded
+						end
 					end
 				end
 			end
@@ -1189,9 +1252,9 @@ paintSweepEvent.OnServerEvent:Connect(function(player, toolId, candidates, mode,
 	total += activeAwarded
 	total += procAwarded
 
-	local success = total > 0
+	local success = total > 0 or collected > 0
 	if DEBUG_LOGS and success then
-		print(string.format("PaintToolSweep: %s broke %d legacy blobs for %d Coins", player.Name, collected, total))
+		print(string.format("PaintToolSweep: %s hit %d breakables for %d Coins", player.Name, collected, total))
 	end
 	paintSweepEvent:FireClient(player, {
 		success = success,

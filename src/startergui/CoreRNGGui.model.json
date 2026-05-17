@@ -270,7 +270,7 @@
                 "Size": {
                   "UDim2": [[0, 128], [0, 42]]
                 },
-                "Text": "ROLL",
+                "Text": "⚄ ROLL",
                 "TextColor3": [1, 1, 1],
                 "TextScaled": true,
                 "ZIndex": 204

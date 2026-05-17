@@ -14,96 +14,64 @@ end
 
 local rng = Random.new()
 local spawnQueues = {}
-local DARK_FLOOR_MATERIAL = Enum.Material.Ground
+local missingAuthoringWarnings = {}
 
-local function ensureFolder(parent, name)
-	local folder = parent:FindFirstChild(name)
-	if not folder then
-		folder = Instance.new("Folder")
-		folder.Name = name
-		folder.Parent = parent
+local function warnMissing(key, message)
+	if missingAuthoringWarnings[key] then
+		return
 	end
-	return folder
+	missingAuthoringWarnings[key] = true
+	warn(message)
 end
 
-local function ensureZone(zoneDefinition)
-	local zonesRoot = ensureFolder(Workspace, "Zones")
-	local zoneFolder = ensureFolder(zonesRoot, zoneDefinition.FolderName or zoneDefinition.ZoneId)
-	zoneFolder:SetAttribute("ZoneId", zoneDefinition.ZoneId)
-	zoneFolder:SetAttribute("WorldZoneId", zoneDefinition.WorldZoneId)
-	zoneFolder:SetAttribute("LocationId", zoneDefinition.LocationId)
-	zoneFolder:SetAttribute("ColorType", zoneDefinition.ColorType)
-	zoneFolder:SetAttribute("GeneratedFromSectorTemplate", true)
-
-	local floorFolder = ensureFolder(zoneFolder, "Floor")
-	local gameplayFolder = ensureFolder(zoneFolder, "Gameplay")
-	ensureFolder(zoneFolder, "Decor")
-	ensureFolder(zoneFolder, "Gates")
-	ensureFolder(zoneFolder, "Boundaries")
-
-	local baseFloor = floorFolder:FindFirstChild("BaseFloor")
-	if not baseFloor or not baseFloor:IsA("BasePart") then
-		if baseFloor then
-			baseFloor:Destroy()
-		end
-		baseFloor = Instance.new("Part")
-		baseFloor.Name = "BaseFloor"
-		baseFloor.Anchored = true
-		baseFloor.CanCollide = true
-		baseFloor.CanTouch = false
-		baseFloor.CanQuery = true
-		baseFloor.Material = DARK_FLOOR_MATERIAL
-		baseFloor.Color = zoneDefinition.BaseFloorColor or Color3.fromRGB(8, 8, 10)
-		baseFloor.Size = zoneDefinition.FloorSize or Vector3.new(307, 1, 314)
-		baseFloor.CFrame = zoneDefinition.SpawnAreaCFrame * CFrame.new(0, -4.5, 0)
-		baseFloor:SetAttribute("GeneratedSectorFloor", true)
-		baseFloor:SetAttribute("GroundPaintIgnore", true)
-		baseFloor:SetAttribute("ZoneId", zoneDefinition.WorldZoneId or zoneDefinition.ZoneId)
-		baseFloor:SetAttribute("ColorType", zoneDefinition.ColorType)
-		baseFloor.Parent = floorFolder
+local function getAuthoredZone(zoneDefinition)
+	local zonesRoot = Workspace:FindFirstChild("Zones")
+	if not zonesRoot then
+		warnMissing("ZonesRoot", "BreakableSpawner: missing editable Workspace.Zones folder.")
+		return nil, nil, nil
 	end
 
-	local spawnPart = gameplayFolder:FindFirstChild(zoneDefinition.SpawnPartName or (zoneDefinition.ZoneId .. "Spawn"))
-	if not spawnPart or not spawnPart:IsA("BasePart") then
-		if spawnPart then
-			spawnPart:Destroy()
-		end
-		spawnPart = Instance.new("Part")
-		spawnPart.Name = zoneDefinition.SpawnPartName or (zoneDefinition.ZoneId .. "Spawn")
-		spawnPart.Anchored = true
-		spawnPart.CanCollide = false
-		spawnPart.CanTouch = false
-		spawnPart.CanQuery = false
-		spawnPart.Transparency = 1
-		spawnPart.Size = Vector3.new(6, 1, 6)
-		spawnPart.CFrame = zoneDefinition.SpawnAreaCFrame
-			* CFrame.new(0, -3.2, -((zoneDefinition.SpawnAreaSize.Z * 0.5) - 26))
-		spawnPart:SetAttribute("ZoneId", zoneDefinition.WorldZoneId or zoneDefinition.ZoneId)
-		spawnPart:SetAttribute("ColorType", zoneDefinition.ColorType)
-		spawnPart.Parent = gameplayFolder
+	local folderName = zoneDefinition.FolderName or zoneDefinition.ZoneId
+	local zoneFolder = zonesRoot:FindFirstChild(folderName)
+	if not zoneFolder or not zoneFolder:IsA("Folder") then
+		warnMissing(
+			"Zone:" .. tostring(folderName),
+			("BreakableSpawner: missing editable Workspace.Zones.%s folder."):format(tostring(folderName))
+		)
+		return nil, nil, nil
 	end
 
 	local spawnArea = zoneFolder:FindFirstChild(zoneDefinition.SpawnAreaName, true)
 	if not spawnArea or not spawnArea:IsA("BasePart") then
-		if spawnArea then
-			spawnArea:Destroy()
-		end
-		spawnArea = Instance.new("Part")
-		spawnArea.Name = zoneDefinition.SpawnAreaName
-		spawnArea.Anchored = true
-		spawnArea.CanCollide = false
-		spawnArea.CanTouch = false
-		spawnArea.CanQuery = false
-		spawnArea.Transparency = 1
-		spawnArea.Size = zoneDefinition.SpawnAreaSize
-		spawnArea.CFrame = zoneDefinition.SpawnAreaCFrame
-		spawnArea.Color = zoneDefinition.SpawnAreaColor
-		spawnArea:SetAttribute("GeneratedBreakableSpawnArea", true)
-		spawnArea:SetAttribute("ZoneId", zoneDefinition.WorldZoneId or zoneDefinition.ZoneId)
-		spawnArea:SetAttribute("ColorType", zoneDefinition.ColorType)
-		spawnArea.Parent = gameplayFolder
+		warnMissing(
+			"SpawnArea:" .. tostring(folderName),
+			("BreakableSpawner: missing editable %s.%s BasePart."):format(
+				zoneFolder:GetFullName(),
+				tostring(zoneDefinition.SpawnAreaName)
+			)
+		)
+		return nil, nil, nil
 	end
-	local breakables = ensureFolder(zoneFolder, zoneDefinition.BreakablesFolderName)
+
+	local breakables = zoneFolder:FindFirstChild(zoneDefinition.BreakablesFolderName)
+	if not breakables or not breakables:IsA("Folder") then
+		warnMissing(
+			"Breakables:" .. tostring(folderName),
+			("BreakableSpawner: missing editable %s.%s folder."):format(
+				zoneFolder:GetFullName(),
+				tostring(zoneDefinition.BreakablesFolderName)
+			)
+		)
+		return nil, nil, nil
+	end
+
+	zoneFolder:SetAttribute("ZoneId", zoneDefinition.ZoneId)
+	zoneFolder:SetAttribute("WorldZoneId", zoneDefinition.WorldZoneId)
+	zoneFolder:SetAttribute("LocationId", zoneDefinition.LocationId)
+	zoneFolder:SetAttribute("ColorType", zoneDefinition.ColorType)
+	spawnArea:SetAttribute("ZoneId", zoneDefinition.WorldZoneId or zoneDefinition.ZoneId)
+	spawnArea:SetAttribute("ColorType", zoneDefinition.ColorType)
+
 	return zoneFolder, spawnArea, breakables
 end
 
@@ -205,7 +173,7 @@ end)
 
 for _, zoneId in ipairs(ZoneDefinitions.Order) do
 	spawnQueues[zoneId] = {}
-	ensureZone(ZoneDefinitions.Get(zoneId))
+	getAuthoredZone(ZoneDefinitions.Get(zoneId))
 end
 
 task.spawn(function()
@@ -213,7 +181,10 @@ task.spawn(function()
 	while true do
 		for _, zoneId in ipairs(ZoneDefinitions.Order) do
 			local zoneDefinition = ZoneDefinitions.Get(zoneId)
-			local _, area, folder = ensureZone(zoneDefinition)
+			local _, area, folder = getAuthoredZone(zoneDefinition)
+			if not area or not folder then
+				continue
+			end
 			local active = getActiveCount(folder)
 			local maxActive = tonumber(zoneDefinition.MaxActiveBreakables) or 35
 			local pending = getPendingCount(zoneId)

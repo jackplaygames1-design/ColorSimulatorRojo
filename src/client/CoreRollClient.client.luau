@@ -27,6 +27,8 @@ local rollBusy = false
 local currentCurrencyAmount = 0
 local mutationsUnlocked = player:GetAttribute("MutationsUnlocked") == true
 local oddsOpen = false
+local ROLL_BUTTON_TEXT = "⚄ ROLL"
+local rollRequestSerial = 0
 
 local coreGui = playerGui:WaitForChild("CoreRNGGui", 10)
 local mainHud = playerGui:FindFirstChild("MainHUD") or coreGui or ClientUIRoot.GetRoot(playerGui)
@@ -171,7 +173,7 @@ local function updateCoreStaticText()
 	setText(ui.coreName, core.DisplayName or "RED CORE")
 	setText(ui.found, core.FoundText or "8 / 14 Found")
 	setText(ui.cost, "Cost: " .. CoreDefinitions.FormatCost(core))
-	setButtonText(ui.rollButton, "ROLL")
+	setButtonText(ui.rollButton, ROLL_BUTTON_TEXT)
 	setButtonText(ui.autoButton, "AUTO")
 	setButtonText(ui.oddsButton, "ODDS")
 end
@@ -180,7 +182,12 @@ local function updateStatus(message)
 	if message and tostring(message) ~= "" then
 		setText(ui.status, message)
 	elseif ui.status then
-		setText(ui.status, "Red: " .. formatNumber(currentCurrencyAmount))
+		setText(
+			ui.status,
+			tostring(core.CurrencyDisplayName or core.Currency or "Coins")
+				.. ": "
+				.. formatNumber(currentCurrencyAmount)
+		)
 	end
 end
 
@@ -447,10 +454,18 @@ connectButton(ui.rollButton, function()
 		return
 	end
 	rollBusy = true
+	rollRequestSerial += 1
+	local requestSerial = rollRequestSerial
 	updateStatus("Rolling...")
 	coreRollRequest:FireServer(RED_CORE_ID)
 	task.delay(0.7, function()
 		rollBusy = false
+	end)
+	task.delay(4, function()
+		if requestSerial == rollRequestSerial and ui.status and tostring(ui.status.Text) == "Rolling..." then
+			rollBusy = false
+			updateStatus("No response. Try rolling again.")
+		end
 	end)
 end)
 
@@ -482,6 +497,7 @@ end)
 
 coreRollResult.OnClientEvent:Connect(function(success, payload)
 	rollBusy = false
+	rollRequestSerial += 1
 	if success ~= true then
 		updateStatus(type(payload) == "table" and payload.Message or "Roll failed.")
 		return

@@ -1,0 +1,302 @@
+{
+  "className": "Folder",
+  "properties": {
+    "Name": "Zones"
+  },
+  "children": [
+    {
+      "className": "Folder",
+      "properties": {
+        "Name": "RedSector",
+        "Attributes": {
+          "ColorType": {
+            "String": "Red"
+          },
+          "LocationId": {
+            "String": "RedWastelands"
+          },
+          "WorldZoneId": {
+            "String": "StarterField"
+          },
+          "ZoneId": {
+            "String": "RedSector"
+          }
+        }
+      },
+      "children": [
+        {
+          "className": "Folder",
+          "properties": {
+            "Name": "Floor"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": true,
+                "CanQuery": true,
+                "CanTouch": false,
+                "Color": [0.921569, 0.137255, 0.12549],
+                "Material": "SmoothPlastic",
+                "Name": "BaseFloor",
+                "Position": [-400, 626.16, 60],
+                "Size": [307, 0.22, 314],
+                "Transparency": 0,
+                "Attributes": {
+                  "ColorType": {
+                    "String": "Red"
+                  },
+                  "EditableSectorFloor": {
+                    "Bool": true
+                  },
+                  "GroundPaintIgnore": {
+                    "Bool": true
+                  },
+                  "ZoneId": {
+                    "String": "RedSector"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "className": "Folder",
+          "properties": {
+            "Name": "Breakables"
+          }
+        },
+        {
+          "className": "Folder",
+          "properties": {
+            "Name": "Gameplay"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "Color": [1, 0.176471, 0.196078],
+                "Name": "BreakableSpawnArea",
+                "Position": [-400, 628, 60],
+                "Size": [280, 8, 280],
+                "Transparency": 1,
+                "Attributes": {
+                  "ColorType": {
+                    "String": "Red"
+                  },
+                  "EditableZoneSpawnArea": {
+                    "Bool": true
+                  },
+                  "ZoneId": {
+                    "String": "RedSector"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "className": "Folder",
+      "properties": {
+        "Name": "OrangeSector",
+        "Attributes": {
+          "ColorType": {
+            "String": "Orange"
+          },
+          "LocationId": {
+            "String": "OrangeSector"
+          },
+          "WorldZoneId": {
+            "String": "OrangeGrove"
+          },
+          "ZoneId": {
+            "String": "OrangeSector"
+          }
+        }
+      },
+      "children": [
+        {
+          "className": "Folder",
+          "properties": {
+            "Name": "Floor"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": true,
+                "CanQuery": true,
+                "CanTouch": false,
+                "Color": [1, 0.517647, 0.109804],
+                "Material": "SmoothPlastic",
+                "Name": "BaseFloor",
+                "Position": [0, 626.16, 60],
+                "Size": [307, 0.22, 314],
+                "Transparency": 0,
+                "Attributes": {
+                  "ColorType": {
+                    "String": "Orange"
+                  },
+                  "EditableSectorFloor": {
+                    "Bool": true
+                  },
+                  "GroundPaintIgnore": {
+                    "Bool": true
+                  },
+                  "ZoneId": {
+                    "String": "OrangeSector"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "className": "Folder",
+          "properties": {
+            "Name": "Breakables"
+          }
+        },
+        {
+          "className": "Folder",
+          "properties": {
+            "Name": "Gameplay"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "Color": [1, 0.517647, 0.109804],
+                "Name": "BreakableSpawnArea",
+                "Position": [0, 628, 60],
+                "Size": [280, 8, 280],
+                "Transparency": 1,
+                "Attributes": {
+                  "ColorType": {
+                    "String": "Orange"
+                  },
+                  "EditableZoneSpawnArea": {
+                    "Bool": true
+                  },
+                  "ZoneId": {
+                    "String": "OrangeSector"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "className": "Folder",
+      "properties": {
+        "Name": "GreenSector",
+        "Attributes": {
+          "ColorType": {
+            "String": "Green"
+          },
+          "LocationId": {
+            "String": "GreenSector"
+          },
+          "WorldZoneId": {
+            "String": "GreenForest"
+          },
+          "ZoneId": {
+            "String": "GreenSector"
+          }
+        }
+      },
+      "children": [
+        {
+          "className": "Folder",
+          "properties": {
+            "Name": "Floor"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": true,
+                "CanQuery": true,
+                "CanTouch": false,
+                "Color": [0.27451, 0.862745, 0.352941],
+                "Material": "SmoothPlastic",
+                "Name": "BaseFloor",
+                "Position": [400, 626.16, 60],
+                "Size": [307, 0.22, 314],
+                "Transparency": 0,
+                "Attributes": {
+                  "ColorType": {
+                    "String": "Green"
+                  },
+                  "EditableSectorFloor": {
+                    "Bool": true
+                  },
+                  "GroundPaintIgnore": {
+                    "Bool": true
+                  },
+                  "ZoneId": {
+                    "String": "GreenSector"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "className": "Folder",
+          "properties": {
+            "Name": "Breakables"
+          }
+        },
+        {
+          "className": "Folder",
+          "properties": {
+            "Name": "Gameplay"
+          },
+          "children": [
+            {
+              "className": "Part",
+              "properties": {
+                "Anchored": true,
+                "CanCollide": false,
+                "CanQuery": false,
+                "CanTouch": false,
+                "Color": [0.27451, 0.862745, 0.352941],
+                "Name": "BreakableSpawnArea",
+                "Position": [400, 628, 60],
+                "Size": [280, 8, 280],
+                "Transparency": 1,
+                "Attributes": {
+                  "ColorType": {
+                    "String": "Green"
+                  },
+                  "EditableZoneSpawnArea": {
+                    "Bool": true
+                  },
+                  "ZoneId": {
+                    "String": "GreenSector"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

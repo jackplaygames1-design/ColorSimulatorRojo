@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local ColorData = require(ReplicatedStorage:WaitForChild("ColorData"))
+local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 
 local DARK = Color3.fromRGB(26, 26, 30)
@@ -159,6 +160,7 @@ local function ensurePrompt(holder)
 		prompt.Name = "EggShopPrompt"
 		prompt.Parent = holder
 	end
+	local coreConfig = GameBalance.CoreRNG or {}
 	prompt.ActionText = "Hatch"
 	prompt.ObjectText = "Egg"
 	prompt.HoldDuration = 0
@@ -166,6 +168,7 @@ local function ensurePrompt(holder)
 	prompt.RequiresLineOfSight = false
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
 	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
+	prompt.Enabled = not (coreConfig.Enabled ~= false and coreConfig.DisableLegacyEggHatching == true)
 	prompt:SetAttribute("EggShopPrompt", true)
 	return prompt
 end

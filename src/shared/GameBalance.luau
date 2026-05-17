@@ -25,11 +25,12 @@ GameBalance.Collection = {
 GameBalance.CoreRNG = {
 	Enabled = true,
 	EquippedLimit = 3,
+	DisableLegacyEggHatching = true,
 	RedCore = {
 		RequireProximity = true,
 		InteractionRadius = 28,
 		Cost = 1000,
-		Currency = "Red",
+		Currency = "Coins",
 	},
 	ChatAnnouncements = {
 		AnnounceLegendary = false,
@@ -57,10 +58,14 @@ GameBalance.Breakables = {
 		PrintDamage = false,
 	},
 	Spawner = {
-		TickInterval = 1,
-		SpawnAttempts = 18,
-		MinSpawnSpacing = 6,
-		LargeSpawnSpacing = 13,
+		TickInterval = 0.6,
+		SpawnAttempts = 34,
+		MinSpawnSpacing = 3.5,
+		LargeSpawnSpacing = 9,
+	},
+	Brush = {
+		BaseDamage = 55,
+		MaxDamagePerHit = 350,
 	},
 	Pets = {
 		Enabled = true,

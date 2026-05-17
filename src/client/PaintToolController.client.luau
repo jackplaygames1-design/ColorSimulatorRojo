@@ -263,7 +263,7 @@ local function isBrushableGroundSurface(part)
 		return true
 	end
 	if part:GetAttribute("BreakableType") ~= nil then
-		return true
+		return false
 	end
 	if part:GetAttribute("NoContamination") == true or part:GetAttribute("NoColorSpawn") == true then
 		return false
@@ -369,6 +369,39 @@ local function findGroundBrushPayload(toolConfig)
 		Normal = result.Normal,
 		Target = target,
 	}
+end
+
+local function findPointerBreakablePart(toolConfig)
+	local character = player.Character
+	if not character then
+		return nil
+	end
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return nil
+	end
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local filter = { character }
+	if brushVisual then
+		table.insert(filter, brushVisual)
+	end
+	local clientPets = workspace:FindFirstChild("ClientOrbitingColors")
+	if clientPets then
+		table.insert(filter, clientPets)
+	end
+	params.FilterDescendantsInstances = filter
+	params.IgnoreWater = true
+
+	local pointer = getInputPosition()
+	local ray = camera:ViewportPointToRay(pointer.X, pointer.Y)
+	local rayDistance = math.max((tonumber(toolConfig.MaxServerRange) or getClientRange(toolConfig)) + 80, 160)
+	local result = workspace:Raycast(ray.Origin, ray.Direction * rayDistance, params)
+	if result and result.Instance and result.Instance:GetAttribute("BreakableType") then
+		return result.Instance
+	end
+	return nil
 end
 
 local function showGroundBrushEffect(payload, toolConfig)
@@ -732,6 +765,13 @@ local function findSweepCandidates(root, toolConfig)
 	params.FilterDescendantsInstances = { player.Character }
 
 	local found = {}
+	local directTarget = findPointerBreakablePart(toolConfig)
+	if directTarget and not directTarget:GetAttribute("IsCollected") and directTarget.Transparency < 1 then
+		local distance = (directTarget.Position - root.Position).Magnitude
+		if distance <= range + 4 then
+			table.insert(found, directTarget)
+		end
+	end
 	local parts = workspace:GetPartBoundsInRadius(center, range, params)
 	for _, part in ipairs(parts) do
 		if
@@ -746,7 +786,16 @@ local function findSweepCandidates(root, toolConfig)
 			local forward = distance > 0 and offset.Unit:Dot(look) or 1
 			local side = math.abs(offset:Cross(look).Magnitude)
 			if distance <= range and forward > -0.15 and side <= width then
-				table.insert(found, part)
+				local alreadyFound = false
+				for _, existing in ipairs(found) do
+					if existing == part then
+						alreadyFound = true
+						break
+					end
+				end
+				if not alreadyFound then
+					table.insert(found, part)
+				end
 			end
 		end
 	end
@@ -1023,7 +1072,7 @@ paintSweepEvent.OnClientEvent:Connect(function(result)
 	if type(result) ~= "table" then
 		return
 	end
-	if result.success then
+	if result.success and tonumber(result.total) and tonumber(result.total) > 0 then
 		showFeedback("+" .. tostring(result.total or 0) .. " COINS", Color3.fromRGB(255, 220, 90))
 	end
 end)

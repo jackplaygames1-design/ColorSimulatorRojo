@@ -1357,6 +1357,13 @@ end
 hatchEvent.OnServerEvent:Connect(function(player, eggId, ...)
 	eggId = tostring(eggId or "")
 
+	local coreConfig = GameBalance.CoreRNG or {}
+	if coreConfig.Enabled ~= false and coreConfig.DisableLegacyEggHatching == true then
+		logHatch(player, eggId, "reject:", "Legacy egg hatching disabled")
+		rejectHatch(player, "Use the Red Core to roll.")
+		return
+	end
+
 	if activeHatches[player] then
 		logHatch(player, eggId, "reject:", "Already hatching")
 		rejectHatch(player, "Already hatching")

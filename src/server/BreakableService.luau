@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local BreakableDefinitions = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BreakableDefinitions"))
 local GameBalance = require(ReplicatedStorage:WaitForChild("GameBalance"))
@@ -13,23 +14,20 @@ BreakableService.BreakableBroken = Instance.new("BindableEvent")
 local activeBreakables = {}
 local started = false
 local nextBreakableId = 0
+local missingAssetWarnings = {}
+local missingHealthBarWarnings = {}
 
-local RED = Color3.fromRGB(235, 35, 32)
-local DARK = Color3.fromRGB(18, 8, 10)
 local COLOR_PALETTES = {
 	Red = {
 		Primary = Color3.fromRGB(235, 35, 32),
-		Dark = Color3.fromRGB(18, 8, 10),
 		Announcement = Color3.fromRGB(255, 65, 75),
 	},
 	Orange = {
 		Primary = Color3.fromRGB(255, 132, 28),
-		Dark = Color3.fromRGB(42, 18, 8),
 		Announcement = Color3.fromRGB(255, 156, 48),
 	},
 	Green = {
 		Primary = Color3.fromRGB(70, 220, 90),
-		Dark = Color3.fromRGB(7, 30, 14),
 		Announcement = Color3.fromRGB(90, 255, 120),
 	},
 }
@@ -43,189 +41,135 @@ local function configurePart(part)
 	part.CanCollide = false
 	part.CanTouch = false
 	part.CanQuery = true
-	part.CastShadow = true
+	part.CastShadow = false
 end
 
-local function makePart(name, size, color, material, cframe)
-	local part = Instance.new("Part")
-	part.Name = name
-	part.Size = size
-	part.Color = color
-	part.Material = material or Enum.Material.SmoothPlastic
-	part.CFrame = cframe or CFrame.new()
-	configurePart(part)
-	return part
-end
+local function getLibraryFolders()
+	local folders = {}
+	local workspaceLibrary = Workspace:FindFirstChild("BreakableAssetLibrary")
+	local workspaceBreakables = workspaceLibrary and workspaceLibrary:FindFirstChild("Breakables")
+	if workspaceBreakables then
+		table.insert(folders, workspaceBreakables)
+	end
 
-local function ensureAssetsFolder()
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
-	if not assets then
-		assets = Instance.new("Folder")
-		assets.Name = "Assets"
-		assets.Parent = ReplicatedStorage
+	local replicatedBreakables = assets and assets:FindFirstChild("Breakables")
+	if replicatedBreakables then
+		table.insert(folders, replicatedBreakables)
 	end
-	local breakables = assets:FindFirstChild("Breakables")
-	if not breakables then
-		breakables = Instance.new("Folder")
-		breakables.Name = "Breakables"
-		breakables.Parent = assets
-	end
-	return breakables
+
+	return folders
 end
 
-local function setPrimary(model, part)
-	part.Parent = model
-	model.PrimaryPart = part
-	return part
-end
+local function findBreakableTemplate(assetName)
+	for _, folder in ipairs(getLibraryFolders()) do
+		local template = folder:FindFirstChild(assetName)
+		if template and template:IsA("Model") then
+			return template
+		end
+	end
 
-local function createTemplate(typeId)
-	local model = Instance.new("Model")
-	model.Name = typeId
-	model:SetAttribute("TemporaryBreakableAsset", true)
-
-	if typeId == "ColorSpill" then
-		local puddle = setPrimary(model, makePart("Puddle", Vector3.new(5, 0.28, 4), RED, Enum.Material.SmoothPlastic))
-		puddle.Shape = Enum.PartType.Cylinder
-	elseif typeId == "ColorClump" then
-		local blob = setPrimary(model, makePart("Blob", Vector3.new(4, 3.2, 4), RED, Enum.Material.SmoothPlastic))
-		blob.Shape = Enum.PartType.Ball
-		local base =
-			makePart("DarkBase", Vector3.new(4.6, 0.35, 4.6), DARK, Enum.Material.SmoothPlastic, CFrame.new(0, -1.6, 0))
-		base.Parent = model
-	elseif typeId == "ColorCrate" then
-		setPrimary(model, makePart("CrateBody", Vector3.new(5, 4.5, 5), RED, Enum.Material.SmoothPlastic))
-		for _, offset in ipairs({ -2.6, 2.6 }) do
-			local band = makePart(
-				"DarkBand",
-				Vector3.new(5.4, 0.35, 0.35),
-				DARK,
-				Enum.Material.SmoothPlastic,
-				CFrame.new(0, offset * 0.3, -2.75)
+	if not missingAssetWarnings[assetName] then
+		missingAssetWarnings[assetName] = true
+		warn(
+			("BreakableService missing editable asset '%s'. Add it under Workspace.BreakableAssetLibrary.Breakables."):format(
+				tostring(assetName)
 			)
-			band.Parent = model
-		end
-	elseif typeId == "ColorChest" or typeId == "HugeColorChest" then
-		local scale = typeId == "HugeColorChest" and 1.8 or 1
-		setPrimary(model, makePart("ChestBody", Vector3.new(7, 4, 5) * scale, RED, Enum.Material.SmoothPlastic))
-		local lid = makePart(
-			"ChestLid",
-			Vector3.new(7.4, 1.3, 5.4) * scale,
-			RED:Lerp(Color3.new(1, 1, 1), 0.08),
-			Enum.Material.SmoothPlastic,
-			CFrame.new(0, 2.4 * scale, 0)
 		)
-		lid.Parent = model
-		local latch = makePart(
-			"DarkLatch",
-			Vector3.new(1.2, 1.2, 0.35) * scale,
-			DARK,
-			Enum.Material.SmoothPlastic,
-			CFrame.new(0, 0.2 * scale, -2.68 * scale)
-		)
-		latch.Parent = model
-	else
-		local base = setPrimary(model, makePart("CoreBase", Vector3.new(10, 2, 10), DARK, Enum.Material.SmoothPlastic))
-		local orb = makePart("CoreOrb", Vector3.new(8, 8, 8), RED, Enum.Material.Neon, CFrame.new(0, 5, 0))
-		orb.Parent = model
-		base:SetAttribute("CoreVisualPart", true)
 	end
-
-	for _, part in ipairs(model:GetDescendants()) do
-		if part:IsA("BasePart") then
-			part:SetAttribute("BreakableVisualPart", true)
-		end
-	end
-	return model
+	return nil
 end
 
-function BreakableService.EnsureTemplates()
-	local folder = ensureAssetsFolder()
+local function getPreferredPrimaryPart(model)
+	local primary = model.PrimaryPart
+	if primary and primary:IsA("BasePart") then
+		return primary
+	end
+
+	for _, name in ipairs({ "Root", "Puddle", "Blob", "CrateBody", "ChestBody", "CoreBase" }) do
+		local candidate = model:FindFirstChild(name, true)
+		if candidate and candidate:IsA("BasePart") then
+			return candidate
+		end
+	end
+
+	return model:FindFirstChildWhichIsA("BasePart", true)
+end
+
+function BreakableService.ValidateAssetLibrary()
 	for _, typeId in ipairs(BreakableDefinitions.Order) do
-		if not folder:FindFirstChild(typeId) then
-			createTemplate(typeId).Parent = folder
+		local definition = BreakableDefinitions.Get(typeId)
+		if definition then
+			findBreakableTemplate(definition.AssetName)
 		end
 	end
 end
 
-local function makeHealthBar(model, primary, definition)
+local function configureHealthBar(model, primary, definition)
 	local palette = getPalette(model:GetAttribute("ColorType"))
-	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "HealthBar"
-	billboard.AlwaysOnTop = true
+	local billboard = primary and primary:FindFirstChild("HealthBar")
+	if not billboard or not billboard:IsA("BillboardGui") then
+		local assetName = definition and definition.AssetName or model.Name
+		if not missingHealthBarWarnings[assetName] then
+			missingHealthBarWarnings[assetName] = true
+			warn(
+				("Breakable asset '%s' is missing editable HealthBar BillboardGui on its primary part."):format(
+					assetName
+				)
+			)
+		end
+		return
+	end
+
 	billboard.Enabled = false
+	billboard.AlwaysOnTop = true
 	billboard.MaxDistance = 115
-	billboard.Size = UDim2.fromOffset(150, 48)
 	billboard.StudsOffsetWorldSpace = Vector3.new(0, primary.Size.Y * 0.5 + 2.4, 0)
-	billboard.Parent = primary
 
-	local root = Instance.new("Frame")
-	root.Name = "Root"
-	root.BackgroundTransparency = 1
-	root.Size = UDim2.fromScale(1, 1)
-	root.Parent = billboard
+	local root = billboard:FindFirstChild("Root")
+	local title = root and root:FindFirstChild("NameLabel")
+	if title and title:IsA("TextLabel") then
+		title.Text = definition.DisplayName or model.Name
+	end
 
-	local title = Instance.new("TextLabel")
-	title.Name = "NameLabel"
-	title.BackgroundTransparency = 1
-	title.Font = Enum.Font.GothamBlack
-	title.Text = definition.DisplayName or model.Name
-	title.TextColor3 = Color3.new(1, 1, 1)
-	title.TextScaled = true
-	title.TextStrokeTransparency = 0.35
-	title.Size = UDim2.new(1, 0, 0, 19)
-	title.Parent = root
-
-	local back = Instance.new("Frame")
-	back.Name = "BarBack"
-	back.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
-	back.BorderSizePixel = 0
-	back.Position = UDim2.new(0.08, 0, 0, 22)
-	back.Size = UDim2.new(0.84, 0, 0, 10)
-	back.Parent = root
-	local backCorner = Instance.new("UICorner")
-	backCorner.CornerRadius = UDim.new(1, 0)
-	backCorner.Parent = back
-
-	local fill = Instance.new("Frame")
-	fill.Name = "Fill"
-	fill.BackgroundColor3 = palette.Primary
-	fill.BorderSizePixel = 0
-	fill.Size = UDim2.fromScale(1, 1)
-	fill.Parent = back
-	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.new(1, 0)
-	fillCorner.Parent = fill
-
-	local numbers = Instance.new("TextLabel")
-	numbers.Name = "HealthText"
-	numbers.BackgroundTransparency = 1
-	numbers.Font = Enum.Font.GothamBold
-	numbers.TextColor3 = Color3.fromRGB(235, 240, 255)
-	numbers.TextScaled = true
-	numbers.TextStrokeTransparency = 0.5
-	numbers.Position = UDim2.new(0, 0, 0, 34)
-	numbers.Size = UDim2.new(1, 0, 0, 13)
-	numbers.Parent = root
+	local back = root and root:FindFirstChild("BarBack")
+	local fill = back and back:FindFirstChild("Fill")
+	if fill and fill:IsA("Frame") then
+		fill.BackgroundColor3 = palette.Primary
+	end
 end
 
 local function tintBreakable(model, colorType)
 	local palette = getPalette(colorType)
 	for _, descendant in ipairs(model:GetDescendants()) do
-		if descendant:IsA("BasePart") and descendant:GetAttribute("BreakableVisualPart") == true then
-			if descendant:GetAttribute("CoreVisualPart") == true or descendant.Name == "CoreOrb" then
+		if descendant:IsA("BasePart") then
+			if descendant.Name == "CoreOrb" then
 				descendant.Color = palette.Primary
 				descendant.Material = Enum.Material.Neon
-			elseif
-				string.find(string.lower(descendant.Name), "dark", 1, true)
-				or string.find(string.lower(descendant.Name), "base", 1, true)
-				or string.find(string.lower(descendant.Name), "latch", 1, true)
-				or string.find(string.lower(descendant.Name), "band", 1, true)
-			then
-				descendant.Color = palette.Dark
 			else
 				descendant.Color = palette.Primary
 			end
+		end
+	end
+end
+
+local function tagBreakableParts(model)
+	local breakableId = model:GetAttribute("BreakableId")
+	local breakableType = model:GetAttribute("BreakableType")
+	local zoneId = model:GetAttribute("ZoneId")
+	local worldZoneId = model:GetAttribute("WorldZoneId")
+	local locationId = model:GetAttribute("LocationId")
+	local colorType = model:GetAttribute("ColorType")
+
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant:SetAttribute("BreakableId", breakableId)
+			descendant:SetAttribute("BreakableType", breakableType)
+			descendant:SetAttribute("BreakableModelPart", true)
+			descendant:SetAttribute("ZoneId", zoneId)
+			descendant:SetAttribute("WorldZoneId", worldZoneId)
+			descendant:SetAttribute("LocationId", locationId)
+			descendant:SetAttribute("ColorType", colorType)
 		end
 	end
 end
@@ -256,8 +200,7 @@ function BreakableService.SpawnBreakable(typeId, zoneId, cframe, parent, colorTy
 	if not definition then
 		return nil
 	end
-	BreakableService.EnsureTemplates()
-	local template = ensureAssetsFolder():FindFirstChild(definition.AssetName)
+	local template = findBreakableTemplate(definition.AssetName)
 	if not template then
 		return nil
 	end
@@ -284,9 +227,22 @@ function BreakableService.SpawnBreakable(typeId, zoneId, cframe, parent, colorTy
 	model:SetAttribute("RewardMultiplier", rewardMultiplier)
 	model:SetAttribute("Alive", true)
 	model.Parent = parent
+	local primary = getPreferredPrimaryPart(model)
+	if not primary then
+		warn(("Breakable asset '%s' has no BasePart to use as PrimaryPart."):format(definition.AssetName))
+		model:Destroy()
+		return nil
+	end
+	model.PrimaryPart = primary
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			configurePart(descendant)
+		end
+	end
 	tintBreakable(model, colorType)
+	tagBreakableParts(model)
 	model:PivotTo(cframe)
-	makeHealthBar(model, model.PrimaryPart, definition)
+	configureHealthBar(model, model.PrimaryPart, definition)
 	BreakableService.UpdateHealthBar(model)
 	activeBreakables[model] = definition
 
@@ -389,7 +345,7 @@ function BreakableService.Start()
 		return
 	end
 	started = true
-	BreakableService.EnsureTemplates()
+	BreakableService.ValidateAssetLibrary()
 	if GameBalance.Breakables and GameBalance.Breakables.Debug and GameBalance.Breakables.Debug.PrintBoot then
 		print("BreakableService ready")
 	end

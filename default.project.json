@@ -314,6 +314,17 @@
       }
     },
 
+    "Workspace": {
+      "$className": "Workspace",
+      "$ignoreUnknownInstances": true,
+      "BreakableAssetLibrary": {
+        "$path": "src/workspace/BreakableAssetLibrary.model.json"
+      },
+      "Zones": {
+        "$path": "src/workspace/Zones.model.json"
+      }
+    },
+
     "StarterGui": {
       "$className": "StarterGui",
       "$ignoreUnknownInstances": true,

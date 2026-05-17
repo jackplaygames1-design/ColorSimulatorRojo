@@ -8,9 +8,9 @@ BreakableDefinitions.Types = {
 		SpawnWeight = 55,
 		RespawnTime = 4,
 		RewardTable = "SmallColorReward",
-		SpawnRadius = 4,
-		Footprint = 4,
-		SpawnHeight = 0.14,
+		SpawnRadius = 3,
+		Footprint = 3.25,
+		SpawnHeight = 0.18,
 	},
 	ColorClump = {
 		DisplayName = "Color Clump",
@@ -19,8 +19,8 @@ BreakableDefinitions.Types = {
 		SpawnWeight = 25,
 		RespawnTime = 6,
 		RewardTable = "MediumColorReward",
-		SpawnRadius = 5,
-		Footprint = 5,
+		SpawnRadius = 4,
+		Footprint = 4.25,
 		SpawnHeight = 1.6,
 	},
 	ColorCrate = {
@@ -31,7 +31,7 @@ BreakableDefinitions.Types = {
 		RespawnTime = 10,
 		RewardTable = "CrateReward",
 		SpawnRadius = 7,
-		Footprint = 8,
+		Footprint = 6.5,
 		SpawnHeight = 2.25,
 	},
 	ColorChest = {
@@ -42,7 +42,7 @@ BreakableDefinitions.Types = {
 		RespawnTime = 18,
 		RewardTable = "ChestReward",
 		SpawnRadius = 9,
-		Footprint = 10,
+		Footprint = 8,
 		SpawnHeight = 2,
 	},
 	HugeColorChest = {
@@ -53,7 +53,7 @@ BreakableDefinitions.Types = {
 		RespawnTime = 45,
 		RewardTable = "HugeChestReward",
 		SpawnRadius = 13,
-		Footprint = 16,
+		Footprint = 13,
 		SpawnHeight = 3.6,
 	},
 	GiantColorCoreChest = {
@@ -65,7 +65,7 @@ BreakableDefinitions.Types = {
 		RewardTable = "GiantCoreReward",
 		AnnounceOnSpawn = true,
 		SpawnRadius = 18,
-		Footprint = 22,
+		Footprint = 18,
 		SpawnHeight = 1,
 	},
 }
